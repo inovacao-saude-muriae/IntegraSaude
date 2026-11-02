@@ -63,6 +63,7 @@ export default function Header({ onToggleSidebar }) {
       <button
         type="button"
         className={styles.hamburgerBtn}
+        aria-label="Abrir menu de navegação"
         title="Menu"
         onClick={onToggleSidebar}
       >
@@ -75,6 +76,7 @@ export default function Header({ onToggleSidebar }) {
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
+          aria-hidden="true"
         >
           <line x1="3" y1="12" x2="21" y2="12" />
           <line x1="3" y1="6" x2="21" y2="6" />
@@ -83,8 +85,8 @@ export default function Header({ onToggleSidebar }) {
       </button>
 
       {/* INFORMAÇÕES DO USUÁRIO LOGADO */}
-      <div className={styles.userInfo}>
-        <div className={styles.userAvatar}>{initialLetter}</div>
+      <div className={styles.userInfo} role="status" aria-label="Informações do usuário">
+        <div className={styles.userAvatar} aria-hidden="true">{initialLetter}</div>
         <div className={styles.userDetails}>
           <span className={styles.userName}>{userData.name}</span>
           <span className={styles.userRole}>{userData.role}</span>
@@ -95,6 +97,7 @@ export default function Header({ onToggleSidebar }) {
       <button
         type="button"
         className={styles.logoutBtn}
+        aria-label="Sair do sistema"
         title="Sair do Sistema"
         onClick={handleLogout}
       >
@@ -107,6 +110,7 @@ export default function Header({ onToggleSidebar }) {
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
+          aria-hidden="true"
         >
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
           <polyline points="16 17 21 12 16 7" />

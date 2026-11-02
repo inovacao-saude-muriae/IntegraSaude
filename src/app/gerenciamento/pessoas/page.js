@@ -287,10 +287,11 @@ export default function PessoasPage() {
         <div className={styles.formSectionTitle}>Dados pessoais</div>
         <div className={styles.grid}>
           <div className={`${styles.field} ${styles.colWide}`} style={{ position: "relative" }} ref={dropdownRef}>
-            <label>Nome completo *</label>
+            <label htmlFor="nomeCompleto">Nome completo <span aria-label="obrigatório">*</span></label>
             <div className={styles.inputWrapperWithIcon}>
               <input
                 type="text"
+                id="nomeCompleto"
                 value={form.nomeCompleto}
                 placeholder={editavel ? "" : "Digite nome ou CPF para buscar..."}
                 onChange={(e) => {
@@ -304,15 +305,17 @@ export default function PessoasPage() {
                 }}
                 autoComplete="off"
                 required
+                aria-required="true"
+                aria-describedby={!editavel && dropAberto ? "pessoa-search-results" : undefined}
               />
               {!editavel && (
-                <span className={styles.arrowIcon} onClick={() => setDropAberto(!dropAberto)}>
+                <span className={styles.arrowIcon} onClick={() => setDropAberto(!dropAberto)} aria-hidden="true">
                   {dropAberto ? "▲" : "▼"}
                 </span>
               )}
             </div>
             {!editavel && dropAberto && (
-              <div className={styles.tableDropdownMenu}>
+              <div className={styles.tableDropdownMenu} id="pessoa-search-results" role="listbox" aria-label="Resultados da busca de pessoas">
                 <div className={styles.tableContainerScroll}>
                   <table className={styles.patientTableDropdown}>
                     <thead>
@@ -328,6 +331,8 @@ export default function PessoasPage() {
                         pessoasFiltradas.map((p) => (
                           <tr
                             key={p.cpf}
+                            role="option"
+                            aria-selected={soDigitos(form.cpf) === soDigitos(p.cpf)}
                             onMouseDown={(e) => {
                               e.preventDefault();
                               selecionarPessoa(p);
@@ -346,7 +351,7 @@ export default function PessoasPage() {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan="4" className={styles.noDataTd}>
+                          <td colSpan="4" className={styles.noDataTd} role="status">
                             {buscando ? "Buscando pessoas..." : "Nenhuma pessoa encontrada."}
                           </td>
                         </tr>
@@ -358,40 +363,46 @@ export default function PessoasPage() {
             )}
           </div>
           <div className={`${styles.field} ${styles.colWide}`}>
-            <label>Nome da mãe</label>
+            <label htmlFor="nomeMae">Nome da mãe</label>
             <input
               type="text"
+              id="nomeMae"
               value={form.nomeMae}
               onChange={(e) => setForm({ ...form, nomeMae: e.target.value })}
               disabled={!editavel}
             />
           </div>
           <div className={styles.field}>
-            <label>Data de nascimento *</label>
+            <label htmlFor="dataNascimento">Data de nascimento <span aria-label="obrigatório">*</span></label>
             <input
               type="date"
+              id="dataNascimento"
               value={form.dataNascimento}
               onChange={(e) => setForm({ ...form, dataNascimento: e.target.value })}
               disabled={!editavel}
               required
+              aria-required="true"
             />
           </div>
           <div className={styles.field}>
-            <label>Sexo *</label>
+            <label htmlFor="sexo">Sexo <span aria-label="obrigatório">*</span></label>
             <select
+              id="sexo"
               value={form.sexo}
               onChange={(e) => setForm({ ...form, sexo: e.target.value })}
               disabled={!editavel}
               required
+              aria-required="true"
             >
               <option value="Masculino">Masculino</option>
               <option value="Feminino">Feminino</option>
             </select>
           </div>
           <div className={styles.field}>
-            <label>Telefone / WhatsApp</label>
+            <label htmlFor="telefone">Telefone / WhatsApp</label>
             <input
               type="text"
+              id="telefone"
               value={form.telefone}
               onChange={(e) => setForm({ ...form, telefone: maskTelefone(e.target.value) })}
               placeholder="(00) 00000-0000"
@@ -399,20 +410,23 @@ export default function PessoasPage() {
             />
           </div>
           <div className={styles.field}>
-            <label>CPF *</label>
+            <label htmlFor="cpf">CPF <span aria-label="obrigatório">*</span></label>
             <input
               type="text"
+              id="cpf"
               value={form.cpf}
               onChange={(e) => setForm({ ...form, cpf: maskCpf(e.target.value) })}
               placeholder="000.000.000-00"
               disabled={modo !== "novo"}
               required
+              aria-required="true"
             />
           </div>
           <div className={styles.field}>
-            <label>CNS (Cartão SUS)</label>
+            <label htmlFor="cns">CNS (Cartão SUS)</label>
             <input
               type="text"
+              id="cns"
               value={form.cns}
               onChange={(e) => {
                 const valor = e.target.value.replace(/\D/g, "").slice(0, 15);
@@ -426,12 +440,15 @@ export default function PessoasPage() {
               placeholder="15 dígitos"
               disabled={!editavel}
               className={cnsErro && editavel ? styles.inputErro : ""}
+              aria-invalid={cnsErro && editavel ? "true" : "false"}
+              aria-describedby={cnsErro && editavel ? "cns-error" : undefined}
             />
-            {cnsErro && editavel && <small className={styles.hintErro}>{cnsErro}</small>}
+            {cnsErro && editavel && <small id="cns-error" className={styles.hintErro} role="alert">{cnsErro}</small>}
           </div>
           <div className={styles.field}>
-            <label>UBS de referência</label>
+            <label htmlFor="ubsReferenciaId">UBS de referência</label>
             <select
+              id="ubsReferenciaId"
               value={form.ubsReferenciaId}
               onChange={(e) => setForm({ ...form, ubsReferenciaId: e.target.value })}
               disabled={!editavel}
@@ -449,9 +466,10 @@ export default function PessoasPage() {
         <div className={styles.formSectionTitle}>Endereço</div>
         <div className={styles.grid}>
           <div className={styles.field}>
-            <label>CEP</label>
+            <label htmlFor="cep">CEP</label>
             <input
               type="text"
+              id="cep"
               value={form.cep}
               onChange={(e) => {
                 const masked = maskCep(e.target.value);
@@ -462,59 +480,67 @@ export default function PessoasPage() {
               onBlur={(e) => consultarCep(e.target.value)}
               placeholder="00000-000"
               disabled={!editavel}
+              aria-describedby={cepLoading ? "cep-loading" : cepErro ? "cep-error" : undefined}
+              aria-invalid={cepErro ? "true" : "false"}
             />
-            {cepLoading && <small className={styles.hint}>Buscando endereço...</small>}
-            {cepErro && <small className={styles.hintErro}>{cepErro}</small>}
+            {cepLoading && <small id="cep-loading" className={styles.hint} role="status">Buscando endereço...</small>}
+            {cepErro && <small id="cep-error" className={styles.hintErro} role="alert">{cepErro}</small>}
           </div>
           <div className={styles.field}>
-            <label>Bairro</label>
+            <label htmlFor="bairro">Bairro</label>
             <input
               type="text"
+              id="bairro"
               value={form.bairro}
               onChange={(e) => setForm({ ...form, bairro: e.target.value })}
               disabled={!editavel}
             />
           </div>
           <div className={styles.field}>
-            <label>Logradouro / Rua</label>
+            <label htmlFor="logradouro">Logradouro / Rua</label>
             <input
               type="text"
+              id="logradouro"
               value={form.logradouro}
               onChange={(e) => setForm({ ...form, logradouro: e.target.value })}
               disabled={!editavel}
             />
           </div>
           <div className={styles.field}>
-            <label>Número</label>
+            <label htmlFor="numero">Número</label>
             <input
               type="text"
+              id="numero"
               value={form.numero}
               onChange={(e) => setForm({ ...form, numero: e.target.value })}
               disabled={!editavel}
             />
           </div>
           <div className={styles.field}>
-            <label>Complemento</label>
+            <label htmlFor="complemento">Complemento</label>
             <input
               type="text"
+              id="complemento"
               value={form.complemento}
               onChange={(e) => setForm({ ...form, complemento: e.target.value })}
               disabled={!editavel}
             />
           </div>
           <div className={styles.field}>
-            <label>Cidade</label>
+            <label htmlFor="cidade">Cidade</label>
             <input
               type="text"
+              id="cidade"
               value={form.cidade}
               onChange={(e) => setForm({ ...form, cidade: e.target.value })}
               disabled={!editavel}
             />
           </div>
           <div className={styles.field}>
-            <label>UF</label>
+            <label htmlFor="uf">UF</label>
             <input
               type="text"
+              id="uf"
               value={form.uf}
               maxLength={2}
               onChange={(e) => setForm({ ...form, uf: e.target.value.toUpperCase() })}
@@ -539,12 +565,13 @@ export default function PessoasPage() {
               className={styles.btnDanger}
               onClick={() => setConfirmarExclusao(true)}
               disabled={salvando}
+              aria-label="Excluir pessoa"
             >
               Excluir
             </button>
           )}
           {editavel && (
-            <button type="submit" className={styles.btnPrimary} disabled={salvando}>
+            <button type="submit" className={styles.btnPrimary} disabled={salvando} aria-label={modo === "edicao" ? "Atualizar cadastro" : "Salvar novo cadastro"}>
               {salvando ? "Salvando..." : modo === "edicao" ? "Atualizar" : "Salvar"}
             </button>
           )}
