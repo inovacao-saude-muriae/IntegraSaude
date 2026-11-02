@@ -18,6 +18,7 @@ O IntegraSaúde (RegulaHub) é um sistema web completo de gestão municipal de s
 - **Linhas de Código:** ~25.000+
 - **Problemas Críticos:** 3
 - **Problemas Altos:** 12
+
 - **Problemas Médios:** 28
 - **Problemas Baixos:** 15
 - **Observações Informativas:** 22
