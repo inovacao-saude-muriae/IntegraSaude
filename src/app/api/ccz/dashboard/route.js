@@ -14,27 +14,27 @@ export async function GET(req) {
     // Procedures evolution over time
     const procedimentos = await prisma.cadastroProcedimento.findMany({
       where: {
-        dataAgendamento: {
+        dataProcedimento: {
           gte: sixMonthsAgo,
         },
       },
       select: {
-        dataAgendamento: true,
-        tipoProcedimento: true,
+        dataProcedimento: true,
+        tipo: true,
       },
     });
 
     // Group by month and procedure type
     const evolutionMap = {};
     procedimentos.forEach((p) => {
-      const date = new Date(p.dataAgendamento);
+      const date = new Date(p.dataProcedimento);
       const mes = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
       
       if (!evolutionMap[mes]) {
         evolutionMap[mes] = { mes, castracao: 0, vacinacao: 0, consulta: 0 };
       }
       
-      const tipo = (p.tipoProcedimento || "").toLowerCase();
+      const tipo = (p.tipo || "").toLowerCase();
       if (tipo.includes("castra")) evolutionMap[mes].castracao++;
       else if (tipo.includes("vacina")) evolutionMap[mes].vacinacao++;
       else if (tipo.includes("consulta")) evolutionMap[mes].consulta++;
@@ -44,24 +44,24 @@ export async function GET(req) {
 
     // Procedure types distribution
     const procedureTypeCounts = await prisma.cadastroProcedimento.groupBy({
-      by: ["tipoProcedimento"],
+      by: ["tipo"],
       _count: {
         id: true,
       },
       where: {
-        dataAgendamento: {
+        dataProcedimento: {
           gte: sixMonthsAgo,
         },
       },
     });
 
     const procedureTypes = procedureTypeCounts.map((p) => ({
-      tipo: p.tipoProcedimento || "Outros",
+      tipo: p.tipo || "Outros",
       total: p._count.id,
     }));
 
     // Animals by species
-    const speciesCounts = await prisma.cadastroAnimal.groupBy({
+    const speciesCounts = await prisma.animal.groupBy({
       by: ["especie"],
       _count: {
         id: true,
