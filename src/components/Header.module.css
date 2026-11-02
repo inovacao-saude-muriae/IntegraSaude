@@ -43,6 +43,29 @@
   transform: scale(0.95);
 }
 
+/* BREADCRUMB */
+.breadcrumb {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #4a6fa5;
+  margin-left: 1rem;
+}
+
+.breadcrumbItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.breadcrumbIcon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
 /* ÁREA DO USUÁRIO (Lado Direito) */
 .userInfo {
   display: flex;

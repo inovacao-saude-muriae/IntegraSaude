@@ -1,15 +1,32 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import styles from "./Header.module.css";
 
 export default function Header({ onToggleSidebar }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [userData, setUserData] = useState({
     name: "Carregando...",
     role: "Aguarde...",
   });
+
+  // Função para obter título da página baseado no pathname
+  const getPageTitle = () => {
+    if (pathname === "/") return "Início";
+    if (pathname.startsWith("/regulacao")) return "Regulação";
+    if (pathname.startsWith("/camara-tecnica/farmacia-judicial")) return "Farmácia Judicial";
+    if (pathname.startsWith("/camara-tecnica/processos")) return "Processos Judiciais";
+    if (pathname.startsWith("/junta-reguladora")) return "Junta Reguladora";
+    if (pathname.startsWith("/ccz")) return "CCZ";
+    if (pathname.startsWith("/gerenciamento/pessoas")) return "Cadastro de Pessoas";
+    if (pathname.startsWith("/gerenciamento/medicos")) return "Médicos";
+    if (pathname.startsWith("/gerenciamento/ubs")) return "Unidades de Saúde";
+    if (pathname.startsWith("/gerenciamento/usuarios")) return "Gerenciar Usuários";
+    if (pathname.startsWith("/gerenciamento/relatorios")) return "Relatórios Gerais";
+    return "Sistema";
+  };
 
   useEffect(() => {
     async function fetchUserData() {
@@ -83,6 +100,14 @@ export default function Header({ onToggleSidebar }) {
           <line x1="3" y1="18" x2="21" y2="18" />
         </svg>
       </button>
+
+      {/* BREADCRUMB */}
+      <nav className={styles.breadcrumb} aria-label="Breadcrumb">
+        <span className={styles.breadcrumbItem}>
+          <span className={styles.breadcrumbIcon}>📍</span>
+          {getPageTitle()}
+        </span>
+      </nav>
 
       {/* INFORMAÇÕES DO USUÁRIO LOGADO */}
       <div className={styles.userInfo} role="status" aria-label="Informações do usuário">
