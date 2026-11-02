@@ -5,6 +5,7 @@ import styles from "./CadastroAnimal.module.css";
 import { useConfirm, useNotify } from "@/components/ConfirmDialog";
 import { documentoPaciente } from "@/app/regulacao/constants";
 import { buscarPessoasCCZ, salvarAnimal, buscarAnimaisCCZ, obterAnimal } from "./actions";
+import { compressImage } from "@/lib/imageCompression";
 
 const MAX_FOTO_BYTES = 5 * 1024 * 1024; // ~5MB
 
@@ -162,8 +163,8 @@ export default function CadastroAnimal({ animalInicial = null, onSalvo, onCancel
 
   const atualizar = (campo, valor) => setForm((prev) => ({ ...prev, [campo]: valor }));
 
-  // ── Foto: lê como data URL e gera preview ─────────────────────────────────
-  const handleFoto = (e) => {
+  // ── Foto: lê como data URL, comprime e gera preview ───────────────────────
+  const handleFoto = async (e) => {
     const file = e.target.files?.[0];
     setFotoErro("");
     if (!file) return;
@@ -175,9 +176,22 @@ export default function CadastroAnimal({ animalInicial = null, onSalvo, onCancel
       setFotoErro("A imagem deve ter no máximo 5MB.");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => atualizar("fotoUrl", reader.result);
-    reader.readAsDataURL(file);
+
+    try {
+      setFotoErro("Processando imagem...");
+      const { compressed, thumbnail } = await compressImage(file, {
+        maxWidth: 800,
+        maxHeight: 800,
+        quality: 0.85,
+        thumbnailSize: 200,
+      });
+      
+      // Use compressed image for storage
+      atualizar("fotoUrl", compressed);
+      setFotoErro("");
+    } catch (error) {
+      setFotoErro(error.message || "Erro ao processar a imagem.");
+    }
   };
 
   // ── Dropdowns com campo condicional ao lado ───────────────────────────────
