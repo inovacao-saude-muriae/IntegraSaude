@@ -18,6 +18,31 @@
   font-family: 'Inter', sans-serif;
 }
 
+/* BOTÃO HAMBURGER (Visível apenas em mobile) */
+.hamburgerBtn {
+  display: none;
+  background: transparent;
+  border: none;
+  color: #4a6fa5;
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+  margin-right: 1rem;
+}
+
+.hamburgerBtn:hover {
+  background: rgba(74, 111, 165, 0.1);
+}
+
+.hamburgerBtn:active {
+  transform: scale(0.95);
+}
+
 /* ÁREA DO USUÁRIO (Lado Direito) */
 .userInfo {
   display: flex;
@@ -75,4 +100,31 @@
 .logoutBtn:hover {
   background: rgba(255, 255, 255, 0.15);
   color: #ffffff;
+}
+
+/* RESPONSIVIDADE */
+@media (max-width: 768px) {
+  .header {
+    left: 0;
+    width: 100%;
+    padding: 0 1rem;
+  }
+
+  .hamburgerBtn {
+    display: flex;
+  }
+
+  .userDetails {
+    display: none; /* Esconde nome e cargo em telas pequenas */
+  }
+}
+
+@media (max-width: 480px) {
+  .header {
+    padding: 0 0.75rem;
+  }
+
+  .hamburgerBtn {
+    margin-right: 0.5rem;
+  }
 }

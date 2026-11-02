@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./Header.module.css";
 
-export default function Header() {
+export default function Header({ onToggleSidebar }) {
   const router = useRouter();
   const [userData, setUserData] = useState({
     name: "Carregando...",
@@ -59,6 +59,29 @@ export default function Header() {
 
   return (
     <header className={styles.header}>
+      {/* BOTÃO HAMBURGER (visível apenas em mobile) */}
+      <button
+        type="button"
+        className={styles.hamburgerBtn}
+        title="Menu"
+        onClick={onToggleSidebar}
+      >
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+      </button>
+
       {/* INFORMAÇÕES DO USUÁRIO LOGADO */}
       <div className={styles.userInfo}>
         <div className={styles.userAvatar}>{initialLetter}</div>

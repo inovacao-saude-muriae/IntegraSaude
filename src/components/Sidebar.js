@@ -476,7 +476,7 @@ function construirMenu(me) {
     .filter((section) => section.items.length > 0);
 }
 
-function MenuContent() {
+function MenuContent({ isOpen, onClose }) {
   const [carregando, setCarregando] = useState(true);
   const [me, setMe] = useState(null);
 
@@ -513,10 +513,10 @@ function MenuContent() {
   const menuComPerfil = useMemo(() => construirMenu(me), [me]);
   const menuAtual = carregando ? construirMenu(null) : menuComPerfil;
 
-  return <MenuRender menuSections={menuAtual} />;
+  return <MenuRender menuSections={menuAtual} isOpen={isOpen} onClose={onClose} />;
 }
 
-function MenuRender({ menuSections }) {
+function MenuRender({ menuSections, isOpen, onClose }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -582,6 +582,10 @@ function MenuRender({ menuSections }) {
       // Se o primeiro item não for nestedDropdown, navega
       if (!ehNestedDropdown) {
         router.push(urlAbaInicial(item));
+        // Fechar sidebar em mobile após navegação
+        if (onClose && window.innerWidth <= 768) {
+          onClose();
+        }
       }
     }
   };
@@ -604,11 +608,22 @@ function MenuRender({ menuSections }) {
           router.push(`${base}?tab=${sub.tab}&subTab=${primeiro.subTab}`);
         }
       }
+      // Fechar sidebar em mobile após navegação
+      if (onClose && window.innerWidth <= 768) {
+        onClose();
+      }
+    }
+  };
+
+  // Handler para fechar sidebar em mobile ao clicar em qualquer link
+  const handleLinkClick = () => {
+    if (onClose && window.innerWidth <= 768) {
+      onClose();
     }
   };
 
   return (
-    <aside className={styles.sidebar}>
+    <aside className={`${styles.sidebar} ${isOpen ? styles.sidebarOpen : ''}`}>
       {/* HEADER DA SIDEBAR */}
       <div className={styles.sidebarHeader}>
         <div className={styles.brandLogo}>
@@ -766,6 +781,7 @@ function MenuRender({ menuSections }) {
                                                   ? styles.activeLink
                                                   : ""
                                               }`}
+                                              onClick={handleLinkClick}
                                             >
                                               <span className={styles.subItemContent}>
                                                 <span className={styles.subItemIcon}>{subIcon(nested.name)}</span>
@@ -804,6 +820,7 @@ function MenuRender({ menuSections }) {
                                   className={`${styles.subMenuItemLink} ${
                                     isSubActive ? styles.activeLink : ""
                                   }`}
+                                  onClick={handleLinkClick}
                                 >
                                   <span className={styles.subItemContent}>
                                     <span className={styles.subItemIcon}>{subIcon(sub.name)}</span>
@@ -827,6 +844,7 @@ function MenuRender({ menuSections }) {
                       href={item.path}
                       className={`${styles.menuItemBtn} ${isActive ? styles.activeLink : ""}`}
                       title={item.name}
+                      onClick={handleLinkClick}
                     >
                       <span className={styles.itemIcon}>{item.icon}</span>
                       <span className={styles.itemLabel}>{item.name}</span>
@@ -842,10 +860,10 @@ function MenuRender({ menuSections }) {
   );
 }
 
-export default function Sidebar() {
+export default function Sidebar({ isOpen, onClose }) {
   return (
     <Suspense fallback={null}>
-      <MenuContent />
+      <MenuContent isOpen={isOpen} onClose={onClose} />
     </Suspense>
   );
 }

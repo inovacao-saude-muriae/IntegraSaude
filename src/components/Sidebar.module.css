@@ -346,3 +346,72 @@
   border-top: 1px solid rgba(255, 255, 255, 0.2);
   margin: 0;
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* RESPONSIVIDADE */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+/* Tablets (< 1024px) - Sidebar continua visível mas mais estreita */
+@media (max-width: 1023px) {
+  .sidebar {
+    width: 240px;
+  }
+
+  .brandImage {
+    max-width: 180px;
+  }
+
+  .menuItemBtn, .subMenuItemLink, .nestedBtn {
+    font-size: 0.8rem;
+  }
+}
+
+/* Mobile (< 768px) - Sidebar vira overlay */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    left: -270px; /* Escondida por padrão */
+    width: 270px;
+    height: 100vh;
+    top: 0;
+    z-index: 1000;
+    transition: left 0.3s ease;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .sidebarOpen {
+    left: 0; /* Sidebar aberta */
+  }
+
+  /* Ajustar header da sidebar para não ficar atrás do header principal */
+  .sidebarHeader {
+    margin-top: 60px; /* Altura do header principal */
+    padding-top: 0.5rem;
+  }
+}
+
+/* Mobile Pequeno (< 480px) - Sidebar ocupa 85% da tela */
+@media (max-width: 480px) {
+  .sidebar {
+    width: 85%;
+    left: -85%;
+  }
+
+  .sidebarOpen {
+    left: 0;
+  }
+
+  .brandImage {
+    max-width: 160px;
+  }
+
+  .menuItemBtn, .subMenuItemLink, .nestedBtn {
+    font-size: 0.75rem;
+    padding: 0.45rem 0.6rem;
+  }
+
+  .searchInput {
+    font-size: 0.75rem;
+  }
+}
