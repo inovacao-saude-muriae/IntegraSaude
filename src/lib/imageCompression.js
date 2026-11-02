@@ -2,7 +2,8 @@
  * Compress and resize images for upload
  * @param {File} file - The image file to compress
  * @param {Object} options - Compression options
- * @returns {Promise<{compressed: string, thumbnail: string}>}
+ * @param {boolean} options.generateThumbnail - Whether to generate thumbnail (default: false)
+ * @returns {Promise<{compressed: string, thumbnail?: string}>}
  */
 export async function compressImage(file, options = {}) {
   const {
@@ -10,6 +11,7 @@ export async function compressImage(file, options = {}) {
     maxHeight = 800,
     quality = 0.85,
     thumbnailSize = 200,
+    generateThumbnail = false,
   } = options;
 
   return new Promise((resolve, reject) => {
@@ -27,10 +29,14 @@ export async function compressImage(file, options = {}) {
           // Generate compressed version
           const compressed = resizeImage(img, maxWidth, maxHeight, quality);
           
-          // Generate thumbnail
-          const thumbnail = resizeImage(img, thumbnailSize, thumbnailSize, quality);
+          const result = { compressed };
           
-          resolve({ compressed, thumbnail });
+          // Generate thumbnail only if requested
+          if (generateThumbnail) {
+            result.thumbnail = resizeImage(img, thumbnailSize, thumbnailSize, quality);
+          }
+          
+          resolve(result);
         } catch (error) {
           reject(error);
         }
