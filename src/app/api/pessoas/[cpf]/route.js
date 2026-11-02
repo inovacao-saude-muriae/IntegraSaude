@@ -12,12 +12,6 @@ export async function GET(request, { params }) {
         cpf: true,
         nomeCompleto: true,
         telefone: true,
-        usuario: {
-          select: {
-            role: true,
-            cargo: true,
-          },
-        },
       },
     });
 

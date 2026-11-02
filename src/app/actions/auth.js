@@ -7,21 +7,33 @@ import { SignJWT } from "jose";
 
 export async function loginAction(formData) {
   try {
-    const cpf = formData.get("cpf")?.replace(/\D/g, "");
+    const loginInput = formData.get("cpf")?.trim(); // Pode ser CPF ou username
     const senha = formData.get("senha");
 
-    if (!cpf || cpf.length !== 11) {
-      return { error: "Informe um CPF válido com 11 dígitos." };
+    if (!loginInput) {
+      return { error: "Informe seu CPF ou nome de usuário." };
     }
 
     if (!senha) {
       return { error: "Informe a sua senha de acesso." };
     }
 
-    // 1. Busca o usuário diretamente na tabela User pelo CPF
-    const user = await prisma.user.findUnique({
-      where: { cpf },
-    });
+    // Verifica se é um CPF (somente números) ou username
+    const cpfLimpo = loginInput.replace(/\D/g, "");
+    const isCpf = cpfLimpo.length === 11 && /^\d+$/.test(cpfLimpo);
+
+    // 1. Busca o usuário por CPF ou username
+    let user;
+    if (isCpf) {
+      user = await prisma.user.findUnique({
+        where: { cpf: cpfLimpo },
+      });
+    } else {
+      // Busca por username
+      user = await prisma.user.findUnique({
+        where: { username: loginInput },
+      });
+    }
 
     if (!user || !user.ativo) {
       return { error: "Usuário não encontrado ou inativo no sistema." };
@@ -41,7 +53,8 @@ export async function loginAction(formData) {
       userId: user.cpf,
       role: user.role,
       nome: user.nome,
-      cargo: user.cargo
+      cargo: user.cargo,
+      primeiroAcesso: user.primeiroAcesso, // ← ADICIONA primeiroAcesso ao JWT
     })
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()

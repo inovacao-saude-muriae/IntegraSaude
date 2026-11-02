@@ -252,8 +252,9 @@ export default function NovoPedido({
               <input
                 type="text"
                 value={newRequest.susCard || ''}
-                onChange={(e) => setNewRequest({ ...newRequest, susCard: e.target.value })}
+                readOnly
                 placeholder="700000000000000"
+                className={styles.readOnlyInput}
               />
             </div>
 
@@ -266,41 +267,6 @@ export default function NovoPedido({
                 placeholder="—"
                 className={styles.readOnlyInput}
               />
-            </div>
-          </div>
-
-          {/* SUBTÍTULO: ENDEREÇO */}
-          <p className={styles.enderecoSubtitulo}>Endereço</p>
-
-          {/* ENDEREÇO DO PACIENTE (somente leitura) */}
-          <div className={styles.formGridStrict}>
-            <div className={`${styles.fieldGroup} ${styles.colCep}`}>
-              <label>CEP</label>
-              <input type="text" value={newRequest.cep || ''} readOnly placeholder="00000-000" className={styles.readOnlyInput} />
-            </div>
-            <div className={`${styles.fieldGroup} ${styles.colBairro}`}>
-              <label>Bairro</label>
-              <input type="text" value={newRequest.bairro || ''} readOnly placeholder="—" className={styles.readOnlyInput} />
-            </div>
-            <div className={`${styles.fieldGroup} ${styles.colLogradouro}`}>
-              <label>Logradouro / Rua</label>
-              <input type="text" value={newRequest.logradouro || ''} readOnly placeholder="—" className={styles.readOnlyInput} />
-            </div>
-            <div className={`${styles.fieldGroup} ${styles.colNumero}`}>
-              <label>Número</label>
-              <input type="text" value={newRequest.numero || ''} readOnly placeholder="—" className={styles.readOnlyInput} />
-            </div>
-            <div className={`${styles.fieldGroup} ${styles.colComplemento}`}>
-              <label>Complemento</label>
-              <input type="text" value={newRequest.complemento || ''} readOnly placeholder="—" className={styles.readOnlyInput} />
-            </div>
-            <div className={`${styles.fieldGroup} ${styles.colCidade}`}>
-              <label>Cidade</label>
-              <input type="text" value={newRequest.cidade || ''} readOnly placeholder="—" className={styles.readOnlyInput} />
-            </div>
-            <div className={`${styles.fieldGroup} ${styles.colUf}`}>
-              <label>UF</label>
-              <input type="text" value={newRequest.uf || ''} readOnly placeholder="—" className={styles.readOnlyInput} />
             </div>
           </div>
         </div>

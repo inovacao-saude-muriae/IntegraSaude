@@ -138,11 +138,14 @@ export default function CadastroTutor({ cpfInicial = "", onVoltarLista }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ── Busca (debounce por tamanho mínimo) ───────────────────────────────────
+  // Busca (debounce por tamanho mínimo) - só funciona em modo leitura
   const handleBuscar = async (valor) => {
     setTermo(valor);
-    // O campo "Nome completo" também é o campo de busca em modo leitura.
     setForm((prev) => ({ ...prev, nomeCompleto: valor }));
+    
+    // Só busca se estiver em modo leitura
+    if (modo !== "leitura") return;
+    
     if (!dropAberto) setDropAberto(true);
     if (valor.trim().length >= 2) {
       setBuscando(true);
@@ -190,13 +193,34 @@ export default function CadastroTutor({ cpfInicial = "", onVoltarLista }) {
 
   // ── Ações ───────────────────────────────────────────────────────────────
   const novoCadastro = () => {
-    // Preserva o nome já digitado no campo de busca ao iniciar um novo cadastro.
     const nomeDigitado = termo.trim();
     setForm({ ...FORM_VAZIO, nomeCompleto: nomeDigitado });
     setModo("novo");
     setDropAberto(false);
+    setPessoas([]);
+    setTermo("");
     setCepErro("");
     setErro("");
+  };
+
+  const iniciarEdicao = () => {
+    setModo("edicao");
+  };
+
+  const cancelarOperacao = () => {
+    if (cpfSelecionado && modo === "edicao") {
+      // Volta para modo leitura mantendo dados
+      setModo("leitura");
+    } else if (edicaoViaLista && onVoltarLista) {
+      onVoltarLista();
+    } else {
+      // Limpa e volta para modo leitura
+      setForm(FORM_VAZIO);
+      setTermo("");
+      setPessoas([]);
+      setModo("leitura");
+      setErro("");
+    }
   };
 
   const habilitarEdicao = () => {
@@ -248,18 +272,16 @@ export default function CadastroTutor({ cpfInicial = "", onVoltarLista }) {
     if (res.success) {
       setErro("");
       await notify({ tipo: "sucesso", title: "Pronto", message: "Tutor salvo com sucesso!" });
-      // Edição vinda da Lista: ao atualizar, volta para a lista de tutores.
       if (edicaoViaLista) {
         onVoltarLista();
         return;
       }
-      // Recarrega os dados gravados e volta ao modo leitura.
-      const busca = await buscarPessoasCCZ(payload.cpf);
-      const salvo = busca.success
-        ? busca.data.find((x) => soDigitos(x.cpf) === payload.cpf)
-        : null;
-      if (salvo) selecionarPessoa(salvo);
-      else cancelar();
+      // Após salvar, volta para modo leitura vazio
+      setForm(FORM_VAZIO);
+      setModo("leitura");
+      setTermo("");
+      setPessoas([]);
+      setDropAberto(false);
     } else {
       setErro(res.error || "Não foi possível salvar o tutor.");
     }
@@ -515,24 +537,29 @@ export default function CadastroTutor({ cpfInicial = "", onVoltarLista }) {
 
         <div className={styles.formActions}>
           {modo === "leitura" && pessoaSelecionada && (
-            <button type="button" className={styles.btnGhost} onClick={habilitarEdicao}>
+            <button type="button" className={styles.btnPrimary} onClick={iniciarEdicao}>
               Editar
             </button>
           )}
-          {editavel && (
-            <button
-              type="button"
-              className={styles.btnGhost}
-              onClick={cancelar}
-              disabled={salvando}
-            >
-              Cancelar
+          {modo === "leitura" && !pessoaSelecionada && (
+            <button type="button" className={styles.btnGhost} onClick={novoCadastro}>
+              Novo
             </button>
           )}
           {editavel && (
-            <button type="submit" className={styles.btnPrimary} disabled={salvando}>
-              {salvando ? "Salvando..." : modo === "edicao" ? "Atualizar" : "Salvar"}
-            </button>
+            <>
+              <button
+                type="button"
+                className={styles.btnGhost}
+                onClick={cancelarOperacao}
+                disabled={salvando}
+              >
+                Cancelar
+              </button>
+              <button type="submit" className={styles.btnPrimary} disabled={salvando}>
+                {salvando ? "Salvando..." : modo === "edicao" ? "Atualizar" : "Salvar"}
+              </button>
+            </>
           )}
         </div>
       </form>

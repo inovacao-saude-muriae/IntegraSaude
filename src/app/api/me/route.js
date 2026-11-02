@@ -20,6 +20,7 @@ export async function GET() {
             nome: true,
             role: true,
             cargo: true,
+            primeiroAcesso: true,
             // Ampliação ADITIVA (design §7.2): vínculos de acesso para os
             // consumidores novos. Os campos acima permanecem para não quebrar
             // a Sidebar e demais consumidores atuais (AC-16).
@@ -39,6 +40,9 @@ export async function GET() {
       return NextResponse.json({ error: 'Sessão expirada' }, { status: 401 });
     }
 
+    // DEBUG: Log do primeiroAcesso
+    console.log(`[API /me] Usuario: ${session.user.nome}, primeiroAcesso: ${session.user.primeiroAcesso}`);
+
     return NextResponse.json(
       {
         user: {
@@ -49,6 +53,7 @@ export async function GET() {
           cargo: session.user.cargo || session.user.role,
           // Campos ADITIVOS (design §7.2 / AC-16): não substituem os acima.
           isGestor: session.user.role === "GESTOR",
+          primeiroAcesso: session.user.primeiroAcesso ?? false, // ← Garantir que sempre retorna um boolean
           acessos: session.user.acessos,
         },
       },

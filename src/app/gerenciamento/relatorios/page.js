@@ -120,7 +120,7 @@ export default function RelatoriosGeraisPage() {
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
-    doc.text("ORION - RELATÓRIO UNIFICADO DO PACIENTE", 14, 12);
+    doc.text("INTEGRASAÚDE - RELATÓRIO UNIFICADO DO PACIENTE", 14, 12);
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.text(`Emissão: ${dataEmissao}`, 196, 12, { align: "right" });
@@ -463,7 +463,7 @@ export default function RelatoriosGeraisPage() {
       doc.setFontSize(7);
       doc.setTextColor(148, 163, 184);
       doc.text(
-        `Página ${i} de ${totalPages} - Documento Gerado pelo Sistema Orion`,
+        `Página ${i} de ${totalPages} - Documento Gerado pelo Sistema IntegraSaúde`,
         105,
         290,
         { align: "center" },

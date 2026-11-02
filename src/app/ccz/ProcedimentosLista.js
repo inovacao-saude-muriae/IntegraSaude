@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import styles from "./ListaCCZ.module.css";
-import { listarProcedimentos } from "./actions";
+import { listarProcedimentos, excluirProcedimento } from "./actions";
 import TermoInternacao from "./TermoInternacao";
+import FichaProcedimento from "./FichaProcedimento";
 
 const formatarData = (ymd) =>
   ymd ? ymd.split("-").reverse().join("/") : "-";
@@ -13,6 +14,7 @@ export default function ProcedimentosLista({ onEditar }) {
   const [carregando, setCarregando] = useState(true);
   const [termo, setTermo] = useState("");
   const [termoInternacaoId, setTermoInternacaoId] = useState(null); // procId do termo aberto
+  const [fichaId, setFichaId] = useState(null); // ID do procedimento com ficha aberta
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -24,6 +26,15 @@ export default function ProcedimentosLista({ onEditar }) {
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  const handleExcluir = async (id) => {
+    const res = await excluirProcedimento(id);
+    if (res.success) {
+      await carregar();
+    } else {
+      alert(res.error || "Erro ao excluir procedimento");
+    }
+  };
 
   const termoLimpo = termo.trim().toLowerCase();
   const filtrados = procedimentos.filter((p) => {
@@ -53,7 +64,7 @@ export default function ProcedimentosLista({ onEditar }) {
           <input
             type="text"
             className={styles.buscaInput}
-            placeholder="Buscar por animal, tutor, tipo ou status..."
+            placeholder="Buscar por animal, ID, tipo ou status..."
             value={termo}
             onChange={(e) => setTermo(e.target.value)}
           />
@@ -65,29 +76,42 @@ export default function ProcedimentosLista({ onEditar }) {
           <p className={styles.vazio}>Nenhum procedimento encontrado.</p>
         ) : (
           <div className={styles.tableWrapper}>
-            <table className={styles.table}>
+            <table className={`${styles.table} ${styles.tableCompact}`}>
               <thead>
                 <tr>
+                  <th>ID Animal</th>
                   <th>Animal</th>
                   <th>Tipo</th>
                   <th>Data</th>
                   <th>Status</th>
                   <th>Veterinário</th>
                   <th>Retorno</th>
-                  <th style={{ textAlign: "right" }}>Ações</th>
+                  <th>Termo</th>
                 </tr>
               </thead>
               <tbody>
                 {filtrados.map((p) => (
-                  <tr key={p.id}>
+                  <tr 
+                    key={p.id}
+                    onClick={() => setFichaId(p.id)}
+                    style={{ cursor: "pointer" }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = "#f8fafc";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "";
+                    }}
+                    title="Clique para visualizar procedimento"
+                  >
+                    <td>
+                      <span style={{ fontFamily: "monospace", fontSize: "0.85rem", color: "#475569" }}>
+                        {p.animalId}
+                      </span>
+                    </td>
                     <td>
                       <span className={styles.boldName}>
                         {p.animalNome || "Sem nome"}
                       </span>
-                      <div className={styles.subText}>
-                        {p.animalId}
-                        {p.tutorNome ? ` · ${p.tutorNome}` : ""}
-                      </div>
                     </td>
                     <td>{p.tipo}</td>
                     <td>{formatarData(p.dataProcedimento)}</td>
@@ -96,25 +120,21 @@ export default function ProcedimentosLista({ onEditar }) {
                     </td>
                     <td>{p.veterinario || "-"}</td>
                     <td>{p.dataRetorno ? formatarData(p.dataRetorno) : "-"}</td>
-                    <td style={{ textAlign: "right" }}>
-                      <div className={styles.acoesCell}>
+                    <td style={{ textAlign: "center" }}>
+                      {p.tipo === "Internação" ? (
                         <button
                           type="button"
-                          className={styles.btnEditar}
-                          onClick={() => onEditar(p.id)}
+                          className={styles.btnFicha}
+                          onClick={(e) => {
+                            e.stopPropagation(); // Impede que o clique abra a edição
+                            setTermoInternacaoId(p.id);
+                          }}
                         >
-                          Editar
+                          Ver termo
                         </button>
-                        {p.tipo === "Internação" && (
-                          <button
-                            type="button"
-                            className={styles.btnFicha}
-                            onClick={() => setTermoInternacaoId(p.id)}
-                          >
-                            Termo de internação
-                          </button>
-                        )}
-                      </div>
+                      ) : (
+                        <span style={{ color: "#94a3b8", fontSize: "0.875rem" }}>-</span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -128,6 +148,18 @@ export default function ProcedimentosLista({ onEditar }) {
         <TermoInternacao
           procedimentoId={termoInternacaoId}
           onFechar={() => setTermoInternacaoId(null)}
+        />
+      )}
+
+      {fichaId && (
+        <FichaProcedimento
+          procedimentoId={fichaId}
+          onFechar={() => setFichaId(null)}
+          onEditar={(id) => {
+            setFichaId(null);
+            onEditar(id);
+          }}
+          onExcluir={handleExcluir}
         />
       )}
     </div>

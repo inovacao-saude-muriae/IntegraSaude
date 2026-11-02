@@ -191,7 +191,7 @@ export async function getAuxiliaryData() {
             ubsReferencia: true,
           },
           orderBy: { nomeCompleto: "asc" },
-          take: 100,
+          // Removido: take: 100 (limitava a lista)
         }),
       ]);
 

@@ -5,6 +5,7 @@ import { buscarPessoaExistente } from './actions';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { documentoPaciente } from '@/app/regulacao/constants';
 import { mascararTelefone } from '@/lib/telefone';
+import SeletorPaciente from '@/components/SeletorPaciente';
 import styles from './CadastroPacienteJunta.module.css';
 
 const LOCAIS_DISPONIVEIS = [
@@ -18,28 +19,12 @@ const TIPOS_DEFICIENCIA = ['Física', 'Intelectual', 'Visual', 'Auditiva'];
 
 export default function CadastroPacienteJunta({ onCadastrar }) {
   const confirm = useConfirm();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
 
   // Pessoa selecionada (cadastro em /pessoas). Aqui só se anexa dados da Junta.
   const [pessoa, setPessoa] = useState(null);
   const [tiposDeficiencia, setTiposDeficiencia] = useState([]);
   const [locaisEncaminhados, setLocaisEncaminhados] = useState([]);
   const [salvando, setSalvando] = useState(false);
-  const dropdownRef = useRef(null);
-
-  // Fecha o dropdown ao clicar fora.
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setShowDropdown(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   const formatCPF = (cpf) => {
     if (!cpf) return '';
@@ -47,60 +32,8 @@ export default function CadastroPacienteJunta({ onCadastrar }) {
     return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
   };
 
-  const removeDuplicadosPorCPF = (lista) => {
-    if (!Array.isArray(lista)) return [];
-    const vistos = new Set();
-    return lista.filter((item) => {
-      const cpf = (item.cpf || '').replace(/\D/g, '');
-      if (!cpf) return true;
-      if (vistos.has(cpf)) return false;
-      vistos.add(cpf);
-      return true;
-    });
-  };
-
-  // Carrega uma lista inicial ao montar (dropdown já aparece ao clicar no campo).
-  useEffect(() => {
-    let ativo = true;
-    (async () => {
-      try {
-        const resultados = await buscarPessoaExistente('');
-        if (ativo) setSearchResults(removeDuplicadosPorCPF(resultados || []));
-      } catch {
-        if (ativo) setSearchResults([]);
-      }
-    })();
-    return () => {
-      ativo = false;
-    };
-  }, []);
-
-  const handleInputChange = async (valor) => {
-    setSearchTerm(valor);
-    // Só mostra o dropdown ao começar a digitar (>= 2 caracteres).
-    if (valor.trim().length < 2) {
-      setShowDropdown(false);
-      setSearchResults([]);
-      return;
-    }
-    setShowDropdown(true);
-    setIsSearching(true);
-    try {
-      const resultados = await buscarPessoaExistente(valor.trim());
-      setSearchResults(removeDuplicadosPorCPF(resultados || []));
-    } catch (error) {
-      console.error('Erro ao buscar pessoa:', error);
-      setSearchResults([]);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
   const handleSelectPessoa = (p) => {
     setPessoa(p);
-    // O campo "Nome completo" é também a busca: mantém só o nome no texto.
-    setSearchTerm(p.nomeCompleto || p.nome || '');
-    setShowDropdown(false);
     // Pré-carrega dados de Junta já existentes, se vierem na busca.
     const existentes = (p.tipoDeficiencia || '')
       .split(',')
@@ -111,12 +44,9 @@ export default function CadastroPacienteJunta({ onCadastrar }) {
   };
 
   const handleClear = () => {
-    setSearchTerm('');
     setPessoa(null);
     setTiposDeficiencia([]);
     setLocaisEncaminhados([]);
-    setSearchResults([]);
-    setShowDropdown(false);
   };
 
   const handleCheckboxChange = (local) => {
@@ -164,145 +94,31 @@ export default function CadastroPacienteJunta({ onCadastrar }) {
             <h4>1. Identificação do Paciente</h4>
           </div>
 
-          {/* DADOS PESSOAIS — o campo "Nome completo" é também a busca */}
+          {/* SELETOR DE PACIENTE E DADOS NA MESMA LINHA */}
           <div className={styles.dataGrid}>
-            <div
-              className={`${styles.field} ${styles.colName}`}
-              style={{ position: 'relative' }}
-              ref={dropdownRef}
-            >
-              <label>Nome completo *</label>
-              <div className={styles.inputWrapperWithIcon}>
-                <input
-                  type="text"
-                  className={styles.selectLikeInput}
-                  placeholder="Digite nome ou CPF para buscar..."
-                  value={searchTerm}
-                  onChange={(e) => handleInputChange(e.target.value)}
-                  autoComplete="off"
-                />
-                <span className={styles.arrowIcon} onClick={() => setShowDropdown(!showDropdown)}>
-                  {showDropdown ? '▲' : '▼'}
-                </span>
-              </div>
-
-              {showDropdown && (
-                <div className={styles.tableDropdownMenu}>
-                  <div className={styles.tableContainerScroll}>
-                    <table className={styles.patientTableDropdown}>
-                      <thead>
-                        <tr>
-                          <th>CPF / CNS</th>
-                          <th>Usuário</th>
-                          <th>Nome da mãe</th>
-                          <th>Data nasc.</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {searchResults.length > 0 ? (
-                          searchResults.map((p, index) => (
-                            <tr
-                              key={p.cpf ? `${p.cpf}-${index}` : index}
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                handleSelectPessoa(p);
-                              }}
-                              className={pessoa?.cpf === p.cpf ? styles.selectedRow : ''}
-                            >
-                              <td>{documentoPaciente({ cpf: p.cpf, cns: p.cns })}</td>
-                              <td className={styles.boldName}>{p.nomeCompleto || p.nome}</td>
-                              <td>{p.nomeMae || 'Não informada'}</td>
-                              <td>
-                                {p.dataNascimento
-                                  ? p.dataNascimento.split('-').reverse().join('/')
-                                  : '-'}
-                              </td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan="4" className={styles.noDataTd}>
-                              {isSearching ? 'Consultando banco de dados...' : 'Nenhuma pessoa encontrada.'}
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-              <p className={styles.helperNote}>
-                A pessoa precisa estar cadastrada em <strong>Gerenciamento &gt; Cadastro de Pessoas</strong>.
-              </p>
-            </div>
-            <div className={`${styles.field} ${styles.colMother}`}>
-              <label>Nome da mãe</label>
-              <input type="text" value={pessoa?.nomeMae || ''} disabled readOnly placeholder="—" />
-            </div>
-            <div className={`${styles.field} ${styles.colSmall}`}>
-              <label>Data de nascimento</label>
-              <input
-                type="text"
-                value={pessoa?.dataNascimento ? pessoa.dataNascimento.split('-').reverse().join('/') : ''}
-                disabled
-                readOnly
-                placeholder="dd/mm/aaaa"
+            <div className={`${styles.field} ${styles.colName}`}>
+              <SeletorPaciente
+                onSelect={handleSelectPessoa}
+                label="Nome completo"
+                placeholder="Digite nome ou CPF para buscar..."
+                required
+                value={pessoa}
               />
             </div>
-            <div className={`${styles.field} ${styles.colSmall}`}>
-              <label>Sexo</label>
-              <input type="text" value={pessoa?.sexo || ''} disabled readOnly placeholder="—" />
-            </div>
-            <div className={`${styles.field} ${styles.colMed}`}>
-              <label>Telefone / WhatsApp</label>
-              <input type="text" value={mascararTelefone(pessoa?.telefone)} disabled readOnly placeholder="(00) 00000-0000" />
-            </div>
+            
             <div className={`${styles.field} ${styles.colCpf}`}>
               <label>CPF</label>
               <input type="text" value={pessoa ? formatCPF(pessoa.cpf) : ''} disabled readOnly placeholder="000.000.000-00" />
             </div>
+            
+            <div className={`${styles.field} ${styles.colMother}`}>
+              <label>Nome da mãe</label>
+              <input type="text" value={pessoa?.nomeMae || ''} disabled readOnly placeholder="—" />
+            </div>
+            
             <div className={`${styles.field} ${styles.colMed}`}>
-              <label>CNS (Cartão SUS)</label>
-              <input type="text" value={pessoa?.cns || ''} disabled readOnly placeholder="—" />
-            </div>
-            <div className={`${styles.field} ${styles.colMed}`}>
-              <label>UBS de referência</label>
-              <input type="text" value={pessoa?.ubsReferencia || ''} disabled readOnly placeholder="—" />
-            </div>
-          </div>
-
-          {/* SUBTÍTULO: ENDEREÇO */}
-          <p className={styles.enderecoSubtitulo}>Endereço</p>
-
-          {/* ENDEREÇO (somente leitura) */}
-          <div className={styles.dataGrid}>
-            <div className={`${styles.field} ${styles.colCep}`}>
-              <label>CEP</label>
-              <input type="text" value={pessoa?.cep || ''} disabled readOnly placeholder="00000-000" />
-            </div>
-            <div className={`${styles.field} ${styles.colBairro}`}>
-              <label>Bairro</label>
-              <input type="text" value={pessoa?.bairro || ''} disabled readOnly placeholder="—" />
-            </div>
-            <div className={`${styles.field} ${styles.colLogradouro}`}>
-              <label>Logradouro / Rua</label>
-              <input type="text" value={pessoa?.logradouro || ''} disabled readOnly placeholder="—" />
-            </div>
-            <div className={`${styles.field} ${styles.colNumero}`}>
-              <label>Número</label>
-              <input type="text" value={pessoa?.numero || ''} disabled readOnly placeholder="—" />
-            </div>
-            <div className={`${styles.field} ${styles.colComplemento}`}>
-              <label>Complemento</label>
-              <input type="text" value={pessoa?.complemento || ''} disabled readOnly placeholder="—" />
-            </div>
-            <div className={`${styles.field} ${styles.colCidade}`}>
-              <label>Cidade</label>
-              <input type="text" value={pessoa?.cidade || ''} disabled readOnly placeholder="—" />
-            </div>
-            <div className={`${styles.field} ${styles.colUf}`}>
-              <label>UF</label>
-              <input type="text" value={pessoa?.uf || ''} disabled readOnly placeholder="—" />
+              <label>Telefone / WhatsApp</label>
+              <input type="text" value={mascararTelefone(pessoa?.telefone)} disabled readOnly placeholder="(00) 00000-0000" />
             </div>
           </div>
         </div>

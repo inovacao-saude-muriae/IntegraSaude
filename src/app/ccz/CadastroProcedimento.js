@@ -48,6 +48,7 @@ export default function CadastroProcedimento({ registroInicial = null, onSalvo }
   );
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
+  const [usuarioLogado, setUsuarioLogado] = useState(null);
 
   // Busca de ANIMAL (dropdown, igual ao seletor de tutor no cadastro de animal).
   const [animalTermo, setAnimalTermo] = useState(registroInicial?.animalLabel || "");
@@ -55,6 +56,26 @@ export default function CadastroProcedimento({ registroInicial = null, onSalvo }
   const [animalDropAberto, setAnimalDropAberto] = useState(false);
   const [animalBuscando, setAnimalBuscando] = useState(false);
   const animalDropRef = useRef(null);
+
+  // Busca o usuário logado ao carregar o componente
+  useEffect(() => {
+    async function carregarUsuario() {
+      try {
+        const res = await fetch("/api/me");
+        if (res.ok) {
+          const data = await res.json();
+          setUsuarioLogado(data.user);
+          // Se não está editando, preenche automaticamente o campo veterinário
+          if (!editando && data.user?.nomeCompleto) {
+            setForm((prev) => ({ ...prev, veterinario: data.user.nomeCompleto }));
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao carregar dados do usuário:", err);
+      }
+    }
+    carregarUsuario();
+  }, [editando]);
 
   // Fecha o dropdown ao clicar fora.
   useEffect(() => {
@@ -100,7 +121,10 @@ export default function CadastroProcedimento({ registroInicial = null, onSalvo }
   };
 
   const limpar = () => {
-    setForm(FORM_VAZIO);
+    setForm({
+      ...FORM_VAZIO,
+      veterinario: usuarioLogado?.nomeCompleto || "",
+    });
     setErro("");
     setAnimalTermo("");
     setAnimalResultados([]);
@@ -110,11 +134,11 @@ export default function CadastroProcedimento({ registroInicial = null, onSalvo }
   const salvar = async (e) => {
     e.preventDefault();
     const ok = await confirm({
-      title: editando ? "Atualizar procedimento" : "Cadastrar procedimento",
+      title: editando ? "Salvar procedimento" : "Cadastrar procedimento",
       message: editando
         ? "Deseja salvar as alterações deste procedimento?"
         : "Deseja confirmar o cadastro deste procedimento?",
-      confirmText: editando ? "Atualizar" : "Cadastrar",
+      confirmText: "Salvar",
     });
     if (!ok) return;
 
@@ -131,8 +155,11 @@ export default function CadastroProcedimento({ registroInicial = null, onSalvo }
           ? "Procedimento atualizado com sucesso!"
           : "Procedimento salvo com sucesso!",
       });
-      if (editando && onSalvo) onSalvo();
-      else limpar();
+      if (editando && onSalvo) {
+        onSalvo();
+      } else {
+        limpar();
+      }
     } else {
       setErro(res.error || "Não foi possível salvar o procedimento.");
     }
@@ -268,11 +295,16 @@ export default function CadastroProcedimento({ registroInicial = null, onSalvo }
             {/* Veterinário */}
             <div className={`${styles.field} ${styles.colLg}`}>
               <label>Veterinário</label>
-              <textarea
-                rows={2}
+              <input
+                type="text"
                 value={form.veterinario}
-                onChange={(e) => atualizar("veterinario", e.target.value)}
-                placeholder="Nome do(a) veterinário(a) responsável"
+                disabled
+                placeholder="Carregando usuário..."
+                style={{ 
+                  backgroundColor: '#f8fafc', 
+                  cursor: 'not-allowed',
+                  color: '#475569'
+                }}
               />
             </div>
 
@@ -335,7 +367,7 @@ export default function CadastroProcedimento({ registroInicial = null, onSalvo }
             Cancelar
           </button>
           <button type="submit" className={styles.btnPrimary} disabled={salvando}>
-            {salvando ? "Salvando..." : editando ? "Atualizar" : "Salvar"}
+            {salvando ? "Salvando..." : "Salvar"}
           </button>
         </div>
       </form>

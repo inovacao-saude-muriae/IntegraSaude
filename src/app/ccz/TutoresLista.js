@@ -5,11 +5,13 @@ import styles from "./ListaCCZ.module.css";
 import { documentoPaciente } from "@/app/regulacao/constants";
 import { mascararTelefone } from "@/lib/telefone";
 import { listarTutoresComAnimais } from "./actions";
+import FichaTutor from "./FichaTutor";
 
 export default function TutoresLista({ onEditar }) {
   const [tutores, setTutores] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [termo, setTermo] = useState("");
+  const [cpfFicha, setCpfFicha] = useState(null);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -37,8 +39,36 @@ export default function TutoresLista({ onEditar }) {
       .map((a) => `${a.nome?.trim() || "Sem nome"} (${a.id})`)
       .join(", ");
 
+  const handleExcluir = async (cpf) => {
+    try {
+      const res = await fetch(`/api/ccz/tutores/${cpf}`, { method: "DELETE" });
+      if (res.ok) {
+        await carregar();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Erro ao excluir tutor");
+      }
+    } catch (error) {
+      console.error("Erro ao excluir:", error);
+      alert("Erro ao excluir tutor");
+    }
+  };
+
   return (
-    <div className={styles.container}>
+    <>
+      {cpfFicha && (
+        <FichaTutor
+          cpf={cpfFicha}
+          onFechar={() => setCpfFicha(null)}
+          onEditar={(cpf) => {
+            setCpfFicha(null);
+            onEditar(cpf);
+          }}
+          onExcluir={handleExcluir}
+        />
+      )}
+
+      <div className={styles.container}>
       <div className={styles.card}>
         <div className={styles.listaHeader}>
           <h2 className={styles.cardHeaderTitle}>
@@ -59,19 +89,29 @@ export default function TutoresLista({ onEditar }) {
           <p className={styles.vazio}>Nenhum tutor encontrado.</p>
         ) : (
           <div className={styles.tableWrapper}>
-            <table className={styles.table}>
+            <table className={`${styles.table} ${styles.tableCompact}`}>
               <thead>
                 <tr>
                   <th>Nome</th>
                   <th>CPF / CNS</th>
                   <th>Telefone</th>
                   <th>Animais</th>
-                  <th style={{ textAlign: "right" }}>Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {filtrados.map((t) => (
-                  <tr key={t.pessoaCpf}>
+                  <tr 
+                    key={t.pessoaCpf}
+                    onClick={() => setCpfFicha(t.pessoaCpf)}
+                    style={{ cursor: "pointer" }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = "#f8fafc";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "";
+                    }}
+                    title="Clique para visualizar tutor"
+                  >
                     <td className={styles.boldName}>{t.nome}</td>
                     <td>{documentoPaciente({ cpf: t.cpf, cns: t.cns })}</td>
                     <td>{t.telefone ? mascararTelefone(t.telefone) : "-"}</td>
@@ -82,15 +122,6 @@ export default function TutoresLista({ onEditar }) {
                         <span className={styles.semTutor}>Nenhum</span>
                       )}
                     </td>
-                    <td style={{ textAlign: "right" }}>
-                      <button
-                        type="button"
-                        className={styles.btnEditar}
-                        onClick={() => onEditar(t.pessoaCpf)}
-                      >
-                        Editar
-                      </button>
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -99,5 +130,6 @@ export default function TutoresLista({ onEditar }) {
         )}
       </div>
     </div>
+    </>
   );
 }

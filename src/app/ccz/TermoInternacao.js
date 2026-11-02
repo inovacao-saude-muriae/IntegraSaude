@@ -189,6 +189,14 @@ export default function TermoInternacao({ procedimentoId, onFechar }) {
     y += 5;
     doc.setFontSize(10);
     doc.text("Assinatura do depositante", 105, y, { align: "center" });
+    
+    // Se tiver tutor, mostra o nome abaixo da linha
+    if (dados.temTutor && dados.tutorNome) {
+      y += 5;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text(dados.tutorNome, 105, y, { align: "center" });
+    }
 
     doc.save(`termo-internacao-${a.id}-${dados.procedimentoId}.pdf`);
   };

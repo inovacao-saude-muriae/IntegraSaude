@@ -3,16 +3,22 @@
 import { Suspense, useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 
+import DashboardCCZ from "./DashboardCCZ";
 import CadastroTutor from "./CadastroTutor";
 import CadastroAnimal from "./CadastroAnimal";
 import CadastroProcedimento from "./CadastroProcedimento";
 import CadastroEsporotricose from "./CadastroEsporotricose";
+import CadastroZoonoses from "./CadastroZoonoses";
+import CadastroDenuncia from "./CadastroDenuncia";
 import TutoresLista from "./TutoresLista";
 import AnimaisLista from "./AnimaisLista";
 import ProcedimentosLista from "./ProcedimentosLista";
 import EsporotricoseLista from "./EsporotricoseLista";
+import ZoonosesLista from "./ZoonosesLista";
+import DenunciasLista from "./DenunciasLista";
 import AgendaCCZ from "./AgendaCCZ";
-import { obterAnimal, obterProcedimento, obterEsporotricose } from "./actions";
+import TermosEmBranco from "./TermosEmBranco";
+import { obterAnimal, obterProcedimento, obterEsporotricose, obterZoonose } from "./actions";
 
 import styles from "./CadastroTutor.module.css";
 
@@ -20,8 +26,12 @@ function CczPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const activeTab = (searchParams.get("tab") || "TUTORES").toUpperCase();
-  const activeSubTab = (searchParams.get("subTab") || "CADASTRAR").toUpperCase();
+  const activeTab = (searchParams.get("tab") || "DASHBOARD").toUpperCase();
+  const rawSubTab = searchParams.get("subTab") || "";
+  
+  // Define LISTA como padrão para abas que têm Lista/Cadastrar
+  const tabsComLista = ["PROCEDIMENTOS", "ESPOROTRICOSE", "ZOONOSES", "DENUNCIAS", "TUTORES", "ANIMAIS"];
+  const activeSubTab = rawSubTab.toUpperCase() || (tabsComLista.includes(activeTab) ? "LISTA" : "");
 
   // Estado de edição vindo das listas.
   const [cpfTutorEdicao, setCpfTutorEdicao] = useState("");
@@ -31,9 +41,19 @@ function CczPageContent() {
   const [carregandoProcedimento, setCarregandoProcedimento] = useState(false);
   const [esporoEdicao, setEsporoEdicao] = useState(null);
   const [carregandoEsporo, setCarregandoEsporo] = useState(false);
+  const [zoonoseEdicao, setZoonoseEdicao] = useState(null);
+  const [carregandoZoonose, setCarregandoZoonose] = useState(false);
 
   // Navega para uma aba/sub-aba preservando o módulo.
   const irPara = (tab, subTab) => {
+    // Ao trocar para Lista, limpar os registros em edição
+    if (subTab === "LISTA") {
+      setCpfTutorEdicao("");
+      setAnimalEdicao(null);
+      setProcedimentoEdicao(null);
+      setEsporoEdicao(null);
+      setZoonoseEdicao(null);
+    }
     router.push(`/ccz?tab=${tab}&subTab=${subTab}`);
   };
 
@@ -44,6 +64,7 @@ function CczPageContent() {
       setAnimalEdicao(null);
       setProcedimentoEdicao(null);
       setEsporoEdicao(null);
+      setZoonoseEdicao(null);
     }
   }, [activeTab, activeSubTab]);
 
@@ -86,6 +107,17 @@ function CczPageContent() {
     }
   };
 
+  // ── Editar zoonose: carrega o registro e vai para Zoonoses > Cadastrar ──
+  const editarZoonose = async (id) => {
+    setCarregandoZoonose(true);
+    const res = await obterZoonose(id);
+    setCarregandoZoonose(false);
+    if (res.success) {
+      setZoonoseEdicao(res.data);
+      irPara("ZOONOSES", "CADASTRAR");
+    }
+  };
+
   // Volta para a lista correspondente após salvar/cancelar edição.
   const voltarListaTutores = () => {
     setCpfTutorEdicao("");
@@ -103,10 +135,38 @@ function CczPageContent() {
     setEsporoEdicao(null);
     irPara("ESPOROTRICOSE", "LISTA");
   };
+  const voltarListaZoonose = () => {
+    setZoonoseEdicao(null);
+    irPara("ZOONOSES", "LISTA");
+  };
 
   let conteudo;
-  if (activeTab === "AGENDA") {
+  if (activeTab === "DASHBOARD") {
+    conteudo = <DashboardCCZ />;
+  } else if (activeTab === "AGENDA") {
     conteudo = <AgendaCCZ onAbrirProcedimento={editarProcedimento} />;
+  } else if (activeTab === "TERMOS") {
+    conteudo = <TermosEmBranco />;
+  } else if (activeTab === "DENUNCIAS") {
+    if (activeSubTab === "LISTA") {
+      conteudo = <DenunciasLista />;
+    } else {
+      conteudo = <CadastroDenuncia />;
+    }
+  } else if (activeTab === "ZOONOSES") {
+    if (activeSubTab === "LISTA") {
+      conteudo = <ZoonosesLista onEditar={editarZoonose} />;
+    } else if (carregandoZoonose) {
+      conteudo = <p className={styles.subtitle}>Carregando zoonose...</p>;
+    } else {
+      conteudo = (
+        <CadastroZoonoses
+          key={zoonoseEdicao?.id || "novo"}
+          registroInicial={zoonoseEdicao}
+          onSalvo={voltarListaZoonose}
+        />
+      );
+    }
   } else if (activeTab === "PROCEDIMENTOS") {
     if (activeSubTab === "LISTA") {
       conteudo = <ProcedimentosLista onEditar={editarProcedimento} />;
@@ -174,6 +234,56 @@ function CczPageContent() {
           </p>
         </div>
       </header>
+
+      {/* Abas de navegação (Lista / Cadastrar) - exceto para Dashboard, Agenda e Termos */}
+      {activeTab !== "DASHBOARD" && activeTab !== "AGENDA" && activeTab !== "TERMOS" && (
+        <div className={styles.tabsContainer}>
+          <button
+            className={`${styles.tabButton} ${activeSubTab === "LISTA" ? styles.tabActive : ""}`}
+            onClick={() => irPara(activeTab, "LISTA")}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ marginRight: "0.5rem" }}
+            >
+              <line x1="8" y1="6" x2="21" y2="6" />
+              <line x1="8" y1="12" x2="21" y2="12" />
+              <line x1="8" y1="18" x2="21" y2="18" />
+              <line x1="3" y1="6" x2="3.01" y2="6" />
+              <line x1="3" y1="12" x2="3.01" y2="12" />
+              <line x1="3" y1="18" x2="3.01" y2="18" />
+            </svg>
+            Lista
+          </button>
+          <button
+            className={`${styles.tabButton} ${activeSubTab === "CADASTRAR" ? styles.tabActive : ""}`}
+            onClick={() => irPara(activeTab, "CADASTRAR")}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ marginRight: "0.5rem" }}
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Novo
+          </button>
+        </div>
+      )}
 
       {conteudo}
     </div>

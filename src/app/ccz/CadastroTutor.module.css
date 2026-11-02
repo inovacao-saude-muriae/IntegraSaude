@@ -23,6 +23,53 @@
   margin-top: 0.25rem;
 }
 
+/* Abas de navegação (Lista / Cadastrar) */
+.tabsContainer {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 0;
+  background-color: #f8fafc;
+  padding: 0.25rem;
+  border-radius: 8px 8px 0 0;
+}
+
+.tabButton {
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 0.65rem 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.tabButton:hover {
+  color: #2563eb;
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.tabActive {
+  color: #ffffff;
+  background-color: #5b7ba6;
+  border-color: #5b7ba6;
+  box-shadow: 0 2px 4px rgba(91, 123, 166, 0.3);
+}
+
+.tabActive:hover {
+  background-color: #4a6a95;
+  border-color: #4a6a95;
+  color: #ffffff;
+}
+
 .alertErro {
   background-color: #fef2f2;
   color: #991b1b;

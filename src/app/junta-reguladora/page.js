@@ -16,6 +16,7 @@ import AgendaServico from "./AgendaServico";
 import ProntuarioRelatorio from "./ProntuarioRelatorio";
 import AcessoNegadoModulo from "@/components/AcessoNegadoModulo";
 import ServicosEspecialidadesTab from "./ServicosEspecialidadesTab";
+import Dashboard from "./Dashboard";
 import { usePermissoesJunta } from "./PermissoesJuntaContext";
 import { useNotify } from "@/components/ConfirmDialog";
 
@@ -157,6 +158,8 @@ function JuntaReguladoraPageContent() {
           </p>
         </div>
       </header>
+
+      {activeTab === "DASHBOARD" && <Dashboard />}
 
       {activeTab === "CADASTRO" && (
         <CadastroPacienteJunta onCadastrar={handleCadastrarPaciente} />

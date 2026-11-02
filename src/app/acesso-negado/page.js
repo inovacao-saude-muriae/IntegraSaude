@@ -2,7 +2,7 @@ import Link from 'next/link';
 import styles from './page.module.css';
 
 export const metadata = {
-  title: 'Acesso Negado - Orion',
+  title: 'Acesso Negado - IntegraSaúde',
   description: 'Você não tem permissão para acessar esta página',
 };
 
@@ -11,14 +11,15 @@ const CARGO_LABELS = {
   'GESTOR': 'Gestor Geral',
   'REGULACAO_ADMIN': 'Administrador da Regulação',
   'REGULACAO_COMUM': 'Usuário da Regulação',
-  'FARMACIA_ADMIN': 'Administrador da Farmácia Judicial',
-  'PROCESSO_ADMIN': 'Administrador de Processos',
+  'FARMACIA_ADMIN': 'Farmácia Judicial',
+  'PROCESSO_ADMIN': 'Processos Judiciais',
   'JUNTA_ADMIN': 'Administrador da Junta Reguladora',
   'JUNTA_CAEE': 'Usuário do CAEE',
   'JUNTA_EDUCACAO': 'Usuário da Educação',
   'JUNTA_SAUDE': 'Usuário da Saúde',
   'JUNTA_ASSISTENCIA': 'Usuário da Assistência Social',
   'CCZ_ADMIN': 'Administrador do CCZ',
+  'CCZ_COMUM': 'Operador do CCZ',
 };
 
 export default function AcessoNegado({ searchParams }) {

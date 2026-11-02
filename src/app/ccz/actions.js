@@ -221,6 +221,62 @@ export async function obterAnimal(id) {
   }
 }
 
+// ── EXCLUIR ANIMAL ──────────────────────────────────────────────────────────
+export async function excluirAnimal(id) {
+  try {
+    await requireAcessoModulo(MODULOS.CCZ);
+
+    const animalId = String(id || "").trim();
+    if (!animalId) return { success: false, error: "ID do animal não informado." };
+
+    // Verifica se o animal existe e se possui registros vinculados
+    const animal = await prisma.animal.findUnique({
+      where: { id: animalId },
+      include: {
+        procedimentos: true,
+        esporotricose: true,
+        zoonoses: true,
+      },
+    });
+
+    if (!animal) {
+      return { success: false, error: "Animal não encontrado." };
+    }
+
+    // Verifica se há registros vinculados
+    const temRegistros = 
+      (animal.procedimentos && animal.procedimentos.length > 0) ||
+      (animal.esporotricose && animal.esporotricose.length > 0) ||
+      (animal.zoonoses && animal.zoonoses.length > 0);
+
+    if (temRegistros) {
+      const totalRegistros = 
+        (animal.procedimentos?.length || 0) +
+        (animal.esporotricose?.length || 0) +
+        (animal.zoonoses?.length || 0);
+      
+      return {
+        success: false,
+        error: `Não é possível excluir este animal pois existem ${totalRegistros} registro(s) vinculado(s) (procedimentos, esporotricose ou zoonoses)`,
+      };
+    }
+
+    // Remove o animal
+    await prisma.animal.delete({
+      where: { id: animalId },
+    });
+
+    revalidatePath("/ccz");
+    return { success: true };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao excluir animal (CCZ):", error);
+    return { success: false, error: "Erro ao excluir o animal." };
+  }
+}
+
 // ── SALVAR TUTOR (Pessoa + Endereço + ccz_tutores) ──────────────────────────
 export async function salvarTutor(dados) {
   try {
@@ -240,6 +296,22 @@ export async function salvarTutor(dados) {
     }
 
     const cpf = soDigitos(dados.cpf);
+    
+    // Verifica se já existe pessoa com este CPF (apenas em modo novo cadastro)
+    if (!dados.jaEhTutor) {
+      const pessoaExistente = await prisma.pessoa.findUnique({
+        where: { cpf },
+        select: { cpf: true, nomeCompleto: true },
+      });
+      
+      if (pessoaExistente) {
+        return { 
+          success: false, 
+          error: `CPF já cadastrado no sistema para: ${pessoaExistente.nomeCompleto}. Use a busca para selecionar esta pessoa.` 
+        };
+      }
+    }
+
     const dadosTutor = {
       rg: dados.rg ? String(dados.rg).slice(0, 20) : null,
       sexo: dados.tutorSexo ? String(dados.tutorSexo).slice(0, 20) : null,
@@ -415,6 +487,7 @@ export async function buscarAnimaisCCZ(termo = "") {
       sexo: a.sexo === "F" ? "Fêmea" : "Macho",
       porte: a.porte || "",
       tutorNome: a.tutor?.pessoa?.nomeCompleto || "",
+      pessoaCpf: a.tutor?.pessoaCpf || "",
     }));
 
     return { success: true, data };
@@ -540,7 +613,17 @@ export async function listarAnimais() {
     await requireAcessoModulo(MODULOS.CCZ);
 
     const animais = await prisma.animal.findMany({
-      include: { tutor: { include: { pessoa: true } } },
+      include: { 
+        tutor: { include: { pessoa: true } },
+        esporotricose: { 
+          select: { id: true },
+          take: 1  // Apenas verificar se existe
+        },
+        zoonoses: {
+          select: { id: true },
+          take: 1  // Apenas verificar se existe
+        }
+      },
       orderBy: { dataCadastro: "desc" },
     });
 
@@ -563,6 +646,8 @@ export async function listarAnimais() {
       pessoaCpf: a.pessoaCpf || "",
       tutorNome: a.tutor?.pessoa?.nomeCompleto || "",
       dataCadastro: a.dataCadastro ? a.dataCadastro.toISOString() : null,
+      temEsporotricose: a.esporotricose && a.esporotricose.length > 0,
+      temZoonoses: a.zoonoses && a.zoonoses.length > 0,  // Nova propriedade
     }));
 
     return { success: true, data };
@@ -572,6 +657,201 @@ export async function listarAnimais() {
     }
     console.error("Erro ao listar animais (CCZ):", error);
     return { success: false, error: "Erro ao carregar os animais." };
+  }
+}
+
+// ── OBTER HISTÓRICO COMPLETO DO ANIMAL ──────────────────────────────────────
+export async function obterHistoricoCompleto(animalId) {
+  try {
+    await requireAcessoModulo(MODULOS.CCZ);
+
+    const animal = await prisma.animal.findUnique({
+      where: { id: animalId },
+      include: {
+        tutor: {
+          include: {
+            pessoa: {
+              include: {
+                enderecos: { take: 1, orderBy: { id: "desc" } },
+              },
+            },
+          },
+        },
+        procedimentos: {
+          orderBy: { dataProcedimento: "desc" },
+        },
+        esporotricose: {
+          include: {
+            visitas: {
+              include: {
+                relatorio: true,
+              },
+              orderBy: { data: "asc" },
+            },
+          },
+          orderBy: { dataVisita: "desc" },
+        },
+        zoonoses: {
+          orderBy: { dataIdentificacao: "desc" },
+        },
+        denuncias: {
+          orderBy: { dataDenuncia: "desc" },
+        },
+      },
+    });
+
+    if (!animal) {
+      return { success: false, error: "Animal não encontrado." };
+    }
+
+    // Serializar dados do animal
+    const endereco = animal.tutor?.pessoa?.enderecos?.[0];
+    
+    // "Doença crônica: ..." foi concatenada em observacoes ao salvar; separar de volta
+    let qualDoenca = "";
+    let observacoes = animal.observacoes || "";
+    const m = observacoes.match(/^Doença crônica:\s*(.*)(?:\n([\s\S]*))?$/);
+    if (animal.doencaCronica === "Sim" && m) {
+      qualDoenca = (m[1] || "").trim();
+      observacoes = (m[2] || "").trim();
+    }
+    
+    const data = {
+      // Dados cadastrais
+      animal: {
+        id: animal.id,
+        nome: animal.nome || "",
+        especie: animal.especie || "",
+        sexo: animal.sexo === "F" ? "Fêmea" : "Macho",
+        porte: animal.porte || "",
+        idade: animal.idade || "",
+        castrado: animal.castrado || "Não",
+        doencaCronica: animal.doencaCronica || "Não",
+        qualDoenca,
+        sintomasVomitoDiarreia: animal.sintomasVomitoDiarreia || "Não",
+        apetiteNormal: animal.apetiteNormal || "Sim",
+        emTratamento: animal.emTratamento || "Não",
+        qualTratamento: animal.qualTratamento || "",
+        observacoes,
+        possuiResponsavel: animal.possuiResponsavel || "Não",
+        fotoUrl: animal.fotoUrl || "",
+        dataCadastro: animal.dataCadastro ? animal.dataCadastro.toISOString() : null,
+      },
+      
+      // Dados do tutor
+      tutor: animal.tutor ? {
+        cpf: animal.tutor.pessoa?.cpf || "",
+        nome: animal.tutor.pessoa?.nomeCompleto || "",
+        telefone: animal.tutor.pessoa?.telefone || "",
+        cns: animal.tutor.pessoa?.cns || "",
+        endereco: endereco ? {
+          logradouro: endereco.logradouro || "",
+          numero: endereco.numero || "",
+          complemento: endereco.complemento || "",
+          bairro: endereco.bairro || "",
+          cidade: endereco.cidade || "",
+          uf: endereco.uf || "",
+          cep: endereco.cep || "",
+        } : null,
+      } : null,
+      
+      // Histórico de procedimentos (inclui vacinações, castrações, etc.)
+      procedimentos: (animal.procedimentos || []).map(p => ({
+        id: p.id,
+        dataProcedimento: p.dataProcedimento ? p.dataProcedimento.toISOString() : null,
+        tipo: p.tipo || "",
+        descricao: p.descricao || "",
+        veterinario: p.veterinario || "",
+        status: p.status || "",
+        medicacaoPrescrita: p.medicacaoPrescrita || "",
+      })),
+      
+      // Histórico de zoonoses
+      zoonoses: (animal.zoonoses || []).map(z => ({
+        id: z.id,
+        dataIdentificacao: z.dataIdentificacao ? z.dataIdentificacao.toISOString() : null,
+        doenca: z.doenca || "",
+        grauRisco: z.grauRisco || "",
+        riscoVida: z.riscoVida || "Não",
+        observacao: z.observacao || "",
+      })),
+      
+      // Histórico de denúncias
+      denuncias: (animal.denuncias || []).map(d => {
+        // Formatar endereço das denúncias
+        const partes = [];
+        if (d.logradouro) partes.push(d.logradouro);
+        if (d.numero) partes.push(`nº ${d.numero}`);
+        if (d.bairro) partes.push(d.bairro);
+        if (d.cidade) partes.push(d.cidade);
+        if (d.uf) partes.push(d.uf);
+        const localizacao = partes.length > 0 ? partes.join(", ") : "-";
+        
+        return {
+          id: d.id,
+          dataDenuncia: d.dataDenuncia ? d.dataDenuncia.toISOString() : null,
+          localizacao,
+          descricao: d.descricaoCao || "",
+          relato: d.relato || "",
+          causouRisco: d.causouRisco || "Não",
+        };
+      }),
+      
+      // Histórico de esporotricose
+      esporotricose: (animal.esporotricose || []).map(e => ({
+        id: e.id,
+        dataVisita: e.dataVisita ? e.dataVisita.toISOString() : null,
+        numeroProtocolo: e.numeroProtocolo || "",
+        fiscalResponsavel: e.fiscalResponsavel || "",
+        apresentaLesoes: e.apresentaLesoes || "Não",
+        descricaoLesoes: e.descricaoLesoes || "",
+        emTratamentoVeterinario: e.emTratamentoVeterinario || "Não",
+        descricaoTratamentoVet: e.descricaoTratamentoVet || "",
+        conclusaoTecnica: e.conclusaoTecnica || "",
+        visitas: (e.visitas || []).map(v => ({
+          id: v.id,
+          data: v.data ? v.data.toISOString() : null,
+          observacao: v.observacao || "",
+          temRelatorio: Boolean(v.relatorio),
+          relatorio: v.relatorio ? {
+            id: v.relatorio.id,
+            dataRelatorio: v.relatorio.dataRelatorio ? v.relatorio.dataRelatorio.toISOString() : null,
+            profissionalResponsavel: v.relatorio.profissionalResponsavel || "",
+            // Condição clínica
+            apresentaLesoes: v.relatorio.apresentaLesoes || "Não",
+            descricaoLesoes: v.relatorio.descricaoLesoes || "",
+            evolucaoQuadro: v.relatorio.evolucaoQuadro || "",
+            // Tratamento
+            emTratamento: v.relatorio.emTratamento || "Sim",
+            medicamentosAtuais: v.relatorio.medicamentosAtuais || "",
+            adesaoTratamento: v.relatorio.adesaoTratamento || "",
+            // Manejo
+            isolamentoAdequado: v.relatorio.isolamentoAdequado || "Sim",
+            usoEpiAdequado: v.relatorio.usoEpiAdequado || "Sim",
+            higienizacaoAdequada: v.relatorio.higienizacaoAdequada || "Sim",
+            // Orientações
+            orientacoesRepassadas: v.relatorio.orientacoesRepassadas || "",
+            // Avaliação
+            observacoesGerais: v.relatorio.observacoesGerais || "",
+            necessidadeNovaVisita: v.relatorio.necessidadeNovaVisita || "Sim",
+            dataProximaVisita: v.relatorio.dataProximaVisita ? v.relatorio.dataProximaVisita.toISOString() : null,
+            // Encaminhamentos
+            encVeterinario: v.relatorio.encVeterinario || false,
+            encNotificacao: v.relatorio.encNotificacao || false,
+            encOutros: v.relatorio.encOutros || false,
+            descricaoEncaminhamentos: v.relatorio.descricaoEncaminhamentos || "",
+          } : null,
+        })),
+      })),
+    };
+
+    return { success: true, data };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao obter histórico completo do animal:", error);
+    return { success: false, error: "Erro ao carregar histórico do animal." };
   }
 }
 
@@ -715,17 +995,53 @@ export async function obterProcedimento(id) {
 
     const p = await prisma.cadastroProcedimento.findUnique({
       where: { id: procId },
-      include: { animal: { include: { tutor: { include: { pessoa: true } } } } },
+      include: { 
+        animal: { 
+          include: { 
+            tutor: { 
+              include: { 
+                pessoa: {
+                  include: {
+                    enderecos: {
+                      where: { enderecoAtual: true },
+                      take: 1
+                    }
+                  }
+                }
+              } 
+            } 
+          } 
+        } 
+      },
     });
     if (!p) return { success: false, error: "Procedimento não encontrado." };
 
     const dataRetorno = dateParaYMD(p.dataRetorno);
+    
+    const tutorPessoa = p.animal?.tutor?.pessoa || null;
+    const enderecoPrincipal = tutorPessoa?.enderecos?.[0] || null;
+
+    // Formatar endereço completo
+    let enderecoFormatado = "";
+    if (enderecoPrincipal) {
+      const partes = [];
+      if (enderecoPrincipal.logradouro) partes.push(enderecoPrincipal.logradouro);
+      if (enderecoPrincipal.numero) partes.push(`nº ${enderecoPrincipal.numero}`);
+      if (enderecoPrincipal.bairro) partes.push(enderecoPrincipal.bairro);
+      if (enderecoPrincipal.cidade) partes.push(enderecoPrincipal.cidade);
+      if (enderecoPrincipal.uf) partes.push(enderecoPrincipal.uf);
+      enderecoFormatado = partes.join(", ");
+    }
 
     const data = {
       id: p.id,
       animalId: p.animalId,
       animalNome: p.animal?.nome || "",
+      animalEspecie: p.animal?.especie || "",
+      animalRaca: p.animal?.raca || "",
       animalLabel: `${p.animal?.nome?.trim() || "Sem nome"} (${p.animalId})`,
+      tutorNome: tutorPessoa?.nomeCompleto || "",
+      tutorTelefone: tutorPessoa?.telefone || "",
       tipo: p.tipo,
       dataProcedimento: dateParaYMD(p.dataProcedimento),
       veterinario: p.veterinario || "",
@@ -734,6 +1050,19 @@ export async function obterProcedimento(id) {
       medicacaoPrescrita: p.medicacaoPrescrita || "",
       temRetorno: dataRetorno ? "Sim" : "Não",
       dataRetorno,
+      // Adicionar objetos completos para geração de termos
+      animal: p.animal ? {
+        id: p.animal.id,
+        nome: p.animal.nome,
+        especie: p.animal.especie,
+        raca: p.animal.raca,
+      } : null,
+      tutor: tutorPessoa ? {
+        nome: tutorPessoa.nomeCompleto,
+        cpf: tutorPessoa.cpf,
+        telefone: tutorPessoa.telefone,
+        endereco: enderecoFormatado,
+      } : null,
     };
 
     return { success: true, data };
@@ -743,6 +1072,39 @@ export async function obterProcedimento(id) {
     }
     console.error("Erro ao obter procedimento (CCZ):", error);
     return { success: false, error: "Erro ao carregar o procedimento." };
+  }
+}
+
+// ── EXCLUIR PROCEDIMENTO ────────────────────────────────────────────────────
+export async function excluirProcedimento(id) {
+  try {
+    await requireAcessoModulo(MODULOS.CCZ);
+
+    const procId = String(id || "").trim();
+    if (!procId) return { success: false, error: "ID do procedimento não informado." };
+
+    // Verifica se o procedimento existe
+    const procedimento = await prisma.cadastroProcedimento.findUnique({
+      where: { id: procId },
+    });
+
+    if (!procedimento) {
+      return { success: false, error: "Procedimento não encontrado." };
+    }
+
+    // Remove o procedimento
+    await prisma.cadastroProcedimento.delete({
+      where: { id: procId },
+    });
+
+    revalidatePath("/ccz");
+    return { success: true };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao excluir procedimento (CCZ):", error);
+    return { success: false, error: "Erro ao excluir o procedimento." };
   }
 }
 
@@ -820,12 +1182,14 @@ export async function getAgendaProcedimentos(ano, mes) {
     // Visitas de acompanhamento da esporotricose caindo dentro do mês. Esses
     // eventos não têm procedimento (procedimentoId null) e, por isso, não
     // abrem nada na agenda (o botão "Abrir" é guardado por procedimentoId).
+    // Incluímos o relatório para verificar se já foi preenchido.
     const visitasEsporo = await prisma.esporotricoseVisita.findMany({
       where: { data: { gte: inicio, lt: fim } },
       include: {
         esporotricose: {
           include: { animal: { include: { tutor: { include: { pessoa: true } } } } },
         },
+        relatorio: { select: { id: true } }, // Apenas ID para verificar existência
       },
       orderBy: { data: "asc" },
     });
@@ -834,8 +1198,11 @@ export async function getAgendaProcedimentos(ano, mes) {
       const animal = v.esporotricose?.animal || null;
       const animalNome = animal?.nome || "";
       const tutorNome = animal?.tutor?.pessoa?.nomeCompleto || "";
+      const temRelatorio = Boolean(v.relatorio); // Verifica se já tem relatório
+      
       eventos.push({
         procedimentoId: null,
+        visitaId: v.id, // ID da visita para abrir o relatório
         tipoEvento: "ESPORO_VISITA",
         data: dateParaYMD(v.data),
         animalId: animal?.id || "",
@@ -843,6 +1210,7 @@ export async function getAgendaProcedimentos(ano, mes) {
         tutorNome,
         observacao: v.observacao || "",
         label: `Esporotricose — acompanhamento (${animalNome || "Sem nome"})`,
+        temRelatorio, // Nova propriedade
       });
     }
 
@@ -916,6 +1284,7 @@ export async function obterDadosTermoInternacao(procedimentoId) {
           observacoes,
         },
         temTutor: Boolean(tutorPessoa),
+        tutorNome: tutorPessoa?.nomeCompleto || "",
         tutor: tutorPessoa
           ? {
               cpf: tutorPessoa.cpf,
@@ -1124,6 +1493,7 @@ export async function salvarEsporotricose(dados) {
       : [];
 
     await prisma.$transaction(async (tx) => {
+      // Upsert do registro principal
       await tx.esporotricose.upsert({
         where: { id },
         update: dadosEsporo,
@@ -1143,7 +1513,10 @@ export async function salvarEsporotricose(dados) {
       }
     });
 
+    // Revalida MÚLTIPLAS rotas para garantir atualização
     revalidatePath("/ccz");
+    revalidatePath("/ccz", "layout"); // Revalida layout também
+    
     return { success: true, data: { id } };
   } catch (error) {
     if (error.status === 401 || error.status === 403) {
@@ -1174,6 +1547,7 @@ export async function listarEsporotricose() {
       id: r.id,
       animalId: r.animalId || "",
       animalNome: r.animal?.nome || "",
+      animalFotoUrl: r.animal?.fotoUrl || "",
       tutorNome: r.animal?.tutor?.pessoa?.nomeCompleto || "",
       numeroProtocolo: r.numeroProtocolo || "",
       dataVisita: dateParaYMD(r.dataVisita),
@@ -1202,14 +1576,47 @@ export async function obterEsporotricose(id) {
     const r = await prisma.esporotricose.findUnique({
       where: { id: regId },
       include: {
-        animal: { include: { tutor: { include: { pessoa: true } } } },
-        visitas: { orderBy: { data: "asc" } },
+        animal: { 
+          include: { 
+            tutor: { 
+              include: { 
+                pessoa: {
+                  include: {
+                    enderecos: {
+                      where: { enderecoAtual: true },
+                      take: 1
+                    }
+                  }
+                }
+              } 
+            } 
+          } 
+        },
+        visitas: { 
+          orderBy: { data: "asc" },
+          include: {
+            relatorio: true  // Incluir relatório de cada visita
+          }
+        },
       },
     });
     if (!r) return { success: false, error: "Registro de esporotricose não encontrado." };
 
     const a = r.animal || null;
     const tutorPessoa = a?.tutor?.pessoa || null;
+    const enderecoPrincipal = tutorPessoa?.enderecos?.[0] || null;
+
+    // Formatar endereço completo
+    let enderecoFormatado = "";
+    if (enderecoPrincipal) {
+      const partes = [];
+      if (enderecoPrincipal.logradouro) partes.push(enderecoPrincipal.logradouro);
+      if (enderecoPrincipal.numero) partes.push(`nº ${enderecoPrincipal.numero}`);
+      if (enderecoPrincipal.bairro) partes.push(enderecoPrincipal.bairro);
+      if (enderecoPrincipal.cidade) partes.push(enderecoPrincipal.cidade);
+      if (enderecoPrincipal.uf) partes.push(enderecoPrincipal.uf);
+      enderecoFormatado = partes.join(", ");
+    }
 
     const data = {
       id: r.id,
@@ -1218,6 +1625,7 @@ export async function obterEsporotricose(id) {
       // Dados do animal (para o relatório/termo).
       animal: {
         id: a?.id || "",
+        fotoUrl: a?.fotoUrl || "",
         nome: a?.nome || "",
         especie: a?.especie || "",
         sexo: a?.sexo === "F" ? "Fêmea" : "Macho",
@@ -1226,11 +1634,13 @@ export async function obterEsporotricose(id) {
       },
       temTutor: Boolean(tutorPessoa),
       tutorNome: tutorPessoa?.nomeCompleto || "",
+      endereco: enderecoFormatado || "",
       tutor: tutorPessoa
         ? {
             nome: tutorPessoa.nomeCompleto || "",
             cpf: tutorPessoa.cpf || "",
             telefone: tutorPessoa.telefone || "",
+            endereco: enderecoFormatado || "",
           }
         : null,
       // Campos do formulário.
@@ -1268,6 +1678,28 @@ export async function obterEsporotricose(id) {
       visitas: (r.visitas || []).map((v) => ({
         data: dateParaYMD(v.data),
         observacao: v.observacao || "",
+        temRelatorio: Boolean(v.relatorio),
+        relatorio: v.relatorio ? {
+          profissionalResponsavel: v.relatorio.profissionalResponsavel,
+          dataRelatorio: v.relatorio.dataRelatorio?.toISOString(),
+          apresentaLesoes: v.relatorio.apresentaLesoes,
+          descricaoLesoes: v.relatorio.descricaoLesoes,
+          evolucaoQuadro: v.relatorio.evolucaoQuadro,
+          emTratamento: v.relatorio.emTratamento,
+          medicamentosAtuais: v.relatorio.medicamentosAtuais,
+          adesaoTratamento: v.relatorio.adesaoTratamento,
+          isolamentoAdequado: v.relatorio.isolamentoAdequado,
+          usoEpiAdequado: v.relatorio.usoEpiAdequado,
+          higienizacaoAdequada: v.relatorio.higienizacaoAdequada,
+          orientacoesRepassadas: v.relatorio.orientacoesRepassadas,
+          observacoesGerais: v.relatorio.observacoesGerais,
+          necessidadeNovaVisita: v.relatorio.necessidadeNovaVisita,
+          dataProximaVisita: dateParaYMD(v.relatorio.dataProximaVisita),
+          encVeterinario: v.relatorio.encVeterinario,
+          encNotificacao: v.relatorio.encNotificacao,
+          encOutros: v.relatorio.encOutros,
+          descricaoEncaminhamentos: v.relatorio.descricaoEncaminhamentos,
+        } : null,
       })),
     };
 
@@ -1278,5 +1710,458 @@ export async function obterEsporotricose(id) {
     }
     console.error("Erro ao obter esporotricose (CCZ):", error);
     return { success: false, error: "Erro ao carregar o registro de esporotricose." };
+  }
+}
+
+// ── EXCLUIR REGISTRO DE ESPOROTRICOSE ────────────────────────────────────────
+export async function excluirEsporotricose(id) {
+  "use server";
+  try {
+    await requireAcessoModulo(MODULOS.CCZ);
+
+    const regId = String(id || "").trim();
+    if (!regId) return { success: false, error: "ID não informado." };
+
+    // Verifica se o registro existe
+    const registro = await prisma.esporotricose.findUnique({
+      where: { id: regId },
+    });
+
+    if (!registro) {
+      return { success: false, error: "Registro de esporotricose não encontrado." };
+    }
+
+    // Remove o registro (as visitas e relatórios devem ser removidos em cascata pelo schema)
+    await prisma.esporotricose.delete({
+      where: { id: regId },
+    });
+
+    revalidatePath("/ccz");
+    return { success: true };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao excluir esporotricose (CCZ):", error);
+    return { success: false, error: "Erro ao excluir o registro de esporotricose." };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RELATÓRIOS DE VISITA DE ESPOROTRICOSE
+// ─────────────────────────────────────────────────────────────────────────
+// Actions para gerenciar os relatórios de acompanhamento das visitas de
+// esporotricose. Cada visita pode ter um relatório detalhado preenchido pelo
+// profissional responsável durante ou após a visita.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── SALVAR RELATÓRIO DE VISITA ──────────────────────────────────────────────
+export async function salvarRelatorioVisita(dados) {
+  try {
+    await requireAcessoModulo(MODULOS.CCZ);
+
+    const visitaId = String(dados.visitaId || "").trim();
+    if (!visitaId) return { success: false, error: "ID da visita não informado." };
+
+    // Verificar se a visita existe
+    const visita = await prisma.esporotricoseVisita.findUnique({
+      where: { id: visitaId },
+      select: { id: true },
+    });
+    if (!visita) return { success: false, error: "Visita não encontrada." };
+
+    const profissional = String(dados.profissionalResponsavel || "").trim();
+    if (!profissional) {
+      return { success: false, error: "Informe o profissional responsável." };
+    }
+
+    const dataProximaVisita = dados.dataProximaVisita
+      ? ymdParaDateUTC(dados.dataProximaVisita)
+      : null;
+
+    const dadosRelatorio = {
+      visitaId,
+      profissionalResponsavel: profissional.slice(0, 150),
+      // Condição clínica
+      apresentaLesoes: simNao(dados.apresentaLesoes),
+      descricaoLesoes:
+        dados.apresentaLesoes === "Sim" && dados.descricaoLesoes
+          ? String(dados.descricaoLesoes)
+          : null,
+      evolucaoQuadro: dados.evolucaoQuadro
+        ? String(dados.evolucaoQuadro).slice(0, 50)
+        : "Estável",
+      // Tratamento
+      emTratamento: simNao(dados.emTratamento),
+      medicamentosAtuais:
+        dados.emTratamento === "Sim" && dados.medicamentosAtuais
+          ? String(dados.medicamentosAtuais)
+          : null,
+      adesaoTratamento: dados.adesaoTratamento
+        ? String(dados.adesaoTratamento).slice(0, 50)
+        : "Boa",
+      // Manejo
+      isolamentoAdequado: dados.isolamentoAdequado
+        ? String(dados.isolamentoAdequado).slice(0, 10)
+        : "Sim",
+      usoEpiAdequado: dados.usoEpiAdequado
+        ? String(dados.usoEpiAdequado).slice(0, 10)
+        : "Sim",
+      higienizacaoAdequada: dados.higienizacaoAdequada
+        ? String(dados.higienizacaoAdequada).slice(0, 10)
+        : "Sim",
+      // Orientações
+      orientacoesRepassadas: dados.orientacoesRepassadas
+        ? String(dados.orientacoesRepassadas)
+        : null,
+      // Avaliação
+      observacoesGerais: dados.observacoesGerais
+        ? String(dados.observacoesGerais)
+        : null,
+      necessidadeNovaVisita: simNao(dados.necessidadeNovaVisita),
+      dataProximaVisita,
+      // Encaminhamentos
+      encVeterinario: Boolean(dados.encVeterinario),
+      encNotificacao: Boolean(dados.encNotificacao),
+      encOutros: Boolean(dados.encOutros),
+      descricaoEncaminhamentos:
+        (dados.encVeterinario || dados.encNotificacao || dados.encOutros) &&
+        dados.descricaoEncaminhamentos
+          ? String(dados.descricaoEncaminhamentos)
+          : null,
+    };
+
+    await prisma.esporotricoseRelatorio.upsert({
+      where: { visitaId },
+      update: dadosRelatorio,
+      create: dadosRelatorio,
+    });
+
+    // Se marcou necessidade de nova visita E informou a data, cria automaticamente
+    let proximaVisitaAgendada = null;
+    if (dados.necessidadeNovaVisita === "Sim" && dataProximaVisita) {
+      // Buscar o ID da esporotricose dessa visita
+      const visitaAtual = await prisma.esporotricoseVisita.findUnique({
+        where: { id: visitaId },
+        select: { esporotricoseId: true },
+      });
+
+      if (visitaAtual) {
+        // Verificar se já existe uma visita nessa data para esse registro
+        const visitaExistente = await prisma.esporotricoseVisita.findFirst({
+          where: {
+            esporotricoseId: visitaAtual.esporotricoseId,
+            data: dataProximaVisita,
+          },
+        });
+
+        // Se não existe, cria a nova visita
+        if (!visitaExistente) {
+          await prisma.esporotricoseVisita.create({
+            data: {
+              esporotricoseId: visitaAtual.esporotricoseId,
+              data: dataProximaVisita,
+              observacao: "",
+            },
+          });
+          proximaVisitaAgendada = dateParaYMD(dataProximaVisita);
+        }
+      }
+    }
+
+    revalidatePath("/ccz");
+    revalidatePath("/ccz", "layout");
+
+    return { 
+      success: true,
+      proximaVisitaAgendada, // Retorna a data se foi agendada
+    };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao salvar relatório de visita (CCZ):", error);
+    return {
+      success: false,
+      error: error.message || "Erro ao salvar o relatório de visita.",
+    };
+  }
+}
+
+// ── OBTER RELATÓRIO DE VISITA ───────────────────────────────────────────────
+export async function obterRelatorioVisita(visitaId) {
+  try {
+    await requireAcessoModulo(MODULOS.CCZ);
+
+    const idVisita = String(visitaId || "").trim();
+    if (!idVisita) return { success: false, error: "ID da visita não informado." };
+
+    const relatorio = await prisma.esporotricoseRelatorio.findUnique({
+      where: { visitaId: idVisita },
+    });
+
+    if (!relatorio) {
+      // Não existe relatório ainda
+      return { success: true, data: null };
+    }
+
+    const data = {
+      visitaId: relatorio.visitaId,
+      profissionalResponsavel: relatorio.profissionalResponsavel || "",
+      // Condição clínica
+      apresentaLesoes: relatorio.apresentaLesoes || "Não",
+      descricaoLesoes: relatorio.descricaoLesoes || "",
+      evolucaoQuadro: relatorio.evolucaoQuadro || "Estável",
+      // Tratamento
+      emTratamento: relatorio.emTratamento || "Sim",
+      medicamentosAtuais: relatorio.medicamentosAtuais || "",
+      adesaoTratamento: relatorio.adesaoTratamento || "Boa",
+      // Manejo
+      isolamentoAdequado: relatorio.isolamentoAdequado || "Sim",
+      usoEpiAdequado: relatorio.usoEpiAdequado || "Sim",
+      higienizacaoAdequada: relatorio.higienizacaoAdequada || "Sim",
+      // Orientações
+      orientacoesRepassadas: relatorio.orientacoesRepassadas || "",
+      // Avaliação
+      observacoesGerais: relatorio.observacoesGerais || "",
+      necessidadeNovaVisita: relatorio.necessidadeNovaVisita || "Sim",
+      dataProximaVisita: dateParaYMD(relatorio.dataProximaVisita),
+      // Encaminhamentos
+      encVeterinario: Boolean(relatorio.encVeterinario),
+      encNotificacao: Boolean(relatorio.encNotificacao),
+      encOutros: Boolean(relatorio.encOutros),
+      descricaoEncaminhamentos: relatorio.descricaoEncaminhamentos || "",
+    };
+
+    return { success: true, data };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao obter relatório de visita (CCZ):", error);
+    return {
+      success: false,
+      error: "Erro ao carregar o relatório de visita.",
+    };
+  }
+}
+
+// ── SALVAR ZOONOSE ───────────────────────────────────────────────────────────
+export async function salvarZoonose(dados) {
+  try {
+    await requireAcessoModulo(MODULOS.CCZ);
+
+    const dataZoonose = {
+      animalId: String(dados.animalId),
+      doenca: dados.doenca,
+      dataIdentificacao: new Date(dados.dataIdentificacao),
+      grauRisco: dados.grauRisco,
+      riscoVida: dados.riscoVida,
+      formasContaminacao: dados.formasContaminacao,
+      periodoMonitoramento: dados.solicitacaoAcompanhamento,
+      dataAgendamento: dados.dataAgendamento ? new Date(dados.dataAgendamento) : null,
+      responsavelMonitoramento: dados.responsavelMonitoramento,
+      observacao: dados.observacao || null,
+    };
+
+    let zoonose;
+    
+    if (dados.id) {
+      // Atualizar registro existente
+      zoonose = await prisma.cadastroZoonoses.update({
+        where: { id: dados.id },
+        data: dataZoonose,
+      });
+    } else {
+      // Criar novo registro
+      const id = `ZOO-${Date.now().toString(36)}`.toUpperCase().slice(0, 50);
+      zoonose = await prisma.cadastroZoonoses.create({
+        data: {
+          id,
+          ...dataZoonose,
+        },
+      });
+    }
+
+    revalidatePath("/ccz");
+    return { sucesso: true, data: zoonose };
+  } catch (error) {
+    console.error("Erro ao salvar zoonose:", error);
+    return { sucesso: false, erro: error.message };
+  }
+}
+
+// ── LISTAR ZOONOSES ──────────────────────────────────────────────────────────
+export async function listarZoonoses() {
+  try {
+    await requireAcessoModulo(MODULOS.CCZ);
+
+    const zoonoses = await prisma.cadastroZoonoses.findMany({
+      include: {
+        animal: true,
+      },
+      orderBy: { dataIdentificacao: "desc" },
+    });
+
+    return { sucesso: true, data: zoonoses };
+  } catch (error) {
+    console.error("Erro ao listar zoonoses:", error);
+    return { sucesso: false, erro: error.message };
+  }
+}
+
+// ── OBTER UMA ZOONOSE (para edição) ─────────────────────────────────────────
+export async function obterZoonose(id) {
+  try {
+    await requireAcessoModulo(MODULOS.CCZ);
+
+    const zoonose = await prisma.cadastroZoonoses.findUnique({
+      where: { id },
+      include: {
+        animal: {
+          include: {
+            tutor: {
+              include: {
+                pessoa: {
+                  include: {
+                    enderecos: {
+                      where: { enderecoAtual: true },
+                      take: 1
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+      },
+    });
+
+    if (!zoonose) {
+      return { success: false, error: "Zoonose não encontrada." };
+    }
+
+    const a = zoonose.animal || null;
+    const tutorPessoa = a?.tutor?.pessoa || null;
+    const enderecoPrincipal = tutorPessoa?.enderecos?.[0] || null;
+
+    // Formatar endereço completo
+    let enderecoFormatado = "";
+    if (enderecoPrincipal) {
+      const partes = [];
+      if (enderecoPrincipal.logradouro) partes.push(enderecoPrincipal.logradouro);
+      if (enderecoPrincipal.numero) partes.push(`nº ${enderecoPrincipal.numero}`);
+      if (enderecoPrincipal.bairro) partes.push(enderecoPrincipal.bairro);
+      if (enderecoPrincipal.cidade) partes.push(enderecoPrincipal.cidade);
+      if (enderecoPrincipal.uf) partes.push(enderecoPrincipal.uf);
+      enderecoFormatado = partes.join(", ");
+    }
+
+    const data = {
+      id: zoonose.id,
+      animalId: zoonose.animalId,
+      animalNome: zoonose.animal?.nome || "",
+      tutorNome: tutorPessoa?.nomeCompleto || "", // Adicionar tutorNome
+      animal: a ? {
+        id: a.id,
+        nome: a.nome || "",
+        especie: a.especie || "",
+      } : null,
+      tutor: tutorPessoa ? {
+        nome: tutorPessoa.nomeCompleto || "",
+        cpf: tutorPessoa.cpf || "",
+        telefone: tutorPessoa.telefone || "",
+        endereco: enderecoFormatado || "",
+      } : null,
+      doenca: zoonose.doenca,
+      dataIdentificacao: dateParaYMD(zoonose.dataIdentificacao),
+      grauRisco: zoonose.grauRisco,
+      riscoVida: zoonose.riscoVida,
+      formasContaminacao: zoonose.formasContaminacao || "",
+      solicitacaoAcompanhamento: zoonose.periodoMonitoramento,
+      dataAgendamento: dateParaYMD(zoonose.dataAgendamento),
+      responsavelMonitoramento: zoonose.responsavelMonitoramento || "",
+      observacao: zoonose.observacao || "",
+    };
+
+    return { success: true, data };
+  } catch (error) {
+    console.error("Erro ao obter zoonose:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+// ── SALVAR DENÚNCIA ──────────────────────────────────────────────────────────
+export async function salvarDenuncia(dados) {
+  try {
+    await requireAcessoModulo(MODULOS.CCZ);
+
+    // Gerar próximo ID no formato DEN-XX
+    const denuncias = await prisma.denunciaCaoAgressivo.findMany({
+      where: {
+        id: {
+          startsWith: "DEN-"
+        }
+      },
+      orderBy: { id: 'desc' },
+      select: { id: true }
+    });
+
+    // Filtra apenas IDs no formato DEN-[número] e extrai o maior número
+    let novoNumero = 1;
+    for (const denuncia of denuncias) {
+      const match = denuncia.id.match(/^DEN-(\d+)$/);
+      if (match) {
+        const numero = parseInt(match[1]);
+        if (numero >= novoNumero) {
+          novoNumero = numero + 1;
+        }
+      }
+    }
+
+    const novoId = `DEN-${String(novoNumero).padStart(2, '0')}`;
+
+    const denuncia = await prisma.denunciaCaoAgressivo.create({
+      data: {
+        id: novoId,
+        animalId: dados.animalId || null,
+        cep: dados.cep ? soDigitos(dados.cep) : null,
+        logradouro: dados.logradouro || null,
+        numero: dados.numero || null,
+        complemento: dados.complemento || null,
+        bairro: dados.bairro || null,
+        cidade: dados.cidade || "Muriaé",
+        uf: dados.uf || "MG",
+        pontoReferencia: dados.pontoReferencia || null,
+        descricaoCao: dados.descricaoCao,
+        causouRisco: dados.causouRisco,
+        relato: dados.relato,
+      },
+    });
+
+    revalidatePath("/ccz");
+    return { sucesso: true, data: denuncia };
+  } catch (error) {
+    console.error("Erro ao salvar denúncia:", error);
+    return { sucesso: false, erro: error.message };
+  }
+}
+
+// ── LISTAR DENÚNCIAS ─────────────────────────────────────────────────────────
+export async function listarDenuncias() {
+  try {
+    await requireAcessoModulo(MODULOS.CCZ);
+
+    const denuncias = await prisma.denunciaCaoAgressivo.findMany({
+      include: {
+        animal: true,
+      },
+      orderBy: { dataDenuncia: "desc" },
+    });
+
+    return { sucesso: true, data: denuncias };
+  } catch (error) {
+    console.error("Erro ao listar denúncias:", error);
+    return { sucesso: false, erro: error.message };
   }
 }

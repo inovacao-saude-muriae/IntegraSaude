@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import styles from "./AgendaCCZ.module.css";
 import { getAgendaProcedimentos } from "./actions";
+import RelatorioVisitaEsporotricose from "./RelatorioVisitaEsporotricose";
 
 const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const MESES = [
@@ -31,6 +32,7 @@ export default function AgendaCCZ({ onAbrirProcedimento }) {
   const [eventos, setEventos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [diaSelecionado, setDiaSelecionado] = useState(null);
+  const [visitaSelecionada, setVisitaSelecionada] = useState(null);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -91,6 +93,18 @@ export default function AgendaCCZ({ onAbrirProcedimento }) {
   const eventosDoDiaModal = diaSelecionado
     ? eventosPorDia[diaSelecionado] || []
     : [];
+
+  const abrirRelatorioVisita = (evento) => {
+    if (evento.tipoEvento === "ESPORO_VISITA" && evento.visitaId) {
+      setVisitaSelecionada({
+        visitaId: evento.visitaId,
+        animalNome: evento.animalNome || "Sem nome",
+        tutorNome: evento.tutorNome || "Sem tutor",
+        dataVisita: formatarDiaBR(evento.data),
+      });
+      setDiaSelecionado(null); // Fecha o modal do dia
+    }
+  };
 
   return (
     <div className={styles.card}>
@@ -205,7 +219,25 @@ export default function AgendaCCZ({ onAbrirProcedimento }) {
                             : ""}
                         </div>
                       </div>
-                      {onAbrirProcedimento && e.procedimentoId && (
+                      {e.tipoEvento === "ESPORO_VISITA" ? (
+                        e.temRelatorio ? (
+                          <button
+                            type="button"
+                            className={styles.verBtnPreenchido}
+                            onClick={() => abrirRelatorioVisita(e)}
+                          >
+                            ✓ Preenchido
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className={styles.verBtn}
+                            onClick={() => abrirRelatorioVisita(e)}
+                          >
+                            Relatório
+                          </button>
+                        )
+                      ) : onAbrirProcedimento && e.procedimentoId ? (
                         <button
                           type="button"
                           className={styles.verBtn}
@@ -213,7 +245,7 @@ export default function AgendaCCZ({ onAbrirProcedimento }) {
                         >
                           Abrir
                         </button>
-                      )}
+                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -221,6 +253,21 @@ export default function AgendaCCZ({ onAbrirProcedimento }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* MODAL DE RELATÓRIO DE VISITA */}
+      {visitaSelecionada && (
+        <RelatorioVisitaEsporotricose
+          visitaId={visitaSelecionada.visitaId}
+          animalNome={visitaSelecionada.animalNome}
+          tutorNome={visitaSelecionada.tutorNome}
+          dataVisita={visitaSelecionada.dataVisita}
+          onFechar={() => setVisitaSelecionada(null)}
+          onSalvo={() => {
+            setVisitaSelecionada(null);
+            carregar(); // Recarrega a agenda
+          }}
+        />
       )}
     </div>
   );

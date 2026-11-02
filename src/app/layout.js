@@ -2,8 +2,12 @@ import ClientLayout from '@/components/ClientLayout';
 import './globals.css';
 
 export const metadata = {
-  title: 'Orion - Gestão Integrada',
-  description: 'ERP para Saúde Pública, Regulação de Exames e Zoonoses',
+  title: 'IntegraSaúde - Gestão Integrada',
+  description: 'Sistema de Gestão Municipal de Saúde',
+  icons: {
+    icon: '/icon.png',
+    apple: '/apple-icon.png',
+  },
 };
 
 export default function RootLayout({ children }) {

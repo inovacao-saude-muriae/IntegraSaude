@@ -1,0 +1,478 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+/* LOADING STATE */
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: 1rem;
+  color: #64748b;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f1f5f9;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* BANNER DE BOAS-VINDAS */
+.welcomeBanner {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  color: #ffffff;
+  padding: 1.5rem;
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.welcomeBanner h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.welcomeBanner p {
+  margin: 0.375rem 0 0 0;
+  color: #94a3b8;
+  font-size: 0.875rem;
+}
+
+.bannerActions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.newRequestBtn {
+  padding: 0.65rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #ffffff;
+  background-color: #2563eb;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.15s ease;
+}
+
+.newRequestBtn:hover {
+  background-color: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.secondaryBtn {
+  padding: 0.65rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #ffffff;
+  background-color: #475569;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.15s ease;
+}
+
+.secondaryBtn:hover {
+  background-color: #334155;
+  transform: translateY(-1px);
+}
+
+/* CARDS DE MÉTRICAS KPI */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.25rem;
+}
+
+.kpiCard {
+  background-color: #ffffff;
+  border-radius: 12px;
+  padding: 1.25rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+.clickable:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  transform: translateY(-2px);
+}
+
+.kpiHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.kpiTitle {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.iconBox {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.yellowIcon { background-color: #fef3c7; color: #d97706; }
+.greenIcon { background-color: #f0fdf4; color: #16a34a; }
+.redIcon { background-color: #fee2e2; color: #dc2626; }
+.indigoIcon { background-color: #eef2ff; color: #4f46e5; }
+
+.kpiValue {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.2;
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.kpiUnit {
+  font-size: 0.825rem;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.kpiFooter {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #f1f5f9;
+  font-size: 0.775rem;
+  color: #64748b;
+}
+
+/* PAINÉIS SECUNDÁRIOS */
+.contentGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+.panelCard {
+  background-color: #ffffff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.panelHeader {
+  margin-bottom: 1.25rem;
+}
+
+.panelHeader h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 0.25rem 0;
+}
+
+.cardSubtitle {
+  font-size: 0.85rem;
+  color: #64748b;
+  display: block;
+}
+
+/* AÇÕES RÁPIDAS */
+.quickActionsList {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.quickActionBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background-color: #f8fafc;
+  border: 1px solid #f1f5f9;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.quickActionBtn:hover {
+  background-color: #ffffff;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.quickActionIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* BARRAS DE RISCO/PROGRESSO */
+.riskProgressList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.riskItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.riskHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8125rem;
+  color: #334155;
+}
+
+.riskBadge {
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+.redBadge { background-color: #fee2e2; color: #dc2626; }
+.yellowBadge { background-color: #fef3c7; color: #d97706; }
+.greenBadge { background-color: #dcfce7; color: #16a34a; }
+
+.progressBarBg {
+  width: 100%;
+  height: 8px;
+  background-color: #f1f5f9;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progressBarFill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+/* LISTA DE TIPOS/ESTATÍSTICAS */
+.examTypeList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.examTypeRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.625rem 0.75rem;
+  background-color: #f8fafc;
+  border: 1px solid #f1f5f9;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.examCountBadge {
+  background-color: #e2e8f0;
+  color: #0f172a;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.examCountBadgeWarning {
+  background-color: #fef3c7;
+  color: #d97706;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+/* RESPONSIVIDADE */
+@media (max-width: 900px) {
+  .contentGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .quickActionsList {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .container {
+    gap: 1rem;
+  }
+
+  .welcomeBanner {
+    padding: 1.25rem;
+  }
+
+  .welcomeBanner h2 {
+    font-size: 1.125rem;
+  }
+
+  .welcomeBanner p {
+    font-size: 0.8125rem;
+  }
+
+  .kpiGrid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .bannerActions {
+    width: 100%;
+  }
+
+  .newRequestBtn,
+  .secondaryBtn {
+    flex: 1;
+  }
+}
+
+/* GRÁFICO DE BARRAS (dentro do kpiGrid) */
+.chartPanel {
+  background-color: #ffffff;
+  border-radius: 12px;
+  padding: 1.25rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  grid-column: span 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+@media (max-width: 768px) {
+  .chartPanel {
+    grid-column: span 1;
+  }
+}
+
+.chartContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.chartRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.chartLabel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.chartLabelText {
+  flex: 1;
+}
+
+.chartLabelCount {
+  background-color: #e2e8f0;
+  color: #0f172a;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  min-width: 40px;
+  text-align: center;
+}
+
+.chartBarContainer {
+  width: 100%;
+  height: 20px;
+  background-color: #f1f5f9;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+}
+
+.chartBar {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 0.5rem;
+  transition: width 0.6s ease;
+  min-width: 50px;
+}
+
+.chartBarLabel {
+  color: white;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  gap: 0.75rem;
+  color: #94a3b8;
+  flex: 1;
+}
+
+.emptyState svg {
+  opacity: 0.5;
+}
+
+.emptyState p {
+  font-size: 0.9375rem;
+  font-style: italic;
+  margin: 0;
+}

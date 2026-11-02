@@ -62,12 +62,15 @@ const menuSections = [
           </svg>
         ),
         subItems: [
-          { name: "Dashboard", tab: "DASHBOARD", visivelSe: "REGULACAO" },
           { name: "Novo Pedido", tab: "NOVO_PEDIDO", visivelSe: "REGULACAO" },
           { name: "Lista de Espera", tab: "LISTA_ESPERA", visivelSe: "REGULACAO" },
           { name: "Liberados", tab: "LIBERADOS", visivelSe: "REGULACAO" },
-          { name: "Financeiro", tab: "FINANCEIRO", visivelSe: "REGULACAO" },
+          { name: "Financeiro", tab: "FINANCEIRO", visivelSe: "REGULACAO_ADMIN" },
+          { name: "separator", isSeparator: true, visivelSe: "REGULACAO" },
           { name: "Procedimentos", tab: "PROCEDIMENTOS", visivelSe: "REGULACAO" },
+          { name: "Médicos", path: "/gerenciamento/medicos", visivelSe: "REGULACAO" },
+          { name: "Unidade Básica de Saúde", path: "/gerenciamento/ubs", visivelSe: "REGULACAO" },
+          { name: "Dashboard", tab: "DASHBOARD", visivelSe: "REGULACAO" },
         ],
       },
     ],
@@ -98,16 +101,17 @@ const menuSections = [
           {
             name: "Farmácia Judicial",
             tab: "FARMACIA_JUDICIAL",
-            path: "/camara-tecnica/farmacia-judicial",
+            path: "/camara-tecnica/farmacia-judicial?tab=FARMACIA_JUDICIAL&subTab=DASHBOARD",
             isNestedDropdown: true,
             visivelSe: "FARMACIA",
             nestedItems: [
-              { name: "Dashboard", subTab: "DASHBOARD" },
-              { name: "Pacientes", subTab: "PACIENTES" },
+              { name: "Novo Processo", subTab: "PACIENTES" },
               { name: "Medicamentos", subTab: "MEDICAMENTOS" },
               { name: "Estoque", subTab: "ESTOQUE" },
-              { name: "Dispensação", subTab: "DISPENSACAO" },              
+              { name: "Dispensação", subTab: "DISPENSACAO" },
+              { name: "separator", isSeparator: true },
               { name: "Relatórios", subTab: "RELATORIOS" },
+              { name: "Dashboard", subTab: "DASHBOARD" },
             ],
           },
           {
@@ -145,7 +149,7 @@ const menuSections = [
           </svg>
         ),
         subItems: [
-          { name: "Cadastro de Paciente", tab: "CADASTRO", visivelSe: "JUNTA" },
+          { name: "Novo Pedido", tab: "CADASTRO", visivelSe: "JUNTA" },
            {
             name: "Serviços",
             tab: "SERVICOS",
@@ -159,8 +163,10 @@ const menuSections = [
            
             ],
           },
+          { name: "separator", isSeparator: true, visivelSe: "JUNTA" },
           { name: "Serviços e Especialidades", tab: "SERVICOS_ESPECIALIDADES", visivelSe: "JUNTA" },
-          { name: "Prontuário e Relatório", tab: "RELATORIO", visivelSe: "JUNTA_ADMIN" },
+          { name: "Prontuário", tab: "RELATORIO", visivelSe: "JUNTA_ADMIN" },
+          { name: "Dashboard", tab: "DASHBOARD", visivelSe: "JUNTA" },
          
         ],
       },
@@ -191,47 +197,16 @@ const menuSections = [
           </svg>
         ),
         subItems: [
-          {
-            name: "Tutor",
-            tab: "TUTORES",
-            isNestedDropdown: true,
-            visivelSe: "CCZ",
-            nestedItems: [
-              { name: "Cadastrar", subTab: "CADASTRAR", visivelSe: "CCZ" },
-              { name: "Lista", subTab: "LISTA", visivelSe: "CCZ" },
-            ],
-          },
-          {
-            name: "Animais",
-            tab: "ANIMAIS",
-            isNestedDropdown: true,
-            visivelSe: "CCZ",
-            nestedItems: [
-              { name: "Cadastrar", subTab: "CADASTRAR", visivelSe: "CCZ" },
-              { name: "Lista", subTab: "LISTA", visivelSe: "CCZ" },
-            ],
-          },
-          {
-            name: "Procedimentos",
-            tab: "PROCEDIMENTOS",
-            isNestedDropdown: true,
-            visivelSe: "CCZ",
-            nestedItems: [
-              { name: "Cadastrar", subTab: "CADASTRAR", visivelSe: "CCZ" },
-              { name: "Lista", subTab: "LISTA", visivelSe: "CCZ" },
-            ],
-          },
-          {
-            name: "Esporotricose",
-            tab: "ESPOROTRICOSE",
-            isNestedDropdown: true,
-            visivelSe: "CCZ",
-            nestedItems: [
-              { name: "Cadastrar", subTab: "CADASTRAR", visivelSe: "CCZ" },
-              { name: "Lista", subTab: "LISTA", visivelSe: "CCZ" },
-            ],
-          },
+          { name: "Procedimentos", tab: "PROCEDIMENTOS", visivelSe: "CCZ" },
+          { name: "Esporotricose", tab: "ESPOROTRICOSE", visivelSe: "CCZ" },
+          { name: "Zoonoses", tab: "ZOONOSES", visivelSe: "CCZ" },
+          { name: "Denúncias", tab: "DENUNCIAS", visivelSe: "CCZ" },
           { name: "Agenda", tab: "AGENDA", visivelSe: "CCZ" },
+          { name: "separator", isSeparator: true, visivelSe: "CCZ" },
+          { name: "Animais", tab: "ANIMAIS", visivelSe: "CCZ" },
+          { name: "Tutor", tab: "TUTORES", visivelSe: "CCZ" },
+          { name: "Termos", tab: "TERMOS", visivelSe: "CCZ" },
+          { name: "Dashboard", tab: "DASHBOARD", visivelSe: "CCZ" },
         ],
       },
     ],
@@ -263,19 +238,25 @@ const menuSections = [
             name: "Pacientes",
             path: "/gerenciamento/pessoas",
             tab: "PESSOAS",
-            visivelSe: "TODOS",
+            visivelSe: "GESTOR",
+          },
+          {
+            name: "Procedimentos",
+            path: "/regulacao?tab=PROCEDIMENTOS",
+            tab: "PROCEDIMENTOS",
+            visivelSe: "GESTOR",
           },
           {
             name: "Médicos",
             path: "/gerenciamento/medicos",
             tab: "MEDICOS",
-            visivelSe: "REGULACAO",
+            visivelSe: "GESTOR",
           },
           {
             name: "Unidade Básica de Saúde",
             path: "/gerenciamento/ubs",
             tab: "UBS",
-            visivelSe: "REGULACAO",
+            visivelSe: "GESTOR",
           },
           {
             name: "Gerenciar Usuários",
@@ -428,6 +409,8 @@ function construirMenu(me) {
         return true;
       case "REGULACAO":
         return temModulo("REGULACAO");
+      case "REGULACAO_ADMIN":
+        return ehGestor || ehAdminMod("REGULACAO");
       case "JUNTA":
         return temModulo("JUNTA");
       case "JUNTA_ADMIN":
@@ -548,6 +531,16 @@ function MenuRender({ menuSections }) {
   // Monta a URL da primeira aba (padrão) de um módulo, para "resetar" a posição
   // ao reabrir o módulo em vez de ficar na última aba acessada.
   const urlAbaInicial = (item) => {
+    // Se o path já tiver uma query string com tab, usa ela diretamente
+    if (item.path.includes('?tab=')) return item.path;
+    
+    // Tenta achar um item com tab "DASHBOARD"
+    const dashboardItem = item.subItems?.find(sub => sub.tab === "DASHBOARD");
+    if (dashboardItem) {
+      if (dashboardItem.path) return dashboardItem.path;
+      return `${item.path}?tab=DASHBOARD`;
+    }
+    
     const primeiro = item.subItems?.[0];
     if (!primeiro) return item.path;
     // Link já pronto (ex.: Gerenciamento usa path próprio por item).
@@ -560,12 +553,36 @@ function MenuRender({ menuSections }) {
     const path = item.path;
     const vaiAbrir = !openGroup[path];
     setOpenGroup((prev) => ({ ...prev, [path]: !prev[path] }));
+    
+    // Se estiver FECHANDO o grupo, fechar todos os submenus nested dentro dele
+    if (!vaiAbrir) {
+      const nestedTabsToClose = item.subItems
+        ?.filter(sub => sub.isNestedDropdown)
+        .map(sub => sub.tab) || [];
+      
+      if (nestedTabsToClose.length > 0) {
+        setOpenNested((prev) => {
+          const newState = { ...prev };
+          nestedTabsToClose.forEach(tabKey => {
+            newState[tabKey] = false;
+          });
+          return newState;
+        });
+      }
+    }
+    
     // Ao abrir o módulo, navega para a aba inicial (zera a posição anterior).
     // Exceção: se o primeiro item for um subgrupo (nestedDropdown), não navega —
     // apenas expande o menu (ex.: Câmara Técnica só mostra conteúdo ao clicar
     // em Farmácia Judicial).
-    if (vaiAbrir && !item.subItems?.[0]?.isNestedDropdown) {
-      router.push(urlAbaInicial(item));
+    if (vaiAbrir) {
+      const primeiroItem = item.subItems?.[0];
+      const ehNestedDropdown = primeiroItem?.isNestedDropdown;
+      
+      // Se o primeiro item não for nestedDropdown, navega
+      if (!ehNestedDropdown) {
+        router.push(urlAbaInicial(item));
+      }
     }
   };
 
@@ -576,9 +593,16 @@ function MenuRender({ menuSections }) {
     // Ao abrir o subgrupo, navega para o primeiro item dele (zera a posição).
     if (vaiAbrir) {
       const base = sub.path || itemPath;
-      const primeiro = sub.nestedItems?.[0];
-      if (primeiro) {
-        router.push(`${base}?tab=${sub.tab}&subTab=${primeiro.subTab}`);
+      
+      // Se o path já tiver query string completa (ex: ?tab=X&subTab=Y), usa ela diretamente
+      if (base.includes('?tab=') && base.includes('&subTab=')) {
+        router.push(base);
+      } else {
+        // Caso contrário, monta a URL com o primeiro nestedItem
+        const primeiro = sub.nestedItems?.[0];
+        if (primeiro) {
+          router.push(`${base}?tab=${sub.tab}&subTab=${primeiro.subTab}`);
+        }
       }
     }
   };
@@ -589,10 +613,10 @@ function MenuRender({ menuSections }) {
       <div className={styles.sidebarHeader}>
         <div className={styles.brandLogo}>
           <Image
-            src="/img/logos-orion/logo.png"
-            alt="Orion — Plataforma de Gestão Integrada"
-            width={480}
-            height={150}
+            src="/img/logos-integra/logointegra.png"
+            alt="IntegraSaúde"
+            width={180}
+            height={60}
             quality={100}
             className={styles.brandImage}
             priority
@@ -662,14 +686,23 @@ function MenuRender({ menuSections }) {
 
                       {isDropdownOpen && (
                         <ul className={styles.subMenuList}>
-                          {subItemsVisiveis.map((sub) => {
+                          {subItemsVisiveis.map((sub, subIndex) => {
+                            // Renderiza separador
+                            if (sub.isSeparator) {
+                              return (
+                                <li key={`separator-${subIndex}`} className={styles.menuSeparator}>
+                                  <hr />
+                                </li>
+                              );
+                            }
+
                             if (sub.isNestedDropdown) {
                               const isNestedOpen =
                                 Boolean(openNested[sub.tab]) ||
                                 Boolean(searchTerm);
 
                               return (
-                                <li key={sub.tab}>
+                                <li key={`${sub.tab}-${subIndex}`}>
                                   <button
                                     type="button"
                                     className={`${styles.nestedBtn} ${isNestedOpen ? styles.nestedBtnOpen : ""}`}
@@ -696,16 +729,36 @@ function MenuRender({ menuSections }) {
 
                                   {isNestedOpen && (
                                     <ul className={styles.nestedMenuList}>
-                                      {sub.nestedItems.map((nested) => {
-                                        const nestedLink = `${sub.path || item.path}?tab=${sub.tab}&subTab=${nested.subTab}`;
-                                        const isNestedActive =
-                                          pathname ===
-                                            (sub.path || item.path) &&
-                                          currentTab === sub.tab &&
-                                          currentSubTab === nested.subTab;
+                                      {sub.nestedItems.map((nested, nestedIndex) => {
+                                        // Renderiza separador para nestedItems
+                                        if (nested.isSeparator) {
+                                          return (
+                                            <li key={`nested-separator-${nestedIndex}`} className={styles.menuSeparator}>
+                                              <hr />
+                                            </li>
+                                          );
+                                        }
+
+                                        // Se tiver path próprio (ex: Cadastrar Paciente), usa ele
+                                        let nestedLink;
+                                        if (nested.path) {
+                                          nestedLink = nested.path;
+                                        } else {
+                                          const basePath = sub.path || item.path;
+                                          if (basePath.includes('?')) {
+                                            nestedLink = `${basePath}&subTab=${nested.subTab}`;
+                                          } else {
+                                            nestedLink = `${basePath}?tab=${sub.tab}&subTab=${nested.subTab}`;
+                                          }
+                                        }
+                                        const isNestedActive = nested.path
+                                          ? pathname === nested.path
+                                          : pathname === (sub.path || item.path) &&
+                                            currentTab === sub.tab &&
+                                            currentSubTab === nested.subTab;
 
                                         return (
-                                          <li key={nested.subTab}>
+                                          <li key={nested.subTab || `nested-${nestedIndex}`}>
                                             <Link
                                               href={nestedLink}
                                               className={`${styles.subMenuItemLink} ${
@@ -728,8 +781,14 @@ function MenuRender({ menuSections }) {
                               );
                             }
 
-                            const subLink =
-                              sub.path || `${item.path}?tab=${sub.tab}`;
+                            let subLink;
+                            if (sub.path) {
+                              subLink = sub.path;
+                            } else if (item.path.includes('?')) {
+                              subLink = `${item.path}&tab=${sub.tab}`;
+                            } else {
+                              subLink = `${item.path}?tab=${sub.tab}`;
+                            }
                             // Separa o path base da query (ex: /x?subTab=MEDICOS)
                             const [subBasePath, subQuery] = (sub.path || "").split("?");
                             const subQuerySubTab = new URLSearchParams(subQuery || "").get("subTab");
@@ -739,7 +798,7 @@ function MenuRender({ menuSections }) {
                               : pathname === item.path && currentTab === sub.tab;
 
                             return (
-                              <li key={sub.tab}>
+                              <li key={`${sub.tab || sub.name}-${subIndex}`}>
                                 <Link
                                   href={subLink}
                                   className={`${styles.subMenuItemLink} ${

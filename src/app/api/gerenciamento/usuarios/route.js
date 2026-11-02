@@ -6,11 +6,49 @@ import bcrypt from 'bcryptjs';
 
 const ROLES_VALIDAS = Object.values(Role);
 
+// Mapeia role para os vínculos de acesso (UserAcesso)
+function mapearRoleParaAcessos(role) {
+  switch (role) {
+    case 'GESTOR':
+      return []; // GESTOR não precisa de vínculos, acessa tudo via role
+
+    case 'REGULACAO_ADMIN':
+      return [{ modulo: 'REGULACAO', nivel: 'ADMIN', servicoJunta: null }];
+    case 'REGULACAO_COMUM':
+      return [{ modulo: 'REGULACAO', nivel: 'OPERADOR', servicoJunta: null }];
+
+    case 'FARMACIA_ADMIN':
+      return [{ modulo: 'FARMACIA', nivel: 'ADMIN', servicoJunta: null }];
+    
+    case 'PROCESSO_ADMIN':
+      return [{ modulo: 'PROCESSOS', nivel: 'ADMIN', servicoJunta: null }];
+
+    case 'JUNTA_ADMIN':
+      return [{ modulo: 'JUNTA', nivel: 'ADMIN', servicoJunta: null }];
+    case 'JUNTA_CAEE':
+      return [{ modulo: 'JUNTA', nivel: 'OPERADOR', servicoJunta: 'CAEE' }];
+    case 'JUNTA_EDUCACAO':
+      return [{ modulo: 'JUNTA', nivel: 'OPERADOR', servicoJunta: 'APAE' }];
+    case 'JUNTA_SAUDE':
+      return [{ modulo: 'JUNTA', nivel: 'OPERADOR', servicoJunta: 'AMBULATORIO' }];
+    case 'JUNTA_ASSISTENCIA':
+      return [{ modulo: 'JUNTA', nivel: 'OPERADOR', servicoJunta: 'ESPECIALIDADES' }];
+
+    case 'CCZ_ADMIN':
+      return [{ modulo: 'CCZ', nivel: 'ADMIN', servicoJunta: null }];
+    case 'CCZ_COMUM':
+      return [{ modulo: 'CCZ', nivel: 'OPERADOR', servicoJunta: null }];
+
+    default:
+      return [];
+  }
+}
+
 export async function POST(request) {
   try {
     await requireGestor();
     const body = await request.json();
-    const { cpf, nomeCompleto, role, cargo, senha } = body;
+    const { cpf, nomeCompleto, role, cargo } = body;
 
     const cpfLimpo = cpf?.replace(/\D/g, '');
 
@@ -18,34 +56,57 @@ export async function POST(request) {
       return NextResponse.json({ error: 'CPF inválido. Forneça 11 dígitos.' }, { status: 400 });
     }
 
-    if (!senha || senha.length < 4) {
-      return NextResponse.json({ error: 'A senha deve ter pelo menos 4 caracteres.' }, { status: 400 });
-    }
-
     if (!ROLES_VALIDAS.includes(role)) {
       return NextResponse.json({ error: 'Role informada é inválida.' }, { status: 400 });
     }
 
-    const senhaHash = await bcrypt.hash(senha, 10);
+    // Senha padrão para todos os novos usuários
+    const SENHA_PADRAO = 'Integr@123';
+    const senhaHash = await bcrypt.hash(SENHA_PADRAO, 10);
 
-    // Cria o usuário de acesso diretamente sem criar um registro em Pessoa
-    const user = await prisma.user.upsert({
-      where: { cpf: cpfLimpo },
-      update: {
-        nome: nomeCompleto,
-        senhaHash,
-        role,
-        cargo,
-        ativo: true,
-      },
-      create: {
-        cpf: cpfLimpo,
-        nome: nomeCompleto || 'Operador do Sistema',
-        senhaHash,
-        role,
-        cargo,
-        ativo: true,
-      },
+    // Mapeia a role para os vínculos de acesso
+    const acessos = mapearRoleParaAcessos(role);
+
+    // Usa transaction para criar usuário + vínculos atomicamente
+    const user = await prisma.$transaction(async (tx) => {
+      // Cria/atualiza o usuário
+      const user = await tx.user.upsert({
+        where: { cpf: cpfLimpo },
+        update: {
+          nome: nomeCompleto,
+          senhaHash,
+          role,
+          cargo,
+          ativo: true,
+          primeiroAcesso: true,
+        },
+        create: {
+          cpf: cpfLimpo,
+          nome: nomeCompleto || 'Operador do Sistema',
+          senhaHash,
+          role,
+          cargo,
+          ativo: true,
+          primeiroAcesso: true,
+        },
+      });
+
+      // Remove vínculos antigos
+      await tx.userAcesso.deleteMany({
+        where: { userCpf: cpfLimpo },
+      });
+
+      // Cria os novos vínculos (se houver)
+      if (acessos.length > 0) {
+        await tx.userAcesso.createMany({
+          data: acessos.map(acesso => ({
+            userCpf: cpfLimpo,
+            ...acesso,
+          })),
+        });
+      }
+
+      return user;
     });
 
     return NextResponse.json(

@@ -210,6 +210,21 @@
   background-color: #fff;
 }
 
+.fotoPlaceholderMini {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  border: 1px dashed #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 1.5rem;
+  text-align: center;
+  background-color: #f8fafc;
+  flex-shrink: 0;
+}
+
 /* Texto secundário (id/tutor abaixo do nome do animal) */
 .subText {
   font-size: 0.72rem;
@@ -269,4 +284,781 @@
 
 .btnFicha:hover {
   background-color: #dbeafe;
+}
+
+/* Estilos para Ficha de Esporotricose */
+.fichaSecao {
+  padding: 1.25rem;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.fichaTitle {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e293b;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.fichaGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.fichaGrid strong {
+  color: #475569;
+  font-weight: 600;
+}
+
+.visitaCard {
+  padding: 1rem;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+}
+
+.relatorioBox {
+  margin-top: 0.75rem;
+  padding: 1rem;
+  background-color: #f0fdfa;
+  border-left: 3px solid #0d9488;
+  border-radius: 6px;
+}
+
+.badgeSuccess {
+  background-color: #d1fae5;
+  color: #065f46;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid #6ee7b7;
+}
+
+.badgeWarning {
+  background-color: #fef3c7;
+  color: #92400e;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid #fcd34d;
+}
+
+.badgeDanger {
+  background-color: #fee2e2;
+  color: #991b1b;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid #fca5a5;
+}
+
+.btnVerFicha {
+  background-color: #0d9488;
+  color: #ffffff;
+  border: 1px solid #0d9488;
+  padding: 0.5rem 0.9rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.2s ease;
+}
+
+.btnVerFicha:hover {
+  background-color: #0f766e;
+}
+
+/* Badge de Esporotricose */
+.badgeEsporo {
+  background-color: #ccfbf1;
+  color: #0f766e;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid #5eead4;
+  white-space: nowrap;
+}
+
+/* Badge de Zoonose */
+.badgeZoonose {
+  background-color: #fef3c7;
+  color: #92400e;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid #fcd34d;
+  white-space: nowrap;
+}
+
+/* ── MODAL BASE ──────────────────────────────────────────────────────────── */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1rem;
+}
+
+.modalBox {
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.modalTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+
+.btnFechar {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  line-height: 1;
+  transition: color 0.2s ease;
+}
+
+.btnFechar:hover {
+  color: #64748b;
+}
+
+.modalBody {
+  padding: 1.25rem;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ── BOTÕES DO MODAL ────────────────────────────────────────────────────── */
+.btnGhost {
+  background-color: transparent;
+  color: #475569;
+  border: 1px solid #cbd5e0;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.btnGhost:hover {
+  background-color: #f1f5f9;
+}
+
+.btnPrimary {
+  background-color: #2563eb;
+  color: #fff;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.btnPrimary:hover {
+  background-color: #1d4ed8;
+}
+
+.btnPrimary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.alertErro {
+  background-color: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+
+/* ── BOTÃO HISTÓRICO COMPLETO ────────────────────────────────────────────── */
+.btnHistorico {
+  background-color: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #86efac;
+  padding: 0.5rem 0.9rem;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.2s ease;
+}
+
+.btnHistorico:hover {
+  background-color: #dcfce7;
+}
+
+/* ── MODAL LARGE (para ficha completa) ──────────────────────────────────── */
+.modalLarge {
+  max-width: 900px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* ── LINHA DO TEMPO ─────────────────────────────────────────────────────── */
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.timelineItem {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.timelineIcone {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  color: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.timelineConteudo {
+  flex: 1;
+  padding: 0.75rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  transition: box-shadow 0.2s ease;
+}
+
+.timelineConteudo:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.timelineData {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+
+.timelineTitulo {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 0.3rem;
+}
+
+.timelineDescricao {
+  font-size: 0.85rem;
+  color: #475569;
+  line-height: 1.4;
+}
+
+/* ── MODAL FOOTER ───────────────────────────────────────────────────────── */
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+
+/* ── DETALHES DO RELATÓRIO NA TIMELINE ──────────────────────────────────── */
+.relatorioDetalhes {
+  margin-top: 0.75rem;
+  padding: 1rem;
+  background: #f0fdfa;
+  border: 1px solid #5eead4;
+  border-left: 3px solid #0d9488;
+  border-radius: 6px;
+}
+
+.relatorioHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #99f6e4;
+}
+
+.relatorioHeader strong {
+  color: #0f766e;
+  font-size: 0.9rem;
+}
+
+.relatorioProf {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-style: italic;
+}
+
+.relatorioGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.relatorioGrid div {
+  padding: 0.4rem;
+  background: #ffffff;
+  border-radius: 4px;
+}
+
+.relatorioGrid strong {
+  color: #0f766e;
+  font-weight: 600;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LAYOUT PRONTUÁRIO DO HISTÓRICO COMPLETO
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Cabeçalho do relatório */
+.relatorioHeader {
+  text-align: left;
+  padding: 1.5rem;
+  background: #ffffff;
+  border-bottom: 2px solid #1e293b;
+  margin-bottom: 1.5rem;
+}
+
+.relatorioTitulo {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 0.35rem 0;
+  letter-spacing: 0.5px;
+}
+
+.relatorioSubtitulo {
+  font-size: 0.9rem;
+  color: #64748b;
+  margin: 0;
+}
+
+/* Seções do prontuário */
+.prontuarioSecao {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.prontuarioTitulo {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 1rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+/* Foto do animal no prontuário */
+.fotoAnimalProntuario {
+  float: right;
+  margin: 0 0 1rem 1rem;
+}
+
+.fotoAnimalProntuario img {
+  width: 100px;
+  height: 100px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid #cbd5e1;
+}
+
+/* Grid de campos do prontuário */
+.prontuarioGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.prontuarioGrid:last-child {
+  margin-bottom: 0;
+}
+
+.prontuarioCampo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.prontuarioCampo label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: none;
+}
+
+.prontuarioValor {
+  font-size: 0.9rem;
+  color: #1e293b;
+  padding: 0.5rem 0.75rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+}
+
+/* Tabela de histórico */
+.historicoTabela {
+  overflow-x: auto;
+}
+
+.historicoTabela table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.historicoTabela thead {
+  background: #f1f5f9;
+}
+
+.historicoTabela th {
+  text-align: left;
+  padding: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+  border-bottom: 2px solid #cbd5e1;
+}
+
+.historicoTabela td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: top;
+}
+
+.historicoTabela tbody tr:hover {
+  background: #f8fafc;
+}
+
+.dataCol {
+  width: 110px;
+  white-space: nowrap;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.tipoCol {
+  width: 200px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.descCol {
+  color: #475569;
+}
+
+/* Box de relatório dentro da tabela */
+.relatorioBox {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.relatorioBox strong {
+  display: block;
+  color: #1e293b;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.relatorioProf {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-bottom: 0.5rem;
+}
+
+.relatorioDetalhesGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.4rem;
+}
+
+.relatorioDetalhesGrid div {
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.relatorioDetalhesGrid strong {
+  display: inline;
+  font-weight: 600;
+  color: #64748b;
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.vazioText {
+  text-align: center;
+  color: #94a3b8;
+  padding: 2rem;
+  font-style: italic;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .prontuarioGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .fotoAnimalProntuario {
+    float: none;
+    margin: 0 0 1rem 0;
+    text-align: center;
+  }
+  
+  .historicoTabela {
+    font-size: 0.8rem;
+  }
+  
+  .tipoCol {
+    width: 150px;
+  }
+}
+
+
+
+/* Botão Ver/Visualizar */
+.btnVisualizar {
+  background-color: #ffffff;
+  color: #0d9488;
+  border: 1px solid #5eead4;
+  padding: 0.4rem 0.9rem;
+  border-radius: 7px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.btnVisualizar:hover {
+  background-color: #0d9488;
+  color: #ffffff;
+}
+
+/* Tabela compacta - linhas mais estreitas */
+.tableCompact th {
+  padding: 0.5rem 0.75rem;
+}
+
+.tableCompact td {
+  padding: 0.5rem 0.75rem;
+}
+
+
+/* ── CARDS DE ANIMAIS ───────────────────────────────────────────────────── */
+.cardsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.animalCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.animalCard:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: #cbd5e1;
+  transform: translateY(-2px);
+}
+
+.animalCardFoto {
+  width: 100%;
+  height: 120px;
+  background-color: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.cardFoto {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cardFotoVazia {
+  color: #94a3b8;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.animalCardBody {
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.animalCardHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.animalCardNome {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.3;
+}
+
+.animalCardId {
+  font-size: 0.7rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.animalCardInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex: 1;
+}
+
+.animalCardRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.infoLabel {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.infoValue {
+  font-size: 0.8rem;
+  color: #334155;
+  font-weight: 500;
+}
+
+.animalCardBadges {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.animalCardFooter {
+  display: flex;
+  gap: 0.4rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.btnCardVisualizar {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  background-color: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btnCardVisualizar:hover {
+  background-color: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.btnCardHistorico {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  background-color: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btnCardHistorico:hover {
+  background-color: #e2e8f0;
+  border-color: #94a3b8;
+}
+
+@media (max-width: 768px) {
+  .cardsGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .animalCardFoto {
+    height: 140px;
+  }
 }

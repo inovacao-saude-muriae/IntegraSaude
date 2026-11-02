@@ -77,7 +77,6 @@ function RegulacaoPageContent() {
   return (
     <div className={styles.container}>
 
-
       {activeTab === "DASHBOARD" && (
         <Dashboard
           requests={data.requests}

@@ -2,20 +2,14 @@
 
 import { useState, useEffect } from "react";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import styles from "./FichaAnimal.module.css";
+import stylesModal from "./AgendaCCZ.module.css";
+import styles from "./ListaCCZ.module.css";
 import { mascararTelefone } from "@/lib/telefone";
 import { obterFichaAnimal } from "./actions";
 
 const formatarData = (ymd) => (ymd ? ymd.split("-").reverse().join("/") : "-");
 
-const classeStatus = (status) => {
-  if (status === "Realizado") return styles.statusRealizado;
-  if (status === "Cancelado") return styles.statusCancelado;
-  return styles.statusAgendado;
-};
-
-export default function FichaAnimal({ animalId, onFechar }) {
+export default function FichaAnimal({ animalId, onFechar, onEditar, onExcluir }) {
   const [ficha, setFicha] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
@@ -130,9 +124,7 @@ export default function FichaAnimal({ animalId, onFechar }) {
     secao("Dados clínicos");
     linha(
       "Doença crônica",
-      ficha.doencaCronica === "Sim"
-        ? `Sim${ficha.qualDoenca ? ` — ${ficha.qualDoenca}` : ""}`
-        : "Não",
+      ficha.doencaCronica === "Sim" ? "Sim" : "Não",
     );
     linha("Apetite", ficha.apetiteNormal);
     linha("Vômito / Diarreia", ficha.sintomasVomitoDiarreia);
@@ -144,224 +136,378 @@ export default function FichaAnimal({ animalId, onFechar }) {
     );
     if (ficha.observacoes) linha("Observação", ficha.observacoes);
 
-    // Procedimentos (tabela).
-    y += 2;
-    if (y > 265) {
-      doc.addPage();
-      y = 18;
-    }
-    secao(`Procedimentos (${ficha.procedimentos.length})`);
-
-    if (ficha.procedimentos.length === 0) {
-      doc.text("Nenhum procedimento registrado.", margemX, y);
-      y += 6;
-    } else {
-      autoTable(doc, {
-        startY: y,
-        margin: { left: margemX, right: margemX },
-        head: [["Tipo", "Data", "Status", "Veterinário", "Retorno"]],
-        body: ficha.procedimentos.map((p) => [
-          p.tipo,
-          formatarData(p.dataProcedimento),
-          p.status,
-          p.veterinario || "-",
-          p.dataRetorno ? formatarData(p.dataRetorno) : "-",
-        ]),
-        styles: { fontSize: 8.5, cellPadding: 2.2, textColor: [30, 41, 59] },
-        headStyles: { fillColor: [74, 111, 165], textColor: 255, fontStyle: "bold" },
-        alternateRowStyles: { fillColor: [248, 250, 252] },
-      });
-
-      let yApos = (doc.lastAutoTable?.finalY || y) + 6;
-
-      // Detalhes (descrição/medicamento) de cada procedimento.
-      ficha.procedimentos.forEach((p) => {
-        if (!p.descricao && !p.medicacaoPrescrita) return;
-        if (yApos > 275) {
-          doc.addPage();
-          yApos = 18;
-        }
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
-        doc.setTextColor(51, 65, 85);
-        doc.text(`${p.tipo} — ${formatarData(p.dataProcedimento)}`, margemX, yApos);
-        yApos += 5;
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(30, 41, 59);
-        if (p.descricao) {
-          const t = doc.splitTextToSize(`Descrição: ${p.descricao}`, larguraUtil);
-          doc.text(t, margemX, yApos);
-          yApos += t.length * 4.5 + 1;
-        }
-        if (p.medicacaoPrescrita) {
-          const t = doc.splitTextToSize(`Medicamento: ${p.medicacaoPrescrita}`, larguraUtil);
-          doc.text(t, margemX, yApos);
-          yApos += t.length * 4.5 + 1;
-        }
-        yApos += 2;
-      });
-    }
-
     const nomeArquivo = `ficha-animal-${ficha.id}.pdf`;
     doc.save(nomeArquivo);
   };
 
   return (
-    <div className={styles.overlay} onClick={onFechar}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <div className={styles.header}>
+    <div className={stylesModal.modalOverlay} onClick={onFechar}>
+      <div 
+        className={stylesModal.modal} 
+        onClick={(e) => e.stopPropagation()}
+        style={{ maxWidth: "900px", maxHeight: "90vh", overflowY: "auto" }}
+      >
+        <div className={stylesModal.modalHeader}>
           <div>
-            <h2 className={styles.title}>Ficha do animal</h2>
+            <h3 className={stylesModal.modalTitle}>Ficha do animal</h3>
             {ficha && (
-              <p className={styles.subtitle}>
+              <p className={stylesModal.modalSubtitle}>
                 {ficha.nome || "Sem nome"} ({ficha.id})
               </p>
             )}
           </div>
-          <button type="button" className={styles.closeBtn} onClick={onFechar}>
+          <button type="button" className={stylesModal.modalClose} onClick={onFechar}>
             ✕
           </button>
         </div>
 
-        <div className={styles.body}>
+        <div className={stylesModal.modalBody}>
           {carregando ? (
-            <p className={styles.info}>Carregando ficha...</p>
+            <p style={{ textAlign: "center", color: "#64748b" }}>Carregando ficha...</p>
           ) : erro ? (
-            <p className={styles.erro}>{erro}</p>
+            <p style={{ textAlign: "center", color: "#dc2626" }}>{erro}</p>
           ) : (
-            <>
+            <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+              
               {/* IDENTIFICAÇÃO */}
-              <div className={styles.topo}>
-                {ficha.fotoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={ficha.fotoUrl} alt={ficha.nome || "Animal"} className={styles.foto} />
-                ) : (
-                  <div className={styles.fotoVazia}>Sem foto</div>
-                )}
-                <div className={styles.topoInfo}>
-                  <h3 className={styles.animalNome}>{ficha.nome || "Sem nome"}</h3>
-                  <div className={styles.chips}>
-                    <span className={styles.chip}>{ficha.especie || "-"}</span>
-                    <span className={styles.chip}>{ficha.sexo}</span>
-                    <span className={styles.chip}>Porte: {ficha.porte || "-"}</span>
-                    <span className={styles.chip}>Idade: {ficha.idade || "-"}</span>
-                    <span className={styles.chip}>
-                      {ficha.castrado === "Sim" ? "Castrado" : "Não castrado"}
-                    </span>
+              <section>
+                <h4 style={{ 
+                  fontSize: "0.75rem", 
+                  fontWeight: "700", 
+                  color: "#64748b", 
+                  textTransform: "uppercase", 
+                  letterSpacing: "0.05em",
+                  marginBottom: "1rem"
+                }}>
+                  Identificação
+                </h4>
+                
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem" }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: "600", color: "#475569", marginBottom: "0.25rem" }}>
+                      Nome
+                    </label>
+                    <div style={{ 
+                      padding: "0.5rem 0.75rem", 
+                      backgroundColor: "#f8fafc", 
+                      border: "1px solid #e2e8f0", 
+                      borderRadius: "6px",
+                      fontSize: "0.875rem",
+                      color: "#1e293b"
+                    }}>
+                      {ficha.nome || "Sem nome"}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: "600", color: "#475569", marginBottom: "0.25rem" }}>
+                      ID
+                    </label>
+                    <div style={{ 
+                      padding: "0.5rem 0.75rem", 
+                      backgroundColor: "#f8fafc", 
+                      border: "1px solid #e2e8f0", 
+                      borderRadius: "6px",
+                      fontSize: "0.875rem",
+                      color: "#1e293b"
+                    }}>
+                      {ficha.id}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: "600", color: "#475569", marginBottom: "0.25rem" }}>
+                      Espécie
+                    </label>
+                    <div style={{ 
+                      padding: "0.5rem 0.75rem", 
+                      backgroundColor: "#f8fafc", 
+                      border: "1px solid #e2e8f0", 
+                      borderRadius: "6px",
+                      fontSize: "0.875rem",
+                      color: "#1e293b"
+                    }}>
+                      {ficha.especie || "-"}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: "600", color: "#475569", marginBottom: "0.25rem" }}>
+                      Sexo
+                    </label>
+                    <div style={{ 
+                      padding: "0.5rem 0.75rem", 
+                      backgroundColor: "#f8fafc", 
+                      border: "1px solid #e2e8f0", 
+                      borderRadius: "6px",
+                      fontSize: "0.875rem",
+                      color: "#1e293b"
+                    }}>
+                      {ficha.sexo || "-"}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: "600", color: "#475569", marginBottom: "0.25rem" }}>
+                      Porte
+                    </label>
+                    <div style={{ 
+                      padding: "0.5rem 0.75rem", 
+                      backgroundColor: "#f8fafc", 
+                      border: "1px solid #e2e8f0", 
+                      borderRadius: "6px",
+                      fontSize: "0.875rem",
+                      color: "#1e293b"
+                    }}>
+                      {ficha.porte || "-"}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: "600", color: "#475569", marginBottom: "0.25rem" }}>
+                      Idade
+                    </label>
+                    <div style={{ 
+                      padding: "0.5rem 0.75rem", 
+                      backgroundColor: "#f8fafc", 
+                      border: "1px solid #e2e8f0", 
+                      borderRadius: "6px",
+                      fontSize: "0.875rem",
+                      color: "#1e293b"
+                    }}>
+                      {ficha.idade || "-"}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: "600", color: "#475569", marginBottom: "0.25rem" }}>
+                      Castrado
+                    </label>
+                    <div style={{ 
+                      padding: "0.5rem 0.75rem", 
+                      backgroundColor: "#f8fafc", 
+                      border: "1px solid #e2e8f0", 
+                      borderRadius: "6px",
+                      fontSize: "0.875rem",
+                      color: "#1e293b"
+                    }}>
+                      {ficha.castrado === "Sim" ? "Sim" : "Não"}
+                    </div>
                   </div>
                 </div>
-              </div>
+              </section>
 
               {/* TUTOR */}
-              <div className={styles.secao}>
-                <h4 className={styles.secaoTitulo}>Tutor</h4>
+              <section>
+                <h4 style={{ 
+                  fontSize: "0.75rem", 
+                  fontWeight: "700", 
+                  color: "#64748b", 
+                  textTransform: "uppercase", 
+                  letterSpacing: "0.05em",
+                  marginBottom: "1rem"
+                }}>
+                  Tutor
+                </h4>
+                
                 {ficha.tutor ? (
-                  <div className={styles.dadosGrid}>
-                    <div className={styles.dado}>
-                      <span className={styles.dadoLabel}>Nome</span>
-                      <span className={styles.dadoValor}>{ficha.tutor.nome}</span>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem" }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: "0.75rem", fontWeight: "600", color: "#475569", marginBottom: "0.25rem" }}>
+                        Nome
+                      </label>
+                      <div style={{ 
+                        padding: "0.5rem 0.75rem", 
+                        backgroundColor: "#f8fafc", 
+                        border: "1px solid #e2e8f0", 
+                        borderRadius: "6px",
+                        fontSize: "0.875rem",
+                        color: "#1e293b"
+                      }}>
+                        {ficha.tutor.nome}
+                      </div>
                     </div>
-                    <div className={styles.dado}>
-                      <span className={styles.dadoLabel}>CPF</span>
-                      <span className={styles.dadoValor}>{ficha.tutor.cpf}</span>
+                    
+                    <div>
+                      <label style={{ display: "block", fontSize: "0.75rem", fontWeight: "600", color: "#475569", marginBottom: "0.25rem" }}>
+                        CPF
+                      </label>
+                      <div style={{ 
+                        padding: "0.5rem 0.75rem", 
+                        backgroundColor: "#f8fafc", 
+                        border: "1px solid #e2e8f0", 
+                        borderRadius: "6px",
+                        fontSize: "0.875rem",
+                        color: "#1e293b"
+                      }}>
+                        {ficha.tutor.cpf}
+                      </div>
                     </div>
-                    <div className={styles.dado}>
-                      <span className={styles.dadoLabel}>Telefone</span>
-                      <span className={styles.dadoValor}>
+                    
+                    <div>
+                      <label style={{ display: "block", fontSize: "0.75rem", fontWeight: "600", color: "#475569", marginBottom: "0.25rem" }}>
+                        Telefone
+                      </label>
+                      <div style={{ 
+                        padding: "0.5rem 0.75rem", 
+                        backgroundColor: "#f8fafc", 
+                        border: "1px solid #e2e8f0", 
+                        borderRadius: "6px",
+                        fontSize: "0.875rem",
+                        color: "#1e293b"
+                      }}>
                         {ficha.tutor.telefone ? mascararTelefone(ficha.tutor.telefone) : "-"}
-                      </span>
+                      </div>
                     </div>
                   </div>
                 ) : (
-                  <p className={styles.semTutor}>Animal sem tutor vinculado.</p>
+                  <p style={{ color: "#64748b", fontStyle: "italic" }}>Animal sem tutor vinculado.</p>
                 )}
-              </div>
+              </section>
 
               {/* DADOS CLÍNICOS */}
-              <div className={styles.secao}>
-                <h4 className={styles.secaoTitulo}>Dados clínicos</h4>
-                <div className={styles.dadosGrid}>
-                  <div className={styles.dado}>
-                    <span className={styles.dadoLabel}>Doença crônica</span>
-                    <span className={styles.dadoValor}>
-                      {ficha.doencaCronica === "Sim"
-                        ? `Sim${ficha.qualDoenca ? ` — ${ficha.qualDoenca}` : ""}`
-                        : "Não"}
-                    </span>
+              <section>
+                <h4 style={{ 
+                  fontSize: "0.75rem", 
+                  fontWeight: "700", 
+                  color: "#64748b", 
+                  textTransform: "uppercase", 
+                  letterSpacing: "0.05em",
+                  marginBottom: "1rem"
+                }}>
+                  Dados Clínicos
+                </h4>
+                
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem" }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: "600", color: "#475569", marginBottom: "0.25rem" }}>
+                      Doença crônica
+                    </label>
+                    <div style={{ 
+                      padding: "0.5rem 0.75rem", 
+                      backgroundColor: "#f8fafc", 
+                      border: "1px solid #e2e8f0", 
+                      borderRadius: "6px",
+                      fontSize: "0.875rem",
+                      color: "#1e293b"
+                    }}>
+                      {ficha.doencaCronica === "Sim" ? "Sim" : "Não"}
+                    </div>
                   </div>
-                  <div className={styles.dado}>
-                    <span className={styles.dadoLabel}>Apetite</span>
-                    <span className={styles.dadoValor}>{ficha.apetiteNormal}</span>
+                  
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: "600", color: "#475569", marginBottom: "0.25rem" }}>
+                      Apetite
+                    </label>
+                    <div style={{ 
+                      padding: "0.5rem 0.75rem", 
+                      backgroundColor: "#f8fafc", 
+                      border: "1px solid #e2e8f0", 
+                      borderRadius: "6px",
+                      fontSize: "0.875rem",
+                      color: "#1e293b"
+                    }}>
+                      {ficha.apetiteNormal || "-"}
+                    </div>
                   </div>
-                  <div className={styles.dado}>
-                    <span className={styles.dadoLabel}>Vômito / Diarreia</span>
-                    <span className={styles.dadoValor}>{ficha.sintomasVomitoDiarreia}</span>
+                  
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: "600", color: "#475569", marginBottom: "0.25rem" }}>
+                      Vômito / Diarreia
+                    </label>
+                    <div style={{ 
+                      padding: "0.5rem 0.75rem", 
+                      backgroundColor: "#f8fafc", 
+                      border: "1px solid #e2e8f0", 
+                      borderRadius: "6px",
+                      fontSize: "0.875rem",
+                      color: "#1e293b"
+                    }}>
+                      {ficha.sintomasVomitoDiarreia || "-"}
+                    </div>
                   </div>
-                  <div className={styles.dado}>
-                    <span className={styles.dadoLabel}>Em tratamento</span>
-                    <span className={styles.dadoValor}>
+                  
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: "600", color: "#475569", marginBottom: "0.25rem" }}>
+                      Em tratamento
+                    </label>
+                    <div style={{ 
+                      padding: "0.5rem 0.75rem", 
+                      backgroundColor: "#f8fafc", 
+                      border: "1px solid #e2e8f0", 
+                      borderRadius: "6px",
+                      fontSize: "0.875rem",
+                      color: "#1e293b"
+                    }}>
                       {ficha.emTratamento === "Sim"
                         ? `Sim${ficha.qualTratamento ? ` — ${ficha.qualTratamento}` : ""}`
                         : "Não"}
-                    </span>
+                    </div>
                   </div>
                 </div>
-                {ficha.observacoes && (
-                  <div className={styles.observacoes}>
-                    <span className={styles.dadoLabel}>Observação</span>
-                    <p className={styles.obsTexto}>{ficha.observacoes}</p>
-                  </div>
-                )}
-              </div>
+              </section>
 
-              {/* PROCEDIMENTOS */}
-              <div className={styles.secao}>
-                <h4 className={styles.secaoTitulo}>
-                  Procedimentos{ficha.procedimentos.length > 0 ? ` (${ficha.procedimentos.length})` : ""}
-                </h4>
-                {ficha.procedimentos.length === 0 ? (
-                  <p className={styles.semTutor}>Nenhum procedimento registrado para este animal.</p>
-                ) : (
-                  <div className={styles.procLista}>
-                    {ficha.procedimentos.map((p) => (
-                      <div key={p.id} className={styles.procItem}>
-                        <div className={styles.procTopo}>
-                          <strong>{p.tipo}</strong>
-                          <span className={classeStatus(p.status)}>{p.status}</span>
-                        </div>
-                        <div className={styles.procMeta}>
-                          <span>Data: {formatarData(p.dataProcedimento)}</span>
-                          {p.veterinario && <span>Vet.: {p.veterinario}</span>}
-                          {p.dataRetorno && <span>Retorno: {formatarData(p.dataRetorno)}</span>}
-                        </div>
-                        {p.descricao && (
-                          <p className={styles.procTexto}>
-                            <strong>Descrição:</strong> {p.descricao}
-                          </p>
-                        )}
-                        {p.medicacaoPrescrita && (
-                          <p className={styles.procTexto}>
-                            <strong>Medicamento:</strong> {p.medicacaoPrescrita}
-                          </p>
-                        )}
-                      </div>
-                    ))}
+              {/* OBSERVAÇÕES */}
+              {ficha.observacoes && (
+                <section>
+                  <h4 style={{ 
+                    fontSize: "0.75rem", 
+                    fontWeight: "700", 
+                    color: "#64748b", 
+                    textTransform: "uppercase", 
+                    letterSpacing: "0.05em",
+                    marginBottom: "1rem"
+                  }}>
+                    Observações
+                  </h4>
+                  <div style={{ 
+                    padding: "0.75rem", 
+                    backgroundColor: "#f8fafc", 
+                    borderRadius: "6px",
+                    border: "1px solid #e2e8f0",
+                    whiteSpace: "pre-wrap",
+                    fontSize: "0.875rem",
+                    color: "#1e293b"
+                  }}>
+                    {ficha.observacoes}
                   </div>
-                )}
-              </div>
-            </>
+                </section>
+              )}
+            </div>
           )}
         </div>
 
-        <div className={styles.footer}>
+        <div className={styles.modalFooter}>
           {ficha && (
-            <button type="button" className={styles.baixarBtn} onClick={baixarRelatorio}>
-              Baixar relatório
-            </button>
+            <>
+              <button 
+                type="button" 
+                className={styles.btnGhost}
+                onClick={() => {
+                  if (window.confirm(`Tem certeza que deseja excluir o animal ${ficha.nome || "Sem nome"}?`)) {
+                    onExcluir?.(ficha.id);
+                    onFechar();
+                  }
+                }}
+                style={{ 
+                  color: "#dc2626",
+                  borderColor: "#fca5a5"
+                }}
+              >
+                Excluir
+              </button>
+              <button 
+                type="button" 
+                className={styles.btnPrimary}
+                onClick={() => {
+                  onEditar?.(ficha.id);
+                  onFechar();
+                }}
+              >
+                Editar
+              </button>
+            </>
           )}
-          <button type="button" className={styles.fecharBtn} onClick={onFechar}>
-            Fechar
-          </button>
         </div>
       </div>
     </div>

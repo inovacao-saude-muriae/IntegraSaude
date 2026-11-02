@@ -334,3 +334,19 @@
   .dayCell, .emptyCell { min-height: 72px; }
   .event { font-size: 0.6rem; }
 }
+
+.verBtnPreenchido {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #6ee7b7;
+  padding: 0.35rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.verBtnPreenchido:hover {
+  background: #a7f3d0;
+}

@@ -19,41 +19,45 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log("🌱 Iniciando seed do banco de dados...\n");
 
-  const cpfGestor = process.env.GESTOR_CPF || "00000000000";
-  const nomeGestor = process.env.GESTOR_NOME || "Gestor do Sistema";
-  const senhaGestor = process.env.GESTOR_SENHA || "trocar@123";
+  // Admin do Sistema (com username)
+  const usernameAdmin = process.env.GESTOR_USERNAME || "admin_integra";
+  const nomeAdmin = process.env.GESTOR_NOME || "Administrador IntegraSaúde";
+  const senhaAdmin = process.env.GESTOR_SENHA || "Admin@123";
 
-  if (!process.env.GESTOR_CPF || !process.env.GESTOR_SENHA) {
+  if (!process.env.GESTOR_USERNAME || !process.env.GESTOR_SENHA) {
     console.warn("⚠️  ATENÇÃO: Usando credenciais padrão!");
-    console.warn("   Configure GESTOR_CPF, GESTOR_NOME e GESTOR_SENHA no arquivo .env\n");
+    console.warn("   Configure GESTOR_USERNAME, GESTOR_NOME e GESTOR_SENHA no arquivo .env\n");
   }
 
-  const senhaHashGestor = await bcrypt.hash(senhaGestor, 10);
+  const senhaHashAdmin = await bcrypt.hash(senhaAdmin, 10);
 
-  const gestorUser = await prisma.user.upsert({
-    where: { cpf: cpfGestor },
+  const adminUser = await prisma.user.upsert({
+    where: { username: usernameAdmin },
     update: {
-      nome: nomeGestor,
-      senhaHash: senhaHashGestor,
+      nome: nomeAdmin,
+      senhaHash: senhaHashAdmin,
       role: "GESTOR",
-      cargo: "Gestor Geral do Sistema",
+      cargo: "Administrador do Sistema",
       ativo: true,
+      primeiroAcesso: false,
     },
     create: {
-      cpf: cpfGestor,
-      nome: nomeGestor,
-      senhaHash: senhaHashGestor,
-      cargo: "Gestor Geral do Sistema",
+      cpf: "00000000000", // CPF placeholder para usuário de sistema
+      username: usernameAdmin,
+      nome: nomeAdmin,
+      senhaHash: senhaHashAdmin,
+      cargo: "Administrador do Sistema",
       role: "GESTOR",
       ativo: true,
+      primeiroAcesso: false,
     },
   });
 
-  console.log("✅ Usuário GESTOR configurado com sucesso!");
-  console.log(`👤 Nome: ${gestorUser.nome}`);
-  console.log(`🆔 CPF/Login: ${gestorUser.cpf}`);
-  console.log(`🔑 Senha: ${senhaGestor}`);
-  console.log(`🎯 Permissão: ${gestorUser.role} (Acesso Total)\n`);
+  console.log("✅ Admin do Sistema configurado com sucesso!");
+  console.log(`👤 Nome: ${adminUser.nome}`);
+  console.log(`🆔 Username/Login: ${adminUser.username}`);
+  console.log(`🔑 Senha: ${senhaAdmin}`);
+  console.log(`🎯 Permissão: ${adminUser.role} (Acesso Total)\n`);
 
   console.log("🎉 Seed concluído com sucesso!");
 }

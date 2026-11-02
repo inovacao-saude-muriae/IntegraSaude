@@ -1,0 +1,76 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { requireAcessoModulo } from "@/lib/auth";
+import { MODULOS } from "@/lib/permissions";
+
+export async function GET() {
+  try {
+    await requireAcessoModulo(MODULOS.CCZ);
+
+    const denuncias = await prisma.denunciaCaoAgressivo.findMany({
+      include: {
+        animal: true,
+      },
+      orderBy: { dataDenuncia: "desc" },
+    });
+
+    return NextResponse.json(denuncias);
+  } catch (error) {
+    console.error("Erro ao buscar denúncias:", error);
+    return NextResponse.json(
+      { error: "Erro ao buscar denúncias" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request) {
+  try {
+    await requireAcessoModulo(MODULOS.CCZ);
+
+    const dados = await request.json();
+
+    // Gerar próximo ID no formato DEN-XX
+    const denuncias = await prisma.denunciaCaoAgressivo.findMany({
+      where: {
+        id: {
+          startsWith: "DEN-"
+        }
+      },
+      orderBy: { id: 'desc' },
+      select: { id: true }
+    });
+
+    // Filtra apenas IDs no formato DEN-[número] e extrai o maior número
+    let novoNumero = 1;
+    for (const denuncia of denuncias) {
+      const match = denuncia.id.match(/^DEN-(\d+)$/);
+      if (match) {
+        const numero = parseInt(match[1]);
+        if (numero >= novoNumero) {
+          novoNumero = numero + 1;
+        }
+      }
+    }
+
+    const novoId = `DEN-${String(novoNumero).padStart(2, '0')}`;
+
+    const denuncia = await prisma.denunciaCaoAgressivo.create({
+      data: {
+        id: novoId,
+        ...dados,
+      },
+      include: {
+        animal: true,
+      },
+    });
+
+    return NextResponse.json(denuncia);
+  } catch (error) {
+    console.error("Erro ao criar denúncia:", error);
+    return NextResponse.json(
+      { error: "Erro ao criar denúncia" },
+      { status: 500 }
+    );
+  }
+}

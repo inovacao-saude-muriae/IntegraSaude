@@ -2,14 +2,16 @@
 
 import { useState, useEffect, useCallback } from "react";
 import styles from "./ListaCCZ.module.css";
-import { listarAnimais } from "./actions";
+import { listarAnimais, excluirAnimal } from "./actions";
 import FichaAnimal from "./FichaAnimal";
+import FichaCompletaAnimal from "./FichaCompletaAnimal";
 
 export default function AnimaisLista({ onEditar }) {
   const [animais, setAnimais] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [termo, setTermo] = useState("");
   const [fichaId, setFichaId] = useState(null); // id do animal com ficha aberta
+  const [fichaCompletaId, setFichaCompletaId] = useState(null); // id do animal com ficha completa aberta
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -21,6 +23,15 @@ export default function AnimaisLista({ onEditar }) {
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  const handleExcluir = async (id) => {
+    const res = await excluirAnimal(id);
+    if (res.success) {
+      await carregar();
+    } else {
+      alert(res.error || "Erro ao excluir animal");
+    }
+  };
 
   const termoLimpo = termo.trim().toLowerCase();
   const filtrados = animais.filter((a) => {
@@ -54,69 +65,95 @@ export default function AnimaisLista({ onEditar }) {
         ) : filtrados.length === 0 ? (
           <p className={styles.vazio}>Nenhum animal encontrado.</p>
         ) : (
-          <div className={styles.tableWrapper}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th style={{ width: "88px" }}>Foto</th>
-                  <th>Id</th>
-                  <th>Nome</th>
-                  <th>Tutor</th>
-                  <th style={{ textAlign: "right" }}>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtrados.map((a) => (
-                  <tr key={a.id}>
-                    <td>
-                      {a.fotoUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={a.fotoUrl}
-                          alt={a.nome || "Animal"}
-                          className={styles.fotoMini}
-                        />
-                      ) : (
-                        <div className={styles.fotoMiniVazia}>Sem foto</div>
-                      )}
-                    </td>
-                    <td>{a.id}</td>
-                    <td className={styles.boldName}>{a.nome || "Sem nome"}</td>
-                    <td>
-                      {a.tutorNome ? (
-                        a.tutorNome
-                      ) : (
-                        <span className={styles.semTutor}>Sem tutor</span>
-                      )}
-                    </td>
-                    <td style={{ textAlign: "right" }}>
-                      <div className={styles.acoesCell}>
-                        <button
-                          type="button"
-                          className={styles.btnEditar}
-                          onClick={() => onEditar(a.id)}
-                        >
-                          Editar
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.btnFicha}
-                          onClick={() => setFichaId(a.id)}
-                        >
-                          Ver ficha
-                        </button>
+          <div className={styles.cardsGrid}>
+            {filtrados.map((a) => (
+              <div key={a.id} className={styles.animalCard}>
+                <div className={styles.animalCardFoto}>
+                  {a.fotoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={a.fotoUrl}
+                      alt={a.nome || "Animal"}
+                      className={styles.cardFoto}
+                    />
+                  ) : (
+                    <div className={styles.cardFotoVazia}>Sem foto</div>
+                  )}
+                </div>
+                
+                <div className={styles.animalCardBody}>
+                  <div className={styles.animalCardHeader}>
+                    <h3 className={styles.animalCardNome}>{a.nome || "Sem nome"}</h3>
+                    <span className={styles.animalCardId}>ID: {a.id}</span>
+                  </div>
+                  
+                  <div className={styles.animalCardInfo}>
+                    <div className={styles.animalCardRow}>
+                      <span className={styles.infoLabel}>Tutor:</span>
+                      <span className={styles.infoValue}>
+                        {a.tutorNome || <span className={styles.semTutor}>Sem tutor</span>}
+                      </span>
+                    </div>
+                    
+                    {(a.temEsporotricose || a.temZoonoses) && (
+                      <div className={styles.animalCardRow}>
+                        <span className={styles.infoLabel}>Doenças:</span>
+                        <div className={styles.animalCardBadges}>
+                          {a.temEsporotricose && (
+                            <span className={styles.badgeEsporo} title="Animal tem/teve esporotricose">
+                              🦠 Esporotricose
+                            </span>
+                          )}
+                          {a.temZoonoses && (
+                            <span className={styles.badgeZoonose} title="Animal tem/teve zoonoses">
+                              ⚠️ Zoonose
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    )}
+                  </div>
+                  
+                  <div className={styles.animalCardFooter}>
+                    <button
+                      type="button"
+                      className={styles.btnCardVisualizar}
+                      onClick={() => setFichaId(a.id)}
+                    >
+                      Ver ficha
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.btnCardHistorico}
+                      onClick={() => setFichaCompletaId(a.id)}
+                    >
+                      Histórico
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
 
       {fichaId && (
-        <FichaAnimal animalId={fichaId} onFechar={() => setFichaId(null)} />
+        <FichaAnimal 
+          animalId={fichaId} 
+          onFechar={() => setFichaId(null)}
+          onEditar={(id) => {
+            setFichaId(null);
+            onEditar(id);
+          }}
+          onExcluir={handleExcluir}
+        />
+      )}
+
+      {fichaCompletaId && (
+        <FichaCompletaAnimal
+          animalId={fichaCompletaId}
+          onFechar={() => setFichaCompletaId(null)}
+        />
       )}
     </div>
   );

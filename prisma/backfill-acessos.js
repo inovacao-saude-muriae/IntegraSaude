@@ -52,16 +52,19 @@ function mapearRoleParaAcessos(role) {
     case "JUNTA_CAEE":
       return [{ modulo: "JUNTA", nivel: "OPERADOR", servicoJunta: "CAEE" }];
 
-    // Roles da Junta SEM correspondência 1:1 de sub-serviço (§9.4):
-    // criam {JUNTA, OPERADOR} com servicoJunta null (INCERTO — não inventar).
+    // Roles da Junta com mapeamento específico de sub-serviço:
     case "JUNTA_EDUCACAO":
+      return [{ modulo: "JUNTA", nivel: "OPERADOR", servicoJunta: "APAE" }];
     case "JUNTA_SAUDE":
+      return [{ modulo: "JUNTA", nivel: "OPERADOR", servicoJunta: "AMBULATORIO" }];
     case "JUNTA_ASSISTENCIA":
-      return [{ modulo: "JUNTA", nivel: "OPERADOR", servicoJunta: null }];
+      return [{ modulo: "JUNTA", nivel: "OPERADOR", servicoJunta: "ESPECIALIDADES" }];
 
     // CCZ
     case "CCZ_ADMIN":
       return [{ modulo: "CCZ", nivel: "ADMIN", servicoJunta: null }];
+    case "CCZ_COMUM":
+      return [{ modulo: "CCZ", nivel: "OPERADOR", servicoJunta: null }];
 
     default:
       // Role desconhecido: não inventar vínculo (fail-closed).
@@ -69,11 +72,9 @@ function mapearRoleParaAcessos(role) {
   }
 }
 
-// Roles da Junta cujo sub-serviço é INCERTO e exige ajuste manual (§9.4).
+// Roles da Junta cujo sub-serviço foi AJUSTADO (anteriormente incertos - §9.4).
 const ROLES_JUNTA_INCERTOS = new Set([
-  "JUNTA_EDUCACAO",
-  "JUNTA_SAUDE",
-  "JUNTA_ASSISTENCIA",
+  // Vazios - já foram mapeados corretamente
 ]);
 
 async function main() {

@@ -15,7 +15,6 @@ const FORM_VAZIO = {
   temTutor: false,
   tutorNome: "",
   // Identificação
-  numeroProtocolo: "",
   dataVisita: hojeYMD(),
   fiscalResponsavel: "",
   // Condição clínica
@@ -93,15 +92,25 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
 
   const buscarAnimal = async (valor) => {
     setAnimalTermo(valor);
-    setForm((prev) => ({ ...prev, animalId: "" }));
-    if (valor.trim().length < 2) {
+    
+    // Se limpar o campo, limpa o ID selecionado
+    if (!valor || valor.trim() === "") {
+      setForm((prev) => ({ ...prev, animalId: "" }));
+    }
+    
+    // Se for apenas espaço (buscar todos) ou tem 2+ caracteres
+    const deveConsultar = valor === " " || valor.trim().length >= 2;
+    
+    if (!deveConsultar) {
       setAnimalDropAberto(false);
       setAnimalResultados([]);
       return;
     }
+    
     setAnimalDropAberto(true);
     setAnimalBuscando(true);
-    const res = await buscarAnimaisCCZ(valor.trim());
+    // Se for espaço, passa string vazia para buscar todos
+    const res = await buscarAnimaisCCZ(valor === " " ? "" : valor.trim());
     setAnimalResultados(res.success ? res.data : []);
     setAnimalBuscando(false);
   };
@@ -192,8 +201,14 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
           ? "Registro atualizado com sucesso!"
           : "Registro de esporotricose salvo com sucesso!",
       });
-      if (editando && onSalvo) onSalvo();
-      else limpar();
+      
+      // Se estiver editando, chama callback para recarregar lista
+      if (editando && typeof onSalvo === "function") {
+        onSalvo();
+      } else {
+        // Se for novo cadastro, limpa o form
+        limpar();
+      }
     } else {
       setErro(res.error || "Não foi possível salvar o registro.");
     }
@@ -208,13 +223,6 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
           <h2 className={styles.cardHeaderTitle}>
             {editando ? "Editar esporotricose" : "Cadastro de esporotricose"}
           </h2>
-          <button
-            type="button"
-            className={styles.btnAdicionar}
-            onClick={editando && onSalvo ? onSalvo : limpar}
-          >
-            {editando ? "Voltar à lista" : "Limpar formulário"}
-          </button>
         </div>
 
         <div className={styles.camposBloco}>
@@ -228,14 +236,35 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
               ref={animalDropRef}
             >
               <label>Animal *</label>
-              <input
-                type="text"
-                value={animalTermo}
-                placeholder="Digite nome, id ou espécie do animal..."
-                onChange={(e) => buscarAnimal(e.target.value)}
-                autoComplete="off"
-                required={!form.animalId}
-              />
+              <div className={styles.inputWrapperWithIcon}>
+                <input
+                  type="text"
+                  value={animalTermo}
+                  placeholder="Digite nome, id ou espécie do animal..."
+                  onChange={(e) => buscarAnimal(e.target.value)}
+                  onFocus={() => {
+                    setAnimalDropAberto(true);
+                    // Se não há resultados e não tem termo, busca todos
+                    if (animalResultados.length === 0 && !animalTermo) {
+                      buscarAnimal(" ");
+                    }
+                  }}
+                  autoComplete="off"
+                  required={!form.animalId}
+                />
+                <span 
+                  className={styles.arrowIcon}
+                  onClick={() => {
+                    setAnimalDropAberto(!animalDropAberto);
+                    // Se está abrindo e não tem resultados, busca todos
+                    if (!animalDropAberto && animalResultados.length === 0 && !animalTermo) {
+                      buscarAnimal(" ");
+                    }
+                  }}
+                >
+                  {animalDropAberto ? "▲" : "▼"}
+                </span>
+              </div>
               {animalDropAberto && (
                 <div className={styles.tableDropdownMenu}>
                   <div className={styles.tableContainerScroll}>
@@ -281,6 +310,24 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
               )}
             </div>
 
+            {/* Tutor (exibido quando animal tem tutor) */}
+            {form.temTutor && form.tutorNome && (
+              <div className={`${styles.field} ${styles.colLg}`}>
+                <label>Tutor</label>
+                <input
+                  type="text"
+                  value={form.tutorNome}
+                  disabled
+                  style={{
+                    backgroundColor: "#f8fafc",
+                    color: "#1e293b",
+                    fontWeight: "500",
+                    cursor: "not-allowed",
+                  }}
+                />
+              </div>
+            )}
+
             {/* Data da visita */}
             <div className={`${styles.field} ${styles.colSm}`}>
               <label>Data da visita *</label>
@@ -289,17 +336,6 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                 value={form.dataVisita}
                 onChange={(e) => atualizar("dataVisita", e.target.value)}
                 required
-              />
-            </div>
-
-            {/* Número do protocolo */}
-            <div className={`${styles.field} ${styles.colSm}`}>
-              <label>Número do protocolo</label>
-              <input
-                type="text"
-                value={form.numeroProtocolo}
-                onChange={(e) => atualizar("numeroProtocolo", e.target.value)}
-                placeholder="Ex.: 2024/0001"
               />
             </div>
 
@@ -366,7 +402,7 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                 </div>
                 <div className={styles.colAnexo}>
                   <textarea
-                    rows={2}
+                    rows={1}
                     value={form.descricaoTratamentoVet}
                     onChange={(e) => atualizar("descricaoTratamentoVet", e.target.value)}
                     placeholder="Descrição do tratamento"
@@ -383,14 +419,14 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
             <div className={`${styles.field} ${styles.colFull}`}>
               <label>Medicamentos prescritos</label>
               <textarea
-                rows={3}
+                rows={2}
                 value={form.medicamentosPrescritos}
                 onChange={(e) => atualizar("medicamentosPrescritos", e.target.value)}
                 placeholder="Informe os medicamentos prescritos (se houver)"
               />
             </div>
 
-            <div className={`${styles.field} ${styles.colSm}`}>
+            <div className={`${styles.field} ${styles.colLg}`}>
               <label>Houve interrupção do tratamento?</label>
               <select
                 value={form.interrupcaoTratamento}
@@ -401,7 +437,7 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
               </select>
             </div>
 
-            <div className={`${styles.field} ${styles.colSm}`}>
+            <div className={`${styles.field} ${styles.colLg}`}>
               <label>Há registro de retorno ao veterinário?</label>
               <select
                 value={form.retornoVeterinario}
@@ -439,7 +475,7 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                     </div>
                     <div className={styles.colAnexo}>
                       <textarea
-                        rows={2}
+                        rows={1}
                         value={form.observacoesIsolamento}
                         onChange={(e) => atualizar("observacoesIsolamento", e.target.value)}
                         placeholder="Observações sobre o isolamento"
@@ -489,7 +525,7 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                 <div className={`${styles.field} ${styles.colFull}`}>
                   <label>Como é realizada a higienização do ambiente?</label>
                   <textarea
-                    rows={2}
+                    rows={1}
                     value={form.higienizacaoAmbiente}
                     onChange={(e) => atualizar("higienizacaoAmbiente", e.target.value)}
                     placeholder="Descreva a higienização do ambiente"
@@ -520,7 +556,7 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                     </div>
                     <div className={styles.colAnexo}>
                       <textarea
-                        rows={2}
+                        rows={1}
                         value={form.outrosAnimaisDescricao}
                         onChange={(e) => atualizar("outrosAnimaisDescricao", e.target.value)}
                         placeholder="Quais? Quantos? Apresentam sintomas?"
@@ -550,7 +586,7 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                     </div>
                     <div className={styles.colAnexo}>
                       <textarea
-                        rows={2}
+                        rows={1}
                         value={form.pessoasLesoesDescricao}
                         onChange={(e) => atualizar("pessoasLesoesDescricao", e.target.value)}
                         placeholder="Descreva as lesões suspeitas"
@@ -564,7 +600,7 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
               {/* Ciência do responsável */}
               <div className={styles.formSectionTitle}>Ciência do responsável</div>
               <div className={styles.grid}>
-                <div className={`${styles.field} ${styles.colSm}`}>
+                <div className={`${styles.field} ${styles.colMd}`}>
                   <label>Ciente da necessidade de tratamento contínuo e prolongado?</label>
                   <select
                     value={form.cienteTratamentoContinuo}
@@ -574,7 +610,7 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                     <option value="Sim">Sim</option>
                   </select>
                 </div>
-                <div className={`${styles.field} ${styles.colSm}`}>
+                <div className={`${styles.field} ${styles.colMd}`}>
                   <label>Ciente da importância da contenção domiciliar?</label>
                   <select
                     value={form.cienteContencao}
@@ -584,7 +620,7 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                     <option value="Sim">Sim</option>
                   </select>
                 </div>
-                <div className={`${styles.field} ${styles.colSm}`}>
+                <div className={`${styles.field} ${styles.colMd}`}>
                   <label>Ciente do uso obrigatório de luvas/EPI?</label>
                   <select
                     value={form.cienteEpi}
@@ -594,7 +630,7 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                     <option value="Sim">Sim</option>
                   </select>
                 </div>
-                <div className={`${styles.field} ${styles.colSm}`}>
+                <div className={`${styles.field} ${styles.colMd}`}>
                   <label>Ciente da correta destinação de resíduos contaminados?</label>
                   <select
                     value={form.cienteResiduos}
@@ -614,7 +650,7 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
             <div className={`${styles.field} ${styles.colFull}`}>
               <label>Condições gerais do ambiente</label>
               <textarea
-                rows={3}
+                rows={2}
                 value={form.condicoesGeraisAmbiente}
                 onChange={(e) => atualizar("condicoesGeraisAmbiente", e.target.value)}
                 placeholder="Descreva as condições gerais do ambiente"
@@ -623,7 +659,7 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
             <div className={`${styles.field} ${styles.colFull}`}>
               <label>Conclusão da equipe técnica</label>
               <textarea
-                rows={3}
+                rows={2}
                 value={form.conclusaoTecnica}
                 onChange={(e) => atualizar("conclusaoTecnica", e.target.value)}
                 placeholder="Conclusão da equipe técnica"
@@ -672,7 +708,7 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
             <div className={`${styles.field} ${styles.colFull}`}>
               <label>Descreva as outras medidas / observações</label>
               <textarea
-                rows={3}
+                rows={2}
                 value={form.outrasMedidasDescricao}
                 onChange={(e) => atualizar("outrasMedidasDescricao", e.target.value)}
                 placeholder="Outras medidas / observações"
@@ -712,21 +748,23 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                   <div className={styles.visitaLista}>
                     {form.visitas.map((v, idx) => (
                       <div key={`${v.data}-${idx}`} className={styles.visitaItem}>
-                        <span className={styles.visitaData}>{formatarDiaBR(v.data)}</span>
-                        <input
-                          type="text"
-                          className={styles.visitaObs}
+                        <div className={styles.visitaHeader}>
+                          <span className={styles.visitaData}>{formatarDiaBR(v.data)}</span>
+                          <button
+                            type="button"
+                            className={styles.btnRemover}
+                            onClick={() => removerVisita(idx)}
+                          >
+                            Remover
+                          </button>
+                        </div>
+                        <textarea
+                          className={styles.visitaObsTextarea}
                           value={v.observacao}
                           onChange={(e) => atualizarVisita(idx, e.target.value)}
-                          placeholder="Observação (opcional)"
+                          placeholder="Observação da visita (opcional)"
+                          rows={2}
                         />
-                        <button
-                          type="button"
-                          className={styles.btnRemover}
-                          onClick={() => removerVisita(idx)}
-                        >
-                          Remover
-                        </button>
                       </div>
                     ))}
                   </div>
@@ -743,7 +781,7 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
             onClick={editando && onSalvo ? onSalvo : limpar}
             disabled={salvando}
           >
-            Cancelar
+            {editando ? "Voltar" : "Limpar"}
           </button>
           <button type="submit" className={styles.btnPrimary} disabled={salvando}>
             {salvando ? "Salvando..." : editando ? "Atualizar" : "Salvar"}

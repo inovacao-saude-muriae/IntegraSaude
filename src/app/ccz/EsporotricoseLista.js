@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import styles from "./ListaCCZ.module.css";
 import { listarEsporotricose, obterEsporotricose } from "./actions";
-import { gerarPdfEsporotricose, gerarTermoEsporotricose } from "./esporotricosePdf";
+import { gerarPdfEsporotricose } from "./esporotricosePdf";
+import FichaEsporotricose from "./FichaEsporotricose";
 
 const formatarData = (ymd) => (ymd ? ymd.split("-").reverse().join("/") : "-");
 
@@ -11,7 +12,7 @@ export default function EsporotricoseLista({ onEditar }) {
   const [registros, setRegistros] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [termo, setTermo] = useState("");
-  const [gerando, setGerando] = useState(false);
+  const [fichaAberta, setFichaAberta] = useState(null);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -30,25 +31,14 @@ export default function EsporotricoseLista({ onEditar }) {
     return (
       (r.animalNome || "").toLowerCase().includes(termoLimpo) ||
       (r.animalId || "").toLowerCase().includes(termoLimpo) ||
-      (r.tutorNome || "").toLowerCase().includes(termoLimpo) ||
-      (r.numeroProtocolo || "").toLowerCase().includes(termoLimpo)
+      (r.tutorNome || "").toLowerCase().includes(termoLimpo)
     );
   });
 
   // Baixa o relatório completo do registro.
   const baixarPdf = async (id) => {
-    setGerando(true);
     const res = await obterEsporotricose(id);
-    setGerando(false);
     if (res.success) gerarPdfEsporotricose(res.data);
-  };
-
-  // Gera o termo (documento formal com assinaturas).
-  const baixarTermo = async (id) => {
-    setGerando(true);
-    const res = await obterEsporotricose(id);
-    setGerando(false);
-    if (res.success) gerarTermoEsporotricose(res.data);
   };
 
   return (
@@ -61,7 +51,7 @@ export default function EsporotricoseLista({ onEditar }) {
           <input
             type="text"
             className={styles.buscaInput}
-            placeholder="Buscar por animal, tutor ou protocolo..."
+            placeholder="Buscar por animal ou ID..."
             value={termo}
             onChange={(e) => setTermo(e.target.value)}
           />
@@ -73,61 +63,37 @@ export default function EsporotricoseLista({ onEditar }) {
           <p className={styles.vazio}>Nenhum registro de esporotricose encontrado.</p>
         ) : (
           <div className={styles.tableWrapper}>
-            <table className={styles.table}>
+            <table className={`${styles.table} ${styles.tableCompact}`}>
               <thead>
                 <tr>
+                  <th>ID Animal</th>
                   <th>Animal</th>
-                  <th>Protocolo</th>
                   <th>Data da visita</th>
                   <th>Lesões</th>
                   <th>Nº visitas</th>
-                  <th style={{ textAlign: "right" }}>Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {filtrados.map((r) => (
-                  <tr key={r.id}>
+                  <tr 
+                    key={r.id}
+                    onClick={() => setFichaAberta(r.id)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <td>
+                      <span style={{ fontFamily: "monospace", fontSize: "0.85rem", color: "#475569" }}>
+                        {r.animalId}
+                      </span>
+                    </td>
                     <td>
                       <span className={styles.boldName}>
                         {r.animalNome || "Sem nome"}
                       </span>
-                      <div className={styles.subText}>
-                        {r.animalId}
-                        {r.tutorNome ? ` · ${r.tutorNome}` : ""}
-                      </div>
                     </td>
-                    <td>{r.numeroProtocolo || "-"}</td>
                     <td>{formatarData(r.dataVisita)}</td>
                     <td>{r.apresentaLesoes || "Não"}</td>
                     <td>
                       <span className={styles.badge}>{r.visitasCount}</span>
-                    </td>
-                    <td style={{ textAlign: "right" }}>
-                      <div className={styles.acoesCell}>
-                        <button
-                          type="button"
-                          className={styles.btnEditar}
-                          onClick={() => onEditar(r.id)}
-                        >
-                          Editar
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.btnFicha}
-                          onClick={() => baixarPdf(r.id)}
-                          disabled={gerando}
-                        >
-                          Baixar PDF
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.btnFicha}
-                          onClick={() => baixarTermo(r.id)}
-                          disabled={gerando}
-                        >
-                          Termo
-                        </button>
-                      </div>
                     </td>
                   </tr>
                 ))}
@@ -136,6 +102,19 @@ export default function EsporotricoseLista({ onEditar }) {
           </div>
         )}
       </div>
+
+      {/* Modal de Ficha Completa */}
+      {fichaAberta && (
+        <FichaEsporotricose
+          esporotricoseId={fichaAberta}
+          onFechar={() => setFichaAberta(null)}
+          onEditar={(id) => {
+            setFichaAberta(null);
+            onEditar(id);
+          }}
+          onBaixarFicha={baixarPdf}
+        />
+      )}
     </div>
   );
 }

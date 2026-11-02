@@ -1,0 +1,342 @@
+/* OVERLAY E MODAL */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal {
+  background-color: #f1f5f9;
+  border-radius: 12px;
+  max-width: 900px;
+  width: 100%;
+  max-height: 95vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+/* RODAPÉ DO MODAL COM BOTÕES */
+.rodapeModal {
+  position: sticky;
+  bottom: 0;
+  background-color: #ffffff;
+  border-top: 2px solid #e2e8f0;
+  padding: 1rem;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  z-index: 10;
+}
+
+.btnBaixar {
+  background-color: #2563eb;
+  color: #ffffff;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btnBaixar:hover {
+  background-color: #1d4ed8;
+}
+
+.btnFecharRodape {
+  background-color: #64748b;
+  color: #ffffff;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btnFecharRodape:hover {
+  background-color: #475569;
+}
+
+/* TERMO (CONTEÚDO IMPRIMÍVEL) */
+.termo {
+  background-color: #ffffff;
+  padding: 3rem;
+  margin: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #1e293b;
+  line-height: 1.6;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* CABEÇALHO */
+.cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.logoBox {
+  flex-shrink: 0;
+}
+
+.logoImage {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.tituloBox {
+  flex: 1;
+}
+
+.tituloBox h1 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tituloBox h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #475569;
+  margin: 0.25rem 0 0;
+  text-transform: uppercase;
+}
+
+/* LINHA SEPARADORA */
+.linha {
+  border-bottom: 2px solid #cbd5e1;
+  margin: 1.5rem 0;
+}
+
+/* SEÇÕES */
+.secao {
+  margin-bottom: 1.5rem;
+}
+
+.secao h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* TEXTO EXPLICATIVO */
+.textoExplicativo {
+  text-align: justify;
+  line-height: 1.8;
+}
+
+.textoExplicativo p {
+  margin: 0 0 1rem;
+  font-size: 0.9375rem;
+  color: #1e293b;
+}
+
+.textoExplicativo p:last-child {
+  margin-bottom: 0;
+}
+
+/* INFORMAÇÕES BÁSICAS */
+.infoBasica p {
+  margin: 0.5rem 0;
+  font-size: 0.9375rem;
+  color: #334155;
+}
+
+/* LOCAL E DATA */
+.localData {
+  font-size: 0.9375rem;
+  color: #334155;
+  margin: 1rem 0;
+}
+
+/* LINHA MANUAL (para preenchimento) */
+.linhaManual {
+  border-bottom: 1px solid #334155;
+  display: inline-block;
+  min-width: 150px;
+}
+
+/* CONTAINER DOS TERMOS EM BRANCO */
+.headerTermos {
+  margin-bottom: 1.5rem;
+}
+
+.headerTermos h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 0.5rem;
+}
+
+.subtitle {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.previewContainer {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.acoesTermos {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.btnBaixarTermo {
+  background-color: #2563eb;
+  color: #ffffff;
+  border: none;
+  padding: 0.875rem 2rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
+
+.btnBaixarTermo:hover {
+  background-color: #1d4ed8;
+}
+
+/* CAMPOS */
+.campo {
+  display: flex;
+  margin-bottom: 0.75rem;
+  align-items: baseline;
+}
+
+.label {
+  font-weight: 600;
+  color: #475569;
+  min-width: 220px;
+  font-size: 0.9375rem;
+}
+
+.valor {
+  color: #0f172a;
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+/* CAIXA DE TEXTO */
+.textoBox {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 1rem;
+  min-height: 80px;
+  font-size: 0.9375rem;
+  color: #334155;
+  white-space: pre-wrap;
+}
+
+/* ASSINATURAS */
+.assinaturas {
+  display: flex;
+  justify-content: space-around;
+  gap: 3rem;
+  margin-top: 3rem;
+  margin-bottom: 2rem;
+}
+
+.assinatura {
+  flex: 1;
+  text-align: center;
+}
+
+.linhaAssinatura {
+  border-bottom: 2px solid #0f172a;
+  margin-bottom: 0.5rem;
+  height: 60px;
+}
+
+.assinatura p {
+  margin: 0.25rem 0;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.nomeAssinatura {
+  font-weight: 600;
+  color: #0f172a !important;
+  font-size: 0.9375rem !important;
+}
+
+/* RODAPÉ */
+.rodape {
+  text-align: center;
+  padding-top: 2rem;
+  border-top: 1px solid #e2e8f0;
+  margin-top: 2rem;
+}
+
+.rodape p {
+  margin: 0.25rem 0;
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+/* IMPRESSÃO */
+@media print {
+  .overlay {
+    background-color: transparent;
+    position: static;
+  }
+
+  .modal {
+    max-width: 100%;
+    max-height: none;
+    box-shadow: none;
+    border-radius: 0;
+    background-color: transparent;
+  }
+
+  .rodapeModal {
+    display: none !important;
+  }
+
+  .termo {
+    margin: 0;
+    padding: 2rem;
+    box-shadow: none;
+  }
+
+  .linha {
+    border-color: #000;
+  }
+}

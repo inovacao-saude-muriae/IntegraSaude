@@ -3,243 +3,219 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
+import ModalTrocarSenha from "@/components/ModalTrocarSenha";
 
-// Destino inicial de cada perfil que NÃO é gestor.
-const getDestinationByRole = (role) => {
-  switch (role) {
-    case "REGULACAO_ADMIN":
-    case "REGULACAO_COMUM":
-      return "/regulacao?tab=DASHBOARD";
-    case "FARMACIA_ADMIN":
-      return "/camara-tecnica/farmacia-judicial?tab=DASHBOARD";
-    case "PROCESSO_ADMIN":
-      return "/camara-tecnica/processos";
-    case "JUNTA_ADMIN":
-    case "JUNTA_CAEE":
-    case "JUNTA_EDUCACAO":
-    case "JUNTA_SAUDE":
-    case "JUNTA_ASSISTENCIA":
-      return "/junta-reguladora?tab=CADASTRO";
-    default:
-      return "/regulacao";
-  }
-};
-
-const formatarData = (valor) => {
-  if (!valor) return "-";
-  return new Date(valor).toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-};
+// Módulos do sistema com suas informações
+const MODULOS = [
+  {
+    id: "regulacao",
+    nome: "Regulação",
+    descricao: "Gestão completa de pedidos de exames, controle de fila de espera e liberações",
+    sigla: "REG",
+    cor: "#0066cc",
+    corClara: "#e6f2ff",
+    link: "/regulacao?tab=DASHBOARD",
+    roles: ["GESTOR", "REGULACAO_ADMIN", "REGULACAO_COMUM"],
+  },
+  {
+    id: "farmacia",
+    nome: "Farmácia Judicial",
+    descricao: "Controle de processos judiciais, estoque de medicamentos e dispensação",
+    sigla: "FJ",
+    cor: "#00a86b",
+    corClara: "#e6f9f3",
+    link: "/camara-tecnica/farmacia-judicial?tab=DASHBOARD",
+    roles: ["GESTOR", "FARMACIA_ADMIN"],
+  },
+  {
+    id: "processos",
+    nome: "Processos Judiciais",
+    descricao: "Gestão de processos judiciais e acompanhamento processual",
+    sigla: "PJ",
+    cor: "#059669",
+    corClara: "#d1fae5",
+    link: "/camara-tecnica/processos",
+    roles: ["GESTOR", "PROCESSO_ADMIN"],
+  },
+  {
+    id: "junta",
+    nome: "Junta Reguladora",
+    descricao: "Avaliação multiprofissional de pacientes e coordenação de serviços especializados",
+    sigla: "JR",
+    cor: "#8b5cf6",
+    corClara: "#f3f0ff",
+    link: "/junta-reguladora?tab=DASHBOARD",
+    roles: ["GESTOR", "JUNTA_ADMIN", "JUNTA_CAEE", "JUNTA_EDUCACAO", "JUNTA_SAUDE", "JUNTA_ASSISTENCIA"],
+  },
+  {
+    id: "ccz",
+    nome: "CCZ",
+    descricao: "Centro de Controle de Zoonoses - gestão de casos e vigilância epidemiológica",
+    sigla: "CCZ",
+    cor: "#d97706",
+    corClara: "#fef3e6",
+    link: "/ccz?tab=DASHBOARD",
+    roles: ["GESTOR", "CCZ_ADMIN", "CCZ_COMUM"],
+  },
+  {
+    id: "gerenciamento",
+    nome: "Gerenciamento",
+    descricao: "Administração de usuários, relatórios gerenciais e configurações do sistema",
+    sigla: "ADM",
+    cor: "#64748b",
+    corClara: "#f1f5f9",
+    link: "/gerenciamento/usuarios",
+    roles: ["GESTOR"],
+  },
+];
 
 export default function Home() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
-  const [metrics, setMetrics] = useState(null);
-  const [error, setError] = useState("");
+  const [mostrarModalSenha, setMostrarModalSenha] = useState(false);
 
   useEffect(() => {
     let ativo = true;
 
-    async function initDashboard() {
+    async function initHome() {
       try {
-        // 1. Autenticação do usuário
         const resUser = await fetch("/api/me");
         if (!ativo) return;
+        
         if (!resUser.ok) {
           router.replace("/login");
           return;
         }
 
         const dataUser = await resUser.json();
-        const userData = dataUser.user;
-        setUser(userData);
-
-        // 2. Somente o GESTOR vê o painel gerencial; demais perfis vão ao seu módulo
-        if (userData?.role !== "GESTOR") {
-          router.replace(getDestinationByRole(userData?.role));
+        
+        // DEBUG: Log do primeiroAcesso
+        console.log('🔍 DEBUG - Dados do usuário:', {
+          nome: dataUser.user?.nomeCompleto,
+          role: dataUser.user?.role,
+          primeiroAcesso: dataUser.user?.primeiroAcesso,
+        });
+        
+        // IMPORTANTE: Verifica primeiro acesso e mostra modal
+        if (dataUser.user?.primeiroAcesso === true) {
+          console.log('✅ Primeiro acesso detectado! Mostrando modal...');
+          setUser(dataUser.user);
+          setMostrarModalSenha(true);
+          setLoading(false);
           return;
         }
 
-        // 3. Métricas de negócio consolidadas (GESTOR)
-        const resMetrics = await fetch("/api/admin/metrics", { cache: "no-store" });
-        if (resMetrics.ok) {
-          const data = await resMetrics.json();
-          setMetrics(data);
-          setError("");
-        } else {
-          const corpo = await resMetrics.json().catch(() => ({}));
-          setError(corpo.error || "Não foi possível carregar os indicadores.");
-        }
+        console.log('ℹ️ Não é primeiro acesso, mostrando módulos normalmente');
+        setUser(dataUser.user);
       } catch (err) {
-        console.error("Erro ao carregar o painel:", err);
-        setError("Falha de conexão com o servidor.");
+        console.error("Erro ao carregar usuário:", err);
+        router.replace("/login");
       } finally {
         if (ativo) setLoading(false);
       }
     }
 
-    initDashboard();
+    initHome();
 
     return () => {
       ativo = false;
     };
   }, [router]);
 
+  const handleSucessoTrocaSenha = () => {
+    // Recarrega os dados do usuário para atualizar primeiroAcesso
+    setMostrarModalSenha(false);
+    window.location.reload();
+  };
+
   if (loading) {
     return (
       <div className={styles.loadingContainer}>
-        <p>Carregando indicadores do sistema...</p>
+        <p>Carregando módulos do sistema...</p>
       </div>
     );
   }
 
   if (!user) return null;
 
+  // Filtra módulos baseado nas permissões do usuário
+  const modulosDisponiveis = MODULOS.filter((modulo) =>
+    modulo.roles.includes(user.role)
+  );
+
+  const handleModuleClick = (link) => {
+    router.push(link);
+  };
+
   return (
-    <div className={styles.container}>
+    <div className={styles.homeContainer}>
+      {/* Modal de Trocar Senha (primeiro acesso) */}
+      {mostrarModalSenha && (
+        <ModalTrocarSenha onSucesso={handleSucessoTrocaSenha} />
+      )}
+
       {/* CABEÇALHO */}
-      <header className={styles.welcomeHeader}>
-        <span className={styles.systemBadge}>Painel Gerencial</span>
-        <h1 className={styles.pageTitle}>Visão consolidada</h1>
-        <p className={styles.pageSubtitle}>
-          Bem-vindo(a), <strong>{user?.nomeCompleto}</strong> ({user?.cargo || user?.role}).
-        </p>
+      <header className={styles.homeHeader}>
+        <div className={styles.welcomeSection}>
+          <h1 className={styles.welcomeTitle}>
+            Bem-vindo(a), <span className={styles.userName}>{user?.nomeCompleto}</span>
+          </h1>
+          <p className={styles.welcomeSubtitle}>
+            Selecione um módulo para começar a trabalhar
+          </p>
+        </div>
       </header>
 
-      {error && (
-        <div className={styles.errorAlert}>
-          <strong>Alerta:</strong> {error}
+      {/* GRID DE MÓDULOS */}
+      <section className={styles.modulesGrid}>
+        {modulosDisponiveis.map((modulo) => (
+          <div
+            key={modulo.id}
+            className={styles.moduleCard}
+            onClick={() => handleModuleClick(modulo.link)}
+          >
+            <div className={styles.moduleHeader}>
+              <div 
+                className={styles.moduleBadge}
+                style={{ 
+                  backgroundColor: modulo.cor,
+                  color: '#ffffff'
+                }}
+              >
+                {modulo.sigla}
+              </div>
+              <div className={styles.moduleArrow} style={{ color: modulo.cor }}>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <path d="M7.5 15L12.5 10L7.5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+            </div>
+            <div className={styles.moduleContent}>
+              <h2 className={styles.moduleName}>{modulo.nome}</h2>
+              <p className={styles.moduleDescription}>{modulo.descricao}</p>
+            </div>
+            <div className={styles.moduleFooter}>
+              <div 
+                className={styles.moduleIndicator}
+                style={{ backgroundColor: modulo.cor }}
+              ></div>
+            </div>
+          </div>
+        ))}
+      </section>
+
+      {/* INFORMAÇÕES ADICIONAIS */}
+      <footer className={styles.homeFooter}>
+        <div className={styles.userInfo}>
+          <span className={styles.userRole}>{user?.cargo || user?.role}</span>
+          <span className={styles.separator}>•</span>
+          <span className={styles.accessInfo}>
+            {modulosDisponiveis.length} módulo{modulosDisponiveis.length !== 1 ? "s" : ""} disponível
+            {modulosDisponiveis.length !== 1 ? "eis" : ""}
+          </span>
         </div>
-      )}
-
-      {metrics && (
-        <>
-          {/* PONTOS DE ATENÇÃO (AUDITORIA) */}
-          {metrics.auditoria && (
-            <div className={styles.auditPanel}>
-              <div className={styles.auditPanelHead}>
-                <h2 className={styles.sectionTitle}>Pontos de atenção — Auditoria</h2>
-                <span className={styles.auditPanelSub}>
-                  {metrics.auditoria.totalAlertas === 0
-                    ? "Nenhuma inconsistência encontrada."
-                    : `${metrics.auditoria.totalAlertas} ocorrência(s) para revisar.`}
-                </span>
-              </div>
-              <div className={styles.auditGrid}>
-                {metrics.auditoria.alertas.map((a) => (
-                  <div
-                    key={a.label}
-                    className={`${styles.auditItem} ${a.valor > 0 ? styles.auditWarn : styles.auditOk}`}
-                  >
-                    <span className={styles.auditValue}>{a.valor}</span>
-                    <span className={styles.auditLabel}>{a.label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* KPIs DE AUDITORIA (estilo Regulação) */}
-          <section className={styles.kpiGrid}>
-            {metrics.auditoria && (
-              <div className={`${styles.kpiCard} ${styles.cardSuccessBorder}`}>
-                <div className={styles.kpiTitle}>Valor autorizado</div>
-                <div className={`${styles.kpiValue} ${styles.textSuccess}`} style={{ fontSize: "1.5rem" }}>
-                  {`R$ ${(metrics.auditoria.valorAutorizado || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                </div>
-                <p className={styles.kpiFooter}>Soma dos exames liberados</p>
-              </div>
-            )}
-
-            {metrics.auditoria && (
-              <div className={styles.kpiCard}>
-                <div className={styles.kpiTitle}>Taxa de liberação</div>
-                <div className={`${styles.kpiValue} ${styles.textPrimary}`}>
-                  {(metrics.auditoria.taxaLiberacao || 0).toFixed(1)}
-                  <span style={{ fontSize: "1rem", fontWeight: 500 }}> %</span>
-                </div>
-                <p className={styles.kpiFooter}>
-                  {metrics.regulacao.liberados} liberados de {metrics.regulacao.total} pedidos
-                </p>
-              </div>
-            )}
-
-            {metrics.auditoria && (
-              <div className={styles.kpiCard}>
-                <div className={styles.kpiTitle}>Tempo médio de espera</div>
-                <div className={`${styles.kpiValue} ${styles.textDark}`}>
-                  {metrics.auditoria.tempoMedioEspera}
-                  <span style={{ fontSize: "1rem", fontWeight: 500 }}> dias</span>
-                </div>
-                <p className={styles.kpiFooter}>Do pedido até a liberação</p>
-              </div>
-            )}
-
-            <div className={`${styles.kpiCard} ${metrics.regulacao.aguardando > 0 ? styles.cardDangerBorder : styles.cardSuccessBorder}`}>
-              <div className={styles.kpiTitle}>Fila de espera</div>
-              <div className={`${styles.kpiValue} ${styles.textPrimary}`}>{metrics.regulacao.aguardando}</div>
-              <p className={styles.kpiFooter}>pacientes aguardando regulação</p>
-            </div>
-
-            <div className={styles.kpiCard}>
-              <div className={styles.kpiTitle}>Farmácia — estoque</div>
-              <div className={`${styles.kpiValue} ${styles.textDark}`}>{metrics.farmacia.estoqueUnidades}</div>
-              <p className={styles.kpiFooter}>
-                unidades · {metrics.farmacia.medicamentosAtivos} medicamentos ativos
-              </p>
-            </div>
-
-            <div className={styles.kpiCard}>
-              <div className={styles.kpiTitle}>Junta Reguladora</div>
-              <div className={`${styles.kpiValue} ${styles.textDark}`}>{metrics.junta.pacientes}</div>
-              <p className={styles.kpiFooter}>pacientes · {metrics.junta.atendimentos} atendimentos</p>
-            </div>
-          </section>
-
-          {/* PAINÉIS DE APOIO */}
-          <section className={styles.dashboardGrid}>
-            <div className={styles.cardSection}>
-              <h2 className={styles.sectionTitle}>Regulação por classificação de risco</h2>
-              <div className={styles.moduleList}>
-                {metrics.regulacao.risco.length > 0 ? (
-                  metrics.regulacao.risco.map((item) => (
-                    <div key={item.classificacao} className={styles.moduleItem}>
-                      <strong>{item.classificacao}</strong>
-                      <span>{item.total} pedido(s)</span>
-                    </div>
-                  ))
-                ) : (
-                  <p className={styles.emptyLogText}>Nenhum pedido registrado.</p>
-                )}
-              </div>
-            </div>
-
-            <div className={styles.cardSection}>
-              <h2 className={styles.sectionTitle}>Lotes a vencer (próximos 30 dias)</h2>
-              <div className={styles.moduleList}>
-                {metrics.farmacia.lotesAVencer.length > 0 ? (
-                  metrics.farmacia.lotesAVencer.map((lote) => (
-                    <div key={lote.id} className={styles.moduleItem}>
-                      <div>
-                        <strong>{lote.medicamento}</strong>
-                        <span className={styles.logRole}>Lote {lote.numeroLote}</span>
-                      </div>
-                      <span className={styles.logTime}>Vence {formatarData(lote.dataValidade)}</span>
-                    </div>
-                  ))
-                ) : (
-                  <p className={styles.emptyLogText}>Nenhum lote próximo do vencimento.</p>
-                )}
-              </div>
-            </div>
-
-          </section>
-        </>
-      )}
+      </footer>
     </div>
   );
 }
