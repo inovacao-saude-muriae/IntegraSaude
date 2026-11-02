@@ -7,6 +7,7 @@ import { useConfirm } from "@/components/ConfirmDialog";
 import BotaoEditar from "@/components/BotaoEditar";
 import { documentoPaciente } from "@/app/regulacao/constants";
 import { mascararTelefone as maskTelefone } from "@/lib/telefone";
+import { validarCNS } from "@/lib/validations/cns";
 import {
   listarPessoas,
   listarUbs,
@@ -77,6 +78,7 @@ export default function PessoasPage() {
   const [cepLoading, setCepLoading] = useState(false);
   const [cepErro, setCepErro] = useState("");
   const [confirmarExclusao, setConfirmarExclusao] = useState(false);
+  const [cnsErro, setCnsErro] = useState("");
 
   const editavel = modo === "novo" || modo === "edicao";
 
@@ -196,6 +198,14 @@ export default function PessoasPage() {
 
   const salvar = async (e) => {
     e.preventDefault();
+    
+    // Validar CNS antes de salvar
+    if (form.cns && !validarCNS(form.cns)) {
+      setCnsErro("CNS inválido. Verifique o número digitado.");
+      setSalvando(false);
+      return;
+    }
+    
     const ok = await confirm({
       title: modo === "edicao" ? "Atualizar pessoa" : "Cadastrar pessoa",
       message:
@@ -401,10 +411,20 @@ export default function PessoasPage() {
             <input
               type="text"
               value={form.cns}
-              onChange={(e) => setForm({ ...form, cns: e.target.value.replace(/\D/g, "").slice(0, 15) })}
-              placeholder="Opcional"
+              onChange={(e) => {
+                const valor = e.target.value.replace(/\D/g, "").slice(0, 15);
+                setForm({ ...form, cns: valor });
+                setCnsErro("");
+                // Validação inline quando completo
+                if (valor.length === 15 && !validarCNS(valor)) {
+                  setCnsErro("CNS inválido");
+                }
+              }}
+              placeholder="15 dígitos"
               disabled={!editavel}
+              className={cnsErro && editavel ? styles.inputErro : ""}
             />
+            {cnsErro && editavel && <small className={styles.hintErro}>{cnsErro}</small>}
           </div>
           <div className={styles.field}>
             <label>UBS de referência</label>

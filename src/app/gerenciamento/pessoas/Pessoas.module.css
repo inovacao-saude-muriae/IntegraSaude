@@ -327,6 +327,15 @@
   color: #64748b;
 }
 
+.inputErro {
+  border-color: #dc2626 !important;
+}
+
+.inputErro:focus {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1) !important;
+}
+
 .hint {
   font-size: 0.75rem;
   color: #64748b;
