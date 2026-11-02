@@ -1,5 +1,6 @@
 "use client";
 
+import { useModalKeyboard } from "@/hooks/useModalKeyboard";
 import styles from "./ModalConfirmacaoExclusao.module.css";
 
 export default function ModalConfirmacaoExclusao({
@@ -7,6 +8,8 @@ export default function ModalConfirmacaoExclusao({
   onConfirm,
   onCancel,
 }) {
+  const { modalRef } = useModalKeyboard(!!config, onCancel);
+  
   if (!config) return null;
 
   const iconMap = {
@@ -45,12 +48,12 @@ export default function ModalConfirmacaoExclusao({
 
   return (
     <div className={styles.overlay}>
-      <div className={styles.modal}>
+      <div ref={modalRef} className={styles.modal} role="alertdialog" aria-modal="true" aria-labelledby="modal-title">
         <div className={styles.itemCard}>
           <span className={`${styles.tag} ${tagClass}`}>
             {icon} {label}
           </span>
-          <p className={styles.itemName}>{config.nome}</p>
+          <p id="modal-title" className={styles.itemName}>{config.nome}</p>
           {config.detalhe && (
             <p className={styles.itemDetalhe}>{config.detalhe}</p>
           )}

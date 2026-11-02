@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useRef, useState } from "react";
+import { useModalKeyboard } from "@/hooks/useModalKeyboard";
 import styles from "./ConfirmDialog.module.css";
 
 const ConfirmContext = createContext(null);
@@ -63,6 +64,10 @@ export function ConfirmProvider({ children }) {
     }
   }, []);
 
+  // Hooks de teclado para os dois modais
+  const { modalRef: confirmModalRef } = useModalKeyboard(!!config, () => fechar(false));
+  const { modalRef: alertModalRef } = useModalKeyboard(!!aviso, fecharAviso);
+
   return (
     <ConfirmContext.Provider value={confirm}>
       <AlertContext.Provider value={notify}>
@@ -70,8 +75,8 @@ export function ConfirmProvider({ children }) {
 
         {config && (
           <div className={styles.overlay} onClick={() => fechar(false)}>
-            <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-              <h3 className={styles.title}>{config.title}</h3>
+            <div ref={confirmModalRef} className={styles.modal} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+              <h3 id="confirm-title" className={styles.title}>{config.title}</h3>
               <p className={styles.message}>{config.message}</p>
               <div className={styles.actions}>
                 <button type="button" className={styles.cancelBtn} onClick={() => fechar(false)}>
@@ -87,8 +92,9 @@ export function ConfirmProvider({ children }) {
 
         {aviso && (
           <div className={styles.overlay} onClick={fecharAviso}>
-            <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div ref={alertModalRef} className={styles.modal} onClick={(e) => e.stopPropagation()} role="alertdialog" aria-modal="true" aria-labelledby="alert-title">
               <h3
+                id="alert-title"
                 className={styles.title}
                 style={{
                   color:

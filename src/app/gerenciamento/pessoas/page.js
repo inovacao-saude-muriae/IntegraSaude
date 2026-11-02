@@ -8,6 +8,7 @@ import BotaoEditar from "@/components/BotaoEditar";
 import { documentoPaciente } from "@/app/regulacao/constants";
 import { mascararTelefone as maskTelefone } from "@/lib/telefone";
 import { validarCNS } from "@/lib/validations/cns";
+import { useModalKeyboard } from "@/hooks/useModalKeyboard";
 import {
   listarPessoas,
   listarUbs,
@@ -79,6 +80,8 @@ export default function PessoasPage() {
   const [cepErro, setCepErro] = useState("");
   const [confirmarExclusao, setConfirmarExclusao] = useState(false);
   const [cnsErro, setCnsErro] = useState("");
+
+  const { modalRef: deleteModalRef } = useModalKeyboard(confirmarExclusao, () => setConfirmarExclusao(false));
 
   const editavel = modo === "novo" || modo === "edicao";
 
@@ -551,8 +554,8 @@ export default function PessoasPage() {
       {/* POPUP DE CONFIRMAÇÃO DE EXCLUSÃO */}
       {confirmarExclusao && (
         <div className={styles.modalOverlay} onClick={() => setConfirmarExclusao(false)}>
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <h3 className={styles.modalTitle}>Excluir pessoa</h3>
+          <div ref={deleteModalRef} className={styles.modal} onClick={(e) => e.stopPropagation()} role="alertdialog" aria-modal="true" aria-labelledby="delete-title">
+            <h3 id="delete-title" className={styles.modalTitle}>Excluir pessoa</h3>
             <p className={styles.modalText}>
               Tem certeza que deseja excluir <strong>{form.nomeCompleto}</strong>?
               Esta ação não pode ser desfeita.
