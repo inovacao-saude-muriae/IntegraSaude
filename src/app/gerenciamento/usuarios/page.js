@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import styles from './AdminUsuarios.module.css';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { mascararTelefone } from '@/lib/telefone';
+import { usePagination } from '@/hooks/usePagination';
+import Pagination from '@/components/Pagination';
 
 export default function AdminUsuariosPage() {
   const confirm = useConfirm();
@@ -218,6 +220,43 @@ export default function AdminUsuariosPage() {
       setCarregandoUsuarios(false);
     }
   };
+
+  // Filtros aplicados
+  const usuariosFiltrados = usuarios.filter((user) => {
+    // Filtro de busca por nome, CPF ou username
+    if (buscaUsuario) {
+      const termo = buscaUsuario.toLowerCase();
+      const nomeMatch = user.nome?.toLowerCase().includes(termo);
+      const cpfMatch = user.cpf?.replace(/\D/g, '').includes(termo.replace(/\D/g, ''));
+      const usernameMatch = user.username?.toLowerCase().includes(termo);
+      if (!nomeMatch && !cpfMatch && !usernameMatch) return false;
+    }
+    
+    // Filtro por perfil/role
+    if (filtroRole && user.role !== filtroRole) return false;
+    
+    // Filtro por status
+    if (filtroStatus === 'ativo' && !user.ativo) return false;
+    if (filtroStatus === 'inativo' && user.ativo) return false;
+    
+    return true;
+  });
+
+  // Paginação (#4)
+  const {
+    currentPage,
+    totalPages,
+    totalItems,
+    itemsPerPage,
+    paginatedItems: usuariosPaginados,
+    goToPage,
+    resetPage
+  } = usePagination(usuariosFiltrados, 20);
+
+  // Reset página ao mudar filtros
+  useEffect(() => {
+    resetPage();
+  }, [buscaUsuario, filtroRole, filtroStatus, resetPage]);
 
   const iniciarEdicao = (usuario) => {
     setEditandoUsuario(usuario.cpf);
@@ -585,42 +624,23 @@ export default function AdminUsuariosPage() {
 
         {carregandoUsuarios ? (
           <div className={styles.loadingState}>Carregando usuários...</div>
-        ) : usuarios.length === 0 ? (
-          <div className={styles.emptyState}>Nenhum usuário cadastrado ainda.</div>
+        ) : usuariosFiltrados.length === 0 ? (
+          <div className={styles.emptyState}>Nenhum usuário encontrado com os filtros aplicados.</div>
         ) : (
-          <div className={styles.tableContainer}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Nome</th>
-                  <th>CPF</th>
-                  <th>Perfil/Cargo</th>
-                  <th>Status</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {usuarios
-                  .filter((user) => {
-                    // Filtro de busca por nome, CPF ou username
-                    if (buscaUsuario) {
-                      const termo = buscaUsuario.toLowerCase();
-                      const nomeMatch = user.nome?.toLowerCase().includes(termo);
-                      const cpfMatch = user.cpf?.replace(/\D/g, '').includes(termo.replace(/\D/g, ''));
-                      const usernameMatch = user.username?.toLowerCase().includes(termo);
-                      if (!nomeMatch && !cpfMatch && !usernameMatch) return false;
-                    }
-                    
-                    // Filtro por perfil/role
-                    if (filtroRole && user.role !== filtroRole) return false;
-                    
-                    // Filtro por status
-                    if (filtroStatus === 'ativo' && !user.ativo) return false;
-                    if (filtroStatus === 'inativo' && user.ativo) return false;
-                    
-                    return true;
-                  })
-                  .map((user) => (
+          <>
+            <div className={styles.tableContainer}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>CPF</th>
+                    <th>Perfil/Cargo</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {usuariosPaginados.map((user) => (
                   <tr key={user.cpf} className={!user.ativo ? styles.inactiveRow : ''}>
                     <td className={styles.nameCell}>
                       <div className={styles.userName}>{user.nome}</div>
@@ -743,6 +763,15 @@ export default function AdminUsuariosPage() {
               </tbody>
             </table>
           </div>
+          
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            onPageChange={goToPage}
+          />
+        </>
         )}
       </div>
     </div>
