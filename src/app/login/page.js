@@ -71,7 +71,7 @@ export default function LoginPage() {
         <div className={styles.brandingContent}>
           <div className={styles.logoContainer}>
             <img 
-              src="/img/logos-integra/logointegra.png" 
+              src="/img/logos-integra/integralogo.png" 
               alt="IntegraSaúde" 
               className={styles.logoImageLogin}
             />

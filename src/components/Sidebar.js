@@ -613,7 +613,7 @@ function MenuRender({ menuSections }) {
       <div className={styles.sidebarHeader}>
         <div className={styles.brandLogo}>
           <Image
-            src="/img/logos-integra/logointegra.png"
+            src="/img/logos-integra/integralogo.png"
             alt="IntegraSaúde"
             width={180}
             height={60}
