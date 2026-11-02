@@ -27,6 +27,11 @@ export default function AdminUsuariosPage() {
   
   // Estado para controlar exibição do formulário
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
+  
+  // Estado para busca e filtros (#8)
+  const [buscaUsuario, setBuscaUsuario] = useState('');
+  const [filtroRole, setFiltroRole] = useState('');
+  const [filtroStatus, setFiltroStatus] = useState('');
 
   // Mapeia os perfis exatamente como definidos no Enum 'Role' do Prisma
   const obterNomePerfil = (perfilRole) => {
@@ -523,6 +528,61 @@ export default function AdminUsuariosPage() {
           </button>
         </div>
 
+        {/* BUSCA E FILTROS */}
+        <div className={styles.searchFiltersBar}>
+          <div className={styles.searchBox}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input
+              type="text"
+              placeholder="Buscar por nome, CPF ou username..."
+              value={buscaUsuario}
+              onChange={(e) => setBuscaUsuario(e.target.value)}
+              className={styles.searchInput}
+            />
+          </div>
+          
+          <select 
+            value={filtroRole} 
+            onChange={(e) => setFiltroRole(e.target.value)}
+            className={styles.filterSelect}
+          >
+            <option value="">Todos os perfis</option>
+            <option value="GESTOR">GESTOR</option>
+            <optgroup label="REGULAÇÃO">
+              <option value="REGULACAO_ADMIN">Administrador</option>
+              <option value="REGULACAO_COMUM">Operador</option>
+            </optgroup>
+            <optgroup label="CÂMARA TÉCNICA">
+              <option value="FARMACIA_ADMIN">Farmácia Judicial</option>
+              <option value="PROCESSO_ADMIN">Processos Judiciais</option>
+            </optgroup>
+            <optgroup label="JUNTA REGULADORA">
+              <option value="JUNTA_ADMIN">Administrador</option>
+              <option value="JUNTA_CAEE">CAEE</option>
+              <option value="JUNTA_EDUCACAO">APAE</option>
+              <option value="JUNTA_SAUDE">Ambulatório</option>
+              <option value="JUNTA_ASSISTENCIA">Centro de Especialidades</option>
+            </optgroup>
+            <optgroup label="CCZ">
+              <option value="CCZ_ADMIN">Administrador</option>
+              <option value="CCZ_COMUM">Operador</option>
+            </optgroup>
+          </select>
+          
+          <select 
+            value={filtroStatus} 
+            onChange={(e) => setFiltroStatus(e.target.value)}
+            className={styles.filterSelect}
+          >
+            <option value="">Todos os status</option>
+            <option value="ativo">Ativos</option>
+            <option value="inativo">Inativos</option>
+          </select>
+        </div>
+
         {carregandoUsuarios ? (
           <div className={styles.loadingState}>Carregando usuários...</div>
         ) : usuarios.length === 0 ? (
@@ -540,7 +600,27 @@ export default function AdminUsuariosPage() {
                 </tr>
               </thead>
               <tbody>
-                {usuarios.map((user) => (
+                {usuarios
+                  .filter((user) => {
+                    // Filtro de busca por nome, CPF ou username
+                    if (buscaUsuario) {
+                      const termo = buscaUsuario.toLowerCase();
+                      const nomeMatch = user.nome?.toLowerCase().includes(termo);
+                      const cpfMatch = user.cpf?.replace(/\D/g, '').includes(termo.replace(/\D/g, ''));
+                      const usernameMatch = user.username?.toLowerCase().includes(termo);
+                      if (!nomeMatch && !cpfMatch && !usernameMatch) return false;
+                    }
+                    
+                    // Filtro por perfil/role
+                    if (filtroRole && user.role !== filtroRole) return false;
+                    
+                    // Filtro por status
+                    if (filtroStatus === 'ativo' && !user.ativo) return false;
+                    if (filtroStatus === 'inativo' && user.ativo) return false;
+                    
+                    return true;
+                  })
+                  .map((user) => (
                   <tr key={user.cpf} className={!user.ativo ? styles.inactiveRow : ''}>
                     <td className={styles.nameCell}>
                       <div className={styles.userName}>{user.nome}</div>

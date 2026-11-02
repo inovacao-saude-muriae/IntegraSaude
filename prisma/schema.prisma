@@ -617,3 +617,20 @@ enum ServicoJunta {
   AMBULATORIO
   ESPECIALIDADES
 }
+
+model PedidoExameHistorico {
+  id                Int      @id @default(autoincrement())
+  pedidoId          Int      @map("pedido_id")
+  usuarioCpf        String   @map("usuario_cpf") @db.VarChar(11)
+  usuarioNome       String   @map("usuario_nome") @db.VarChar(150)
+  acao              String   @db.VarChar(50)
+  campoAlterado     String?  @map("campo_alterado") @db.VarChar(100)
+  valorAnterior     String?  @map("valor_anterior")
+  valorNovo         String?  @map("valor_novo")
+  observacao        String?
+  dataHora          DateTime @default(now()) @map("data_hora") @db.Timestamptz(6)
+
+  @@index([pedidoId], map: "idx_historico_pedido")
+  @@index([dataHora], map: "idx_historico_data")
+  @@map("regula_pedidos_historico")
+}

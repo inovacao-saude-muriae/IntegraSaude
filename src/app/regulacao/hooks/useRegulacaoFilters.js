@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const FILTROS_VAZIOS = {
   // Busca ampla (nome, mãe, CPF, cartão SUS)
@@ -23,6 +23,8 @@ const FILTROS_VAZIOS = {
   billingDateEnd: "",
 };
 
+const STORAGE_KEY = "regulacao_filtros_persistentes";
+
 const norm = (v) => String(v || "").trim().toLowerCase();
 const soDigitos = (v) => String(v || "").replace(/\D/g, "");
 
@@ -38,8 +40,38 @@ const paraISO = (v) => {
 // Retorna a data ISO de um item priorizando o campo *Raw (já ISO).
 const dataISOItem = (raw, formatado) => paraISO(raw || formatado);
 
+// Carrega filtros do localStorage
+const carregarFiltros = () => {
+  if (typeof window === "undefined") return { ...FILTROS_VAZIOS };
+  try {
+    const salvos = localStorage.getItem(STORAGE_KEY);
+    if (salvos) {
+      const parsed = JSON.parse(salvos);
+      return { ...FILTROS_VAZIOS, ...parsed };
+    }
+  } catch (err) {
+    console.error("Erro ao carregar filtros persistentes:", err);
+  }
+  return { ...FILTROS_VAZIOS };
+};
+
+// Salva filtros no localStorage
+const salvarFiltros = (filtros) => {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtros));
+  } catch (err) {
+    console.error("Erro ao salvar filtros persistentes:", err);
+  }
+};
+
 export function useRegulacaoFilters() {
-  const [filters, setFilters] = useState({ ...FILTROS_VAZIOS });
+  const [filters, setFilters] = useState(carregarFiltros);
+
+  // Persiste filtros no localStorage sempre que mudarem (#9)
+  useEffect(() => {
+    salvarFiltros(filters);
+  }, [filters]);
 
   const handleFilterChange = (field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
