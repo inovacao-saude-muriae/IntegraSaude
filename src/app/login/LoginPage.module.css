@@ -1,9 +1,11 @@
 /* Layout Principal - Split Screen */
 .pageWrapper {
   min-height: 100vh;
+  height: 100vh;
   display: grid;
   grid-template-columns: 1fr 1fr;
   background: #ffffff;
+  overflow: hidden;
 }
 
 /* ═══════════════════════════════════════════════════════════════════ */
@@ -19,6 +21,7 @@
   justify-content: space-between;
   position: relative;
   overflow: hidden;
+  height: 100vh;
 }
 
 .brandingSide::before {
@@ -137,6 +140,8 @@
   justify-content: center;
   padding: 2rem;
   background: #f8fafc;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .formContainer {
