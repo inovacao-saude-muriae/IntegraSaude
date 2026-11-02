@@ -41,7 +41,7 @@
 .brandImage {
   width: 100%;
   height: auto;
-  max-width: 180px;
+  max-width: 220px;
   object-fit: contain;
   filter: brightness(0) invert(1);
 }

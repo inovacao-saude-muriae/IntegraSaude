@@ -5,8 +5,9 @@ export const metadata = {
   title: 'IntegraSaúde - Gestão Integrada',
   description: 'Sistema de Gestão Municipal de Saúde',
   icons: {
-    icon: '/icon.png',
-    apple: '/apple-icon.png',
+    icon: '/img/logos-integra/icon.png',
+    shortcut: '/img/logos-integra/icon.png',
+    apple: '/img/logos-integra/icon.png',
   },
 };
 

@@ -615,8 +615,8 @@ function MenuRender({ menuSections }) {
           <Image
             src="/img/logos-integra/integralogo.png"
             alt="IntegraSaúde"
-            width={180}
-            height={60}
+            width={220}
+            height={80}
             quality={100}
             className={styles.brandImage}
             priority
