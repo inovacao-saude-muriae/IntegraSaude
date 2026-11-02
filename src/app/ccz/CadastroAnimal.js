@@ -179,11 +179,10 @@ export default function CadastroAnimal({ animalInicial = null, onSalvo, onCancel
 
     try {
       setFotoErro("Processando imagem...");
-      const { compressed, thumbnail } = await compressImage(file, {
+      const { compressed } = await compressImage(file, {
         maxWidth: 800,
         maxHeight: 800,
         quality: 0.85,
-        thumbnailSize: 200,
       });
       
       // Use compressed image for storage

@@ -1,59 +1,59 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { carregarContextoAcesso } from "@/lib/permissions";
+import { requireAcessoPessoas } from "@/lib/auth";
 
-const soDigitos = (v) => (v ? v.replace(/\D/g, "") : "");
-
-export async function GET(request) {
+/**
+ * GET /api/pessoas/buscar?termo=searchTerm
+ * Search pessoas by name or CPF (alternative endpoint for legacy code)
+ */
+export async function GET(req) {
   try {
-    const ctx = await carregarContextoAcesso();
-    if (!ctx) {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
+    await requireAcessoPessoas();
+
+    const { searchParams } = new URL(req.url);
+    const termo = searchParams.get("termo");
+
+    if (!termo || termo.trim().length < 2) {
+      return NextResponse.json({ success: true, results: [] });
     }
 
-    const { searchParams } = new URL(request.url);
-    const termo = searchParams.get("termo") || "";
-
-    if (!termo.trim()) {
-      return NextResponse.json([]);
-    }
-
-    const termoLimpo = termo.trim();
-    const termoDigitos = soDigitos(termoLimpo);
-
+    const searchTerm = termo.trim();
     const where = {
       OR: [
-        { nomeCompleto: { contains: termoLimpo, mode: "insensitive" } },
-        ...(termoDigitos ? [{ cpf: { contains: termoDigitos } }] : []),
+        { nomeCompleto: { contains: searchTerm, mode: "insensitive" } },
+        { cpf: { contains: searchTerm } },
       ],
     };
 
     const pessoas = await prisma.pessoa.findMany({
       where,
+      take: 20,
       orderBy: { nomeCompleto: "asc" },
-      take: 10,
       select: {
         cpf: true,
         nomeCompleto: true,
         dataNascimento: true,
-        telefone: true,
-        sexo: true,
         nomeMae: true,
+        telefone: true,
         cns: true,
-        ubsReferenciaId: true,
+        sexo: true,
+        ubsReferencia: {
+          select: {
+            id: true,
+            nome: true,
+            cnes: true,
+          },
+        },
       },
     });
 
-    return NextResponse.json(pessoas);
+    return NextResponse.json({ success: true, results: pessoas });
   } catch (error) {
-    console.error("Erro ao buscar pessoas:", error);
-    
+    console.error("[GET /api/pessoas/buscar]", error);
+    const status = error.status || 500;
     return NextResponse.json(
-      { error: "Erro ao buscar pessoas" },
-      { status: 500 }
+      { success: false, error: error.message || "Erro ao buscar pessoas" },
+      { status }
     );
   }
 }

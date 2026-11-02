@@ -1,27 +1,55 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAcessoPessoas } from "@/lib/auth";
 
-export async function GET(request, { params }) {
+/**
+ * GET /api/pessoas/[cpf]
+ * Get a single pessoa by CPF
+ */
+export async function GET(req, { params }) {
   try {
+    await requireAcessoPessoas();
+
     const { cpf } = await params;
-    const cpfLimpo = cpf?.replace(/\D/g, "");
+
+    if (!cpf) {
+      return NextResponse.json(
+        { success: false, error: "CPF é obrigatório" },
+        { status: 400 }
+      );
+    }
 
     const pessoa = await prisma.pessoa.findUnique({
-      where: { cpf: cpfLimpo },
-      select: {
-        cpf: true,
-        nomeCompleto: true,
-        telefone: true,
+      where: { cpf },
+      include: {
+        enderecos: {
+          where: { enderecoAtual: true },
+          take: 1,
+        },
+        ubsReferencia: {
+          select: {
+            id: true,
+            nome: true,
+            cnes: true,
+          },
+        },
       },
     });
 
     if (!pessoa) {
-      return NextResponse.json({ error: "Pessoa não encontrada" }, { status: 404 });
+      return NextResponse.json(
+        { success: false, error: "Pessoa não encontrada" },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json({ pessoa });
+    return NextResponse.json({ success: true, data: pessoa });
   } catch (error) {
-    console.error("Erro ao buscar CPF:", error);
-    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+    console.error("[GET /api/pessoas/[cpf]]", error);
+    const status = error.status || 500;
+    return NextResponse.json(
+      { success: false, error: error.message || "Erro ao buscar pessoa" },
+      { status }
+    );
   }
 }
