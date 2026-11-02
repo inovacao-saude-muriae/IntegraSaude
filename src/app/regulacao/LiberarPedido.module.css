@@ -108,7 +108,18 @@
   font-weight: 500;
 }
 
-/* MAPEAMENTO DE COLUNAS */
+/* MAPEAMENTO DE COLUNAS - LAYOUT COMPACTO 2 COLUNAS */
+.colNameCompact { grid-column: span 6; }
+.colCpfCompact { grid-column: span 3; }
+.colMotherCompact { grid-column: span 3; }
+.colProcedureCompact { grid-column: span 6; }
+.colStatusCompact { grid-column: span 4; }
+.colRiskCompact { grid-column: span 4; }
+.colDoctorCompact { grid-column: span 4; }
+.colUbsCompact { grid-column: span 4; }
+.fullWidth { grid-column: span 12; }
+
+/* LEGADO (mantido para compatibilidade) */
 .colName { grid-column: span 6; }
 .colCpf { grid-column: span 3; }
 .colMother { grid-column: span 3; }
@@ -117,7 +128,6 @@
 .colRisk { grid-column: span 3; }
 .colDoctor { grid-column: span 3; }
 .colUbs { grid-column: span 3; }
-.fullWidth { grid-column: span 12; }
 
 /* BOTÕES DE AÇÃO */
 .formActions {
@@ -159,6 +169,10 @@
 }
 
 @media (max-width: 1024px) {
+  .colNameCompact, .colProcedureCompact { grid-column: span 12; }
+  .colCpfCompact, .colMotherCompact, .colStatusCompact, .colRiskCompact, .colDoctorCompact, .colUbsCompact { grid-column: span 6; }
+  
+  /* LEGADO */
   .colName, .colProcedure { grid-column: span 12; }
   .colCpf, .colMother, .colStatus, .colRisk, .colDoctor, .colUbs { grid-column: span 6; }
 }

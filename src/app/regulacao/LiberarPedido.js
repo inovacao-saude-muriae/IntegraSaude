@@ -133,17 +133,17 @@ export default function LiberarPedido({
           </div>
 
           <div className={styles.formGridStrict}>
-            <div className={`${styles.fieldGroup} ${styles.colName}`}>
+            <div className={`${styles.fieldGroup} ${styles.colNameCompact}`}>
               <label>Nome do Paciente</label>
               <input type="text" value={releasingItem.patientName || ""} disabled readOnly />
             </div>
 
-            <div className={`${styles.fieldGroup} ${styles.colCpf}`}>
+            <div className={`${styles.fieldGroup} ${styles.colCpfCompact}`}>
               <label>CPF</label>
               <input type="text" value={releasingItem.cpf || ""} disabled readOnly />
             </div>
 
-            <div className={`${styles.fieldGroup} ${styles.colMother}`}>
+            <div className={`${styles.fieldGroup} ${styles.colMotherCompact}`}>
               <label>Nome da Mãe</label>
               <input
                 type="text"
@@ -153,7 +153,7 @@ export default function LiberarPedido({
               />
             </div>
 
-            <div className={`${styles.fieldGroup} ${styles.colProcedure}`}>
+            <div className={`${styles.fieldGroup} ${styles.colProcedureCompact}`}>
               <label>Procedimento / Exame</label>
               <input
                 type="text"
@@ -163,12 +163,12 @@ export default function LiberarPedido({
               />
             </div>
 
-            <div className={`${styles.fieldGroup} ${styles.colRisk}`}>
+            <div className={`${styles.fieldGroup} ${styles.colRiskCompact}`}>
               <label>Classificação de Risco</label>
               <input type="text" value={releasingItem.classification || "Verde"} disabled readOnly />
             </div>
 
-            <div className={`${styles.fieldGroup} ${styles.colDoctor}`}>
+            <div className={`${styles.fieldGroup} ${styles.colDoctorCompact}`}>
               <label>Médico Solicitante</label>
               <input
                 type="text"
@@ -178,7 +178,7 @@ export default function LiberarPedido({
               />
             </div>
 
-            <div className={`${styles.fieldGroup} ${styles.colUbs}`}>
+            <div className={`${styles.fieldGroup} ${styles.colUbsCompact}`}>
               <label>UBS Solicitante</label>
               <input
                 type="text"
@@ -207,7 +207,7 @@ export default function LiberarPedido({
           </div>
 
           <div className={styles.formGridStrict}>
-            <div className={`${styles.fieldGroup} ${styles.colStatus}`}>
+            <div className={`${styles.fieldGroup} ${styles.colStatusCompact}`}>
               <label>Status do Pedido *</label>
               <select
                 value={regulationForm.status}
@@ -224,7 +224,7 @@ export default function LiberarPedido({
               </select>
             </div>
 
-            <div className={`${styles.fieldGroup} ${styles.colRisk}`}>
+            <div className={`${styles.fieldGroup} ${styles.colRiskCompact}`}>
               <label>Tipo de Cota *</label>
               <select
                 value={regulationForm.quota}
@@ -242,7 +242,7 @@ export default function LiberarPedido({
               </select>
             </div>
 
-            <div className={`${styles.fieldGroup} ${styles.colCpf}`}>
+            <div className={`${styles.fieldGroup} ${styles.colCpfCompact}`}>
               <label>Data de Liberação *</label>
               <input
                 type="date"
@@ -255,7 +255,7 @@ export default function LiberarPedido({
               />
             </div>
 
-            <div className={`${styles.fieldGroup} ${styles.colName}`}>
+            <div className={`${styles.fieldGroup} ${styles.colNameCompact}`}>
               <label>Médico Regulador / Responsável</label>
               <select
                 value={regulationForm.regulatorDoctorId}
@@ -275,7 +275,7 @@ export default function LiberarPedido({
               </select>
             </div>
 
-            <div className={`${styles.fieldGroup} ${styles.colCpf}`}>
+            <div className={`${styles.fieldGroup} ${styles.colCpfCompact}`}>
               <label htmlFor="communicationDate">Data de Comunicação</label>
               <input
                 type="date"
@@ -295,7 +295,7 @@ export default function LiberarPedido({
               <label htmlFor="generalObservation">Observação Geral da Regulação</label>
               <textarea
                 id="generalObservation"
-                rows={3}
+                rows={2}
                 placeholder="Digite as observações específicas sobre esta liberação..."
                 value={regulationForm.generalObservation || ""}
                 onChange={(e) => {
