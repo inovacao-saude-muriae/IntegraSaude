@@ -127,17 +127,67 @@
 
 ---
 
+## Review e Correções
+
+### Review Findings (2025-01-20)
+**Status:** ✅ RESOLVIDO
+
+**BLOCKER-1:** Missing `/api/farmacia/medicamentos` endpoint
+- ✅ Criado `src/app/api/farmacia/medicamentos/route.js`
+- Retorna medicamentos ativos com proteção `requireAcessoModulo(MODULOS.FARMACIA)`
+- Hook `useMedicamentos()` agora funcional
+
+**BLOCKER-2:** Missing `/api/ccz/animais` endpoint
+- ✅ Criado `src/app/api/ccz/animais/route.js`
+- Suporta busca por nome ou ID com query param `?q=`
+- Hook `useAnimaisCCZ()` agora funcional
+- Retorna até 20 resultados com dados do tutor
+
+**BLOCKER-3:** Missing `/api/junta-reguladora/servicos` endpoint
+- ✅ Criado `src/app/api/junta-reguladora/servicos/route.js`
+- Retorna serviços ativos com proteção `requireAcessoModulo(MODULOS.JUNTA)`
+- Hook `useServicosJunta()` agora funcional
+
+**BLOCKER-4:** Missing `/api/pessoas` endpoints
+- ✅ Criado `src/app/api/pessoas/route.js` (GET com busca, POST para criação)
+- ✅ Criado `src/app/api/pessoas/buscar/route.js` (endpoint legado para SeletorPaciente)
+- ✅ Criado `src/app/api/pessoas/[cpf]/route.js` (lookup individual)
+- Todos protegidos com `requireAcessoPessoas()`
+- Hook `usePessoas()` agora funcional
+
+**ISSUE-1:** Unused thumbnail parameter in CadastroAnimal.js
+- ✅ Removido parâmetro `thumbnailSize: 200` não utilizado
+- ✅ Removido destructuring da variável `thumbnail` não utilizada
+- Código limpo e otimizado
+
+**Commit:** 5690c48 - "fix(fase3): resolve review findings"
+
+### Build Final
+```bash
+npm run build
+✓ Compiled successfully in 930ms
+✓ Collecting page data using 15 workers in 1847ms
+✓ Generating static pages using 15 workers (49/49) in 688ms
+✓ Finalizing page optimization in 13ms
+```
+
+**Build Status:** ✅ PASSED (zero errors)
+
+---
+
 ## Resumo
 
 ✅ **5/5 correções implementadas com sucesso**
+✅ **4 blockers resolvidos + 1 issue corrigido**
+✅ **Build validado sem erros**
 
-Todas as correções de baixa prioridade foram implementadas, testadas e commitadas individualmente. O sistema agora conta com:
+Todas as correções de baixa prioridade foram implementadas, testadas e commitadas individualmente. Os findings da review foram corrigidos com criação dos 4 endpoints de API faltantes e limpeza de código. O sistema agora conta com:
 
 1. **Compressão automática de imagens** - Reduz uso de armazenamento e melhora performance
-2. **Cache inteligente de dados** - Menos requisições ao servidor, melhor UX
+2. **Cache inteligente de dados** - Menos requisições ao servidor, melhor UX (com todas APIs funcionais)
 3. **Criação rápida de agendamentos** - Fluxo de trabalho otimizado para CCZ
 4. **Visualização de dados em gráficos** - Facilita análise e tomada de decisão
 5. **Auditoria de acessos** - Segurança e rastreabilidade de usuários
 
-Build validado sem erros. Sistema pronto para deploy.
+Sistema pronto para deploy em produção.
 
