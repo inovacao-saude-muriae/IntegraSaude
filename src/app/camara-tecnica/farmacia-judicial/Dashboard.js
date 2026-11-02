@@ -6,7 +6,8 @@ export default function TabDashboard({
   metrics = {},
   onNavigate,
   loading = false,
-  medicamentosList = []
+  medicamentosList = [],
+  estoqueLotes = []
 }) {
   if (loading) {
     return (
@@ -27,8 +28,98 @@ export default function TabDashboard({
 
   const totalPacientes = pacientesAtivos + pacientesInativos + pacientesObito;
 
+  // #7 - Sistema de Alertas de Estoque
+  const hoje = new Date();
+  const em30Dias = new Date();
+  em30Dias.setDate(hoje.getDate() + 30);
+
+  // Lotes próximos ao vencimento (30 dias)
+  const lotesVencendo = (estoqueLotes || []).filter(lote => {
+    if (!lote.dataValidade) return false;
+    const validade = new Date(lote.dataValidade);
+    const saldo = lote.qtdInicial - (lote.qtdSaida || 0);
+    return saldo > 0 && validade >= hoje && validade <= em30Dias;
+  });
+
+  // Medicamentos com estoque baixo (menos de 20 unidades)
+  const LIMITE_ESTOQUE_BAIXO = 20;
+  const medicamentosEstoqueBaixo = (medicamentosList || []).filter(med => {
+    const qtd = med.qtdAtual ?? med.qtdTotal ?? med.estoqueUnidades ?? 0;
+    return qtd > 0 && qtd < LIMITE_ESTOQUE_BAIXO;
+  });
+
+  const temAlertas = lotesVencendo.length > 0 || medicamentosEstoqueBaixo.length > 0;
+
   return (
     <div className={styles.container}>
+      {/* ALERTAS DE ESTOQUE (#7) */}
+      {temAlertas && (
+        <div className={styles.alertsSection}>
+          {lotesVencendo.length > 0 && (
+            <div className={styles.alertCard} style={{ borderLeftColor: '#f59e0b' }}>
+              <div className={styles.alertHeader}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2">
+                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                <strong>Medicamentos Próximos ao Vencimento</strong>
+                <span className={styles.alertBadge}>{lotesVencendo.length}</span>
+              </div>
+              <div className={styles.alertBody}>
+                <p>Os seguintes lotes vencem nos próximos 30 dias:</p>
+                <ul className={styles.alertList}>
+                  {lotesVencendo.slice(0, 5).map((lote, idx) => {
+                    const validade = new Date(lote.dataValidade);
+                    const diasRestantes = Math.ceil((validade - hoje) / (1000 * 60 * 60 * 24));
+                    return (
+                      <li key={idx}>
+                        <strong>{lote.nomeMedicamento}</strong> (Lote {lote.numeroLote}) 
+                        - Vence em <span style={{ color: '#dc2626', fontWeight: '700' }}>{diasRestantes} dia(s)</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {lotesVencendo.length > 5 && (
+                  <p className={styles.alertMore}>+ {lotesVencendo.length - 5} lote(s) adicional(is)</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {medicamentosEstoqueBaixo.length > 0 && (
+            <div className={styles.alertCard} style={{ borderLeftColor: '#dc2626' }}>
+              <div className={styles.alertHeader}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="8" x2="12" y2="12"/>
+                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <strong>Estoque Baixo</strong>
+                <span className={styles.alertBadge}>{medicamentosEstoqueBaixo.length}</span>
+              </div>
+              <div className={styles.alertBody}>
+                <p>Medicamentos com menos de {LIMITE_ESTOQUE_BAIXO} unidades em estoque:</p>
+                <ul className={styles.alertList}>
+                  {medicamentosEstoqueBaixo.slice(0, 5).map((med, idx) => {
+                    const qtd = med.qtdAtual ?? med.qtdTotal ?? med.estoqueUnidades ?? 0;
+                    return (
+                      <li key={idx}>
+                        <strong>{med.nome}</strong> - 
+                        <span style={{ color: '#dc2626', fontWeight: '700' }}> {qtd} unidade(s)</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {medicamentosEstoqueBaixo.length > 5 && (
+                  <p className={styles.alertMore}>+ {medicamentosEstoqueBaixo.length - 5} medicamento(s) adicional(is)</p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* SEÇÃO 1: METRICAS PRINCIPAIS */}
       <section className={styles.kpiGrid}>
         {/* CARD 1: MEDICAMENTOS NO CATÁLOGO */}

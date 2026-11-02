@@ -254,7 +254,8 @@ function FarmaciaJudicialPageContent() {
           metrics={metrics}
           onNavigate={handleNavigate}
           loading={loading}
-          medicamentosList={estoqueLotes}
+          medicamentosList={estoqueAgrupado}
+          estoqueLotes={estoqueLotes}
         />
       )}
 
