@@ -33,6 +33,7 @@ export default function AgendaCCZ({ onAbrirProcedimento }) {
   const [loading, setLoading] = useState(false);
   const [diaSelecionado, setDiaSelecionado] = useState(null);
   const [visitaSelecionada, setVisitaSelecionada] = useState(null);
+  const [criarAgendamento, setCriarAgendamento] = useState(null);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -150,7 +151,19 @@ export default function AgendaCCZ({ onAbrirProcedimento }) {
             <div
               key={ymd}
               className={`${styles.dayCell} ${ehHoje ? styles.today : ""}`}
-              onClick={() => setDiaSelecionado(ymd)}
+              onClick={(e) => {
+                // Right-click or Ctrl+click to create, otherwise view
+                if (e.ctrlKey || e.button === 2) {
+                  e.preventDefault();
+                  setCriarAgendamento(ymd);
+                } else {
+                  setDiaSelecionado(ymd);
+                }
+              }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setCriarAgendamento(ymd);
+              }}
             >
               <div className={styles.dayNumber}>{dateObj.getDate()}</div>
               <div className={styles.events}>
@@ -269,6 +282,156 @@ export default function AgendaCCZ({ onAbrirProcedimento }) {
           }}
         />
       )}
+
+      {/* MODAL DE CRIAÇÃO DE AGENDAMENTO */}
+      {criarAgendamento && (
+        <ModalCriarAgendamento
+          data={criarAgendamento}
+          onFechar={() => setCriarAgendamento(null)}
+          onSalvo={() => {
+            setCriarAgendamento(null);
+            carregar();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Modal para criar novo agendamento
+function ModalCriarAgendamento({ data, onFechar, onSalvo }) {
+  const [form, setForm] = useState({
+    animalId: "",
+    animalNome: "",
+    tipo: "Consulta",
+    tipoEvento: "AGENDADO",
+    observacao: "",
+  });
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState("");
+
+  const atualizar = (campo, valor) => setForm((prev) => ({ ...prev, [campo]: valor }));
+
+  const salvar = async (e) => {
+    e.preventDefault();
+    
+    if (!form.animalId.trim()) {
+      setErro("Informe o ID do animal");
+      return;
+    }
+
+    setSalvando(true);
+    setErro("");
+
+    try {
+      const res = await fetch("/api/ccz/agenda/criar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          data,
+        }),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok || !result.success) {
+        throw new Error(result.error || "Erro ao criar agendamento");
+      }
+
+      onSalvo();
+    } catch (error) {
+      setErro(error.message);
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const formatarDiaBR = (ymd) => {
+    if (!ymd) return "";
+    const [y, m, d] = ymd.split("-");
+    return `${d}/${m}/${y}`;
+  };
+
+  return (
+    <div className={styles.modalOverlay} onClick={onFechar}>
+      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.modalHeader}>
+          <div>
+            <h3 className={styles.modalTitle}>Criar agendamento</h3>
+            <p className={styles.modalSubtitle}>{formatarDiaBR(data)}</p>
+          </div>
+          <button type="button" className={styles.modalClose} onClick={onFechar}>
+            ✕
+          </button>
+        </div>
+
+        <form onSubmit={salvar} className={styles.modalBody}>
+          {erro && <div className={styles.alertErro}>{erro}</div>}
+
+          <div className={styles.formField}>
+            <label>ID do Animal *</label>
+            <input
+              type="text"
+              value={form.animalId}
+              onChange={(e) => atualizar("animalId", e.target.value)}
+              placeholder="Ex: A001"
+              required
+              autoFocus
+            />
+          </div>
+
+          <div className={styles.formField}>
+            <label>Nome do Animal (opcional)</label>
+            <input
+              type="text"
+              value={form.animalNome}
+              onChange={(e) => atualizar("animalNome", e.target.value)}
+              placeholder="Nome do animal"
+            />
+          </div>
+
+          <div className={styles.formField}>
+            <label>Tipo de Procedimento *</label>
+            <select
+              value={form.tipo}
+              onChange={(e) => atualizar("tipo", e.target.value)}
+              required
+            >
+              <option value="Consulta">Consulta</option>
+              <option value="Castração">Castração</option>
+              <option value="Vacinação">Vacinação</option>
+              <option value="Cirurgia">Cirurgia</option>
+              <option value="Retorno">Retorno</option>
+              <option value="Outro">Outro</option>
+            </select>
+          </div>
+
+          <div className={styles.formField}>
+            <label>Observação</label>
+            <textarea
+              rows={3}
+              value={form.observacao}
+              onChange={(e) => atualizar("observacao", e.target.value)}
+              placeholder="Informações adicionais sobre o agendamento"
+            />
+          </div>
+
+          <div className={styles.formActions}>
+            <button
+              type="button"
+              className={styles.btnGhost}
+              onClick={onFechar}
+              disabled={salvando}
+            >
+              Cancelar
+            </button>
+            <button type="submit" className={styles.btnPrimary} disabled={salvando}>
+              {salvando ? "Criando..." : "Criar agendamento"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
