@@ -98,12 +98,17 @@ export default function RelatorioAcessos() {
       a.modulos.map((m) => `${m.modulo} (${m.nivel})`).join("; "),
     ]);
 
+    // Properly escape CSV cells (quotes become double-quotes)
+    const escapeCSV = (str) => `"${String(str).replace(/"/g, '""')}"`;
+
     const csvContent = [
-      headers.join(","),
-      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+      headers.map(escapeCSV).join(","),
+      ...rows.map((row) => row.map(escapeCSV).join(",")),
     ].join("\n");
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    // Add UTF-8 BOM for Excel compatibility on Windows
+    const BOM = "\uFEFF";
+    const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = `relatorio-acessos-${new Date().toISOString().split("T")[0]}.csv`;
