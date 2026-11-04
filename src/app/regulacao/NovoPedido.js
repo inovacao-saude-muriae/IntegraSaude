@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
 import styles from './NovoPedido.module.css';
 import { useUnsavedChanges } from './hooks/useUnsavedChanges';
-import { documentoPaciente, LOCAIS_REALIZACAO } from './constants';
+import { LOCAIS_REALIZACAO } from './constants';
 import { mascararTelefone } from '@/lib/telefone';
+import SeletorPaciente from '@/components/SeletorPaciente';
 
 export default function NovoPedido({
   newRequest = {
@@ -24,55 +24,34 @@ export default function NovoPedido({
   handleCreateRequest = () => {},
   auxData = { tiposExame: [], medicos: [], ubsList: [], pessoas: [] },
   availableProcedures = [],
-  patientSuggestions = [],
-  isSearchingPatient = false,
   handleSelectPatientSuggestion = () => {},
   handleExamTypeChange = () => {},
   handleProcedureChange = () => {},
 }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef(null);
-
-  // Função para formatar o CPF na exibição da tabela (000.000.000-00)
+  // Função para formatar o CPF na exibição do campo somente leitura (000.000.000-00)
   const formatCPF = (cpf) => {
-    if (!cpf) return '-';
+    if (!cpf) return '';
     const clean = cpf.replace(/\D/g, '');
     if (clean.length !== 11) return cpf;
     return clean.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
   };
 
-  // Fecha o dropdown se clicar fora dele
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Lista de pacientes (prioriza sugestões ativas ou a lista de pessoas do auxData)
-  const patientList = (patientSuggestions && patientSuggestions.length > 0)
-    ? patientSuggestions
-    : (auxData.pessoas || []);
-
-  const searchTerm = (newRequest.patientSearch || '').toLowerCase().trim();
-
-  // Filtro em tempo real por Nome, CPF (formatado ou limpo) ou Mãe
-  const filteredPatients = patientList.filter((p) => {
-    if (!searchTerm) return true;
-
-    const matchName = (p.nomeCompleto || p.nome_completo || '').toLowerCase().includes(searchTerm);
-    const matchMother = (p.nomeMae || p.nome_mae || '').toLowerCase().includes(searchTerm);
-
-    // Compara o que foi digitado sem pontuações com o CPF limpo do banco
-    const cleanSearch = searchTerm.replace(/\D/g, '');
-    const cleanCpf = (p.cpf || '').replace(/\D/g, '');
-    const matchCpf = cleanSearch ? cleanCpf.includes(cleanSearch) : false;
-
-    return matchName || matchMother || matchCpf;
-  });
+  // Fonte de busca do SeletorPaciente: filtra a lista de pessoas (auxData.pessoas),
+  // que já traz TODOS os campos usados ao selecionar (sexo, telefone, UBS, endereço...).
+  // Mantém a mesma fonte de dados usada antes pelo dropdown inline.
+  const buscarPessoas = async (termo) => {
+    const lista = auxData.pessoas || [];
+    const alvo = (termo || '').toLowerCase().trim();
+    if (!alvo) return lista;
+    const cleanSearch = alvo.replace(/\D/g, '');
+    return lista.filter((p) => {
+      const matchName = (p.nomeCompleto || '').toLowerCase().includes(alvo);
+      const matchMother = (p.nomeMae || '').toLowerCase().includes(alvo);
+      const cleanCpf = (p.cpf || '').replace(/\D/g, '');
+      const matchCpf = cleanSearch ? cleanCpf.includes(cleanSearch) : false;
+      return matchName || matchMother || matchCpf;
+    });
+  };
 
   const isDirty = Boolean(
     newRequest.patientName ||
@@ -91,13 +70,12 @@ export default function NovoPedido({
     }
   };
 
+  // Seleção pelo SeletorPaciente: preserva 100% do comportamento anterior,
+  // chamando handleSelectPatientSuggestion (preenche cpf, cns, susCard, sexo,
+  // telefone, UBS, endereço etc.). Ignora null (campo apenas editado/limpo).
   const handleSelectPerson = (pessoa) => {
+    if (!pessoa) return;
     handleSelectPatientSuggestion(pessoa);
-    setNewRequest((prev) => ({
-      ...prev,
-      patientSearch: pessoa.nomeCompleto || pessoa.nome_completo || '',
-    }));
-    setIsOpen(false);
   };
 
   return (
@@ -114,78 +92,19 @@ export default function NovoPedido({
 
           {/* DADOS DO PACIENTE — o campo "Nome completo" é também a busca */}
           <div className={styles.formGridStrict}>
-            <div
-              className={`${styles.fieldGroup} ${styles.colName}`}
-              style={{ position: 'relative' }}
-              ref={dropdownRef}
-            >
-              <label>Nome completo *</label>
-              <div className={styles.inputWrapperWithIcon}>
-                <input
-                  type="text"
-                  placeholder="Digite nome ou CPF para buscar..."
-                  value={newRequest.patientSearch || ''}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setNewRequest((prev) => ({ ...prev, patientSearch: v }));
-                    // Só abre a lista ao começar a digitar (>= 2 caracteres).
-                    setIsOpen(v.trim().length >= 2);
-                  }}
-                  className={styles.selectLikeInput}
-                  autoComplete="off"
-                  required
-                />
-                <span className={styles.arrowIcon} onClick={() => setIsOpen(!isOpen)}>
-                  {isOpen ? '▲' : '▼'}
-                </span>
-
-              {/* DROPDOWN EM FORMATO DE TABELA ESTILIZADA */}
-              {isOpen && (
-                <div className={styles.tableDropdownMenu}>
-                  <div className={styles.tableContainerScroll}>
-                    <table className={styles.patientTableDropdown}>
-                      <thead>
-                        <tr>
-                          <th>CPF / CNS</th>
-                          <th>Usuário</th>
-                          <th>Nome da mãe</th>
-                          <th>Data nasc.</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredPatients.length > 0 ? (
-                          filteredPatients.map((pessoa) => (
-                            <tr
-                              key={pessoa.cpf}
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                handleSelectPerson(pessoa);
-                              }}
-                              className={newRequest.cpf === pessoa.cpf ? styles.selectedRow : ''}
-                            >
-                              <td>{documentoPaciente({ cpf: pessoa.cpf, cns: pessoa.cns })}</td>
-                              <td className={styles.boldName}>
-                                {pessoa.nomeCompleto || pessoa.nome_completo}
-                              </td>
-                              <td>{pessoa.nomeMae || pessoa.nome_mae || 'Não informada'}</td>
-                              <td>
-                                {pessoa.dataNascimento || pessoa.data_nascimento || '-'}
-                              </td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan="4" className={styles.noDataTd}>
-                              {isSearchingPatient ? 'Buscando pacientes...' : 'Nenhum paciente encontrado.'}
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-              </div>
+            <div className={`${styles.fieldGroup} ${styles.colName}`}>
+              <SeletorPaciente
+                label="Nome completo"
+                required
+                placeholder="Digite nome ou CPF para buscar..."
+                texto={newRequest.patientSearch || ''}
+                onTextoChange={(v) =>
+                  setNewRequest((prev) => ({ ...prev, patientSearch: v }))
+                }
+                onSelect={handleSelectPerson}
+                buscar={buscarPessoas}
+                cpfSelecionado={newRequest.cpf}
+              />
               <p className={styles.helperNote}>
                 A pessoa precisa estar cadastrada em <strong>Gerenciamento &gt; Cadastro de Pessoas</strong>.
               </p>

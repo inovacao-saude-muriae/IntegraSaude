@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import styles from "./CadastroTutor.module.css";
 import { buscarCep } from "@/lib/viacep";
 import { mascararTelefone as maskTelefone } from "@/lib/telefone";
-import { documentoPaciente } from "@/app/regulacao/constants";
+import SeletorPaciente from "@/components/SeletorPaciente";
 import { useConfirm, useNotify } from "@/components/ConfirmDialog";
 import { buscarPessoasCCZ, salvarTutor, listarAnimaisDoTutor } from "./actions";
 
@@ -70,12 +70,6 @@ export default function CadastroTutor({ cpfInicial = "", onVoltarLista }) {
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
 
-  // Busca (campo "Nome completo" select-like + dropdown em tabela).
-  const [termo, setTermo] = useState("");
-  const [pessoas, setPessoas] = useState([]);
-  const [buscando, setBuscando] = useState(false);
-  const [dropAberto, setDropAberto] = useState(false);
-  const dropdownRef = useRef(null);
 
   const [cepLoading, setCepLoading] = useState(false);
   const [cepErro, setCepErro] = useState("");
@@ -98,7 +92,6 @@ export default function CadastroTutor({ cpfInicial = "", onVoltarLista }) {
       const p = res.success ? res.data.find((x) => soDigitos(x.cpf) === cpf) : null;
       if (p) {
         setForm(pessoaParaForm(p));
-        setTermo(p.nomeCompleto || "");
         setModo("edicao");
       }
     })();
@@ -113,6 +106,7 @@ export default function CadastroTutor({ cpfInicial = "", onVoltarLista }) {
   useEffect(() => {
     let ativo = true;
     if (modo === "leitura" && cpfSelecionado) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronização inicial/carregamento de dados; comportamento intencional
       setAnimaisLoading(true);
       listarAnimaisDoTutor(cpfSelecionado).then((res) => {
         if (!ativo) return;
@@ -127,41 +121,14 @@ export default function CadastroTutor({ cpfInicial = "", onVoltarLista }) {
     };
   }, [cpfSelecionado, modo]);
 
-  // Fecha o dropdown ao clicar fora.
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setDropAberto(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // Busca (debounce por tamanho mínimo) - só funciona em modo leitura
-  const handleBuscar = async (valor) => {
-    setTermo(valor);
-    setForm((prev) => ({ ...prev, nomeCompleto: valor }));
-    
-    // Só busca se estiver em modo leitura
-    if (modo !== "leitura") return;
-    
-    if (!dropAberto) setDropAberto(true);
-    if (valor.trim().length >= 2) {
-      setBuscando(true);
-      const res = await buscarPessoasCCZ(valor.trim());
-      setPessoas(res.success ? res.data : []);
-      setBuscando(false);
-    } else {
-      setPessoas([]);
-    }
+  // Busca de pessoas (CCZ) usada pelo SeletorPaciente; só a apresentação é compartilhada.
+  const buscarPessoas = async (valor) => {
+    const res = await buscarPessoasCCZ(valor);
+    return res.success ? res.data : [];
   };
-
   const selecionarPessoa = (p) => {
     setForm(pessoaParaForm(p));
     setModo("leitura");
-    setTermo(p.nomeCompleto || "");
-    setDropAberto(false);
     setCepErro("");
     setErro("");
   };
@@ -193,12 +160,9 @@ export default function CadastroTutor({ cpfInicial = "", onVoltarLista }) {
 
   // ── Ações ───────────────────────────────────────────────────────────────
   const novoCadastro = () => {
-    const nomeDigitado = termo.trim();
+    const nomeDigitado = (form.nomeCompleto || "").trim();
     setForm({ ...FORM_VAZIO, nomeCompleto: nomeDigitado });
     setModo("novo");
-    setDropAberto(false);
-    setPessoas([]);
-    setTermo("");
     setCepErro("");
     setErro("");
   };
@@ -216,8 +180,6 @@ export default function CadastroTutor({ cpfInicial = "", onVoltarLista }) {
     } else {
       // Limpa e volta para modo leitura
       setForm(FORM_VAZIO);
-      setTermo("");
-      setPessoas([]);
       setModo("leitura");
       setErro("");
     }
@@ -237,9 +199,6 @@ export default function CadastroTutor({ cpfInicial = "", onVoltarLista }) {
     }
     setForm(FORM_VAZIO);
     setModo("leitura");
-    setTermo("");
-    setPessoas([]);
-    setDropAberto(false);
     setCepErro("");
     setErro("");
   };
@@ -279,9 +238,6 @@ export default function CadastroTutor({ cpfInicial = "", onVoltarLista }) {
       // Após salvar, volta para modo leitura vazio
       setForm(FORM_VAZIO);
       setModo("leitura");
-      setTermo("");
-      setPessoas([]);
-      setDropAberto(false);
     } else {
       setErro(res.error || "Não foi possível salvar o tutor.");
     }
@@ -306,85 +262,18 @@ export default function CadastroTutor({ cpfInicial = "", onVoltarLista }) {
         <div className={styles.camposBloco}>
           <div className={styles.formSectionTitle}>Dados pessoais</div>
           <div className={styles.grid}>
-            <div
-              className={`${styles.field} ${styles.colWide}`}
-              style={{ position: "relative" }}
-              ref={dropdownRef}
-            >
-              <label>Nome completo *</label>
-              <div className={styles.inputWrapperWithIcon}>
-                <input
-                  type="text"
-                  value={form.nomeCompleto}
-                  placeholder={editavel ? "" : "Digite nome ou CPF para buscar..."}
-                  onChange={(e) => {
-                    if (editavel) {
-                      setForm({ ...form, nomeCompleto: e.target.value });
-                    } else {
-                      handleBuscar(e.target.value);
-                    }
-                  }}
-                  onFocus={() => {
-                    if (!editavel) setDropAberto(true);
-                  }}
-                  autoComplete="off"
-                  required
-                />
-                {!editavel && (
-                  <span className={styles.arrowIcon} onClick={() => setDropAberto(!dropAberto)}>
-                    {dropAberto ? "▲" : "▼"}
-                  </span>
-                )}
-              </div>
-              {!editavel && dropAberto && (
-                <div className={styles.tableDropdownMenu}>
-                  <div className={styles.tableContainerScroll}>
-                    <table className={styles.patientTableDropdown}>
-                      <thead>
-                        <tr>
-                          <th>CPF / CNS</th>
-                          <th>Nome</th>
-                          <th>Nome da mãe</th>
-                          <th>Data nasc.</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {pessoas.length > 0 ? (
-                          pessoas.map((p) => (
-                            <tr
-                              key={p.cpf}
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                selecionarPessoa(p);
-                              }}
-                              className={
-                                soDigitos(form.cpf) === soDigitos(p.cpf) ? styles.selectedRow : ""
-                              }
-                            >
-                              <td>{documentoPaciente({ cpf: p.cpf, cns: p.cns })}</td>
-                              <td className={styles.boldName}>{p.nomeCompleto}</td>
-                              <td>{p.nomeMae || "Não informada"}</td>
-                              <td>
-                                {p.dataNascimento
-                                  ? p.dataNascimento.split("-").reverse().join("/")
-                                  : "-"}
-                              </td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan="4" className={styles.noDataTd}>
-                              {buscando ? "Buscando pessoas..." : "Nenhuma pessoa encontrada."}
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
+            <div className={`${styles.field} ${styles.colWide} ${styles.campoSeletor}`}>
+              <SeletorPaciente
+                label="Nome completo"
+                required
+                texto={form.nomeCompleto}
+                onTextoChange={(v) => setForm((prev) => ({ ...prev, nomeCompleto: v }))}
+                onSelect={(p) => p && selecionarPessoa(p)}
+                buscar={buscarPessoas}
+                buscaAtiva={!editavel}
+                cpfSelecionado={form.cpf}
+              />
             </div>
-
             <div className={`${styles.field} ${styles.colWide}`}>
               <label>Nome da mãe</label>
               <input

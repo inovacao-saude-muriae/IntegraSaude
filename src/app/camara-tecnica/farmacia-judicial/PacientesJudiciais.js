@@ -37,6 +37,7 @@ export default function TabPacientesJudiciais({
   };
 
   const handleSelectPessoa = (p) => {
+    if (!p) return handleClear(); // campo editado: descarta a seleção
     setPessoa(p);
 
     // Se a pessoa já for paciente judicial, carrega processo + medicamentos.

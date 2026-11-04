@@ -33,6 +33,7 @@ export default function CadastroPacienteJunta({ onCadastrar }) {
   };
 
   const handleSelectPessoa = (p) => {
+    if (!p) return handleClear(); // campo editado: descarta a seleção
     setPessoa(p);
     // Pré-carrega dados de Junta já existentes, se vierem na busca.
     const existentes = (p.tipoDeficiencia || '')

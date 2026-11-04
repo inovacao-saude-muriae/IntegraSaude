@@ -126,7 +126,7 @@
   background-color: #dbeafe;
 }
 
-/* Campo "Nome completo" como busca select-like */
+/* Campo "Nome completo" como busca select-like (usado por Tutor-vinculados: Denúncia, Zoonoses, etc.) */
 .inputWrapperWithIcon {
   position: relative;
   display: flex;
@@ -427,4 +427,14 @@
 
 .animaisTable tbody tr:hover {
   background-color: #f8fafc;
+}
+
+/* Campo "Nome completo" do Tutor usa o SeletorPaciente compartilhado (mesmo visual da Junta). */
+.campoSeletor input {
+  padding-right: 3rem;
+}
+
+.campoSeletor label {
+  font-size: 0.72rem;
+  font-weight: 500;
 }
