@@ -1,6 +1,6 @@
 # 📁 `/src` - Código-Fonte da Aplicação
 
-Pasta principal contendo todo o código-fonte do Orion.
+Pasta principal contendo todo o código-fonte do IntegraSaude.
 
 ---
 

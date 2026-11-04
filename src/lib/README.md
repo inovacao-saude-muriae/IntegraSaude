@@ -21,7 +21,7 @@ import { prisma } from '@/lib/prisma';
 const users = await prisma.user.findMany();
 ```
 
-**Conecta com:** PostgreSQL no Supabase via `DATABASE_URL`
+**Conecta com:** PostgreSQL (Docker local) via `DATABASE_URL`
 
 ---
 
@@ -32,44 +32,15 @@ const users = await prisma.user.findMany();
 - ✅ `DATABASE_URL` - Conexão com banco (obrigatória)
 - ✅ `DIRECT_URL` - Conexão direta para migrations (obrigatória)
 - ✅ `JWT_SECRET` - Chave para assinar tokens (obrigatória)
-- ⚠️ `NEXT_PUBLIC_SUPABASE_URL` - URL Supabase (opcional)
-- ⚠️ `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Chave anônima (opcional)
-- ⚠️ `SUPABASE_SERVICE_ROLE_KEY` - Chave service (opcional)
 
 **Quando é executado:**
 - No startup do servidor (`npm run dev`)
-- Exibe warnings para variáveis opcionais ausentes
 - Lança erro fatal se variáveis obrigatórias estiverem faltando
 
 **Logs:**
 ```
 ✅ Variáveis de ambiente validadas com sucesso!
-ou
-⚠️ Variáveis de ambiente OPCIONAIS não definidas: ...
-```
-
----
-
-### `supabase.js`
-**Função:** Cliente do Supabase (se usar Supabase Auth ou Storage).
-
-**Status Atual:** Configurado mas **NÃO USADO** no sistema atual.
-
-**Por quê?**
-- Sistema usa autenticação customizada (JWT + CPF)
-- Supabase fornece apenas o PostgreSQL
-- Não usa Supabase Auth, Storage ou Realtime
-
-**Se precisar usar no futuro:**
-```javascript
-import { supabase } from '@/lib/supabase';
-
-// Exemplo: Upload de arquivos
-const { data, error } = await supabase
-  .storage
-  .from('documentos')
-  .upload('path/file.pdf', file);
-```
+ou```
 
 ---
 
@@ -105,7 +76,7 @@ export const STATUS = { ... };
 
 ### ✅ O que DEVE estar em `/lib`
 - Configurações compartilhadas
-- Clientes de serviços externos (Prisma, Supabase)
+- Clientes de serviços externos (Prisma)
 - Utilitários puros (sem UI)
 - Validações de dados
 - Helpers de formatação
@@ -153,7 +124,6 @@ const tel = formatarTelefone('11999998888');
 | Dependência | Arquivo | Uso |
 |-------------|---------|-----|
 | `@prisma/client` | `prisma.js` | ORM para PostgreSQL |
-| `@supabase/supabase-js` | `supabase.js` | Cliente Supabase (opcional) |
 | `dotenv` (dev) | `env.js` | Validação de `.env` |
 
 ---
@@ -168,9 +138,6 @@ prisma.js ←─── Usado em:
 
 env.js ←─── Validado no startup
   └── Garante que .env está correto
-
-supabase.js ←─── Não usado atualmente
-  └── Reservado para uso futuro
 ```
 
 ---

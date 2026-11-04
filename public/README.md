@@ -11,7 +11,7 @@ Arquivos públicos acessíveis diretamente via URL (imagens, ícones, documentos
 public/
 ├── logo.png          # Logo da Prefeitura
 ├── favicon.ico       # Ícone da aba do navegador
-├── logo-orion.svg # Logo do Orion
+├── logo-integrasaude.svg # Logo do IntegraSaude
 └── img/
     ├── icons/
     │   ├── home.svg
@@ -156,8 +156,8 @@ https://realfavicongenerator.net/
 
 ```json
 {
-  "name": "Orion",
-  "short_name": "Orion",
+  "name": "IntegraSaude",
+  "short_name": "IntegraSaude",
   "description": "Sistema de Gestão Municipal de Saúde",
   "start_url": "/",
   "display": "standalone",
@@ -308,7 +308,7 @@ public/
 ├── manifest.json
 ├── robots.txt
 ├── img/
-│   ├── logo-orion.svg
+│   ├── logo-integrasaude.svg
 │   ├── logo-prefeitura.png
 │   ├── icons/
 │   │   ├── home.svg

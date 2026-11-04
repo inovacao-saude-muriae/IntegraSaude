@@ -36,7 +36,7 @@ psql --version
 
 O script irá:
 - ✅ Criar pasta `backups/` automaticamente
-- ✅ Gerar arquivo com data/hora: `backup_orion_20240903_143025.sql`
+- ✅ Gerar arquivo com data/hora: `backup_integrasaude_20240903_143025.sql`
 - ✅ Comprimir o backup automaticamente (.zip)
 - ✅ Mostrar lista dos 10 backups mais recentes
 
@@ -47,7 +47,7 @@ O script irá:
 $env:PGPASSWORD = "minhasenhalocal"
 
 # Criar backup
-pg_dump -h 100.82.145.85 -p 5433 -U admin -d orion -F p -f backup.sql --no-owner --no-acl
+pg_dump -h 100.82.145.85 -p 5433 -U admin -d integrasaude -F p -f backup.sql --no-owner --no-acl
 
 # Limpar senha
 Remove-Item Env:\PGPASSWORD
@@ -64,10 +64,10 @@ Remove-Item Env:\PGPASSWORD
 
 ```powershell
 # Restaurar um backup específico
-.\scripts\restore-database.ps1 -BackupFile "backups\backup_orion_20240903_143025.sql"
+.\scripts\restore-database.ps1 -BackupFile "backups\backup_integrasaude_20240903_143025.sql"
 
 # Ou se for arquivo comprimido
-.\scripts\restore-database.ps1 -BackupFile "backups\backup_orion_20240903_143025.sql.zip"
+.\scripts\restore-database.ps1 -BackupFile "backups\backup_integrasaude_20240903_143025.sql.zip"
 ```
 
 O script irá:
@@ -82,7 +82,7 @@ O script irá:
 $env:PGPASSWORD = "minhasenhalocal"
 
 # Restaurar backup
-psql -h 100.82.145.85 -p 5433 -U admin -d orion -f backup.sql
+psql -h 100.82.145.85 -p 5433 -U admin -d integrasaude -f backup.sql
 
 # Limpar senha
 Remove-Item Env:\PGPASSWORD
@@ -105,7 +105,7 @@ taskschd.msc
 3. Gatilho: Diariamente às 02:00
 4. Ação: Iniciar um programa
    - Programa: `powershell.exe`
-   - Argumentos: `-ExecutionPolicy Bypass -File "C:\Users\Jefinny\Documents\RegulaHub\scripts\backup-database.ps1"`
+   - Argumentos: `-ExecutionPolicy Bypass -File "C:\Users\Jefinny\Documents\IntegraSaude\scripts\backup-database.ps1"`
 5. Marcar: "Executar com privilégios mais altos"
 
 ---
@@ -113,11 +113,11 @@ taskschd.msc
 ## 🗂️ Estrutura de Arquivos
 
 ```
-RegulaHub/
+IntegraSaude/
 ├── backups/                          # Pasta de backups (criada automaticamente)
-│   ├── backup_orion_20240903_143025.sql
-│   ├── backup_orion_20240903_143025.sql.zip
-│   └── backup_orion_20240904_020000.sql
+│   ├── backup_integrasaude_20240903_143025.sql
+│   ├── backup_integrasaude_20240903_143025.sql.zip
+│   └── backup_integrasaude_20240904_020000.sql
 └── scripts/
     ├── backup-database.ps1          # Script de backup
     ├── restore-database.ps1         # Script de restauração
@@ -173,7 +173,7 @@ $env:Path += ";C:\Program Files\PostgreSQL\16\bin"
 
 ```powershell
 # Backup comprimido diretamente
-pg_dump -h 100.82.145.85 -p 5433 -U admin -d orion -F c -f backup.dump
+pg_dump -h 100.82.145.85 -p 5433 -U admin -d integrasaude -F c -f backup.dump
 ```
 
 ---

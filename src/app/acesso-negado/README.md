@@ -18,7 +18,7 @@ Página exibida quando um usuário tenta acessar uma rota para a qual não tem p
 **1. Metadata (SEO)**
 ```javascript
 export const metadata = {
-  title: 'Acesso Negado - Orion',
+  title: 'Acesso Negado - IntegraSaude',
   description: 'Você não tem permissão para acessar esta página',
 };
 ```

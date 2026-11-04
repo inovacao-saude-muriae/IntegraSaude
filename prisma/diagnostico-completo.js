@@ -29,7 +29,7 @@ async function diagnosticoCompleto() {
     const cpf = '12912453674';
 
     // 1. Verificar usuário no banco
-    console.log('1️⃣ VERIFICANDO BANCO DE DADOS:');
+    console.log('1️ VERIFICANDO BANCO DE DADOS:');
     console.log('─────────────────────────────────────');
     
     const user = await prisma.user.findUnique({

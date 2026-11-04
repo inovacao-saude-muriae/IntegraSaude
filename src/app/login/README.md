@@ -1,6 +1,6 @@
 # 📁 `/src/app/login` - Página de Login
 
-Página de autenticação do sistema. Primeira tela que o usuário vê ao acessar o Orion.
+Página de autenticação do sistema. Primeira tela que o usuário vê ao acessar o IntegraSaude.
 
 **Rota:** `/login`  
 **Acesso:** Público (não requer autenticação)
@@ -171,7 +171,7 @@ else {
 <header className={styles.loginHeader}>
   <div className={styles.brand}>
     {/* SVG do logo (4 quadrados) */}
-    <span>Orion</span>
+    <span>IntegraSaude</span>
   </div>
   <span className={styles.badge}>Acesso Restrito</span>
 </header>
@@ -541,7 +541,7 @@ else {
 ```
 ┌────────────────────────────────────────┐
 │  Header (60px, fundo escuro)           │
-│  [Logo] Orion    Acesso Restrito  │
+│  [Logo] IntegraSaude    Acesso Restrito  │
 └────────────────────────────────────────┘
 │                                        │
 │         ┌────────────────┐             │

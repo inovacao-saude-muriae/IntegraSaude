@@ -4,7 +4,7 @@
 # Configurações do banco
 $DB_HOST = "100.82.145.85"
 $DB_PORT = "5433"
-$DB_NAME = "orion"
+$DB_NAME = "integrasaude"
 $DB_USER = "admin"
 $DB_PASSWORD = "minhasenhalocal"
 
