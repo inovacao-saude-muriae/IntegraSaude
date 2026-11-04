@@ -9,16 +9,18 @@ import { createContext, useContext } from "react";
 const PermissoesRegulacaoContext = createContext({
   podeEditarFinanceiro: false,
   podeGerenciarCatalogo: false,
+  podeGerenciarUsuarios: false,
 });
 
 export function RegulacaoPermProvider({
   podeEditarFinanceiro = false,
   podeGerenciarCatalogo = false,
+  podeGerenciarUsuarios = false,
   children,
 }) {
   return (
     <PermissoesRegulacaoContext.Provider
-      value={{ podeEditarFinanceiro, podeGerenciarCatalogo }}
+      value={{ podeEditarFinanceiro, podeGerenciarCatalogo, podeGerenciarUsuarios }}
     >
       {children}
     </PermissoesRegulacaoContext.Provider>

@@ -68,6 +68,7 @@ const menuSections = [
           { name: "Financeiro", tab: "FINANCEIRO", visivelSe: "REGULACAO_ADMIN" },
           { name: "separator", isSeparator: true, visivelSe: "REGULACAO" },
           { name: "Procedimentos", tab: "PROCEDIMENTOS", visivelSe: "REGULACAO" },
+          { name: "Usuários", tab: "USUARIOS", visivelSe: "GESTOR" },
           { name: "Médicos", path: "/gerenciamento/medicos", visivelSe: "REGULACAO" },
           { name: "Unidade Básica de Saúde", path: "/gerenciamento/ubs", visivelSe: "REGULACAO" },
           { name: "Dashboard", tab: "DASHBOARD", visivelSe: "REGULACAO" },
