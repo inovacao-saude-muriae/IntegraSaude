@@ -101,7 +101,7 @@ const menuSections = [
           {
             name: "Farmácia Judicial",
             tab: "FARMACIA_JUDICIAL",
-            path: "/camara-tecnica/farmacia-judicial?tab=FARMACIA_JUDICIAL&subTab=DASHBOARD",
+            path: "/camara-tecnica/farmacia-judicial",
             isNestedDropdown: true,
             visivelSe: "FARMACIA",
             nestedItems: [
