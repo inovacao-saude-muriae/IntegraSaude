@@ -23,8 +23,8 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
-function getClientIP() {
-  const headersList = headers();
+async function getClientIP() {
+  const headersList = await headers();
   const forwarded = headersList.get("x-forwarded-for");
   const realIP = headersList.get("x-real-ip");
   
@@ -104,7 +104,7 @@ function recordAttempt(ip, success) {
 }
 
 export async function loginAction(formData) {
-  const ip = getClientIP();
+  const ip = await getClientIP();
   
   // Verifica rate limit
   const rateCheck = checkRateLimit(ip);
