@@ -1,7 +1,7 @@
 # IntegraSaúde Batch Corrections - Final Report
 
-**Project:** RegulaHub (IntegraSaúde)  
-**Workspace:** c:\Users\Jefinny\Documents\RegulaHub  
+**Project:** IntegraSaude
+**Workspace:** c:\Users\Jefinny\Documents\IntegraSaude
 **Implementation Period:** 2025-01-20  
 **Report Date:** 2025-01-20  
 **Status:** ✅ COMPLETED

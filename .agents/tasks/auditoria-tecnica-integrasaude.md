@@ -3,14 +3,14 @@
 **Data da Auditoria:** ${new Date().toLocaleDateString('pt-BR')}  
 **Versão do Sistema:** 0.1.0  
 **Tecnologias:** Next.js 16.3.0, React 19.2.8, Prisma 7.9.1, PostgreSQL  
-**Localização:** c:\Users\Jefinny\Documents\RegulaHub
+**Localização:** c:\Users\Jefinny\Documents\IntegraSaude
 
 ---
 
 ## SUMÁRIO EXECUTIVO
 
 ### Visão Geral
-O IntegraSaúde (RegulaHub) é um sistema web completo de gestão municipal de saúde que integra 6 módulos principais: Regulação de Exames, Farmácia Judicial, Processos Judiciais, Junta Reguladora, CCZ (Centro de Controle de Zoonoses) e Gerenciamento. A auditoria identificou **um sistema funcional e bem estruturado**, com boa arquitetura de código, mas com oportunidades de melhoria em UX/UI, responsividade e padronização.
+O IntegraSaude é um sistema web completo de gestão municipal de saúde que integra 6 módulos principais: Regulação de Exames, Farmácia Judicial, Processos Judiciais, Junta Reguladora, CCZ (Centro de Controle de Zoonoses) e Gerenciamento. A auditoria identificou **um sistema funcional e bem estruturado**, com boa arquitetura de código, mas com oportunidades de melhoria em UX/UI, responsividade e padronização.
 
 ### Indicadores Gerais
 - **Módulos Auditados:** 6
@@ -1090,7 +1090,7 @@ O IntegraSaúde (RegulaHub) é um sistema web completo de gestão municipal de s
 
 ### 9.1 Resumo da Avaliação
 
-O **IntegraSaúde (RegulaHub)** é um sistema **funcional e bem estruturado** do ponto de vista técnico, com:
+O **IntegraSaude** é um sistema **funcional e bem estruturado** do ponto de vista técnico, com:
 - ✅ Arquitetura sólida baseada em Next.js 16
 - ✅ Segurança robusta (autenticação, RBAC, validações)
 - ✅ Funcionalidades completas em todos os 6 módulos
@@ -1191,7 +1191,7 @@ prisma/
 
 **Auditor:** Sistema Kiro AI  
 **Metodologia:** Análise de código-fonte, arquitetura, segurança, UX/UI e responsividade  
-**Linha de Base:** Código em c:\Users\Jefinny\Documents\RegulaHub (data da auditoria)  
+**Linha de Base:** Código em c:\Users\Jefinny\Documents\IntegraSaude (data da auditoria)
 
 ---
 
