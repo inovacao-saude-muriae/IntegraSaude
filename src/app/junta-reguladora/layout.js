@@ -3,6 +3,7 @@ import {
   usuarioTemAcessoModulo,
   usuarioTemAcessoServicoJunta,
   usuarioEhAdminModulo,
+  usuarioEhGestor,
   SUBTAB_PARA_SERVICO_JUNTA,
   MODULOS,
 } from "@/lib/permissions";
@@ -30,10 +31,21 @@ export default async function JuntaReguladoraLayout({ children }) {
 
   const ehAdminJunta = await usuarioEhAdminModulo(ctx.user, MODULOS.JUNTA);
 
+  // Aba "Pacientes" dentro da Junta replica EXATAMENTE a regra do cadastro de
+  // pessoas do Gerenciamento/Regulação/Farmácia: GESTOR ∨ REGULACAO/ADMIN ∨
+  // JUNTA/ADMIN (mesma expressão de requireAcessoPessoas em lib/auth.js e dos
+  // outros layouts). NÃO afrouxa: as actions de pessoa exigem
+  // requireAcessoPessoas.
+  const podeGerenciarPessoas =
+    (await usuarioEhGestor(ctx.user)) ||
+    (await usuarioEhAdminModulo(ctx.user, MODULOS.REGULACAO)) ||
+    ehAdminJunta;
+
   return (
     <JuntaPermProvider
       subServicosPermitidos={subServicosPermitidos}
       ehAdminJunta={ehAdminJunta}
+      podeGerenciarPessoas={podeGerenciarPessoas}
     >
       {children}
     </JuntaPermProvider>

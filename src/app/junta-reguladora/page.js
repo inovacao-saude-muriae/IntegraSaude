@@ -16,6 +16,7 @@ import AgendaServico from "./AgendaServico";
 import ProntuarioRelatorio from "./ProntuarioRelatorio";
 import AcessoNegadoModulo from "@/components/AcessoNegadoModulo";
 import ServicosEspecialidadesTab from "./ServicosEspecialidadesTab";
+import PacientesTab from "./PacientesTab";
 import Dashboard from "./Dashboard";
 import { usePermissoesJunta } from "./PermissoesJuntaContext";
 import { useNotify } from "@/components/ConfirmDialog";
@@ -160,6 +161,11 @@ function JuntaReguladoraPageContent() {
       </header>
 
       {activeTab === "DASHBOARD" && <Dashboard />}
+
+      {/* Aba "Pacientes": tela GERAL de pessoas (model Pessoa), reaproveitada do
+          Gerenciamento. subTab "PESSOAS" é distinto de "CADASTRO" (paciente da
+          Junta / PacienteJunta) para não colidir com as abas existentes. */}
+      {activeTab === "PESSOAS" && <PacientesTab />}
 
       {activeTab === "CADASTRO" && (
         <CadastroPacienteJunta onCadastrar={handleCadastrarPaciente} />
