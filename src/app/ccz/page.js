@@ -60,6 +60,7 @@ function CczPageContent() {
   // Ao sair do modo cadastro (troca de aba), limpa os registros em edição.
   useEffect(() => {
     if (activeSubTab !== "CADASTRAR") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronização inicial/carregamento de dados; comportamento intencional
       setCpfTutorEdicao("");
       setAnimalEdicao(null);
       setProcedimentoEdicao(null);
