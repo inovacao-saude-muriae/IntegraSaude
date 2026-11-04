@@ -26,6 +26,7 @@ import {
 
 import Dashboard from "./Dashboard";
 import PacientesJudiciais from "./PacientesJudiciais";
+import PacientesTab from "./PacientesTab";
 import Medicamentos from "./Medicamentos";
 import Dispensacao from "./Dispensacao";
 import Relatorios from "./Relatorios";
@@ -267,6 +268,11 @@ function FarmaciaJudicialPageContent() {
           loading={loading}
         />
       )}
+
+      {/* Aba "Pacientes" (tela geral de pessoas, model Pessoa) — reaproveita
+          CadastroPessoas, igual ao Gerenciamento/Regulação. Distinto de
+          "PACIENTES" acima (PacientesJudiciais / Novo Processo). */}
+      {activeTab === "PESSOAS" && <PacientesTab />}
 
       {activeTab === "MEDICAMENTOS" && (
         <Medicamentos
