@@ -1,0 +1,7 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    "Verificação visual ausente — a navegação autenticada (Regulação sem 'Usuários', com 'Pacientes'; CRUD funcional; Gerenciamento intacto) não foi validada em runtime por restrição de ambiente. Não bloqueia: o enforcement de role é server-side nas actions (requireAcessoPessoas) e foi verificado por código e build. Recomenda-se uma passada manual no navegador antes do deploy."
+  ],
+  "reviewDoc": "c:\\Users\\Jefinny\\Documents\\10. IntegraSaude\\.agents\\tasks\\regulacao-pacientes\\review.md"
+}
