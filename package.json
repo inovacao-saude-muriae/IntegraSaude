@@ -1,5 +1,5 @@
 {
-  "name": "orion",
+  "name": "integrasaude",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -19,7 +19,6 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
-    "@supabase/supabase-js": "^2.109.0",
     "bcryptjs": "^3.0.3",
     "jose": "^6.2.10",
     "jspdf": "^4.2.1",

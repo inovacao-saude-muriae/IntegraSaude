@@ -8,11 +8,6 @@ export function validateEnv() {
     'JWT_SECRET',
   ];
 
-  const optional = [
-    'NEXT_PUBLIC_SUPABASE_URL',
-    'NEXT_PUBLIC_SUPABASE_ANON_KEY',
-    'SUPABASE_SERVICE_ROLE_KEY',
-  ];
 
   // Verificar variáveis obrigatórias
   const missing = required.filter(key => !process.env[key]);
@@ -25,16 +20,6 @@ export function validateEnv() {
       `   1. Copie o arquivo .env.example para .env\n` +
       `   2. Preencha os valores das variáveis\n` +
       `   3. Reinicie o servidor\n`
-    );
-  }
-
-  // Avisar sobre variáveis opcionais (mas importantes)
-  const missingOptional = optional.filter(key => !process.env[key]);
-  if (missingOptional.length > 0 && process.env.NODE_ENV === 'development') {
-    console.warn(
-      `⚠️  Variáveis de ambiente OPCIONAIS não definidas:\n` +
-      `   ${missingOptional.join('\n   ')}\n` +
-      `   (Algumas funcionalidades podem não funcionar)\n`
     );
   }
 
