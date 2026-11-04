@@ -16,6 +16,7 @@ export default function FichaAnimal({ animalId, onFechar, onEditar, onExcluir })
 
   useEffect(() => {
     let ativo = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronização inicial/carregamento de dados; comportamento intencional
     setCarregando(true);
     setErro("");
     obterFichaAnimal(animalId).then((res) => {

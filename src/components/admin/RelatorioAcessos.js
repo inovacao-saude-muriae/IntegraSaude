@@ -116,6 +116,7 @@ export default function RelatorioAcessos() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronização inicial/carregamento de dados; comportamento intencional
     buscar();
   }, []);
 

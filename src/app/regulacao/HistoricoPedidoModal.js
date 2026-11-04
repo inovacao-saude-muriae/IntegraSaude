@@ -8,11 +8,6 @@ export default function HistoricoPedidoModal({ pedidoId, onClose }) {
   const [historico, setHistorico] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (pedidoId) {
-      carregarHistorico();
-    }
-  }, [pedidoId]);
 
   const carregarHistorico = async () => {
     setLoading(true);
@@ -25,6 +20,12 @@ export default function HistoricoPedidoModal({ pedidoId, onClose }) {
       setLoading(false);
     }
   };
+  useEffect(() => {
+    if (pedidoId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- carregamento de dados ao abrir; comportamento intencional
+      carregarHistorico();
+    }
+  }, [pedidoId]);
 
   const formatarData = (isoString) => {
     const data = new Date(isoString);

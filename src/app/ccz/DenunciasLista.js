@@ -26,6 +26,7 @@ export default function DenunciasLista({ onEditar }) {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronização inicial/carregamento de dados; comportamento intencional
     carregar();
   }, [carregar]);
 

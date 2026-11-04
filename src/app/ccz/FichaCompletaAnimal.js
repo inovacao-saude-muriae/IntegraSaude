@@ -23,6 +23,7 @@ export default function FichaCompletaAnimal({ animalId, onFechar }) {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronização inicial/carregamento de dados; comportamento intencional
     carregar();
   }, [animalId]);
 

@@ -43,6 +43,7 @@ export default function AgendaCCZ({ onAbrirProcedimento }) {
   }, [ano, mes]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronização inicial/carregamento de dados; comportamento intencional
     carregar();
   }, [carregar]);
 
