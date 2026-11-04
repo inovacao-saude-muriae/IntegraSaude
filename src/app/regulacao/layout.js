@@ -25,15 +25,19 @@ export default async function RegulacaoLayout({ children }) {
     (await usuarioEhAdminModulo(ctx.user, MODULOS.REGULACAO)) ||
     (await usuarioEhGestor(ctx.user));
 
-  // Gerenciar Usuários dentro da Regulação replica EXATAMENTE a regra do
-  // Gerenciamento: só GESTOR (ver gerenciamento/usuarios/layout.js).
-  const podeGerenciarUsuarios = await usuarioEhGestor(ctx.user);
+  // Aba "Pacientes" dentro da Regulação replica EXATAMENTE a regra do cadastro
+  // de pessoas do Gerenciamento: GESTOR ∨ REGULACAO/ADMIN ∨ JUNTA/ADMIN
+  // (ver gerenciamento/pessoas/layout.js e requireAcessoPessoas em lib/auth.js).
+  const podeGerenciarPessoas =
+    (await usuarioEhGestor(ctx.user)) ||
+    (await usuarioEhAdminModulo(ctx.user, MODULOS.REGULACAO)) ||
+    (await usuarioEhAdminModulo(ctx.user, MODULOS.JUNTA));
 
   return (
     <RegulacaoPermProvider
       podeEditarFinanceiro={adminOuGestor}
       podeGerenciarCatalogo={adminOuGestor}
-      podeGerenciarUsuarios={podeGerenciarUsuarios}
+      podeGerenciarPessoas={podeGerenciarPessoas}
     >
       {children}
     </RegulacaoPermProvider>

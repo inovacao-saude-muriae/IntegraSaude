@@ -68,7 +68,7 @@ const menuSections = [
           { name: "Financeiro", tab: "FINANCEIRO", visivelSe: "REGULACAO_ADMIN" },
           { name: "separator", isSeparator: true, visivelSe: "REGULACAO" },
           { name: "Procedimentos", tab: "PROCEDIMENTOS", visivelSe: "REGULACAO" },
-          { name: "Usuários", tab: "USUARIOS", visivelSe: "GESTOR" },
+          { name: "Usuários", tab: "PACIENTES", visivelSe: "PESSOAS_ACESSO" },
           { name: "Médicos", path: "/gerenciamento/medicos", visivelSe: "REGULACAO" },
           { name: "Unidade Básica de Saúde", path: "/gerenciamento/ubs", visivelSe: "REGULACAO" },
           { name: "Dashboard", tab: "DASHBOARD", visivelSe: "REGULACAO" },
@@ -112,6 +112,7 @@ const menuSections = [
               { name: "Dispensação", subTab: "DISPENSACAO" },
               { name: "separator", isSeparator: true },
               { name: "Relatórios", subTab: "RELATORIOS" },
+              { name: "Pacientes", subTab: "PESSOAS", visivelSe: "PESSOAS_ACESSO" },
               { name: "Dashboard", subTab: "DASHBOARD" },
             ],
           },
@@ -167,6 +168,7 @@ const menuSections = [
           { name: "separator", isSeparator: true, visivelSe: "JUNTA" },
           { name: "Serviços e Especialidades", tab: "SERVICOS_ESPECIALIDADES", visivelSe: "JUNTA" },
           { name: "Prontuário", tab: "RELATORIO", visivelSe: "JUNTA_ADMIN" },
+          { name: "Pacientes", tab: "PESSOAS", visivelSe: "PESSOAS_ACESSO" },
           { name: "Dashboard", tab: "DASHBOARD", visivelSe: "JUNTA" },
          
         ],
@@ -412,6 +414,10 @@ function construirMenu(me) {
         return temModulo("REGULACAO");
       case "REGULACAO_ADMIN":
         return ehGestor || ehAdminMod("REGULACAO");
+      case "PESSOAS_ACESSO":
+        // Cadastro de Pessoas (Pacientes): GESTOR ∨ REGULACAO/ADMIN ∨
+        // JUNTA/ADMIN (espelha requireAcessoPessoas / pessoas/layout.js).
+        return ehGestor || ehAdminMod("REGULACAO") || ehAdminMod("JUNTA");
       case "JUNTA":
         return temModulo("JUNTA");
       case "JUNTA_ADMIN":
@@ -449,11 +455,16 @@ function construirMenu(me) {
           // Camada 2 — recorte de nestedItems dos nested dropdowns sobreviventes.
           subItens = subItens.map((sub) => {
             if (!sub.isNestedDropdown) return sub;
-            // Farmácia Judicial: nestedItems herdam a visibilidade do pai
-            // (sem regra por nestedItem) → mantidos todos.
-            if (sub.visivelSe !== "JUNTA") return sub;
-            // Grupo "Serviços" da Junta: recorta nestedItems por JUNTA_SUBSERVICO.
-            const nested = (sub.nestedItems || []).filter((n) => subItemVisivel(n));
+            // Em qualquer nested dropdown: nestedItems SEM `visivelSe` herdam a
+            // visibilidade do pai (mantidos); os que TÊM `visivelSe` são
+            // recortados por subItemVisivel (fail-closed). Assim "Pacientes"
+            // (PESSOAS_ACESSO) na Farmácia Judicial segue a regra de pessoas,
+            // enquanto Novo Processo/Medicamentos/etc. (sem visivelSe) ficam
+            // visíveis a todo FARMACIA; e o grupo "Serviços" da Junta continua
+            // recortado por JUNTA_SUBSERVICO.
+            const nested = (sub.nestedItems || []).filter(
+              (n) => n.visivelSe == null || subItemVisivel(n),
+            );
             return { ...sub, nestedItems: nested };
           });
 

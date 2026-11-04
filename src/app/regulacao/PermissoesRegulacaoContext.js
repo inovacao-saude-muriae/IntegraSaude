@@ -5,22 +5,22 @@ import { createContext, useContext } from "react";
 // Flags de permissão da Regulação calculadas no servidor (layout.js) e
 // injetadas aqui como props serializáveis. Client Components NÃO importam a
 // DAL (permissions.js) — recebem só os booleans.
-// Fail-closed: sem provider, ambas as flags são false (design §15).
+// Fail-closed: sem provider, todas as flags são false (design §15).
 const PermissoesRegulacaoContext = createContext({
   podeEditarFinanceiro: false,
   podeGerenciarCatalogo: false,
-  podeGerenciarUsuarios: false,
+  podeGerenciarPessoas: false,
 });
 
 export function RegulacaoPermProvider({
   podeEditarFinanceiro = false,
   podeGerenciarCatalogo = false,
-  podeGerenciarUsuarios = false,
+  podeGerenciarPessoas = false,
   children,
 }) {
   return (
     <PermissoesRegulacaoContext.Provider
-      value={{ podeEditarFinanceiro, podeGerenciarCatalogo, podeGerenciarUsuarios }}
+      value={{ podeEditarFinanceiro, podeGerenciarCatalogo, podeGerenciarPessoas }}
     >
       {children}
     </PermissoesRegulacaoContext.Provider>

@@ -20,7 +20,7 @@ import ModalTetoFinanceiro from "./Modals/ModalTetoFinanceiro";
 import ModalSeletorCotas from "./Modals/ModalSeletorCotas";
 
 import ProcedimentosTab from "./ProcedimentosTab";
-import UsuariosTab from "./UsuariosTab";
+import PacientesTab from "./PacientesTab";
 
 import AcessoNegadoModulo from "@/components/AcessoNegadoModulo";
 import { usePermissoesRegulacao } from "./PermissoesRegulacaoContext";
@@ -38,9 +38,10 @@ function RegulacaoPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  // Flag GESTOR injetada pelo servidor (layout.js) — mesma regra do
-  // Gerenciamento para gerenciar usuários (fail-closed).
-  const { podeGerenciarUsuarios } = usePermissoesRegulacao();
+  // Flag injetada pelo servidor (layout.js) — mesma regra do cadastro de
+  // pessoas do Gerenciamento (GESTOR ∨ REGULACAO/ADMIN ∨ JUNTA/ADMIN),
+  // fail-closed.
+  const { podeGerenciarPessoas } = usePermissoesRegulacao();
 
   const activeTab = searchParams.get("tab") || "DASHBOARD";
 
@@ -290,11 +291,11 @@ function RegulacaoPageContent() {
 
       {activeTab === "PROCEDIMENTOS" && <ProcedimentosTab />}
 
-      {activeTab === "USUARIOS" &&
-        (podeGerenciarUsuarios ? (
-          <UsuariosTab />
+      {activeTab === "PACIENTES" &&
+        (podeGerenciarPessoas ? (
+          <PacientesTab />
         ) : (
-          <AcessoNegadoModulo modulo="Gerenciar Usuários" />
+          <AcessoNegadoModulo modulo="Cadastro de Pessoas" />
         ))}
 
       {activeTab === "FINANCEIRO" && (
