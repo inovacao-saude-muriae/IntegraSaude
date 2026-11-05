@@ -3,11 +3,17 @@ import { prisma } from "@/lib/prisma";
 import { requireAcessoModulo } from "@/lib/auth";
 import { MODULOS } from "@/lib/permissions";
 
-export async function GET() {
+export async function GET(request) {
   try {
     await requireAcessoModulo(MODULOS.CCZ);
 
+    // Filtro por tipo ("AGRESSIVO" | "DOENTE"). Callers antigos sem o parâmetro
+    // continuam recebendo todas as denúncias (where vazio).
+    const { searchParams } = new URL(request.url);
+    const tipo = searchParams.get("tipo");
+
     const denuncias = await prisma.denunciaCaoAgressivo.findMany({
+      where: tipo ? { tipo } : undefined,
       include: {
         animal: true,
       },
@@ -59,6 +65,7 @@ export async function POST(request) {
       data: {
         id: novoId,
         ...dados,
+        tipo: dados.tipo || "AGRESSIVO",
       },
       include: {
         animal: true,

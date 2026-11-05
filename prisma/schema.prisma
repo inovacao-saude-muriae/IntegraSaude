@@ -446,6 +446,7 @@ model DenunciaCaoAgressivo {
   relato       String
   animalId     String?   @map("animal_id") @db.VarChar(50)
   causouRisco  String?   @default("Não") @map("causou_risco") @db.VarChar(10)
+  tipo         String    @default("AGRESSIVO") @map("tipo") @db.VarChar(20)
   animal       Animal?   @relation(fields: [animalId], references: [id])
 
   @@map("ccz_denuncias")

@@ -4,16 +4,23 @@ import { useState, useEffect, useCallback } from "react";
 import styles from "./ListaCCZ.module.css";
 import FichaDenuncia from "./FichaDenuncia";
 
-export default function DenunciasLista({ onEditar }) {
+const TITULOS_POR_TIPO = {
+  AGRESSIVO: "Denúncias de Animais Agressivos",
+  DOENTE: "Denúncias de Animais Doentes",
+};
+
+export default function DenunciasLista({ onEditar, tipo = "AGRESSIVO" }) {
   const [denuncias, setDenuncias] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [termo, setTermo] = useState("");
   const [fichaAberta, setFichaAberta] = useState(null);
 
+  const titulo = TITULOS_POR_TIPO[tipo] || TITULOS_POR_TIPO.AGRESSIVO;
+
   const carregar = useCallback(async () => {
     setCarregando(true);
     try {
-      const res = await fetch("/api/ccz/denuncias");
+      const res = await fetch(`/api/ccz/denuncias?tipo=${encodeURIComponent(tipo)}`);
       if (res.ok) {
         const data = await res.json();
         setDenuncias(data);
@@ -23,7 +30,7 @@ export default function DenunciasLista({ onEditar }) {
     } finally {
       setCarregando(false);
     }
-  }, []);
+  }, [tipo]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronização inicial/carregamento de dados; comportamento intencional
@@ -61,7 +68,7 @@ export default function DenunciasLista({ onEditar }) {
       <div className={styles.card}>
         <div className={styles.listaHeader}>
           <h2 className={styles.cardHeaderTitle}>
-            Denúncias de Cães Agressivos{filtrados.length > 0 ? ` (${filtrados.length})` : ""}
+            {titulo}{filtrados.length > 0 ? ` (${filtrados.length})` : ""}
           </h2>
           <input
             type="text"

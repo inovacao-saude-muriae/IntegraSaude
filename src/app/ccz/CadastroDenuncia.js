@@ -20,8 +20,25 @@ const FORM_VAZIO = {
   relato: "",
 };
 
-export default function CadastroDenuncia() {
+// Rótulos específicos por tipo de denúncia. O formulário é o mesmo; muda só a
+// terminologia exibida (os campos gravados continuam idênticos).
+const ROTULOS_POR_TIPO = {
+  AGRESSIVO: {
+    descricao: "Descrição do Cão *",
+    descricaoPlaceholder: "Porte, cor, raça, características...",
+    botao: "Registrar Denúncia",
+  },
+  DOENTE: {
+    descricao: "Descrição do animal *",
+    descricaoPlaceholder: "Espécie, porte, cor, sintomas/estado do animal...",
+    botao: "Registrar Denúncia",
+  },
+};
+
+export default function CadastroDenuncia({ tipo = "AGRESSIVO" }) {
   const notify = useNotify();
+
+  const rotulos = ROTULOS_POR_TIPO[tipo] || ROTULOS_POR_TIPO.AGRESSIVO;
 
   const [form, setForm] = useState(FORM_VAZIO);
   const [salvando, setSalvando] = useState(false);
@@ -140,7 +157,7 @@ export default function CadastroDenuncia() {
     setErro("");
 
     setSalvando(true);
-    const resultado = await salvarDenuncia(form);
+    const resultado = await salvarDenuncia({ ...form, tipo });
     setSalvando(false);
 
     if (resultado.sucesso) {
@@ -534,7 +551,7 @@ export default function CadastroDenuncia() {
                 htmlFor="descricaoCao"
                 style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500", color: "#334155" }}
               >
-                Descrição do Cão *
+                {rotulos.descricao}
               </label>
               <input
                 id="descricaoCao"
@@ -543,7 +560,7 @@ export default function CadastroDenuncia() {
                 value={form.descricaoCao}
                 onChange={handleChange}
                 required
-                placeholder="Porte, cor, raça, características..."
+                placeholder={rotulos.descricaoPlaceholder}
                 style={{
                   width: "100%",
                   padding: "0.6rem 0.85rem",
@@ -633,7 +650,7 @@ export default function CadastroDenuncia() {
                 if (!salvando) e.target.style.backgroundColor = "#10b981";
               }}
             >
-              {salvando ? "Salvando..." : "Registrar Denúncia"}
+              {salvando ? "Salvando..." : rotulos.botao}
             </button>
           </div>
         </form>

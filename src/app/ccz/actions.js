@@ -2179,6 +2179,7 @@ export async function salvarDenuncia(dados) {
         descricaoCao: dados.descricaoCao,
         causouRisco: dados.causouRisco,
         relato: dados.relato,
+        tipo: dados.tipo || "AGRESSIVO",
       },
     });
 
@@ -2191,11 +2192,14 @@ export async function salvarDenuncia(dados) {
 }
 
 // ── LISTAR DENÚNCIAS ─────────────────────────────────────────────────────────
-export async function listarDenuncias() {
+export async function listarDenuncias(tipo) {
   try {
     await requireAcessoModulo(MODULOS.CCZ);
 
+    // Filtro por tipo ("AGRESSIVO" | "DOENTE"). Sem parâmetro (callers antigos),
+    // retorna todas as denúncias.
     const denuncias = await prisma.denunciaCaoAgressivo.findMany({
+      where: tipo ? { tipo } : undefined,
       include: {
         animal: true,
       },

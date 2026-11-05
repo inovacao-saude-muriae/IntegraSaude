@@ -28,7 +28,14 @@ function CczPageContent() {
   const rawSubTab = searchParams.get("subTab") || "";
   
   // Define LISTA como padrão para abas que têm Lista/Cadastrar
-  const tabsComLista = ["PROCEDIMENTOS", "ESPOROTRICOSE", "DENUNCIAS", "TUTORES", "ANIMAIS"];
+  const tabsComLista = [
+    "PROCEDIMENTOS",
+    "ESPOROTRICOSE",
+    "DENUNCIA_AGRESSIVO",
+    "DENUNCIA_DOENTE",
+    "TUTORES",
+    "ANIMAIS",
+  ];
   const activeSubTab = rawSubTab.toUpperCase() || (tabsComLista.includes(activeTab) ? "LISTA" : "");
 
   // Estado de edição vindo das listas.
@@ -127,11 +134,17 @@ function CczPageContent() {
     conteudo = <AgendaCCZ onAbrirProcedimento={editarProcedimento} />;
   } else if (activeTab === "TERMOS") {
     conteudo = <TermosEmBranco />;
-  } else if (activeTab === "DENUNCIAS") {
+  } else if (activeTab === "DENUNCIA_AGRESSIVO") {
     if (activeSubTab === "LISTA") {
-      conteudo = <DenunciasLista />;
+      conteudo = <DenunciasLista tipo="AGRESSIVO" />;
     } else {
-      conteudo = <CadastroDenuncia />;
+      conteudo = <CadastroDenuncia tipo="AGRESSIVO" />;
+    }
+  } else if (activeTab === "DENUNCIA_DOENTE") {
+    if (activeSubTab === "LISTA") {
+      conteudo = <DenunciasLista tipo="DOENTE" />;
+    } else {
+      conteudo = <CadastroDenuncia tipo="DOENTE" />;
     }
   } else if (activeTab === "PROCEDIMENTOS") {
     if (activeSubTab === "LISTA") {

@@ -210,7 +210,16 @@ const menuSections = [
               { name: "Esporotricose", path: "/ccz?tab=ESPOROTRICOSE", visivelSe: "CCZ" },
             ],
           },
-          { name: "Denúncias", tab: "DENUNCIAS", visivelSe: "CCZ" },
+          {
+            name: "Denúncias",
+            tab: "DENUNCIAS",
+            isNestedDropdown: true,
+            visivelSe: "CCZ",
+            nestedItems: [
+              { name: "Animais agressivos", path: "/ccz?tab=DENUNCIA_AGRESSIVO", visivelSe: "CCZ" },
+              { name: "Animais doentes", path: "/ccz?tab=DENUNCIA_DOENTE", visivelSe: "CCZ" },
+            ],
+          },
           { name: "Agenda", tab: "AGENDA", visivelSe: "CCZ" },
           { name: "separator", isSeparator: true, visivelSe: "CCZ" },
           { name: "Animais", tab: "ANIMAIS", visivelSe: "CCZ" },
