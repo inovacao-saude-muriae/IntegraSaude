@@ -28,7 +28,7 @@ export function gerarHistoricoCompletoPdf(dados) {
   const larguraUtil = 182; // 210 - 28
   let yPos = 15;
 
-  const { animal, tutor, procedimentos, zoonoses, denuncias, esporotricose } = dados;
+  const { animal, tutor, procedimentos, denuncias, esporotricose } = dados;
 
   // ═══════════════════════════════════════════════════════════════
   // CABEÇALHO DO RELATÓRIO
@@ -226,15 +226,6 @@ export function gerarHistoricoCompletoPdf(dados) {
       data: p.dataProcedimento,
       tipo: p.tipo + (p.status ? ` - ${p.status}` : ""),
       descricao: p.descricao || p.medicacaoPrescrita || "-",
-    });
-  });
-
-  // Zoonoses
-  zoonoses.forEach((z) => {
-    timeline.push({
-      data: z.dataIdentificacao,
-      tipo: `Zoonose: ${z.doenca}`,
-      descricao: `Risco: ${z.grauRisco} | Risco de vida: ${z.riscoVida}`,
     });
   });
 

@@ -96,18 +96,34 @@ export default function AnimaisLista({ onEditar }) {
                       </span>
                     </div>
                     
-                    {(a.temEsporotricose || a.temZoonoses) && (
+                    {a.temEsporotricose && (
                       <div className={styles.animalCardRow}>
                         <span className={styles.infoLabel}>Doenças:</span>
                         <div className={styles.animalCardBadges}>
-                          {a.temEsporotricose && (
-                            <span className={styles.badgeEsporo} title="Animal tem/teve esporotricose">
-                              🦠 Esporotricose
+                          <span
+                            className={a.esporotricoseEncerrada ? styles.badgeDanger : styles.badgeSuccess}
+                            title={a.esporotricoseEncerrada ? "Esporotricose: caso(s) encerrado(s)" : "Esporotricose: caso em andamento"}
+                          >
+                            🦠 Esporotricose: {a.esporotricoseEncerrada ? "Encerrado" : "Em andamento"}
+                          </span>
+                          {/* Badge de incineração: "Incinerado" se algum caso
+                              tiver incinerado === "Sim"; "Não incinerado" se
+                              algum caso for "Não" (e nenhum "Sim"); sem badge
+                              quando não informado. */}
+                          {a.esporotricoseIncinerado === "Sim" && (
+                            <span
+                              className={styles.badgeDanger}
+                              title="Animal incinerado"
+                            >
+                              🔥 Incinerado
                             </span>
                           )}
-                          {a.temZoonoses && (
-                            <span className={styles.badgeZoonose} title="Animal tem/teve zoonoses">
-                              ⚠️ Zoonose
+                          {a.esporotricoseIncinerado === "Não" && (
+                            <span
+                              className={styles.badgeWarning}
+                              title="Animal não incinerado"
+                            >
+                              Não incinerado
                             </span>
                           )}
                         </div>

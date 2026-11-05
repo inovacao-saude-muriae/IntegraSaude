@@ -8,7 +8,6 @@ import {
   listarAnimais,
   listarProcedimentos,
   listarEsporotricose,
-  listarZoonoses,
   listarDenuncias,
 } from "./actions";
 
@@ -21,7 +20,6 @@ export default function DashboardCCZ() {
     animaisSemTutor: 0,
     procedimentos: 0,
     esporotricose: 0,
-    zoonoses: 0,
     denuncias: 0,
   });
   const [procedimentosPorTipo, setProcedimentosPorTipo] = useState([]);
@@ -32,13 +30,12 @@ export default function DashboardCCZ() {
       setLoading(true);
       
       try {
-        const [tutoresRes, animaisRes, procedimentosRes, esporoRes, zoonosesRes, denunciasRes] = 
+        const [tutoresRes, animaisRes, procedimentosRes, esporoRes, denunciasRes] = 
           await Promise.all([
             listarTutoresComAnimais(),
             listarAnimais(),
             listarProcedimentos(),
             listarEsporotricose(),
-            listarZoonoses(),
             listarDenuncias(),
           ]);
 
@@ -67,7 +64,6 @@ export default function DashboardCCZ() {
           animaisSemTutor: animaisSemTutor.length,
           procedimentos: procedimentosRes.success ? procedimentosRes.data.length : 0,
           esporotricose: esporoRes.success ? esporoRes.data.length : 0,
-          zoonoses: zoonosesRes.success ? zoonosesRes.data.length : 0,
           denuncias: denunciasRes.success ? denunciasRes.data.length : 0,
         };
 
@@ -192,21 +188,6 @@ export default function DashboardCCZ() {
           </div>
           <div className={styles.kpiValue}>{stats.esporotricose}<span className={styles.kpiUnit}>casos</span></div>
           <div className={styles.kpiFooter}>Casos em monitoramento</div>
-        </div>
-
-        <div className={`${styles.kpiCard} ${styles.clickable}`} onClick={() => navegarPara("ZOONOSES")}>
-          <div className={styles.kpiHeader}>
-            <span className={styles.kpiTitle}>Outras Zoonoses</span>
-            <div className={`${styles.iconBox} ${styles.redIcon}`}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                <line x1="12" y1="9" x2="12" y2="13" />
-                <line x1="12" y1="17" x2="12.01" y2="17" />
-              </svg>
-            </div>
-          </div>
-          <div className={styles.kpiValue}>{stats.zoonoses}<span className={styles.kpiUnit}>notificações</span></div>
-          <div className={styles.kpiFooter}>Notificações de outras doenças</div>
         </div>
 
         <div className={`${styles.kpiCard} ${styles.clickable}`} onClick={() => navegarPara("DENUNCIAS")}>

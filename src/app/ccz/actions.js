@@ -235,7 +235,6 @@ export async function excluirAnimal(id) {
       include: {
         procedimentos: true,
         esporotricose: true,
-        zoonoses: true,
       },
     });
 
@@ -246,18 +245,16 @@ export async function excluirAnimal(id) {
     // Verifica se há registros vinculados
     const temRegistros = 
       (animal.procedimentos && animal.procedimentos.length > 0) ||
-      (animal.esporotricose && animal.esporotricose.length > 0) ||
-      (animal.zoonoses && animal.zoonoses.length > 0);
+      (animal.esporotricose && animal.esporotricose.length > 0);
 
     if (temRegistros) {
       const totalRegistros = 
         (animal.procedimentos?.length || 0) +
-        (animal.esporotricose?.length || 0) +
-        (animal.zoonoses?.length || 0);
+        (animal.esporotricose?.length || 0);
       
       return {
         success: false,
-        error: `Não é possível excluir este animal pois existem ${totalRegistros} registro(s) vinculado(s) (procedimentos, esporotricose ou zoonoses)`,
+        error: `Não é possível excluir este animal pois existem ${totalRegistros} registro(s) vinculado(s) (procedimentos ou esporotricose)`,
       };
     }
 
@@ -616,13 +613,8 @@ export async function listarAnimais() {
       include: { 
         tutor: { include: { pessoa: true } },
         esporotricose: { 
-          select: { id: true },
-          take: 1  // Apenas verificar se existe
+          select: { id: true, encerrado: true, incinerado: true }
         },
-        zoonoses: {
-          select: { id: true },
-          take: 1  // Apenas verificar se existe
-        }
       },
       orderBy: { dataCadastro: "desc" },
     });
@@ -647,7 +639,24 @@ export async function listarAnimais() {
       tutorNome: a.tutor?.pessoa?.nomeCompleto || "",
       dataCadastro: a.dataCadastro ? a.dataCadastro.toISOString() : null,
       temEsporotricose: a.esporotricose && a.esporotricose.length > 0,
-      temZoonoses: a.zoonoses && a.zoonoses.length > 0,  // Nova propriedade
+      // Status de esporotricose do animal. Regra para múltiplos casos:
+      // "Em andamento" se existir ao menos um caso não encerrado; se todos os
+      // casos estiverem encerrados, "Encerrado".
+      esporotricoseEncerrada:
+        a.esporotricose && a.esporotricose.length > 0
+          ? a.esporotricose.every((e) => e.encerrado)
+          : false,
+      // Estado de incineração do animal considerando todos os casos de
+      // esporotricose. Regra para múltiplos casos: "Sim" (Incinerado) se
+      // QUALQUER caso tiver incinerado === "Sim"; senão "Não" (Não incinerado)
+      // se QUALQUER caso tiver incinerado === "Não"; caso contrário "" (não
+      // informado), que não gera badge no card.
+      esporotricoseIncinerado:
+        a.esporotricose && a.esporotricose.some((e) => e.incinerado === "Sim")
+          ? "Sim"
+          : a.esporotricose && a.esporotricose.some((e) => e.incinerado === "Não")
+          ? "Não"
+          : "",
     }));
 
     return { success: true, data };
@@ -690,9 +699,6 @@ export async function obterHistoricoCompleto(animalId) {
             },
           },
           orderBy: { dataVisita: "desc" },
-        },
-        zoonoses: {
-          orderBy: { dataIdentificacao: "desc" },
         },
         denuncias: {
           orderBy: { dataDenuncia: "desc" },
@@ -764,16 +770,6 @@ export async function obterHistoricoCompleto(animalId) {
         veterinario: p.veterinario || "",
         status: p.status || "",
         medicacaoPrescrita: p.medicacaoPrescrita || "",
-      })),
-      
-      // Histórico de zoonoses
-      zoonoses: (animal.zoonoses || []).map(z => ({
-        id: z.id,
-        dataIdentificacao: z.dataIdentificacao ? z.dataIdentificacao.toISOString() : null,
-        doenca: z.doenca || "",
-        grauRisco: z.grauRisco || "",
-        riscoVida: z.riscoVida || "Não",
-        observacao: z.observacao || "",
       })),
       
       // Histórico de denúncias
@@ -1553,6 +1549,7 @@ export async function listarEsporotricose() {
       dataVisita: dateParaYMD(r.dataVisita),
       apresentaLesoes: r.apresentaLesoes || "Não",
       visitasCount: r._count?.visitas || 0,
+      encerrado: Boolean(r.encerrado),
     }));
 
     return { success: true, data };
@@ -1675,6 +1672,11 @@ export async function obterEsporotricose(id) {
       encMinisterioPublico: Boolean(r.encMinisterioPublico),
       encOutrasMedidas: Boolean(r.encOutrasMedidas),
       outrasMedidasDescricao: r.outrasMedidasDescricao || "",
+      encerrado: Boolean(r.encerrado),
+      dataEncerramento: r.dataEncerramento ? r.dataEncerramento.toISOString() : null,
+      encerradoPor: r.encerradoPor || "",
+      incinerado: r.incinerado || "",
+      dataIncineracao: r.dataIncineracao ? r.dataIncineracao.toISOString() : null,
       visitas: (r.visitas || []).map((v) => ({
         data: dateParaYMD(v.data),
         observacao: v.observacao || "",
@@ -1744,6 +1746,133 @@ export async function excluirEsporotricose(id) {
     }
     console.error("Erro ao excluir esporotricose (CCZ):", error);
     return { success: false, error: "Erro ao excluir o registro de esporotricose." };
+  }
+}
+
+// ── ENCERRAR CASO DE ESPOROTRICOSE ──────────────────────────────────────────
+// Marca o caso como encerrado, registrando data e o responsável (nome do
+// usuário logado). Não permite encerrar um caso já encerrado.
+export async function encerrarEsporotricose(id) {
+  try {
+    const user = await requireAcessoModulo(MODULOS.CCZ);
+
+    const regId = String(id || "").trim();
+    if (!regId) return { success: false, error: "ID não informado." };
+
+    const registro = await prisma.esporotricose.findUnique({
+      where: { id: regId },
+      select: { id: true, encerrado: true },
+    });
+
+    if (!registro) {
+      return { success: false, error: "Registro de esporotricose não encontrado." };
+    }
+    if (registro.encerrado) {
+      return { success: false, error: "Este caso já está encerrado." };
+    }
+
+    await prisma.esporotricose.update({
+      where: { id: regId },
+      data: {
+        encerrado: true,
+        dataEncerramento: new Date(),
+        encerradoPor: user?.nome ? String(user.nome).slice(0, 150) : null,
+      },
+    });
+
+    revalidatePath("/ccz");
+    return { success: true };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao encerrar esporotricose (CCZ):", error);
+    return { success: false, error: "Erro ao encerrar o caso de esporotricose." };
+  }
+}
+
+// ── REABRIR CASO DE ESPOROTRICOSE ───────────────────────────────────────────
+// Reverte o encerramento de um caso: volta o status para "Em andamento",
+// limpando a data e o responsável pelo encerramento. Não altera a incineração.
+export async function reabrirEsporotricose(id) {
+  try {
+    await requireAcessoModulo(MODULOS.CCZ);
+
+    const regId = String(id || "").trim();
+    if (!regId) return { success: false, error: "ID não informado." };
+
+    const registro = await prisma.esporotricose.findUnique({
+      where: { id: regId },
+      select: { id: true, encerrado: true },
+    });
+
+    if (!registro) {
+      return { success: false, error: "Registro de esporotricose não encontrado." };
+    }
+    if (!registro.encerrado) {
+      return { success: false, error: "Este caso não está encerrado." };
+    }
+
+    await prisma.esporotricose.update({
+      where: { id: regId },
+      data: {
+        encerrado: false,
+        dataEncerramento: null,
+        encerradoPor: null,
+      },
+    });
+
+    revalidatePath("/ccz");
+    return { success: true };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao reabrir esporotricose (CCZ):", error);
+    return { success: false, error: "Erro ao reabrir o caso de esporotricose." };
+  }
+}
+
+// ── REGISTRAR INCINERAÇÃO DO ANIMAL (ESPOROTRICOSE) ─────────────────────────
+// Registra se o animal do caso foi incinerado. Independente do encerramento:
+// pode ser alterado a qualquer momento. Valores aceitos: "Sim", "Não" ou ""
+// (não informado). Ao marcar "Sim", grava a data da incineração; caso
+// contrário, limpa a data.
+export async function registrarIncineracaoEsporotricose(id, valor) {
+  try {
+    await requireAcessoModulo(MODULOS.CCZ);
+
+    const regId = String(id || "").trim();
+    if (!regId) return { success: false, error: "ID não informado." };
+
+    const permitidos = ["", "Sim", "Não"];
+    const novoValor = permitidos.includes(valor) ? valor : "";
+
+    const registro = await prisma.esporotricose.findUnique({
+      where: { id: regId },
+      select: { id: true },
+    });
+
+    if (!registro) {
+      return { success: false, error: "Registro de esporotricose não encontrado." };
+    }
+
+    await prisma.esporotricose.update({
+      where: { id: regId },
+      data: {
+        incinerado: novoValor,
+        dataIncineracao: novoValor === "Sim" ? new Date() : null,
+      },
+    });
+
+    revalidatePath("/ccz");
+    return { success: true };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao registrar incineração (CCZ):", error);
+    return { success: false, error: "Erro ao registrar a incineração do animal." };
   }
 }
 
@@ -1943,151 +2072,6 @@ export async function obterRelatorioVisita(visitaId) {
       success: false,
       error: "Erro ao carregar o relatório de visita.",
     };
-  }
-}
-
-// ── SALVAR ZOONOSE ───────────────────────────────────────────────────────────
-export async function salvarZoonose(dados) {
-  try {
-    await requireAcessoModulo(MODULOS.CCZ);
-
-    const dataZoonose = {
-      animalId: String(dados.animalId),
-      doenca: dados.doenca,
-      dataIdentificacao: new Date(dados.dataIdentificacao),
-      grauRisco: dados.grauRisco,
-      riscoVida: dados.riscoVida,
-      formasContaminacao: dados.formasContaminacao,
-      periodoMonitoramento: dados.solicitacaoAcompanhamento,
-      dataAgendamento: dados.dataAgendamento ? new Date(dados.dataAgendamento) : null,
-      responsavelMonitoramento: dados.responsavelMonitoramento,
-      observacao: dados.observacao || null,
-    };
-
-    let zoonose;
-    
-    if (dados.id) {
-      // Atualizar registro existente
-      zoonose = await prisma.cadastroZoonoses.update({
-        where: { id: dados.id },
-        data: dataZoonose,
-      });
-    } else {
-      // Criar novo registro
-      const id = `ZOO-${Date.now().toString(36)}`.toUpperCase().slice(0, 50);
-      zoonose = await prisma.cadastroZoonoses.create({
-        data: {
-          id,
-          ...dataZoonose,
-        },
-      });
-    }
-
-    revalidatePath("/ccz");
-    return { sucesso: true, data: zoonose };
-  } catch (error) {
-    console.error("Erro ao salvar zoonose:", error);
-    return { sucesso: false, erro: error.message };
-  }
-}
-
-// ── LISTAR ZOONOSES ──────────────────────────────────────────────────────────
-export async function listarZoonoses() {
-  try {
-    await requireAcessoModulo(MODULOS.CCZ);
-
-    const zoonoses = await prisma.cadastroZoonoses.findMany({
-      include: {
-        animal: true,
-      },
-      orderBy: { dataIdentificacao: "desc" },
-    });
-
-    return { sucesso: true, data: zoonoses };
-  } catch (error) {
-    console.error("Erro ao listar zoonoses:", error);
-    return { sucesso: false, erro: error.message };
-  }
-}
-
-// ── OBTER UMA ZOONOSE (para edição) ─────────────────────────────────────────
-export async function obterZoonose(id) {
-  try {
-    await requireAcessoModulo(MODULOS.CCZ);
-
-    const zoonose = await prisma.cadastroZoonoses.findUnique({
-      where: { id },
-      include: {
-        animal: {
-          include: {
-            tutor: {
-              include: {
-                pessoa: {
-                  include: {
-                    enderecos: {
-                      where: { enderecoAtual: true },
-                      take: 1
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-      },
-    });
-
-    if (!zoonose) {
-      return { success: false, error: "Zoonose não encontrada." };
-    }
-
-    const a = zoonose.animal || null;
-    const tutorPessoa = a?.tutor?.pessoa || null;
-    const enderecoPrincipal = tutorPessoa?.enderecos?.[0] || null;
-
-    // Formatar endereço completo
-    let enderecoFormatado = "";
-    if (enderecoPrincipal) {
-      const partes = [];
-      if (enderecoPrincipal.logradouro) partes.push(enderecoPrincipal.logradouro);
-      if (enderecoPrincipal.numero) partes.push(`nº ${enderecoPrincipal.numero}`);
-      if (enderecoPrincipal.bairro) partes.push(enderecoPrincipal.bairro);
-      if (enderecoPrincipal.cidade) partes.push(enderecoPrincipal.cidade);
-      if (enderecoPrincipal.uf) partes.push(enderecoPrincipal.uf);
-      enderecoFormatado = partes.join(", ");
-    }
-
-    const data = {
-      id: zoonose.id,
-      animalId: zoonose.animalId,
-      animalNome: zoonose.animal?.nome || "",
-      tutorNome: tutorPessoa?.nomeCompleto || "", // Adicionar tutorNome
-      animal: a ? {
-        id: a.id,
-        nome: a.nome || "",
-        especie: a.especie || "",
-      } : null,
-      tutor: tutorPessoa ? {
-        nome: tutorPessoa.nomeCompleto || "",
-        cpf: tutorPessoa.cpf || "",
-        telefone: tutorPessoa.telefone || "",
-        endereco: enderecoFormatado || "",
-      } : null,
-      doenca: zoonose.doenca,
-      dataIdentificacao: dateParaYMD(zoonose.dataIdentificacao),
-      grauRisco: zoonose.grauRisco,
-      riscoVida: zoonose.riscoVida,
-      formasContaminacao: zoonose.formasContaminacao || "",
-      solicitacaoAcompanhamento: zoonose.periodoMonitoramento,
-      dataAgendamento: dateParaYMD(zoonose.dataAgendamento),
-      responsavelMonitoramento: zoonose.responsavelMonitoramento || "",
-      observacao: zoonose.observacao || "",
-    };
-
-    return { success: true, data };
-  } catch (error) {
-    console.error("Erro ao obter zoonose:", error);
-    return { success: false, error: error.message };
   }
 }
 

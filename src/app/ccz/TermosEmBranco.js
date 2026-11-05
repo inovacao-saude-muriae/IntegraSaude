@@ -20,12 +20,6 @@ const TERMOS_DISPONIVEIS = [
     tipo: 'esporotricose'
   },
   {
-    id: 3,
-    nome: 'Termo de Notificação de Zoonose',
-    descricao: 'Termo de notificação e orientação sobre zoonoses em geral',
-    tipo: 'zoonose'
-  },
-  {
     id: 4,
     nome: 'Termo de Compromisso e Responsabilidade',
     descricao: 'Termo para denúncias de comportamento agressivo de animais',
@@ -36,8 +30,6 @@ const TERMOS_DISPONIVEIS = [
 function gerarTermoPdf(termo) {
   if (termo.tipo === 'esporotricose') {
     gerarTermoEsporotricosePdf();
-  } else if (termo.tipo === 'zoonose') {
-    gerarTermoZoonosePdf();
   } else if (termo.tipo === 'denuncia') {
     gerarTermoDenuncia();
   } else {
@@ -213,93 +205,6 @@ Comprometo-me a seguir todas as orientações fornecidas pela equipe do CCZ e a 
   doc.text('Centro de Controle de Zoonoses - CCZ', 105, 280, { align: 'center' });
 
   doc.save('termo-esporotricose.pdf');
-}
-
-function gerarTermoZoonosePdf() {
-  const doc = new jsPDF();
-  const margemX = 20;
-  const larguraUtil = 170;
-  let y = 20;
-
-  try {
-    const logo = '/img/logo/logo-ccz.png';
-    doc.addImage(logo, 'PNG', margemX, y, 25, 25);
-  } catch (e) {}
-
-  doc.setFontSize(16);
-  doc.setFont(undefined, 'bold');
-  doc.text('CENTRO DE CONTROLE DE ZOONOSES', margemX + 30, y + 8);
-  
-  doc.setFontSize(12);
-  doc.text('TERMO DE NOTIFICAÇÃO DE ZOONOSE', margemX + 30, y + 16);
-  
-  y += 40;
-  doc.setDrawColor(200);
-  doc.line(margemX, y, margemX + larguraUtil, y);
-  y += 15;
-
-  doc.setFontSize(11);
-  doc.setFont(undefined, 'normal');
-  
-  const texto = `Eu, __________________________________________________, residente no endereço __________________________________________________, responsável pelo animal __________________________________________________, declaro que fui devidamente informado(a) pela equipe técnica do Centro de Controle de Zoonoses sobre a notificação de ____________________________, classificada como grau de risco ____________.
-
-Fui orientado(a) quanto aos seguintes pontos:
-
-• A doença notificada requer acompanhamento veterinário e medidas de controle específicas;
-• É fundamental seguir rigorosamente as orientações da equipe técnica do CCZ;
-• O não cumprimento das medidas recomendadas pode agravar o quadro e representar risco à saúde pública;
-• Devo comunicar imediatamente qualquer alteração no estado de saúde do animal;
-• É necessário manter o ambiente higienizado e adotar as medidas preventivas indicadas.
-
-Comprometo-me a seguir todas as orientações fornecidas pela equipe do CCZ e a colaborar com o monitoramento necessário para o controle da zoonose notificada.`;
-
-  const linhasTexto = doc.splitTextToSize(texto, larguraUtil);
-  doc.text(linhasTexto, margemX, y);
-  y += linhasTexto.length * 6 + 40;
-
-  if (y > 220) {
-    doc.addPage();
-    y = 20;
-  }
-
-  doc.setFontSize(10);
-  let xPos5 = margemX;
-  
-  doc.line(xPos5, y, xPos5 + 50, y);
-  xPos5 += 50;
-  doc.text(', ', xPos5, y);
-  xPos5 += doc.getTextWidth(', ');
-  
-  doc.line(xPos5, y, xPos5 + 15, y);
-  xPos5 += 15;
-  doc.text(' de ', xPos5, y);
-  xPos5 += doc.getTextWidth(' de ');
-  
-  doc.line(xPos5, y, xPos5 + 35, y);
-  xPos5 += 35;
-  doc.text(' de ', xPos5, y);
-  xPos5 += doc.getTextWidth(' de ');
-  
-  doc.line(xPos5, y, xPos5 + 20, y);
-  y += 20;
-
-  const xResp = margemX + larguraUtil / 2 - 40;
-  doc.line(xResp, y, xResp + 80, y);
-  doc.setFontSize(9);
-  doc.text('Assinatura do Responsável pelo Animal', xResp + 5, y + 5);
-
-  y += 25;
-
-  const xVet = margemX + larguraUtil / 2 - 40;
-  doc.line(xVet, y, xVet + 80, y);
-  doc.text('Veterinário Responsável', xVet + 15, y + 5);
-
-  doc.setFont(undefined, 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(100);
-  doc.text('Centro de Controle de Zoonoses - CCZ', 105, 280, { align: 'center' });
-
-  doc.save('termo-zoonose.pdf');
 }
 
 function gerarTermoDenuncia() {
@@ -535,98 +440,6 @@ function ModalVisualizarTermo({ termo, onFechar }) {
                 <p>
                   Comprometo-me a seguir todas as orientações fornecidas pela equipe do CCZ e a comunicar 
                   qualquer alteração no estado de saúde do animal.
-                </p>
-              </div>
-            </div>
-
-            <div className={stylesModal.linha}></div>
-
-            <div className={stylesModal.secao}>
-              <p className={stylesModal.localData}>
-                <span className={stylesModal.linhaManual}>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>, 
-                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; de <span className={stylesModal.linhaManual}>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> de &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-              </p>
-            </div>
-
-            <div className={stylesModal.assinaturas}>
-              <div className={stylesModal.assinatura}>
-                <div className={stylesModal.linhaAssinatura}></div>
-                <p>Assinatura do Responsável pelo Animal</p>
-              </div>
-
-              <div className={stylesModal.assinatura}>
-                <div className={stylesModal.linhaAssinatura}></div>
-                <p>Veterinário Responsável</p>
-              </div>
-            </div>
-
-            <div className={stylesModal.rodape}>
-              <p>Centro de Controle de Zoonoses - CCZ</p>
-            </div>
-          </div>
-
-          <div className={stylesModal.rodapeModal}>
-            <button onClick={onFechar} className={stylesModal.btnFecharRodape}>
-              Fechar
-            </button>
-            <button onClick={handleBaixar} className={stylesModal.btnBaixar}>
-              Baixar PDF
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Renderiza o termo de zoonose
-  if (termo.tipo === 'zoonose') {
-    return (
-      <div className={stylesModal.overlay}>
-        <div className={stylesModal.modal}>
-          <div className={stylesModal.termo}>
-            <div className={stylesModal.cabecalho}>
-              <div className={stylesModal.logoBox}>
-                <Image
-                  src="/img/logo/logo-ccz.png"
-                  alt="Logo CCZ"
-                  width={80}
-                  height={80}
-                  className={stylesModal.logoImage}
-                />
-              </div>
-              <div className={stylesModal.tituloBox}>
-                <h1>CENTRO DE CONTROLE DE ZOONOSES</h1>
-                <h2>TERMO DE NOTIFICAÇÃO DE ZOONOSE</h2>
-              </div>
-            </div>
-
-            <div className={stylesModal.linha}></div>
-
-            <div className={stylesModal.secao}>
-              <div className={stylesModal.textoExplicativo}>
-                <p>
-                  Eu,{' '}
-                  <span className={stylesModal.linhaManual}>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>,
-                  residente no endereço{' '}
-                  <span className={stylesModal.linhaManual}>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>,
-                  responsável pelo animal{' '}
-                  <span className={stylesModal.linhaManual}>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>, 
-                  declaro que fui devidamente informado(a) pela equipe técnica do Centro de Controle de Zoonoses sobre a notificação de{' '}
-                  <span className={stylesModal.linhaManual}>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>, 
-                  classificada como grau de risco{' '}
-                  <span className={stylesModal.linhaManual}>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>.
-                </p>
-                <p>Fui orientado(a) quanto aos seguintes pontos:</p>
-                <ul style={{ marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem' }}>
-                  <li>A doença notificada requer acompanhamento veterinário e medidas de controle específicas;</li>
-                  <li>É fundamental seguir rigorosamente as orientações da equipe técnica do CCZ;</li>
-                  <li>O não cumprimento das medidas recomendadas pode agravar o quadro e representar risco à saúde pública;</li>
-                  <li>Devo comunicar imediatamente qualquer alteração no estado de saúde do animal;</li>
-                  <li>É necessário manter o ambiente higienizado e adotar as medidas preventivas indicadas.</li>
-                </ul>
-                <p>
-                  Comprometo-me a seguir todas as orientações fornecidas pela equipe do CCZ e a colaborar 
-                  com o monitoramento necessário para o controle da zoonose notificada.
                 </p>
               </div>
             </div>

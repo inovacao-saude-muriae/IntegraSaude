@@ -390,7 +390,6 @@ model Animal {
   esporotricose          Esporotricose[]
   procedimentos          CadastroProcedimento[]
   termos                 TermoInternacao[]
-  zoonoses               CadastroZoonoses[]
 
   @@map("ccz_animais")
 }
@@ -429,24 +428,6 @@ model TermoInternacao {
 
   @@index([animalId], map: "idx_termo_internacao_animal")
   @@map("ccz_termos_internacao")
-}
-
-model CadastroZoonoses {
-  id                       String    @id(map: "zoonoses_notificacao_pkey") @db.VarChar(50)
-  animalId                 String    @map("animal_id") @db.VarChar(50)
-  doenca                   String    @db.VarChar(100)
-  dataIdentificacao        DateTime  @map("data_identificacao") @db.Date
-  grauRisco                String    @map("grau_risco") @db.VarChar(30)
-  riscoVida                String?   @default("Não") @map("risco_vida") @db.VarChar(10)
-  formasContaminacao       String?   @map("formas_contaminacao")
-  periodoMonitoramento     String    @map("periodo_monitoramento") @db.VarChar(50)
-  dataAgendamento          DateTime? @map("data_agendamento") @db.Date
-  responsavelMonitoramento String?   @map("responsavel_monitoramento") @db.VarChar(150)
-  observacao               String?
-  createdAt                DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
-  animal                   Animal    @relation(fields: [animalId], references: [id], onDelete: Cascade)
-
-  @@map("ccz_zoonoses_notificacoes")
 }
 
 model DenunciaCaoAgressivo {
@@ -506,6 +487,11 @@ model Esporotricose {
   condicoesGeraisAmbiente  String?               @map("condicoes_gerais_ambiente")
   descricaoTratamentoVet   String?               @map("descricao_tratamento_vet")
   emTratamentoVeterinario  String?               @default("Não") @map("em_tratamento_veterinario") @db.VarChar(10)
+  encerrado                Boolean               @default(false)
+  dataEncerramento         DateTime?             @map("data_encerramento") @db.Timestamptz(6)
+  encerradoPor             String?               @map("encerrado_por") @db.VarChar(150)
+  incinerado               String?               @default("") @map("incinerado") @db.VarChar(20)
+  dataIncineracao          DateTime?             @map("data_incineracao") @db.Timestamptz(6)
   animal                   Animal?               @relation(fields: [animalId], references: [id])
   visitas                  EsporotricoseVisita[]
 

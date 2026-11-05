@@ -201,8 +201,15 @@ const menuSections = [
         ),
         subItems: [
           { name: "Procedimentos", tab: "PROCEDIMENTOS", visivelSe: "CCZ" },
-          { name: "Esporotricose", tab: "ESPOROTRICOSE", visivelSe: "CCZ" },
-          { name: "Zoonoses", tab: "ZOONOSES", visivelSe: "CCZ" },
+          {
+            name: "Zoonoses",
+            tab: "ZOONOSES",
+            isNestedDropdown: true,
+            visivelSe: "CCZ",
+            nestedItems: [
+              { name: "Esporotricose", path: "/ccz?tab=ESPOROTRICOSE", visivelSe: "CCZ" },
+            ],
+          },
           { name: "Denúncias", tab: "DENUNCIAS", visivelSe: "CCZ" },
           { name: "Agenda", tab: "AGENDA", visivelSe: "CCZ" },
           { name: "separator", isSeparator: true, visivelSe: "CCZ" },
@@ -617,7 +624,13 @@ function MenuRender({ menuSections, isOpen, onClose }) {
         // Caso contrário, monta a URL com o primeiro nestedItem
         const primeiro = sub.nestedItems?.[0];
         if (primeiro) {
-          router.push(`${base}?tab=${sub.tab}&subTab=${primeiro.subTab}`);
+          // Item com path próprio (ex.: Esporotricose → /ccz?tab=ESPOROTRICOSE)
+          // navega direto para o destino, sem subTab.
+          if (primeiro.path) {
+            router.push(primeiro.path);
+          } else {
+            router.push(`${base}?tab=${sub.tab}&subTab=${primeiro.subTab}`);
+          }
         }
       }
       // Fechar sidebar em mobile após navegação
@@ -685,6 +698,8 @@ function MenuRender({ menuSections, isOpen, onClose }) {
                   const subItemsVisiveis = item.subItems || [];
                   if (subItemsVisiveis.length === 0) return null;
 
+                  const subMenuListId = `submenu-${item.path}`;
+
                   return (
                     <div key={item.path}>
                       <button
@@ -693,6 +708,8 @@ function MenuRender({ menuSections, isOpen, onClose }) {
                         data-state={isDropdownOpen ? "open" : "closed"}
                         onClick={() => toggleGroup(item)}
                         title={item.name}
+                        aria-expanded={isDropdownOpen}
+                        aria-controls={subMenuListId}
                       >
                         <span className={styles.itemIcon}>{item.icon}</span>
                         <span className={styles.itemLabel}>{item.name}</span>
@@ -712,7 +729,7 @@ function MenuRender({ menuSections, isOpen, onClose }) {
                       </button>
 
                       {isDropdownOpen && (
-                        <ul className={styles.subMenuList}>
+                        <ul id={subMenuListId} className={styles.subMenuList}>
                           {subItemsVisiveis.map((sub, subIndex) => {
                             // Renderiza separador
                             if (sub.isSeparator) {
@@ -728,12 +745,16 @@ function MenuRender({ menuSections, isOpen, onClose }) {
                                 Boolean(openNested[sub.tab]) ||
                                 Boolean(searchTerm);
 
+                              const nestedListId = `nested-${sub.tab}`;
+
                               return (
                                 <li key={`${sub.tab}-${subIndex}`}>
                                   <button
                                     type="button"
                                     className={`${styles.nestedBtn} ${isNestedOpen ? styles.nestedBtnOpen : ""}`}
                                     onClick={() => toggleNested(sub, item.path)}
+                                    aria-expanded={isNestedOpen}
+                                    aria-controls={nestedListId}
                                   >
                                     <span className={styles.subItemContent}>
                                       <span className={styles.subItemIcon}>{subIcon(sub.name)}</span>
@@ -755,7 +776,7 @@ function MenuRender({ menuSections, isOpen, onClose }) {
                                   </button>
 
                                   {isNestedOpen && (
-                                    <ul className={styles.nestedMenuList}>
+                                    <ul id={nestedListId} className={styles.nestedMenuList}>
                                       {sub.nestedItems.map((nested, nestedIndex) => {
                                         // Renderiza separador para nestedItems
                                         if (nested.isSeparator) {
@@ -778,8 +799,25 @@ function MenuRender({ menuSections, isOpen, onClose }) {
                                             nestedLink = `${basePath}?tab=${sub.tab}&subTab=${nested.subTab}`;
                                           }
                                         }
+                                        // Para nestedItems com path próprio, separa o
+                                        // path base da query (ex.: /ccz?tab=ESPOROTRICOSE)
+                                        // e compara tab/subTab contra a URL atual. O tab
+                                        // é sempre exato (o destino sem tab cai no default
+                                        // "DASHBOARD"), evitando destaque cruzado entre
+                                        // abas. Já o subTab só é comparado quando o path
+                                        // do destino o especifica: quando ausente (caso do
+                                        // Esporotricose, cujo path não traz subTab), o item
+                                        // destaca em QUALQUER sub-aba daquele tab — assim
+                                        // editar um caso (subTab=CADASTRAR) mantém o
+                                        // destaque, como fazia o leaf anterior.
+                                        const [nestedBasePath, nestedQuery] = (nested.path || "").split("?");
+                                        const nestedQueryParams = new URLSearchParams(nestedQuery || "");
+                                        const nestedQueryTab = nestedQueryParams.get("tab") || "DASHBOARD";
+                                        const nestedQuerySubTab = nestedQueryParams.get("subTab");
                                         const isNestedActive = nested.path
-                                          ? pathname === nested.path
+                                          ? pathname === nestedBasePath &&
+                                            currentTab === nestedQueryTab &&
+                                            (!nestedQuerySubTab || currentSubTab === nestedQuerySubTab)
                                           : pathname === (sub.path || item.path) &&
                                             currentTab === sub.tab &&
                                             currentSubTab === nested.subTab;

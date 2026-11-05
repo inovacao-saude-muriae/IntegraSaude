@@ -236,7 +236,7 @@ export default function RelatoriosGeraisPage() {
     }
     if (resumo.ccz) {
       linhasResumo.push(
-        `CCZ: ${resumo.ccz.animais?.length || 0} animal(is) · ${resumo.ccz.procedimentos || 0} procedimento(s) · ${resumo.ccz.zoonoses || 0} zoonose(s)`,
+        `CCZ: ${resumo.ccz.animais?.length || 0} animal(is) · ${resumo.ccz.procedimentos || 0} procedimento(s)`,
       );
     }
 
@@ -680,7 +680,7 @@ export default function RelatoriosGeraisPage() {
                 </span>
                 <small>
                   {resumo.ccz
-                    ? `${resumo.ccz.procedimentos} procedimento(s) · ${resumo.ccz.zoonoses} zoonose(s)`
+                    ? `${resumo.ccz.procedimentos} procedimento(s)`
                     : "Sem registros no CCZ"}
                 </small>
               </div>

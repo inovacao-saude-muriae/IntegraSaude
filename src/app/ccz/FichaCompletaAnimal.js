@@ -78,7 +78,7 @@ export default function FichaCompletaAnimal({ animalId, onFechar }) {
 
   if (!dados) return null;
 
-  const { animal, tutor, procedimentos, zoonoses, denuncias, esporotricose } = dados;
+  const { animal, tutor, procedimentos, denuncias, esporotricose } = dados;
 
   // Montar linha do tempo unificada
   const timeline = [];
@@ -116,16 +116,6 @@ export default function FichaCompletaAnimal({ animalId, onFechar }) {
       icone: icone,
       titulo: `${p.tipo}${p.status ? ` - ${p.status}` : ""}`,
       descricao: p.descricao || p.medicacaoPrescrita || "-",
-    });
-  });
-
-  // Adicionar zoonoses
-  zoonoses.forEach((z) => {
-    timeline.push({
-      data: z.dataIdentificacao,
-      tipo: "zoonose",
-      titulo: `Zoonose: ${z.doenca}`,
-      descricao: `Risco: ${z.grauRisco} | Risco de vida: ${z.riscoVida}`,
     });
   });
 
@@ -201,7 +191,6 @@ export default function FichaCompletaAnimal({ animalId, onFechar }) {
     castracao: { icone: "✂️", cor: "#8b5cf6" },
     recolhimento: { icone: "🚐", cor: "#f59e0b" },
     procedimento: { icone: "🏥", cor: "#3b82f6" },
-    zoonose: { icone: "🦠", cor: "#ef4444" },
     denuncia: { icone: "⚠️", cor: "#f59e0b" },
     esporotricose: { icone: "🦠", cor: "#f59e0b" },
     visita: { icone: "📅", cor: "#8b5cf6" },
@@ -387,7 +376,7 @@ export default function FichaCompletaAnimal({ animalId, onFechar }) {
                               <strong>📋 Relatório de Acompanhamento Esporotricose</strong>
                               {item.relatorio.profissionalResponsavel && (
                                 <div className={styles.relatorioProf}>
-                                  Responsável: {item.relatorio.profissionalResponsavel}
+                                  <strong>Responsável:</strong> {item.relatorio.profissionalResponsavel}
                                 </div>
                               )}
                               <div className={styles.relatorioDetalhesGrid}>

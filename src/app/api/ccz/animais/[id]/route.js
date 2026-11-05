@@ -93,7 +93,6 @@ export async function DELETE(request, context) {
       include: {
         procedimentos: true,
         esporotricoses: true,
-        zoonoses: true,
       },
     });
 
@@ -104,17 +103,15 @@ export async function DELETE(request, context) {
     // Verifica se há registros vinculados
     const temRegistros = 
       (animal.procedimentos && animal.procedimentos.length > 0) ||
-      (animal.esporotricoses && animal.esporotricoses.length > 0) ||
-      (animal.zoonoses && animal.zoonoses.length > 0);
+      (animal.esporotricoses && animal.esporotricoses.length > 0);
 
     if (temRegistros) {
       const totalRegistros = 
         (animal.procedimentos?.length || 0) +
-        (animal.esporotricoses?.length || 0) +
-        (animal.zoonoses?.length || 0);
+        (animal.esporotricoses?.length || 0);
       
       return NextResponse.json(
-        { error: `Não é possível excluir este animal pois existem ${totalRegistros} registro(s) vinculado(s) (procedimentos, esporotricose ou zoonoses)` },
+        { error: `Não é possível excluir este animal pois existem ${totalRegistros} registro(s) vinculado(s) (procedimentos ou esporotricose)` },
         { status: 400 }
       );
     }

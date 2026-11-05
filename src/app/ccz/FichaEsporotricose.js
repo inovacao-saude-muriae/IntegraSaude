@@ -5,8 +5,9 @@ import Image from 'next/image';
 import stylesModal from "./AgendaCCZ.module.css";
 import styles from "./ListaCCZ.module.css";
 import stylesTermo from "./TermoProcedimento.module.css";
-import { obterEsporotricose, excluirEsporotricose } from "./actions";
+import { obterEsporotricose, excluirEsporotricose, encerrarEsporotricose, reabrirEsporotricose, registrarIncineracaoEsporotricose } from "./actions";
 import { gerarTermoEsporotricose } from "./esporotricosePdf";
+import { useConfirm, useNotify } from "@/components/ConfirmDialog";
 
 const formatarData = (ymd) => (ymd ? ymd.split("-").reverse().join("/") : "-");
 const formatarDataHora = (iso) => {
@@ -16,10 +17,14 @@ const formatarDataHora = (iso) => {
 };
 
 export default function FichaEsporotricose({ esporotricoseId, onFechar, onEditar, onBaixarFicha }) {
+  const confirm = useConfirm();
+  const notify = useNotify();
   const [dados, setDados] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [mostrandoTermo, setMostrandoTermo] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
+  const [encerrando, setEncerrando] = useState(false);
+  const [salvandoIncineracao, setSalvandoIncineracao] = useState(false);
 
   useEffect(() => {
     const carregar = async () => {
@@ -33,22 +38,86 @@ export default function FichaEsporotricose({ esporotricoseId, onFechar, onEditar
     carregar();
   }, [esporotricoseId]);
 
-  const handleExcluir = async () => {
-    if (!confirm("Tem certeza que deseja excluir este registro de esporotricose? Esta ação não pode ser desfeita.")) {
-      return;
+  const handleEncerrar = async () => {
+    const ok = await confirm({
+      title: "Encerrar caso de esporotricose",
+      message: "Deseja encerrar este caso? Ele será marcado como encerrado.",
+      confirmText: "Encerrar",
+    });
+    if (!ok) return;
+
+    setEncerrando(true);
+    const res = await encerrarEsporotricose(esporotricoseId);
+    setEncerrando(false);
+
+    if (res.success) {
+      await notify({ tipo: "sucesso", message: "Caso encerrado com sucesso!" });
+      // Recarrega os dados para refletir o novo estado na ficha.
+      const atualizado = await obterEsporotricose(esporotricoseId);
+      if (atualizado.success) setDados(atualizado.data);
+    } else {
+      await notify({ tipo: "erro", message: res.error || "Erro ao encerrar o caso." });
     }
+  };
+
+  const handleReabrir = async () => {
+    const ok = await confirm({
+      title: "Reabrir caso de esporotricose",
+      message: "Deseja reabrir este caso? Ele voltará para Em andamento.",
+      confirmText: "Reabrir",
+    });
+    if (!ok) return;
+
+    setEncerrando(true);
+    const res = await reabrirEsporotricose(esporotricoseId);
+    setEncerrando(false);
+
+    if (res.success) {
+      await notify({ tipo: "sucesso", message: "Caso reaberto com sucesso!" });
+      // Recarrega os dados para refletir o novo estado na ficha.
+      const atualizado = await obterEsporotricose(esporotricoseId);
+      if (atualizado.success) setDados(atualizado.data);
+    } else {
+      await notify({ tipo: "erro", message: res.error || "Erro ao reabrir o caso." });
+    }
+  };
+
+  // Atualização inline do estado de incineração (independente do encerramento).
+  // Segue o padrão das edições inline da ficha: persiste direto e notifica,
+  // sem diálogo de confirmação.
+  const handleIncineracao = async (valor) => {
+    setSalvandoIncineracao(true);
+    const res = await registrarIncineracaoEsporotricose(esporotricoseId, valor);
+    setSalvandoIncineracao(false);
+
+    if (res.success) {
+      await notify({ tipo: "sucesso", message: "Informação de incineração atualizada!" });
+      const atualizado = await obterEsporotricose(esporotricoseId);
+      if (atualizado.success) setDados(atualizado.data);
+    } else {
+      await notify({ tipo: "erro", message: res.error || "Erro ao atualizar a incineração." });
+    }
+  };
+
+  const handleExcluir = async () => {
+    const ok = await confirm({
+      title: "Excluir registro de esporotricose",
+      message: "Tem certeza que deseja excluir este registro de esporotricose? Esta ação não pode ser desfeita.",
+      confirmText: "Excluir",
+    });
+    if (!ok) return;
 
     setExcluindo(true);
     const res = await excluirEsporotricose(esporotricoseId);
     setExcluindo(false);
 
     if (res.success) {
-      alert("Registro excluído com sucesso!");
+      await notify({ tipo: "sucesso", message: "Registro excluído com sucesso!" });
       onFechar();
       // Recarrega a página para atualizar a lista
       window.location.reload();
     } else {
-      alert(res.error || "Erro ao excluir o registro.");
+      await notify({ tipo: "erro", message: res.error || "Erro ao excluir o registro." });
     }
   };
 
@@ -210,10 +279,22 @@ export default function FichaEsporotricose({ esporotricoseId, onFechar, onEditar
       >
         <div className={stylesModal.modalHeader}>
           <div>
-            <h3 className={stylesModal.modalTitle}>Ficha Completa · Esporotricose</h3>
+            <h3 className={stylesModal.modalTitle}>
+              Ficha Completa · Esporotricose{" "}
+              <span className={dados.encerrado ? styles.badgeDanger : styles.badgeSuccess} style={{ marginLeft: "0.5rem", verticalAlign: "middle" }}>
+                {dados.encerrado ? "Encerrado" : "Em andamento"}
+              </span>
+            </h3>
             <p className={stylesModal.modalSubtitle}>
               Protocolo: {dados.numeroProtocolo || "Sem protocolo"} | 
               Animal: {dados.animal?.nome || "Sem nome"} ({dados.animalId})
+              {dados.encerrado && dados.dataEncerramento && (
+                <>
+                  {" · Encerrado em "}
+                  {formatarDataHora(dados.dataEncerramento)}
+                  {dados.encerradoPor ? ` por ${dados.encerradoPor}` : ""}
+                </>
+              )}
             </p>
           </div>
           <button type="button" className={stylesModal.modalClose} onClick={onFechar}>
@@ -512,6 +593,42 @@ export default function FichaEsporotricose({ esporotricoseId, onFechar, onEditar
               )}
             </section>
 
+            {/* Incineração do animal (independente do encerramento) */}
+            <section className={styles.fichaSecao}>
+              <h4 className={styles.fichaTitle}>Incineração do Animal</h4>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+                <label style={{ fontSize: "0.875rem", fontWeight: "600", color: "#475569" }}>
+                  Animal foi incinerado?
+                </label>
+                <select
+                  value={dados.incinerado || ""}
+                  onChange={(e) => handleIncineracao(e.target.value)}
+                  disabled={salvandoIncineracao}
+                  style={{
+                    padding: "0.5rem 0.75rem",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "6px",
+                    fontSize: "0.875rem",
+                    color: "#1e293b",
+                    backgroundColor: "#fff",
+                    minWidth: "180px",
+                  }}
+                >
+                  <option value="">Não informado</option>
+                  <option value="Sim">Sim</option>
+                  <option value="Não">Não</option>
+                </select>
+                {salvandoIncineracao && (
+                  <span style={{ fontSize: "0.875rem", color: "#64748b" }}>Salvando...</span>
+                )}
+                {dados.incinerado === "Sim" && dados.dataIncineracao && (
+                  <span style={{ fontSize: "0.875rem", color: "#64748b" }}>
+                    Incinerado em {formatarDataHora(dados.dataIncineracao)}
+                  </span>
+                )}
+              </div>
+            </section>
+
             {/* Visitas de Acompanhamento */}
             {dados.visitas && dados.visitas.length > 0 && (
               <section className={styles.fichaSecao}>
@@ -549,16 +666,16 @@ export default function FichaEsporotricose({ esporotricoseId, onFechar, onEditar
                           
                           <div style={{display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.5rem", fontSize: "0.875rem"}}>
                             <div>
-                              <strong>Profissional:</strong> {visita.relatorio.profissionalResponsavel}
+                              <strong style={{display: "inline", marginBottom: 0}}>Profissional:</strong> {visita.relatorio.profissionalResponsavel}
                             </div>
                             <div>
-                              <strong>Data do relatório:</strong> {formatarDataHora(visita.relatorio.dataRelatorio)}
+                              <strong style={{display: "inline", marginBottom: 0}}>Data do relatório:</strong> {formatarDataHora(visita.relatorio.dataRelatorio)}
                             </div>
                             <div>
-                              <strong>Lesões:</strong> {visita.relatorio.apresentaLesoes}
+                              <strong style={{display: "inline", marginBottom: 0}}>Lesões:</strong> {visita.relatorio.apresentaLesoes}
                             </div>
                             <div>
-                              <strong>Evolução:</strong> 
+                              <strong style={{display: "inline", marginBottom: 0}}>Evolução:</strong> 
                               <span className={
                                 visita.relatorio.evolucaoQuadro === "Melhora" ? styles.badgeSuccess :
                                 visita.relatorio.evolucaoQuadro === "Piora" ? styles.badgeDanger :
@@ -569,10 +686,10 @@ export default function FichaEsporotricose({ esporotricoseId, onFechar, onEditar
                               </span>
                             </div>
                             <div>
-                              <strong>Tratamento:</strong> {visita.relatorio.emTratamento}
+                              <strong style={{display: "inline", marginBottom: 0}}>Tratamento:</strong> {visita.relatorio.emTratamento}
                             </div>
                             <div>
-                              <strong>Adesão:</strong> 
+                              <strong style={{display: "inline", marginBottom: 0}}>Adesão:</strong> 
                               <span className={
                                 visita.relatorio.adesaoTratamento === "Boa" ? styles.badgeSuccess :
                                 visita.relatorio.adesaoTratamento === "Regular" ? styles.badgeWarning :
@@ -584,41 +701,41 @@ export default function FichaEsporotricose({ esporotricoseId, onFechar, onEditar
                           </div>
 
                           {visita.relatorio.descricaoLesoes && (
-                            <div style={{marginTop: "0.75rem"}}>
-                              <strong style={{fontSize: "0.875rem"}}>Descrição das lesões:</strong>
-                              <p style={{margin: "0.25rem 0 0", fontSize: "0.875rem", color: "#64748b"}}>
+                            <div style={{marginTop: "0.75rem", fontSize: "0.875rem"}}>
+                              <strong style={{display: "inline", fontSize: "0.875rem", marginBottom: 0}}>Descrição das lesões:</strong>{" "}
+                              <span style={{fontSize: "0.875rem", color: "#64748b"}}>
                                 {visita.relatorio.descricaoLesoes}
-                              </p>
+                              </span>
                             </div>
                           )}
 
                           {visita.relatorio.medicamentosAtuais && (
-                            <div style={{marginTop: "0.75rem"}}>
-                              <strong style={{fontSize: "0.875rem"}}>Medicamentos atuais:</strong>
-                              <p style={{margin: "0.25rem 0 0", fontSize: "0.875rem", color: "#64748b"}}>
+                            <div style={{marginTop: "0.75rem", fontSize: "0.875rem"}}>
+                              <strong style={{display: "inline", fontSize: "0.875rem", marginBottom: 0}}>Medicamentos atuais:</strong>{" "}
+                              <span style={{fontSize: "0.875rem", color: "#64748b"}}>
                                 {visita.relatorio.medicamentosAtuais}
-                              </p>
+                              </span>
                             </div>
                           )}
 
                           <div style={{marginTop: "0.75rem", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.5rem", fontSize: "0.875rem"}}>
                             <div>
-                              <strong>Isolamento:</strong> {visita.relatorio.isolamentoAdequado}
+                              <strong style={{display: "inline", marginBottom: 0}}>Isolamento:</strong> {visita.relatorio.isolamentoAdequado}
                             </div>
                             <div>
-                              <strong>EPI:</strong> {visita.relatorio.usoEpiAdequado}
+                              <strong style={{display: "inline", marginBottom: 0}}>EPI:</strong> {visita.relatorio.usoEpiAdequado}
                             </div>
                             <div>
-                              <strong>Higienização:</strong> {visita.relatorio.higienizacaoAdequada}
+                              <strong style={{display: "inline", marginBottom: 0}}>Higienização:</strong> {visita.relatorio.higienizacaoAdequada}
                             </div>
                           </div>
 
                           {visita.relatorio.observacoesGerais && (
-                            <div style={{marginTop: "0.75rem"}}>
-                              <strong style={{fontSize: "0.875rem"}}>Observações gerais:</strong>
-                              <p style={{margin: "0.25rem 0 0", fontSize: "0.875rem", color: "#64748b"}}>
+                            <div style={{marginTop: "0.75rem", fontSize: "0.875rem"}}>
+                              <strong style={{display: "inline", fontSize: "0.875rem", marginBottom: 0}}>Observações gerais:</strong>{" "}
+                              <span style={{fontSize: "0.875rem", color: "#64748b"}}>
                                 {visita.relatorio.observacoesGerais}
-                              </p>
+                              </span>
                             </div>
                           )}
 
@@ -639,11 +756,11 @@ export default function FichaEsporotricose({ esporotricoseId, onFechar, onEditar
                           )}
 
                           {visita.relatorio.necessidadeNovaVisita === "Sim" && visita.relatorio.dataProximaVisita && (
-                            <div style={{marginTop: "0.75rem", padding: "0.75rem", backgroundColor: "#dbeafe", borderRadius: "6px"}}>
-                              <strong style={{fontSize: "0.875rem", color: "#1e40af"}}>Próxima visita sugerida:</strong>
-                              <div style={{marginTop: "0.25rem", fontSize: "0.875rem", color: "#1e3a8a"}}>
+                            <div style={{marginTop: "0.75rem", padding: "0.75rem", backgroundColor: "#dbeafe", borderRadius: "6px", fontSize: "0.875rem"}}>
+                              <strong style={{display: "inline", fontSize: "0.875rem", color: "#1e40af", marginBottom: 0}}>Próxima visita sugerida:</strong>{" "}
+                              <span style={{fontSize: "0.875rem", color: "#1e3a8a"}}>
                                 {formatarData(visita.relatorio.dataProximaVisita)}
-                              </div>
+                              </span>
                             </div>
                           )}
                         </div>
@@ -679,6 +796,25 @@ export default function FichaEsporotricose({ esporotricoseId, onFechar, onEditar
             </button>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
+            {!dados.encerrado ? (
+              <button
+                type="button"
+                className={styles.btnFicha}
+                onClick={handleEncerrar}
+                disabled={encerrando}
+              >
+                {encerrando ? "Encerrando..." : "Encerrar caso"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={styles.btnFicha}
+                onClick={handleReabrir}
+                disabled={encerrando}
+              >
+                {encerrando ? "Reabrindo..." : "Reabrir caso"}
+              </button>
+            )}
             <button 
               type="button"
               className={styles.btnFicha}

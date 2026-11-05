@@ -8,17 +8,15 @@ import CadastroTutor from "./CadastroTutor";
 import CadastroAnimal from "./CadastroAnimal";
 import CadastroProcedimento from "./CadastroProcedimento";
 import CadastroEsporotricose from "./CadastroEsporotricose";
-import CadastroZoonoses from "./CadastroZoonoses";
 import CadastroDenuncia from "./CadastroDenuncia";
 import TutoresLista from "./TutoresLista";
 import AnimaisLista from "./AnimaisLista";
 import ProcedimentosLista from "./ProcedimentosLista";
 import EsporotricoseLista from "./EsporotricoseLista";
-import ZoonosesLista from "./ZoonosesLista";
 import DenunciasLista from "./DenunciasLista";
 import AgendaCCZ from "./AgendaCCZ";
 import TermosEmBranco from "./TermosEmBranco";
-import { obterAnimal, obterProcedimento, obterEsporotricose, obterZoonose } from "./actions";
+import { obterAnimal, obterProcedimento, obterEsporotricose } from "./actions";
 
 import styles from "./CadastroTutor.module.css";
 
@@ -30,7 +28,7 @@ function CczPageContent() {
   const rawSubTab = searchParams.get("subTab") || "";
   
   // Define LISTA como padrão para abas que têm Lista/Cadastrar
-  const tabsComLista = ["PROCEDIMENTOS", "ESPOROTRICOSE", "ZOONOSES", "DENUNCIAS", "TUTORES", "ANIMAIS"];
+  const tabsComLista = ["PROCEDIMENTOS", "ESPOROTRICOSE", "DENUNCIAS", "TUTORES", "ANIMAIS"];
   const activeSubTab = rawSubTab.toUpperCase() || (tabsComLista.includes(activeTab) ? "LISTA" : "");
 
   // Estado de edição vindo das listas.
@@ -41,8 +39,6 @@ function CczPageContent() {
   const [carregandoProcedimento, setCarregandoProcedimento] = useState(false);
   const [esporoEdicao, setEsporoEdicao] = useState(null);
   const [carregandoEsporo, setCarregandoEsporo] = useState(false);
-  const [zoonoseEdicao, setZoonoseEdicao] = useState(null);
-  const [carregandoZoonose, setCarregandoZoonose] = useState(false);
 
   // Navega para uma aba/sub-aba preservando o módulo.
   const irPara = (tab, subTab) => {
@@ -52,7 +48,6 @@ function CczPageContent() {
       setAnimalEdicao(null);
       setProcedimentoEdicao(null);
       setEsporoEdicao(null);
-      setZoonoseEdicao(null);
     }
     router.push(`/ccz?tab=${tab}&subTab=${subTab}`);
   };
@@ -65,7 +60,6 @@ function CczPageContent() {
       setAnimalEdicao(null);
       setProcedimentoEdicao(null);
       setEsporoEdicao(null);
-      setZoonoseEdicao(null);
     }
   }, [activeTab, activeSubTab]);
 
@@ -108,17 +102,6 @@ function CczPageContent() {
     }
   };
 
-  // ── Editar zoonose: carrega o registro e vai para Zoonoses > Cadastrar ──
-  const editarZoonose = async (id) => {
-    setCarregandoZoonose(true);
-    const res = await obterZoonose(id);
-    setCarregandoZoonose(false);
-    if (res.success) {
-      setZoonoseEdicao(res.data);
-      irPara("ZOONOSES", "CADASTRAR");
-    }
-  };
-
   // Volta para a lista correspondente após salvar/cancelar edição.
   const voltarListaTutores = () => {
     setCpfTutorEdicao("");
@@ -136,10 +119,6 @@ function CczPageContent() {
     setEsporoEdicao(null);
     irPara("ESPOROTRICOSE", "LISTA");
   };
-  const voltarListaZoonose = () => {
-    setZoonoseEdicao(null);
-    irPara("ZOONOSES", "LISTA");
-  };
 
   let conteudo;
   if (activeTab === "DASHBOARD") {
@@ -153,20 +132,6 @@ function CczPageContent() {
       conteudo = <DenunciasLista />;
     } else {
       conteudo = <CadastroDenuncia />;
-    }
-  } else if (activeTab === "ZOONOSES") {
-    if (activeSubTab === "LISTA") {
-      conteudo = <ZoonosesLista onEditar={editarZoonose} />;
-    } else if (carregandoZoonose) {
-      conteudo = <p className={styles.subtitle}>Carregando zoonose...</p>;
-    } else {
-      conteudo = (
-        <CadastroZoonoses
-          key={zoonoseEdicao?.id || "novo"}
-          registroInicial={zoonoseEdicao}
-          onSalvo={voltarListaZoonose}
-        />
-      );
     }
   } else if (activeTab === "PROCEDIMENTOS") {
     if (activeSubTab === "LISTA") {

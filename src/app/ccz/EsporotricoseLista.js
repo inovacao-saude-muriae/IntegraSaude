@@ -72,6 +72,7 @@ export default function EsporotricoseLista({ onEditar }) {
                   <th>Data da visita</th>
                   <th>Lesões</th>
                   <th>Nº visitas</th>
+                  <th>Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -95,6 +96,11 @@ export default function EsporotricoseLista({ onEditar }) {
                     <td>{r.apresentaLesoes || "Não"}</td>
                     <td>
                       <span className={styles.badge}>{r.visitasCount}</span>
+                    </td>
+                    <td>
+                      <span className={r.encerrado ? styles.badgeDanger : styles.badgeSuccess}>
+                        {r.encerrado ? "Encerrado" : "Em andamento"}
+                      </span>
                     </td>
                   </tr>
                 ))}

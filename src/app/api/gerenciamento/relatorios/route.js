@@ -90,14 +90,6 @@ export async function GET() {
               status: true,
             },
           },
-          zoonoses: {
-            select: {
-              id: true,
-              doenca: true,
-              dataIdentificacao: true,
-              grauRisco: true,
-            },
-          },
           denuncias: {
             select: { id: true, dataDenuncia: true, localizacao: true },
           },
@@ -200,15 +192,6 @@ export async function GET() {
             tipo: "Procedimento realizado",
             descricao: `${nomeAnimal} - ${item.tipo} (${item.status})`,
             data: item.dataProcedimento,
-          }),
-        );
-        animal.zoonoses.forEach((item) =>
-          adicionarEvento(animal.pessoaCpf, {
-            id: `ccz-zoonose-${item.id}`,
-            modulo: "CCZ",
-            tipo: "Zoonose registrada",
-            descricao: `${nomeAnimal} - ${item.doenca} (${item.grauRisco})`,
-            data: item.dataIdentificacao,
           }),
         );
         animal.denuncias.forEach((item) =>
@@ -314,10 +297,6 @@ export async function GET() {
                 ),
                 procedimentos: animaisDaPessoa.reduce(
                   (total, item) => total + item.procedimentos.length,
-                  0,
-                ),
-                zoonoses: animaisDaPessoa.reduce(
-                  (total, item) => total + item.zoonoses.length,
                   0,
                 ),
               }

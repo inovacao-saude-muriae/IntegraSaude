@@ -91,7 +91,6 @@ JuntaAtendimento      → Atendimentos realizados
 Tutor                   → Tutores de animais
 Animal                  → Animais cadastrados
 CadastroProcedimento    → Procedimentos veterinários
-CadastroZoonoses        → Notificações de zoonoses
 DenunciaCaoAgressivo    → Denúncias de cães agressivos
 Esporotricose           → Casos de esporotricose
 ```
