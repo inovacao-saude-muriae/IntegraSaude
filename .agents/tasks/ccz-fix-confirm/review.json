@@ -1,0 +1,14 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    "Procedimentos: FichaProcedimento.js importa e instancia useConfirm; botão Excluir virou async com await confirm({ title: 'Excluir procedimento', confirmText: 'Excluir' }) e if (!ok) return — sem window.confirm nativo. (confirmed)",
+    "Animais: FichaAnimal.js importa e instancia useConfirm; botão Excluir virou async com await confirm({...}) e if (!ok) return. (confirmed)",
+    "Tutor: FichaTutor.js importa useConfirm/useNotify; guarda de vínculo usa await notify e return antes da confirmação, exclusão usa await confirm({...}) com if (!ok) return, handler async. (confirmed)",
+    "Bug de sombreamento resolvido: nenhum confirm(...) síncrono tratado como boolean restou; grep case-insensitive por window.confirm, confirm( e alert( em src/app/ccz/** só retorna chamadas await confirm({...}) e zero alert(. (confirmed)",
+    "ConfirmProvider está montado em ClientLayout.js envolvendo toda a árvore (login e layout padrão), então os hooks usam o diálogo personalizado e não o fallback nativo — a correção aparece em runtime. (confirmed)",
+    "Lógica de exclusão inalterada: handleExcluir nas *Lista.js mantém a action/fetch DELETE e a recarga; apenas o feedback de erro migrou de alert para await notify. Cancelar não exclui. (confirmed)",
+    "Mudança agregada fora das 3 telas: FichaDenuncia.js troca um alert de sucesso ao salvar por notify (~linha 66), além da correção de exclusão de Denúncias; coerente com o objetivo, apenas registrar. (confirmed)",
+    "Verificação visual/manual não comprovada: diretório .agents/tasks/ccz-fix-confirm vazio e sem log do coder de lint/build ou teste visual; montagem do provider e ausência de nativos foram confirmadas por código nesta revisão. Recomenda-se passada visual nas três telas. (possible)"
+  ],
+  "reviewDoc": "c:\\Users\\Jefinny\\Documents\\10. IntegraSaude\\.agents\\tasks\\ccz-fix-confirm\\review.md"
+}
