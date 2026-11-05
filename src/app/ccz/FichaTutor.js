@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import stylesModal from "./AgendaCCZ.module.css";
 import styles from "./ListaCCZ.module.css";
 import { mascararTelefone } from "@/lib/telefone";
+import { useConfirm, useNotify } from "@/components/ConfirmDialog";
 
 const maskCpf = (v) =>
   (v || "")
@@ -26,6 +27,8 @@ const formatarData = (dataISO) => {
 };
 
 export default function FichaTutor({ cpf, onFechar, onEditar, onExcluir }) {
+  const confirm = useConfirm();
+  const notify = useNotify();
   const [dados, setDados] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
@@ -493,15 +496,22 @@ export default function FichaTutor({ cpf, onFechar, onEditar, onExcluir }) {
         <div className={styles.modalFooter}>
           <button 
             className={styles.btnGhost}
-            onClick={() => {
+            onClick={async () => {
               if (dados.animais && dados.animais.length > 0) {
-                alert(`Não é possível excluir este tutor pois existem ${dados.animais.length} animal(is) vinculado(s)`);
+                await notify({
+                  tipo: "erro",
+                  message: `Não é possível excluir este tutor pois existem ${dados.animais.length} animal(is) vinculado(s)`,
+                });
                 return;
               }
-              if (window.confirm(`Tem certeza que deseja excluir o tutor ${dados.nomeCompleto}?`)) {
-                onExcluir?.(dados.cpf);
-                onFechar();
-              }
+              const ok = await confirm({
+                title: "Excluir tutor",
+                message: `Deseja excluir o tutor ${dados.nomeCompleto}? Esta ação não pode ser desfeita.`,
+                confirmText: "Excluir",
+              });
+              if (!ok) return;
+              onExcluir?.(dados.cpf);
+              onFechar();
             }}
             style={{ 
               color: "#dc2626",

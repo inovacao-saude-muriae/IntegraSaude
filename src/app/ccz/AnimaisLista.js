@@ -5,6 +5,7 @@ import styles from "./ListaCCZ.module.css";
 import { listarAnimais, excluirAnimal } from "./actions";
 import FichaAnimal from "./FichaAnimal";
 import FichaCompletaAnimal from "./FichaCompletaAnimal";
+import { useNotify } from "@/components/ConfirmDialog";
 
 // Opções do dropdown de filtro por situação. O value é a chave enviada à
 // action (server-side); o label é o texto exibido. Critério ÚNICO por vez.
@@ -18,6 +19,7 @@ const OPCOES_FILTRO = [
 ];
 
 export default function AnimaisLista({ onEditar }) {
+  const notify = useNotify();
   const [animais, setAnimais] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [termo, setTermo] = useState("");
@@ -47,7 +49,7 @@ export default function AnimaisLista({ onEditar }) {
     if (res.success) {
       await carregar(termo, filtroSituacao);
     } else {
-      alert(res.error || "Erro ao excluir animal");
+      await notify({ tipo: "erro", message: res.error || "Erro ao excluir animal" });
     }
   };
 

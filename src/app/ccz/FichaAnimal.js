@@ -6,10 +6,12 @@ import stylesModal from "./AgendaCCZ.module.css";
 import styles from "./ListaCCZ.module.css";
 import { mascararTelefone } from "@/lib/telefone";
 import { obterFichaAnimal } from "./actions";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 const formatarData = (ymd) => (ymd ? ymd.split("-").reverse().join("/") : "-");
 
 export default function FichaAnimal({ animalId, onFechar, onEditar, onExcluir }) {
+  const confirm = useConfirm();
   const [ficha, setFicha] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
@@ -484,11 +486,15 @@ export default function FichaAnimal({ animalId, onFechar, onEditar, onExcluir })
               <button 
                 type="button" 
                 className={styles.btnGhost}
-                onClick={() => {
-                  if (window.confirm(`Tem certeza que deseja excluir o animal ${ficha.nome || "Sem nome"}?`)) {
-                    onExcluir?.(ficha.id);
-                    onFechar();
-                  }
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: "Excluir animal",
+                    message: `Deseja excluir o animal ${ficha.nome || "Sem nome"}? Esta ação não pode ser desfeita.`,
+                    confirmText: "Excluir",
+                  });
+                  if (!ok) return;
+                  onExcluir?.(ficha.id);
+                  onFechar();
                 }}
                 style={{ 
                   color: "#dc2626",

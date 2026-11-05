@@ -6,10 +6,13 @@ import stylesModal from "./AgendaCCZ.module.css";
 import styles from "./ListaCCZ.module.css";
 import stylesTermo from "./TermoProcedimento.module.css";
 import { gerarTermoDenuncia } from "./denunciasPdf";
+import { useConfirm, useNotify } from "@/components/ConfirmDialog";
 
 const formatarData = (ymd) => (ymd ? ymd.split("-").reverse().join("/") : "-");
 
 export default function FichaDenuncia({ denunciaId, onFechar, onEditar, onExcluir }) {
+  const confirm = useConfirm();
+  const notify = useNotify();
   const [dados, setDados] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
@@ -63,7 +66,7 @@ export default function FichaDenuncia({ denunciaId, onFechar, onEditar, onExclui
       setDados(dataAtualizada);
       setForm(dataAtualizada);
       setEditando(false);
-      alert("Denúncia atualizada com sucesso!");
+      await notify({ tipo: "sucesso", message: "Denúncia atualizada com sucesso!" });
     } catch (error) {
       console.error("Erro ao salvar:", error);
       setErro(error.message || "Erro ao salvar denúncia");
@@ -745,11 +748,15 @@ export default function FichaDenuncia({ denunciaId, onFechar, onEditar, onExclui
               <button 
                 type="button"
                 className={styles.btnGhost}
-                onClick={() => {
-                  if (window.confirm(`Tem certeza que deseja excluir a denúncia ${dados.id}?`)) {
-                    onExcluir?.(dados.id);
-                    onFechar();
-                  }
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: "Excluir denúncia",
+                    message: `Deseja excluir a denúncia ${dados.id}? Esta ação não pode ser desfeita.`,
+                    confirmText: "Excluir",
+                  });
+                  if (!ok) return;
+                  onExcluir?.(dados.id);
+                  onFechar();
                 }}
                 style={{ 
                   color: "#dc2626",

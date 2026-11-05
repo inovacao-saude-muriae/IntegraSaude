@@ -6,8 +6,10 @@ import { documentoPaciente } from "@/app/regulacao/constants";
 import { mascararTelefone } from "@/lib/telefone";
 import { listarTutoresComAnimais } from "./actions";
 import FichaTutor from "./FichaTutor";
+import { useNotify } from "@/components/ConfirmDialog";
 
 export default function TutoresLista({ onEditar }) {
+  const notify = useNotify();
   const [tutores, setTutores] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [termo, setTermo] = useState("");
@@ -47,11 +49,11 @@ export default function TutoresLista({ onEditar }) {
         await carregar();
       } else {
         const data = await res.json();
-        alert(data.error || "Erro ao excluir tutor");
+        await notify({ tipo: "erro", message: data.error || "Erro ao excluir tutor" });
       }
     } catch (error) {
       console.error("Erro ao excluir:", error);
-      alert("Erro ao excluir tutor");
+      await notify({ tipo: "erro", message: "Erro ao excluir tutor" });
     }
   };
 

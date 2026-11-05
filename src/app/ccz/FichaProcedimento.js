@@ -5,10 +5,12 @@ import stylesModal from "./AgendaCCZ.module.css";
 import styles from "./ListaCCZ.module.css";
 import { obterProcedimento } from "./actions";
 import TermoProcedimento from "./TermoProcedimento";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 const formatarData = (ymd) => (ymd ? ymd.split("-").reverse().join("/") : "-");
 
 export default function FichaProcedimento({ procedimentoId, onFechar, onEditar, onExcluir }) {
+  const confirm = useConfirm();
   const [dados, setDados] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
@@ -171,11 +173,15 @@ export default function FichaProcedimento({ procedimentoId, onFechar, onEditar, 
         <div className={styles.modalFooter}>
           <button 
             className={styles.btnGhost}
-            onClick={() => {
-              if (window.confirm("Tem certeza que deseja excluir este procedimento?")) {
-                onExcluir?.(dados.id);
-                onFechar();
-              }
+            onClick={async () => {
+              const ok = await confirm({
+                title: "Excluir procedimento",
+                message: "Deseja excluir este procedimento? Esta ação não pode ser desfeita.",
+                confirmText: "Excluir",
+              });
+              if (!ok) return;
+              onExcluir?.(dados.id);
+              onFechar();
             }}
             style={{ 
               color: "#dc2626",

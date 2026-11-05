@@ -5,11 +5,13 @@ import styles from "./ListaCCZ.module.css";
 import { listarProcedimentos, excluirProcedimento } from "./actions";
 import TermoInternacao from "./TermoInternacao";
 import FichaProcedimento from "./FichaProcedimento";
+import { useNotify } from "@/components/ConfirmDialog";
 
 const formatarData = (ymd) =>
   ymd ? ymd.split("-").reverse().join("/") : "-";
 
 export default function ProcedimentosLista({ onEditar }) {
+  const notify = useNotify();
   const [procedimentos, setProcedimentos] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [termo, setTermo] = useState("");
@@ -33,7 +35,7 @@ export default function ProcedimentosLista({ onEditar }) {
     if (res.success) {
       await carregar();
     } else {
-      alert(res.error || "Erro ao excluir procedimento");
+      await notify({ tipo: "erro", message: res.error || "Erro ao excluir procedimento" });
     }
   };
 

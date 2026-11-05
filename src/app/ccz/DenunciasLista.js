@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import styles from "./ListaCCZ.module.css";
 import FichaDenuncia from "./FichaDenuncia";
+import { useNotify } from "@/components/ConfirmDialog";
 
 const TITULOS_POR_TIPO = {
   AGRESSIVO: "Denúncias de Animais Agressivos",
@@ -10,6 +11,7 @@ const TITULOS_POR_TIPO = {
 };
 
 export default function DenunciasLista({ onEditar, tipo = "AGRESSIVO" }) {
+  const notify = useNotify();
   const [denuncias, setDenuncias] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [termo, setTermo] = useState("");
@@ -168,11 +170,11 @@ export default function DenunciasLista({ onEditar, tipo = "AGRESSIVO" }) {
               if (res.ok) {
                 carregar();
               } else {
-                alert("Erro ao excluir a denúncia");
+                await notify({ tipo: "erro", message: "Erro ao excluir a denúncia" });
               }
             } catch (error) {
               console.error("Erro ao excluir:", error);
-              alert("Erro ao excluir a denúncia");
+              await notify({ tipo: "erro", message: "Erro ao excluir a denúncia" });
             }
           }}
         />
