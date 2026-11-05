@@ -47,7 +47,7 @@ function FarmaciaJudicialPageContent() {
   const requestedSubTab = searchParams.get("subTab");
   const isSidebarModuleLink = requestedTab === "FARMACIA_JUDICIAL";
   const activeTab = isSidebarModuleLink
-    ? requestedSubTab || "PACIENTES"
+    ? requestedSubTab || "DASHBOARD"
     : requestedTab;
   const activeSubTab = isSidebarModuleLink
     ? "SALDO"

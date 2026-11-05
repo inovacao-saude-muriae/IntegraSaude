@@ -630,8 +630,13 @@ function MenuRender({ menuSections, isOpen, onClose }) {
       if (base.includes('?tab=') && base.includes('&subTab=')) {
         router.push(base);
       } else {
-        // Caso contrário, monta a URL com o primeiro nestedItem
-        const primeiro = sub.nestedItems?.[0];
+        // Ao abrir o subgrupo, prioriza a aba DASHBOARD como inicial (quando
+        // existir entre os nestedItems); caso não exista, cai no primeiro item
+        // da lista. Isso garante que a Farmácia Judicial abra no Dashboard mesmo
+        // que outra aba (ex.: Novo Processo/Pacientes) esteja listada antes.
+        const primeiro =
+          sub.nestedItems?.find((n) => n.subTab === "DASHBOARD") ||
+          sub.nestedItems?.[0];
         if (primeiro) {
           // Item com path próprio (ex.: Esporotricose → /ccz?tab=ESPOROTRICOSE)
           // navega direto para o destino, sem subTab.
