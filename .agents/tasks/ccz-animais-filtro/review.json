@@ -1,0 +1,8 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    "Diff empacota trabalho não relacionado (remoção de numeroProtocolo da esporotricose e campo situacao/badge) no mesmo working tree, fora do escopo do filtro; não desfazer (restrição explícita), mas separar por tarefa ao commitar.",
+    "Dependência de schema entre tarefas: os filtros ADOTADO/DEVOLVIDO dependem da coluna Animal.situacao adicionada por mudança irmã em schema.prisma; garantir que as tarefas sejam commitadas/migradas juntas para o filtro não falhar em produção."
+  ],
+  "reviewDoc": "c:\\Users\\Jefinny\\Documents\\10. IntegraSaude\\.agents\\tasks\\ccz-animais-filtro\\review.md"
+}

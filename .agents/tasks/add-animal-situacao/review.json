@@ -1,0 +1,18 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "label": "Migration gitignorada",
+      "confidence": "likely",
+      "blocking": false,
+      "detail": "prisma/migrations/20261106140000_add_animal_situacao/migration.sql casa com a regra *.sql do .gitignore (linha 64), então não aparece em git status nem entra em commit sem git add -f. O fluxo autorizado (db execute + migrate resolve --applied, sem migrate dev) aplica ao banco sem depender disso, mas o arquivo não ficará versionado junto das migrations existentes, que estão rastreadas. Confirmar se é intencional."
+    },
+    {
+      "label": "@map(\"situacao\") redundante",
+      "confidence": "confirmed",
+      "blocking": false,
+      "detail": "O nome do campo já é igual ao da coluna, então o @map é desnecessário; os demais campos do model só usam @map para converter snake_case. Nit estilística, inofensiva, e escrita verbatim na tarefa."
+    }
+  ],
+  "reviewDoc": "c:\\Users\\Jefinny\\Documents\\10. IntegraSaude\\.agents\\tasks\\add-animal-situacao\\review.md"
+}
