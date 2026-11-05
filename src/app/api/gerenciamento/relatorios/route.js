@@ -94,7 +94,7 @@ export async function GET() {
             select: { id: true, dataDenuncia: true, localizacao: true },
           },
           esporotricose: {
-            select: { id: true, numeroProtocolo: true, dataVisita: true },
+            select: { id: true, dataVisita: true },
           },
         },
       }),
@@ -208,7 +208,7 @@ export async function GET() {
             id: `ccz-esporo-${item.id}`,
             modulo: "CCZ",
             tipo: "Esporotricose registrada",
-            descricao: `${nomeAnimal}${item.numeroProtocolo ? ` - Protocolo ${item.numeroProtocolo}` : ""}`,
+            descricao: nomeAnimal,
             data: item.dataVisita,
           }),
         );

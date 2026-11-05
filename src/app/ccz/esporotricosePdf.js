@@ -122,8 +122,7 @@ export function gerarPdfEsporotricose(data) {
   drawSecaoTitulo("Identificação");
   
   drawCampo(col1, yPos, larguraCol, "Data da visita", formatarData(data.dataVisita));
-  drawCampo(col2, yPos, larguraCol, "Número do protocolo", data.numeroProtocolo || "-");
-  drawCampo(col3, yPos, larguraCol, "Fiscal responsável", data.fiscalResponsavel || "-");
+  drawCampo(col2, yPos, larguraCol, "Fiscal responsável", data.fiscalResponsavel || "-");
   yPos += 13;
 
   // ═══════════════════════════════════════════════════════════════════════════

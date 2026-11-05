@@ -383,6 +383,7 @@ model Animal {
   qualTratamento         String?                @map("qual_tratamento") @db.VarChar(150)
   observacoes            String?
   possuiResponsavel      String?                @default("Sim") @map("possui_responsavel") @db.VarChar(10)
+  situacao               String?                @default("") @map("situacao") @db.VarChar(20)
   enderecoRecolhimento   String?                @map("endereco_recolhimento")
   dataCadastro           DateTime?              @default(now()) @map("data_cadastro") @db.Timestamptz(6)
   tutor                  Tutor?                 @relation(fields: [pessoaCpf], references: [pessoaCpf])
@@ -453,7 +454,6 @@ model DenunciaCaoAgressivo {
 model Esporotricose {
   id                       String                @id(map: "zoonoses_esporotricose_pkey") @db.VarChar(50)
   animalId                 String?               @map("animal_id") @db.VarChar(50)
-  numeroProtocolo          String?               @map("numero_protocolo") @db.VarChar(50)
   dataVisita               DateTime              @default(dbgenerated("CURRENT_DATE")) @db.Date
   fiscalResponsavel        String?               @map("fiscal_responsavel") @db.VarChar(150)
   apresentaLesoes          String?               @default("Sim") @db.VarChar(10)

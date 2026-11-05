@@ -286,7 +286,6 @@ export default function FichaEsporotricose({ esporotricoseId, onFechar, onEditar
               </span>
             </h3>
             <p className={stylesModal.modalSubtitle}>
-              Protocolo: {dados.numeroProtocolo || "Sem protocolo"} | 
               Animal: {dados.animal?.nome || "Sem nome"} ({dados.animalId})
               {dados.encerrado && dados.dataEncerramento && (
                 <>
@@ -501,97 +500,136 @@ export default function FichaEsporotricose({ esporotricoseId, onFechar, onEditar
               </section>
             )}
 
-            {/* Dados da Visita Inicial */}
-            <section className={styles.fichaSecao}>
-              <h4 className={styles.fichaTitle}>Visita Inicial</h4>
-              <div className={styles.fichaGrid}>
-                <div><strong>Data:</strong> {formatarData(dados.dataVisita)}</div>
-                <div><strong>Protocolo:</strong> {dados.numeroProtocolo || "-"}</div>
-                <div><strong>Fiscal:</strong> {dados.fiscalResponsavel || "-"}</div>
-                <div><strong>Apresenta lesões:</strong> {dados.apresentaLesoes}</div>
+            {/* Visita Inicial (mesmo visual dos cards de acompanhamento) */}
+            <div className={styles.visitaCard}>
+              <div style={{display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem"}}>
+                <div>
+                  <strong style={{color: "#2563eb"}}>Visita Inicial</strong>
+                  <div style={{fontSize: "0.875rem", color: "#64748b", marginTop: "0.25rem"}}>
+                    Data: {formatarData(dados.dataVisita)}
+                  </div>
+                </div>
               </div>
-              
-              {dados.descricaoLesoes && (
-                <div style={{marginTop: "0.75rem"}}>
-                  <strong>Descrição das lesões:</strong>
-                  <p style={{margin: "0.25rem 0 0", color: "#64748b"}}>{dados.descricaoLesoes}</p>
-                </div>
-              )}
 
-              {dados.emTratamentoVeterinario === "Sim" && (
-                <div style={{marginTop: "0.75rem"}}>
-                  <strong>Tratamento veterinário:</strong>
-                  <p style={{margin: "0.25rem 0 0", color: "#64748b"}}>{dados.descricaoTratamentoVet || "Em tratamento"}</p>
+              {/* Dados da Visita Inicial */}
+              <div className={styles.relatorioBox}>
+                <div style={{fontWeight: "600", marginBottom: "0.5rem", color: "#0f766e"}}>
+                  Dados da Visita Inicial
                 </div>
-              )}
-            </section>
 
-            {/* Tratamento */}
-            <section className={styles.fichaSecao}>
-              <h4 className={styles.fichaTitle}>Tratamento</h4>
-              <div className={styles.fichaGrid}>
-                <div><strong>Medicamentos:</strong> {dados.medicamentosPrescritos || "-"}</div>
-                <div><strong>Interrupção:</strong> {dados.interrupcaoTratamento}</div>
-                <div><strong>Retorno veterinário:</strong> {dados.retornoVeterinario}</div>
-              </div>
-            </section>
-
-            {/* Manejo Domiciliar (se tem tutor) */}
-            {dados.temTutor && (
-              <section className={styles.fichaSecao}>
-                <h4 className={styles.fichaTitle}>Manejo Domiciliar</h4>
-                <div className={styles.fichaGrid}>
-                  <div><strong>Isolamento:</strong> {dados.isolamentoDomiciliar}</div>
-                  <div><strong>Acesso à rua:</strong> {dados.acessoRua}</div>
-                  <div><strong>Uso de EPI:</strong> {dados.usoEpi}</div>
-                  <div><strong>Higienização:</strong> {dados.higienizacaoAmbiente || "-"}</div>
+                <div style={{display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.5rem", fontSize: "0.875rem"}}>
+                  <div>
+                    <strong style={{display: "inline", marginBottom: 0}}>Fiscal:</strong> {dados.fiscalResponsavel || "-"}
+                  </div>
+                  <div>
+                    <strong style={{display: "inline", marginBottom: 0}}>Apresenta lesões:</strong> {dados.apresentaLesoes}
+                  </div>
                 </div>
-                
-                {dados.outrosAnimaisResidencia === "Sim" && (
-                  <div style={{marginTop: "0.75rem"}}>
-                    <strong>Outros animais na residência:</strong>
-                    <p style={{margin: "0.25rem 0 0", color: "#64748b"}}>{dados.outrosAnimaisDescricao || "Sim"}</p>
+
+                {dados.descricaoLesoes && (
+                  <div style={{marginTop: "0.75rem", fontSize: "0.875rem"}}>
+                    <strong style={{display: "inline", fontSize: "0.875rem", marginBottom: 0}}>Descrição das lesões:</strong>{" "}
+                    <span style={{fontSize: "0.875rem", color: "#0f172a"}}>{dados.descricaoLesoes}</span>
                   </div>
                 )}
 
-                {dados.pessoasComLesoes === "Sim" && (
-                  <div style={{marginTop: "0.75rem"}}>
-                    <strong>Pessoas com lesões:</strong>
-                    <p style={{margin: "0.25rem 0 0", color: "#dc2626"}}>{dados.pessoasLesoesDescricao || "Sim"}</p>
+                {dados.emTratamentoVeterinario === "Sim" && (
+                  <div style={{marginTop: "0.75rem", fontSize: "0.875rem"}}>
+                    <strong style={{display: "inline", fontSize: "0.875rem", marginBottom: 0}}>Tratamento veterinário:</strong>{" "}
+                    <span style={{fontSize: "0.875rem", color: "#0f172a"}}>{dados.descricaoTratamentoVet || "Em tratamento"}</span>
                   </div>
                 )}
-              </section>
-            )}
+              </div>
 
-            {/* Conclusão Técnica */}
-            {dados.conclusaoTecnica && (
-              <section className={styles.fichaSecao}>
-                <h4 className={styles.fichaTitle}>Conclusão Técnica</h4>
-                <p style={{margin: "0", color: "#64748b"}}>{dados.conclusaoTecnica}</p>
-              </section>
-            )}
-
-            {/* Encaminhamentos */}
-            <section className={styles.fichaSecao}>
-              <h4 className={styles.fichaTitle}>Encaminhamentos</h4>
-              <div style={{display: "flex", flexDirection: "column", gap: "0.5rem"}}>
-                <div>
-                  {dados.encAcompanhamentoCcz ? "☑" : "☐"} Acompanhamento periódico pelo CCZ
+              {/* Tratamento */}
+              <div className={styles.relatorioBox}>
+                <div style={{fontWeight: "600", marginBottom: "0.5rem", color: "#0f766e"}}>
+                  Tratamento
                 </div>
-                <div>
-                  {dados.encNotificacaoTutor ? "☑" : "☐"} Notificação ao tutor
-                </div>
-                <div>
-                  {dados.encMinisterioPublico ? "☑" : "☐"} Encaminhamento ao Ministério Público
-                </div>
-                <div>
-                  {dados.encOutrasMedidas ? "☑" : "☐"} Outras medidas
+                <div style={{display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.5rem", fontSize: "0.875rem"}}>
+                  <div>
+                    <strong style={{display: "inline", marginBottom: 0}}>Medicamentos:</strong> {dados.medicamentosPrescritos || "-"}
+                  </div>
+                  <div>
+                    <strong style={{display: "inline", marginBottom: 0}}>Interrupção:</strong> {dados.interrupcaoTratamento}
+                  </div>
+                  <div>
+                    <strong style={{display: "inline", marginBottom: 0}}>Retorno veterinário:</strong> {dados.retornoVeterinario}
+                  </div>
                 </div>
               </div>
-              {dados.outrasMedidasDescricao && (
-                <p style={{margin: "0.75rem 0 0", color: "#64748b"}}>{dados.outrasMedidasDescricao}</p>
+
+              {/* Manejo Domiciliar (se tem tutor) */}
+              {dados.temTutor && (
+                <div className={styles.relatorioBox}>
+                  <div style={{fontWeight: "600", marginBottom: "0.5rem", color: "#0f766e"}}>
+                    Manejo Domiciliar
+                  </div>
+                  <div style={{display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.5rem", fontSize: "0.875rem"}}>
+                    <div>
+                      <strong style={{display: "inline", marginBottom: 0}}>Isolamento:</strong> {dados.isolamentoDomiciliar}
+                    </div>
+                    <div>
+                      <strong style={{display: "inline", marginBottom: 0}}>Acesso à rua:</strong> {dados.acessoRua}
+                    </div>
+                    <div>
+                      <strong style={{display: "inline", marginBottom: 0}}>Uso de EPI:</strong> {dados.usoEpi}
+                    </div>
+                    <div>
+                      <strong style={{display: "inline", marginBottom: 0}}>Higienização:</strong> {dados.higienizacaoAmbiente || "-"}
+                    </div>
+                  </div>
+
+                  {dados.outrosAnimaisResidencia === "Sim" && (
+                    <div style={{marginTop: "0.75rem", fontSize: "0.875rem"}}>
+                      <strong style={{display: "inline", fontSize: "0.875rem", marginBottom: 0}}>Outros animais na residência:</strong>{" "}
+                      <span style={{fontSize: "0.875rem", color: "#0f172a"}}>{dados.outrosAnimaisDescricao || "Sim"}</span>
+                    </div>
+                  )}
+
+                  {dados.pessoasComLesoes === "Sim" && (
+                    <div style={{marginTop: "0.75rem", fontSize: "0.875rem"}}>
+                      <strong style={{display: "inline", fontSize: "0.875rem", marginBottom: 0}}>Pessoas com lesões:</strong>{" "}
+                      <span style={{fontSize: "0.875rem", color: "#dc2626"}}>{dados.pessoasLesoesDescricao || "Sim"}</span>
+                    </div>
+                  )}
+                </div>
               )}
-            </section>
+
+              {/* Conclusão Técnica */}
+              {dados.conclusaoTecnica && (
+                <div className={styles.relatorioBox}>
+                  <div style={{fontWeight: "600", marginBottom: "0.5rem", color: "#0f766e"}}>
+                    Conclusão Técnica
+                  </div>
+                  <p style={{margin: "0", fontSize: "0.875rem", color: "#0f172a"}}>{dados.conclusaoTecnica}</p>
+                </div>
+              )}
+
+              {/* Encaminhamentos */}
+              <div className={styles.relatorioBox}>
+                <div style={{fontWeight: "600", marginBottom: "0.5rem", color: "#0f766e"}}>
+                  Encaminhamentos
+                </div>
+                <div style={{display: "flex", flexDirection: "column", gap: "0.5rem", fontSize: "0.875rem", color: "#0f172a"}}>
+                  <div>
+                    {dados.encAcompanhamentoCcz ? "☑" : "☐"} Acompanhamento periódico pelo CCZ
+                  </div>
+                  <div>
+                    {dados.encNotificacaoTutor ? "☑" : "☐"} Notificação ao tutor
+                  </div>
+                  <div>
+                    {dados.encMinisterioPublico ? "☑" : "☐"} Encaminhamento ao Ministério Público
+                  </div>
+                  <div>
+                    {dados.encOutrasMedidas ? "☑" : "☐"} Outras medidas
+                  </div>
+                </div>
+                {dados.outrasMedidasDescricao && (
+                  <p style={{margin: "0.75rem 0 0", fontSize: "0.875rem", color: "#0f172a"}}>{dados.outrasMedidasDescricao}</p>
+                )}
+              </div>
+            </div>
 
             {/* Incineração do animal (independente do encerramento) */}
             <section className={styles.fichaSecao}>
@@ -651,7 +689,7 @@ export default function FichaEsporotricose({ esporotricoseId, onFechar, onEditar
                       {visita.observacao && (
                         <div style={{marginTop: "0.5rem"}}>
                           <strong style={{fontSize: "0.875rem"}}>Observação:</strong>
-                          <p style={{margin: "0.25rem 0 0", fontSize: "0.875rem", color: "#64748b"}}>
+                          <p style={{margin: "0.25rem 0 0", fontSize: "0.875rem", color: "#0f172a"}}>
                             {visita.observacao}
                           </p>
                         </div>
@@ -703,7 +741,7 @@ export default function FichaEsporotricose({ esporotricoseId, onFechar, onEditar
                           {visita.relatorio.descricaoLesoes && (
                             <div style={{marginTop: "0.75rem", fontSize: "0.875rem"}}>
                               <strong style={{display: "inline", fontSize: "0.875rem", marginBottom: 0}}>Descrição das lesões:</strong>{" "}
-                              <span style={{fontSize: "0.875rem", color: "#64748b"}}>
+                              <span style={{fontSize: "0.875rem", color: "#0f172a"}}>
                                 {visita.relatorio.descricaoLesoes}
                               </span>
                             </div>
@@ -712,7 +750,7 @@ export default function FichaEsporotricose({ esporotricoseId, onFechar, onEditar
                           {visita.relatorio.medicamentosAtuais && (
                             <div style={{marginTop: "0.75rem", fontSize: "0.875rem"}}>
                               <strong style={{display: "inline", fontSize: "0.875rem", marginBottom: 0}}>Medicamentos atuais:</strong>{" "}
-                              <span style={{fontSize: "0.875rem", color: "#64748b"}}>
+                              <span style={{fontSize: "0.875rem", color: "#0f172a"}}>
                                 {visita.relatorio.medicamentosAtuais}
                               </span>
                             </div>
@@ -733,7 +771,7 @@ export default function FichaEsporotricose({ esporotricoseId, onFechar, onEditar
                           {visita.relatorio.observacoesGerais && (
                             <div style={{marginTop: "0.75rem", fontSize: "0.875rem"}}>
                               <strong style={{display: "inline", fontSize: "0.875rem", marginBottom: 0}}>Observações gerais:</strong>{" "}
-                              <span style={{fontSize: "0.875rem", color: "#64748b"}}>
+                              <span style={{fontSize: "0.875rem", color: "#0f172a"}}>
                                 {visita.relatorio.observacoesGerais}
                               </span>
                             </div>

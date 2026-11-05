@@ -27,6 +27,7 @@ const FORM_VAZIO = {
   emTratamento: "Não",
   qualTratamento: "",
   observacoes: "",
+  situacao: "",
 };
 
 export default function CadastroAnimal({ animalInicial = null, onSalvo, onCancelar }) {
@@ -237,6 +238,19 @@ export default function CadastroAnimal({ animalInicial = null, onSalvo, onCancel
 
   const salvar = async (e) => {
     e.preventDefault();
+
+    // ID é obrigatório e não pode ser vazio/apenas espaços (validação cliente;
+    // a action valida de novo no servidor e também a unicidade).
+    if (!form.id || !form.id.trim()) {
+      setErro("O ID do animal é obrigatório.");
+      await notify({
+        tipo: "erro",
+        title: "Campo obrigatório",
+        message: "Informe o ID do animal. Esse campo não pode ficar em branco.",
+      });
+      return;
+    }
+
     const ok = await confirm({
       title: animalCarregado ? "Atualizar animal" : "Cadastrar animal",
       message: animalCarregado
@@ -247,7 +261,10 @@ export default function CadastroAnimal({ animalInicial = null, onSalvo, onCancel
     if (!ok) return;
 
     setSalvando(true);
-    const res = await salvarAnimal(form);
+    // Informa à action se é edição (id é PK existente) ou criação (id não pode
+    // repetir). `editando` cobre o fluxo de edição direta; `animalCarregado`
+    // cobre a edição de um animal localizado pela busca.
+    const res = await salvarAnimal({ ...form, editando: editando || Boolean(animalCarregado) });
     setSalvando(false);
 
     if (res.success) {
@@ -326,15 +343,17 @@ export default function CadastroAnimal({ animalInicial = null, onSalvo, onCancel
               </div>
             </div>
 
-            {/* Id do animal (campo pequeno) */}
+            {/* Id do animal (campo pequeno). Digitado pelo usuário, obrigatório
+                e único. Na edição o id é a PK e não pode ser alterado. */}
             <div className={`${styles.field} ${styles.colXs}`}>
-              <label>Id do animal</label>
+              <label>Id do animal *</label>
               <input
                 type="text"
                 value={form.id}
                 onChange={(e) => atualizar("id", e.target.value)}
-                placeholder="Gerado se vazio"
-                disabled={camposDesabilitados}
+                placeholder="Ex: ANM-001"
+                required
+                disabled={camposDesabilitados || editando}
               />
             </div>
 
@@ -462,6 +481,21 @@ export default function CadastroAnimal({ animalInicial = null, onSalvo, onCancel
                 <option value="Grande">Grande</option>
                 <option value="Médio">Médio</option>
                 <option value="Pequeno">Pequeno</option>
+              </select>
+            </div>
+
+            {/* Situação do animal (vazio = Não informado) */}
+            <div className={`${styles.field} ${styles.colSm}`}>
+              <label>Situação</label>
+              <select
+                value={form.situacao}
+                onChange={(e) => atualizar("situacao", e.target.value)}
+                disabled={camposDesabilitados}
+              >
+                <option value="">Não informado</option>
+                <option value="Adotado">Adotado</option>
+                <option value="Devolvido">Devolvido</option>
+                <option value="CCZ">CCZ</option>
               </select>
             </div>
           </div>

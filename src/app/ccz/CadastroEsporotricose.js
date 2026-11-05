@@ -17,7 +17,6 @@ const FORM_VAZIO = {
   // Identificação
   dataVisita: hojeYMD(),
   fiscalResponsavel: "",
-  numeroProtocolo: "",
   // Condição clínica
   apresentaLesoes: "Não",
   descricaoLesoes: "",
@@ -450,17 +449,6 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                     value={form.fiscalResponsavel}
                     onChange={(e) => atualizar("fiscalResponsavel", e.target.value)}
                     placeholder="Nome do(a) fiscal responsável"
-                  />
-                </div>
-
-                {/* Número de protocolo */}
-                <div className={`${styles.field} ${styles.colSm}`}>
-                  <label>Número de protocolo</label>
-                  <input
-                    type="text"
-                    value={form.numeroProtocolo || ""}
-                    onChange={(e) => atualizar("numeroProtocolo", e.target.value)}
-                    placeholder="Nº do protocolo"
                   />
                 </div>
               </div>

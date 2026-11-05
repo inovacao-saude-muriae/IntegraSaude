@@ -134,7 +134,6 @@ export default function FichaCompletaAnimal({ animalId, onFechar }) {
     // Montar descrição detalhada da visita inicial
     const descInicial = [];
     
-    if (e.numeroProtocolo) descInicial.push(`Protocolo: ${e.numeroProtocolo}`);
     if (e.fiscalResponsavel) descInicial.push(`Fiscal: ${e.fiscalResponsavel}`);
     if (e.apresentaLesoes) {
       descInicial.push(`Apresenta lesões: ${e.apresentaLesoes}`);

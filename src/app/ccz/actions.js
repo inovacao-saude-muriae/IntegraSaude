@@ -209,6 +209,7 @@ export async function obterAnimal(id) {
       emTratamento: a.emTratamento || "Não",
       qualTratamento: a.qualTratamento || "",
       observacoes,
+      situacao: a.situacao || "",
     };
 
     return { success: true, data };
@@ -502,11 +503,27 @@ export async function salvarAnimal(dados) {
   try {
     await requireAcessoModulo(MODULOS.CCZ);
 
-    // Id: usa o informado ou gera um (ANM-<timestamp base36>), limitado a 50.
+    // Id do animal: digitado pelo usuário (NÃO há geração automática). É PK
+    // obrigatória e não pode ficar em branco. Normaliza (maiúsculas, até 50).
     const idInformado = dados.id ? String(dados.id).trim() : "";
-    const id = (idInformado || `ANM-${Date.now().toString(36)}`)
-      .toUpperCase()
-      .slice(0, 50);
+    if (!idInformado) {
+      return { success: false, error: "O ID do animal é obrigatório." };
+    }
+    const id = idInformado.toUpperCase().slice(0, 50);
+
+    // Flag de edição enviada pelo cliente. Na criação, o id não pode repetir;
+    // na edição o id é a PK existente e não deve disparar o erro de duplicidade.
+    const editando = dados.editando === true;
+
+    if (!editando) {
+      const existente = await prisma.animal.findUnique({
+        where: { id },
+        select: { id: true },
+      });
+      if (existente) {
+        return { success: false, error: "Já existe um animal com este ID." };
+      }
+    }
 
     if (!dados.especie) {
       return { success: false, error: "Espécie é obrigatória." };
@@ -553,6 +570,11 @@ export async function salvarAnimal(dados) {
           : null,
       observacoes: observacoes || null,
       possuiResponsavel,
+      // Situação do animal: "" (não informado), "Adotado", "Devolvido" ou
+      // "CCZ" (permanece sob custódia do CCZ). Default "" quando não informado.
+      situacao: ["Adotado", "Devolvido", "CCZ"].includes(dados.situacao)
+        ? dados.situacao
+        : "",
       enderecoRecolhimento: null,
     };
 
@@ -594,7 +616,7 @@ export async function salvarAnimal(dados) {
       return { success: false, error: error.message };
     }
     if (error.code === "P2002") {
-      return { success: false, error: "Já existe um animal com este Id." };
+      return { success: false, error: "Já existe um animal com este ID." };
     }
     if (error.code === "P2003") {
       return { success: false, error: "Tutor selecionado inválido ou inexistente." };
@@ -605,11 +627,53 @@ export async function salvarAnimal(dados) {
 }
 
 // ── LISTAR ANIMAIS (opcional) ───────────────────────────────────────────────
-export async function listarAnimais() {
+// Filtro de situação (server-side), critério ÚNICO por vez. Chaves aceitas:
+//   ""            → Todos (sem cláusula extra)
+//   "ADOTADO"     → animais com situacao === "Adotado"
+//   "DEVOLVIDO"   → animais com situacao === "Devolvido"
+//   "COM_TUTOR"   → animais com tutor vinculado (pessoaCpf != null)
+//   "SEM_TUTOR"   → animais sem tutor (pessoaCpf == null)
+//   "INCINERADO"  → animais com algum caso de esporotricose incinerado === "Sim"
+// A cláusula do filtro é combinada (AND) com a busca textual quando houver.
+const WHERE_FILTRO_SITUACAO = {
+  ADOTADO: { situacao: "Adotado" },
+  DEVOLVIDO: { situacao: "Devolvido" },
+  COM_TUTOR: { pessoaCpf: { not: null } },
+  SEM_TUTOR: { pessoaCpf: null },
+  INCINERADO: { esporotricose: { some: { incinerado: "Sim" } } },
+};
+
+export async function listarAnimais({ termo = "", filtroSituacao = "" } = {}) {
   try {
     await requireAcessoModulo(MODULOS.CCZ);
 
+    const termoLimpo = String(termo || "").trim();
+    const termoDigitos = soDigitos(termoLimpo);
+    const filtro = String(filtroSituacao || "").trim().toUpperCase();
+
+    // Cláusulas combinadas por AND: busca textual + filtro de situação.
+    const condicoes = [];
+
+    if (termoLimpo) {
+      condicoes.push({
+        OR: [
+          { nome: { contains: termoLimpo, mode: "insensitive" } },
+          { id: { contains: termoLimpo, mode: "insensitive" } },
+          { especie: { contains: termoLimpo, mode: "insensitive" } },
+          { tutor: { pessoa: { nomeCompleto: { contains: termoLimpo, mode: "insensitive" } } } },
+          ...(termoDigitos ? [{ pessoaCpf: { contains: termoDigitos } }] : []),
+        ],
+      });
+    }
+
+    if (WHERE_FILTRO_SITUACAO[filtro]) {
+      condicoes.push(WHERE_FILTRO_SITUACAO[filtro]);
+    }
+
+    const where = condicoes.length ? { AND: condicoes } : {};
+
     const animais = await prisma.animal.findMany({
+      where,
       include: { 
         tutor: { include: { pessoa: true } },
         esporotricose: { 
@@ -634,6 +698,7 @@ export async function listarAnimais() {
       qualTratamento: a.qualTratamento || "",
       observacoes: a.observacoes || "",
       possuiResponsavel: a.possuiResponsavel || "Não",
+      situacao: a.situacao || "",
       fotoUrl: a.fotoUrl || "",
       pessoaCpf: a.pessoaCpf || "",
       tutorNome: a.tutor?.pessoa?.nomeCompleto || "",
@@ -797,7 +862,6 @@ export async function obterHistoricoCompleto(animalId) {
       esporotricose: (animal.esporotricose || []).map(e => ({
         id: e.id,
         dataVisita: e.dataVisita ? e.dataVisita.toISOString() : null,
-        numeroProtocolo: e.numeroProtocolo || "",
         fiscalResponsavel: e.fiscalResponsavel || "",
         apresentaLesoes: e.apresentaLesoes || "Não",
         descricaoLesoes: e.descricaoLesoes || "",
@@ -1418,9 +1482,6 @@ export async function salvarEsporotricose(dados) {
 
     const dadosEsporo = {
       animalId,
-      numeroProtocolo: dados.numeroProtocolo
-        ? String(dados.numeroProtocolo).slice(0, 50)
-        : null,
       dataVisita,
       fiscalResponsavel: dados.fiscalResponsavel
         ? String(dados.fiscalResponsavel).slice(0, 150)
@@ -1545,7 +1606,6 @@ export async function listarEsporotricose() {
       animalNome: r.animal?.nome || "",
       animalFotoUrl: r.animal?.fotoUrl || "",
       tutorNome: r.animal?.tutor?.pessoa?.nomeCompleto || "",
-      numeroProtocolo: r.numeroProtocolo || "",
       dataVisita: dateParaYMD(r.dataVisita),
       apresentaLesoes: r.apresentaLesoes || "Não",
       visitasCount: r._count?.visitas || 0,
@@ -1641,7 +1701,6 @@ export async function obterEsporotricose(id) {
           }
         : null,
       // Campos do formulário.
-      numeroProtocolo: r.numeroProtocolo || "",
       dataVisita: dateParaYMD(r.dataVisita),
       fiscalResponsavel: r.fiscalResponsavel || "",
       apresentaLesoes: r.apresentaLesoes || "Não",
