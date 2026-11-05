@@ -1,0 +1,8 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    "Migration não rastreada — prisma/migrations/20261105124331_add_esporotricose_encerramento/migration.sql está sob gitignore (*.sql); exige `git add -f` no commit, senão o histórico de migrations fica incompleto no repositório (confirmed).",
+    "UI não validada em runtime — fluxo de botão/badge/coluna/card não foi exercitado no navegador (sem automação de login no ambiente); cobertura indireta por lint, build, round-trip no banco e leitura de código (confirmed, declarado)."
+  ],
+  "reviewDoc": "c:\\Users\\Jefinny\\Documents\\10. IntegraSaude\\.agents\\tasks\\esporotricose-encerramento\\review.md"
+}

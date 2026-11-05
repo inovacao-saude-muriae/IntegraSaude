@@ -1,0 +1,10 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    "Remoção completa e correta: model Prisma CadastroZoonoses (ccz_zoonoses_notificacoes) e relação Animal.zoonoses removidos; arquivos CadastroZoonoses.js, ZoonosesLista.js, FichaZoonose.js, zoonosesPdf.js e rotas src/app/api/ccz/zoonoses/ deletados; actions salvarZoonose/listarZoonoses/obterZoonose e refs em page.js, DashboardCCZ, FichaCompletaAnimal, historicoAnimalPdf, TermosEmBranco, Sidebar, relatórios do gerenciamento e DELETE de animal podadas (confirmed).",
+    "Grep final pelos símbolos CadastroZoonoses/ZoonosesLista/FichaZoonose/zoonosesPdf/gerarTermoZoonose/salvarZoonose/listarZoonoses/obterZoonose dá zero em src/**/*.js; nenhuma chamada Prisma cadastroZoonoses ou relação .zoonoses sobrou; sem import órfão de ./zoonosesPdf em TermosEmBranco.js (confirmed).",
+    "Entidades a preservar intactas com map names originais: Tutor (tutor_zoonoses_pkey), DenunciaCaoAgressivo (zoonoses_denuncia_pkey), CadastroProcedimento (zoonoses_procedimento_pkey), Esporotricose (zoonoses_esporotricose_pkey); ocorrências restantes de 'Zoonose' são o nome próprio 'Centro de Controle de Zoonoses' e a heurística de ícone do Sidebar (confirmed).",
+    "Não bloqueante: o git diff contra main também contém, não commitada, a feature esporotricose-encerramento (campos novos no model Esporotricose, action encerrarEsporotricose, coluna Status, badge no card do animal) — pertence a outra tarefa já revisada e aprovada, não é alteração acidental desta remoção (confirmed)."
+  ],
+  "reviewDoc": "c:\\Users\\Jefinny\\Documents\\10. IntegraSaude\\.agents\\tasks\\remove-zoonoses\\review.md"
+}
