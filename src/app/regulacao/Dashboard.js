@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import styles from "./Dashboard.module.css";
+import FiltroAno from "@/components/FiltroAno/FiltroAno";
+import { getPedidosDashboard } from "./actions";
 
 const brl = (v) =>
   `R$ ${(Number(v) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -21,9 +23,36 @@ const diffDias = (ini, fim) => {
   return Math.max(0, Math.round((fim - ini) / (1000 * 60 * 60 * 24)));
 };
 
-export default function Dashboard({ requests = [], auxData = {}, setActiveTab }) {
+export default function Dashboard({ auxData = {}, setActiveTab }) {
   const tiposExame = auxData.tiposExame || [];
   const [filtroExame, setFiltroExame] = useState(""); // "" = Todos
+
+  // FILTRO DE ANO GLOBAL: os pedidos são buscados no servidor já filtrados
+  // pelo ano da data de solicitação (ver getPedidosDashboard em actions.js).
+  // Default: ano atual; "todos" = sem filtro.
+  const [anoSelecionado, setAnoSelecionado] = useState(new Date().getFullYear());
+  const [requests, setRequests] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+
+  // Recarrega os indicadores sempre que o ano muda.
+  useEffect(() => {
+    let cancelado = false;
+    async function carregar() {
+      try {
+        const res = await getPedidosDashboard(anoSelecionado);
+        if (cancelado) return;
+        setRequests(res.success ? res.data : []);
+      } catch (err) {
+        console.error("Erro ao carregar dashboard:", err);
+      } finally {
+        if (!cancelado) setCarregando(false);
+      }
+    }
+    carregar();
+    return () => {
+      cancelado = true;
+    };
+  }, [anoSelecionado]);
 
   // Aplica o filtro por tipo de exame (compara por id ou nome).
   const dadosFiltrados = filtroExame
@@ -147,6 +176,13 @@ export default function Dashboard({ requests = [], auxData = {}, setActiveTab })
         </div>
       </div>
 
+      {/* FILTRO DE ANO GLOBAL (pelo ano da data de solicitação do pedido) */}
+      <FiltroAno
+        valor={anoSelecionado}
+        onChange={setAnoSelecionado}
+        dica={carregando ? "Carregando..." : "Pedidos considerados pela data de solicitação"}
+      />
+
       {/* KPIs DE AUDITORIA */}
       <section className={styles.kpiGrid}>
         <div className={styles.kpiCard}>
@@ -157,7 +193,7 @@ export default function Dashboard({ requests = [], auxData = {}, setActiveTab })
             </div>
           </div>
           <div className={styles.kpiValue}>{totalGeral}<span className={styles.kpiUnit}>registros</span></div>
-          <div className={styles.kpiFooter}>Histórico completo do sistema</div>
+          <div className={styles.kpiFooter}>Pedidos do período selecionado</div>
         </div>
 
         <div className={`${styles.kpiCard} ${styles.clickable}`} onClick={() => setActiveTab("LIBERADOS")}>

@@ -1,15 +1,45 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import styles from './Dashboard.module.css';
+import FiltroAno from '@/components/FiltroAno/FiltroAno';
+import { getDashboardMetrics } from './actions';
 
 export default function TabDashboard({
-  metrics = {},
+  metrics: metricsIniciais = {},
   onNavigate,
   loading = false,
   medicamentosList = [],
   estoqueLotes = []
 }) {
-  if (loading) {
+  // FILTRO DE ANO GLOBAL. Default: ano atual; "todos" = sem filtro.
+  // Regras (ver getDashboardMetrics em actions.js): pacientes, entradas de
+  // lotes e dispensações filtram por ano; catálogo, estoque físico e alertas
+  // são POSIÇÃO ATUAL e não mudam com o ano.
+  const [anoSelecionado, setAnoSelecionado] = useState(new Date().getFullYear());
+  const [metrics, setMetrics] = useState(metricsIniciais);
+  const [carregandoAno, setCarregandoAno] = useState(true);
+
+  // Recarrega as métricas sempre que o ano muda.
+  useEffect(() => {
+    let cancelado = false;
+    async function carregar() {
+      try {
+        const res = await getDashboardMetrics(anoSelecionado);
+        if (!cancelado) setMetrics(res || {});
+      } catch (err) {
+        console.error('Erro ao carregar métricas do dashboard:', err);
+      } finally {
+        if (!cancelado) setCarregandoAno(false);
+      }
+    }
+    carregar();
+    return () => {
+      cancelado = true;
+    };
+  }, [anoSelecionado]);
+
+  if (loading || carregandoAno) {
     return (
       <div className={styles.loadingContainer}>
         <div className={styles.spinner}></div>
@@ -23,7 +53,11 @@ export default function TabDashboard({
     totalEstoqueUnidades = 0,
     pacientesAtivos = 0,
     pacientesInativos = 0,
-    pacientesObito = 0
+    pacientesObito = 0,
+    entradasLotes = 0,
+    entradasUnidades = 0,
+    dispensacoesRegistros = 0,
+    dispensacoesUnidades = 0
   } = metrics;
 
   const totalPacientes = pacientesAtivos + pacientesInativos + pacientesObito;
@@ -52,6 +86,13 @@ export default function TabDashboard({
 
   return (
     <div className={styles.container}>
+      {/* FILTRO DE ANO GLOBAL */}
+      <FiltroAno
+        valor={anoSelecionado}
+        onChange={setAnoSelecionado}
+        dica="Catálogo, estoque físico e alertas mostram a posição atual e não variam com o ano."
+      />
+
       {/* ALERTAS DE ESTOQUE (#7) */}
       {temAlertas && (
         <div className={styles.alertsSection}>
@@ -138,7 +179,7 @@ export default function TabDashboard({
             <span className={styles.kpiUnit}>itens ativos</span>
           </div>
           <div className={styles.kpiFooter}>
-            <span>Fármacos cadastrados no sistema</span>
+            <span>Fármacos cadastrados no sistema · posição atual</span>
           </div>
         </div>
 
@@ -159,7 +200,7 @@ export default function TabDashboard({
             <span className={styles.kpiUnit}>unidades</span>
           </div>
           <div className={styles.kpiFooter}>
-            <span>Soma do saldo de todos os lotes</span>
+            <span>Soma do saldo de todos os lotes · posição atual</span>
           </div>
         </div>
 
@@ -181,7 +222,7 @@ export default function TabDashboard({
             <span className={styles.kpiUnit}>em tratamento</span>
           </div>
           <div className={styles.kpiFooter}>
-            <span>Processos judiciais em andamento</span>
+            <span>Processos em andamento (cadastrados no período)</span>
           </div>
         </div>
 
@@ -204,7 +245,45 @@ export default function TabDashboard({
             <span className={styles.kpiUnit}>pastas criadas</span>
           </div>
           <div className={styles.kpiFooter}>
-            <span>Histórico total de cadastros</span>
+            <span>Cadastros do período selecionado</span>
+          </div>
+        </div>
+
+        {/* CARD 5: ENTRADAS DE LOTES (filtra por dataEntrada) */}
+        <div className={styles.kpiCard}>
+          <div className={styles.kpiHeader}>
+            <span className={styles.kpiTitle}>Entradas de Lotes</span>
+            <div className={`${styles.iconBox} ${styles.greenIcon}`}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+              </svg>
+            </div>
+          </div>
+          <div className={styles.kpiValue}>
+            {entradasUnidades.toLocaleString('pt-BR')}
+            <span className={styles.kpiUnit}>unidades</span>
+          </div>
+          <div className={styles.kpiFooter}>
+            <span>{entradasLotes} lote(s) recebido(s) no período</span>
+          </div>
+        </div>
+
+        {/* CARD 6: DISPENSAÇÕES (filtra por dataDispensacao) */}
+        <div className={styles.kpiCard}>
+          <div className={styles.kpiHeader}>
+            <span className={styles.kpiTitle}>Dispensações</span>
+            <div className={`${styles.iconBox} ${styles.blueIcon}`}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+            </div>
+          </div>
+          <div className={styles.kpiValue}>
+            {dispensacoesUnidades.toLocaleString('pt-BR')}
+            <span className={styles.kpiUnit}>unidades</span>
+          </div>
+          <div className={styles.kpiFooter}>
+            <span>{dispensacoesRegistros} dispensação(ões) no período</span>
           </div>
         </div>
       </section>
@@ -215,7 +294,7 @@ export default function TabDashboard({
         <div className={styles.panelCard}>
           <div className={styles.panelHeader}>
             <h3>Status dos Processos Judiciais</h3>
-            <span className={styles.cardSubtitle}>Distribuição por situação do paciente</span>
+            <span className={styles.cardSubtitle}>Distribuição por situação dos pacientes cadastrados no período</span>
           </div>
 
           <div className={styles.statusList}>

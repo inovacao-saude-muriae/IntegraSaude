@@ -78,8 +78,43 @@ function montarCompetenciaCota({
 
 // 1. Buscar todos os pedidos relacionando as tabelas pessoa, procedimento, ubs e medicos
 export async function getPedidosExames() {
+  return buscarPedidosMapeados();
+}
+
+// ── DASHBOARD DA REGULAÇÃO: pedidos filtrados por ANO (servidor) ────────────
+// `ano`: number (ex.: 2026) | "todos"/null (sem filtro) | undefined (ano atual).
+// REGRA DE DATA (única para todo o dashboard, para que taxa de liberação,
+// valores, fila, auditoria e tempo médio fiquem coerentes entre si):
+//   • o pedido pertence ao ano de PedidoExame.dataSolicitacao (data do pedido).
+// Janela em UTC [1º jan, 1º jan do ano seguinte), igual ao CCZ. Pedidos sem
+// dataSolicitacao ficam fora quando há filtro de ano.
+export async function getPedidosDashboard(ano) {
+  try {
+    await requireAcessoModulo(MODULOS.REGULACAO);
+    let where;
+    if (!(ano === null || ano === "todos")) {
+      const y = Number(ano) || new Date().getFullYear();
+      where = {
+        dataSolicitacao: {
+          gte: new Date(Date.UTC(y, 0, 1)),
+          lt: new Date(Date.UTC(y + 1, 0, 1)),
+        },
+      };
+    }
+    return { success: true, data: await buscarPedidosMapeados(where) };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao buscar pedidos do dashboard:", error);
+    return { success: false, error: "Erro ao carregar o dashboard." };
+  }
+}
+
+async function buscarPedidosMapeados(where) {
   try {
     const data = await prisma.pedidoExame.findMany({
+      where,
       include: {
         pessoa: true,
         procedimento: {

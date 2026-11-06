@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import styles from "./Dashboard.module.css";
+import FiltroAno from "@/components/FiltroAno/FiltroAno";
 
 export default function JuntaDashboard() {
   const [dados, setDados] = useState({
@@ -16,30 +17,49 @@ export default function JuntaDashboard() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
 
+  // FILTRO DE ANO GLOBAL. Default: ano atual; "todos" = sem filtro.
+  // O ano vai para a rota como ?ano= e é filtrado no servidor
+  // (regras de data por indicador documentadas na rota).
+  const [anoSelecionado, setAnoSelecionado] = useState(new Date().getFullYear());
+
+  // Recarrega os indicadores sempre que o ano muda.
   useEffect(() => {
+    let cancelado = false;
     async function carregarDados() {
       setCarregando(true);
       setErro("");
       try {
-        const res = await fetch("/api/junta-reguladora/dashboard");
+        const res = await fetch(`/api/junta-reguladora/dashboard?ano=${encodeURIComponent(anoSelecionado)}`);
         if (!res.ok) {
           throw new Error("Erro ao carregar dados do dashboard");
         }
         const data = await res.json();
-        setDados(data);
+        if (!cancelado) setDados(data);
       } catch (error) {
         console.error("Erro ao carregar dashboard:", error);
-        setErro(error.message);
+        if (!cancelado) setErro(error.message);
       } finally {
-        setCarregando(false);
+        if (!cancelado) setCarregando(false);
       }
     }
     carregarDados();
-  }, []);
+    return () => {
+      cancelado = true;
+    };
+  }, [anoSelecionado]);
+
+  const filtroAno = (
+    <FiltroAno
+      valor={anoSelecionado}
+      onChange={setAnoSelecionado}
+      dica="Serviços ativos e próximos agendamentos mostram a posição atual e não variam com o ano."
+    />
+  );
 
   if (carregando) {
     return (
       <div className={styles.container}>
+        {filtroAno}
         <div className={styles.loading}>Carregando dashboard...</div>
       </div>
     );
@@ -48,6 +68,7 @@ export default function JuntaDashboard() {
   if (erro) {
     return (
       <div className={styles.container}>
+        {filtroAno}
         <div className={styles.error}>Erro: {erro}</div>
       </div>
     );
@@ -55,6 +76,8 @@ export default function JuntaDashboard() {
 
   return (
     <div className={styles.container}>
+      {filtroAno}
+
       {/* KPIs */}
       <section className={styles.kpiGrid}>
         <div className={styles.kpiCard}>
@@ -70,7 +93,7 @@ export default function JuntaDashboard() {
             </div>
           </div>
           <div className={styles.kpiValue}>{dados.totalPacientes}<span className={styles.kpiUnit}>registros</span></div>
-          <div className={styles.kpiFooter}>Cadastrados no sistema</div>
+          <div className={styles.kpiFooter}>Cadastrados no período selecionado</div>
         </div>
 
         <div className={styles.kpiCard}>
@@ -87,7 +110,7 @@ export default function JuntaDashboard() {
             </div>
           </div>
           <div className={styles.kpiValue}>{dados.totalAtendimentos}<span className={styles.kpiUnit}>registros</span></div>
-          <div className={styles.kpiFooter}>Total histórico</div>
+          <div className={styles.kpiFooter}>Realizados no período selecionado</div>
         </div>
 
         <div className={styles.kpiCard}>
@@ -103,7 +126,7 @@ export default function JuntaDashboard() {
             </div>
           </div>
           <div className={styles.kpiValue}>{dados.totalAgendamentos}<span className={styles.kpiUnit}>registros</span></div>
-          <div className={styles.kpiFooter}>Próximos atendimentos</div>
+          <div className={styles.kpiFooter}>Próximos atendimentos no período</div>
         </div>
 
         <div className={styles.kpiCard}>
@@ -116,8 +139,8 @@ export default function JuntaDashboard() {
               </svg>
             </div>
           </div>
-          <div className={styles.kpiValue}>{dados.pacientesPorServico.length}<span className={styles.kpiUnit}>registros</span></div>
-          <div className={styles.kpiFooter}>CAEE, APAE, Ambulatório, etc</div>
+          <div className={styles.kpiValue}>{dados.totalServicosAtivos ?? dados.pacientesPorServico.length}<span className={styles.kpiUnit}>registros</span></div>
+          <div className={styles.kpiFooter}>CAEE, APAE, Ambulatório, etc · posição atual</div>
         </div>
       </section>
 
@@ -177,7 +200,9 @@ export default function JuntaDashboard() {
         <div className={styles.panelCard}>
           <div className={styles.panelHeader}>
             <h3>Atendimentos Mensais</h3>
-            <span className={styles.cardSubtitle}>Últimos 6 meses</span>
+            <span className={styles.cardSubtitle}>
+              {dados.atendimentosPorMes.length === 12 ? "Meses do período selecionado" : "Últimos 6 meses"}
+            </span>
           </div>
           <div className={styles.chartContainer}>
             <div className={styles.barChart}>
@@ -205,7 +230,7 @@ export default function JuntaDashboard() {
         <div className={styles.panelCard}>
           <div className={styles.panelHeader}>
             <h3>Próximos Agendamentos</h3>
-            <span className={styles.cardSubtitle}>Próximos 7 dias</span>
+            <span className={styles.cardSubtitle}>Próximos 7 dias · posição atual</span>
           </div>
           <div className={styles.table}>
             <table>

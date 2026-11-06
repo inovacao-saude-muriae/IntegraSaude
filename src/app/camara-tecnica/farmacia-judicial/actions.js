@@ -702,10 +702,46 @@ export async function getRelatorioSaidaPorMedicamento() {
 // ==========================================
 // 6. DASHBOARD
 // ==========================================
-export async function getDashboardMetrics() {
+// FILTRO DE ANO (parâmetro opcional `ano`):
+//   • number (ex.: 2026) → filtra aquele ano;
+//   • "todos" ou null    → sem filtro de data;
+//   • undefined          → sem filtro (comportamento anterior; outras telas
+//                          que chamam sem parâmetro não mudam).
+// Janela em UTC [1º jan, 1º jan do ano seguinte), igual ao CCZ.
+//
+// REGRA DE DATA DE CADA INDICADOR:
+//   • Catálogo de Medicamentos (ativos) → POSIÇÃO ATUAL (não filtra por ano)
+//   • Estoque Físico Total (saldo dos lotes) → POSIÇÃO ATUAL (não filtra)
+//   • Pacientes (ativos/inativos/óbito/base) → PacienteFarmaciaJudicial.createdAt
+//     (pacientes cadastrados no ano, separados pelo status atual)
+//   • Entradas de lotes (unidades e nº de lotes) → LoteMedicamento.dataEntrada
+//   • Dispensações (unidades e nº de registros) → DispensacaoMedicamento.dataDispensacao
+export async function getDashboardMetrics(ano) {
   try {
+    const filtrar = !(ano === undefined || ano === null || ano === "todos");
+    const y = filtrar ? Number(ano) || new Date().getFullYear() : null;
+    // timestamptz (created_at, data_dispensacao)
+    const tsIni = y === null ? null : new Date(Date.UTC(y, 0, 1));
+    const tsFim = y === null ? null : new Date(Date.UTC(y + 1, 0, 1));
+    // date (data_entrada)
+    const dIni = y === null ? null : `${y}-01-01`;
+    const dFim = y === null ? null : `${y + 1}-01-01`;
+
     const resMedsCat = await prisma.$queryRaw`
       SELECT COUNT(*)::integer AS total FROM public.farmacia_medicamentos WHERE ativo = true
+    `;
+
+    const resEntradas = await prisma.$queryRaw`
+      SELECT COUNT(*)::integer AS lotes, COALESCE(SUM(qtd_inicial), 0)::integer AS unidades
+      FROM public.farmacia_lotes_medicamentos
+      WHERE (${dIni}::date IS NULL OR (data_entrada >= ${dIni}::date AND data_entrada < ${dFim}::date))
+    `;
+
+    const resDispensacoes = await prisma.$queryRaw`
+      SELECT COUNT(*)::integer AS registros, COALESCE(SUM(qtd_entregue), 0)::integer AS unidades
+      FROM public.farmacia_dispensacoes_medicamentos
+      WHERE (${tsIni}::timestamptz IS NULL
+             OR (data_dispensacao >= ${tsIni}::timestamptz AND data_dispensacao < ${tsFim}::timestamptz))
     `;
 
     const resEstoque = await prisma.$queryRaw`
@@ -721,6 +757,8 @@ export async function getDashboardMetrics() {
     const resPacientes = await prisma.$queryRaw`
       SELECT status, COUNT(*)::integer AS total
       FROM public.farmacia_pacientes
+      WHERE (${tsIni}::timestamptz IS NULL
+             OR (created_at >= ${tsIni}::timestamptz AND created_at < ${tsFim}::timestamptz))
       GROUP BY status
     `;
 
@@ -746,6 +784,10 @@ export async function getDashboardMetrics() {
       pacientesAtivos: ativos,
       pacientesInativos: inativos,
       pacientesObito: obitos,
+      entradasLotes: Number(serializeData(resEntradas)[0]?.lotes || 0),
+      entradasUnidades: Number(serializeData(resEntradas)[0]?.unidades || 0),
+      dispensacoesRegistros: Number(serializeData(resDispensacoes)[0]?.registros || 0),
+      dispensacoesUnidades: Number(serializeData(resDispensacoes)[0]?.unidades || 0),
     };
   } catch (error) {
     console.error("Erro ao buscar métricas do dashboard:", error);
@@ -755,6 +797,10 @@ export async function getDashboardMetrics() {
       pacientesAtivos: 0,
       pacientesInativos: 0,
       pacientesObito: 0,
+      entradasLotes: 0,
+      entradasUnidades: 0,
+      dispensacoesRegistros: 0,
+      dispensacoesUnidades: 0,
     };
   }
 }
