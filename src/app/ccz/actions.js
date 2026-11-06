@@ -210,6 +210,8 @@ export async function obterAnimal(id) {
       qualTratamento: a.qualTratamento || "",
       observacoes,
       situacao: a.situacao || "",
+      // Data de devolução (YYYY-MM-DD para o input type="date"); vazio se nula.
+      dataDevolucao: a.dataDevolucao ? new Date(a.dataDevolucao).toISOString().slice(0, 10) : "",
     };
 
     return { success: true, data };
@@ -575,6 +577,15 @@ export async function salvarAnimal(dados) {
       situacao: ["Adotado", "Devolvido", "CCZ"].includes(dados.situacao)
         ? dados.situacao
         : "",
+      // Data da situação (mesma coluna dataDevolucao): faz sentido para
+      // "Devolvido" (data da devolução) e "Adotado" (data da adoção). O campo
+      // é OPCIONAL mesmo nesses casos (não trava cadastros antigos). Para
+      // "CCZ"/"", grava null (limpa qualquer valor anterior).
+      dataDevolucao:
+        (dados.situacao === "Devolvido" || dados.situacao === "Adotado") &&
+        dados.dataDevolucao
+          ? new Date(dados.dataDevolucao)
+          : null,
       enderecoRecolhimento: null,
     };
 
@@ -699,6 +710,7 @@ export async function listarAnimais({ termo = "", filtroSituacao = "" } = {}) {
       observacoes: a.observacoes || "",
       possuiResponsavel: a.possuiResponsavel || "Não",
       situacao: a.situacao || "",
+      dataDevolucao: a.dataDevolucao ? new Date(a.dataDevolucao).toISOString().slice(0, 10) : "",
       fotoUrl: a.fotoUrl || "",
       pessoaCpf: a.pessoaCpf || "",
       tutorNome: a.tutor?.pessoa?.nomeCompleto || "",
@@ -2210,5 +2222,208 @@ export async function listarDenuncias(tipo) {
   } catch (error) {
     console.error("Erro ao listar denúncias:", error);
     return { sucesso: false, erro: error.message };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AGREGAÇÕES DO DASHBOARD (filtro de ANO GLOBAL)
+// ─────────────────────────────────────────────────────────────────────────
+// O dashboard tem um único filtro de ano (fora dos gráficos) que afeta KPIs,
+// "Procedimentos por Tipo" e os dois gráficos mensais. O parâmetro `ano`:
+//   • number (ex.: 2026)  → filtra aquele ano;
+//   • "todos" ou null     → sem filtro de data (total geral; nos gráficos
+//                           mensais, soma de todos os anos por mês do calendário);
+//   • undefined           → ano atual (comportamento anterior).
+//
+// REGRA DE DATA DE CADA INDICADOR (uma regra por indicador, documentada):
+//   • Tutores            → Tutor.createdAt (created_at)
+//   • Animais / com tutor / sem tutor → Animal.dataCadastro
+//   • Procedimentos e "por Tipo"      → CadastroProcedimento.dataProcedimento
+//   • Esporotricose      → Esporotricose.dataVisita
+//   • Denúncias          → DenunciaCaoAgressivo.dataDenuncia
+//   • Gráfico "entraram" → COALESCE(dataDevolucao, dataCadastro) p/ Adotado e
+//                          Devolvido; dataCadastro para CCZ/sem situação
+//   • Gráfico "devolvidos (sem tutor)" → dataDevolucao (situacao Devolvido,
+//                          pessoaCpf nulo)
+// Registros com data nula ficam fora quando há filtro de ano.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const MESES_LABEL = [
+  "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+  "Jul", "Ago", "Set", "Out", "Nov", "Dez",
+];
+
+// Monta o esqueleto de 12 meses zerados para o gráfico empilhado.
+const esqueletoMeses = () =>
+  MESES_LABEL.map((mes) => ({ mes, comTutor: 0, semTutor: 0 }));
+
+// Resolve o parâmetro de ano: retorna null (sem filtro) ou o número do ano.
+const resolverAno = (ano) => {
+  if (ano === null || ano === "todos") return null;
+  return Number(ano) || new Date().getFullYear();
+};
+
+// Janela [1º de janeiro, 1º de janeiro do ano seguinte) em UTC; null = sem filtro.
+const janelaAno = (ano) => {
+  const y = resolverAno(ano);
+  if (y === null) return null;
+  return {
+    inicio: new Date(Date.UTC(y, 0, 1)),
+    fim: new Date(Date.UTC(y + 1, 0, 1)),
+  };
+};
+
+// Filtro Prisma { gte, lt } para um campo de data (undefined = sem filtro).
+const filtroData = (janela) =>
+  janela ? { gte: janela.inicio, lt: janela.fim } : undefined;
+
+// ── KPIs + PROCEDIMENTOS POR TIPO (filtrados pelo ano global) ───────────────
+// Usa count/groupBy no servidor (sem carregar listas).
+export async function estatisticasDashboardCCZ(ano) {
+  try {
+    await requireAcessoModulo(MODULOS.CCZ);
+
+    const janela = janelaAno(ano);
+    const f = filtroData(janela);
+    const whereAnimal = f ? { dataCadastro: f } : {};
+
+    const [
+      tutores,
+      animais,
+      animaisComTutor,
+      animaisSemTutor,
+      procedimentos,
+      esporotricose,
+      denuncias,
+      porTipo,
+    ] = await Promise.all([
+      prisma.tutor.count({ where: f ? { createdAt: f } : {} }),
+      prisma.animal.count({ where: whereAnimal }),
+      prisma.animal.count({ where: { ...whereAnimal, pessoaCpf: { not: null } } }),
+      prisma.animal.count({ where: { ...whereAnimal, pessoaCpf: null } }),
+      prisma.cadastroProcedimento.count({ where: f ? { dataProcedimento: f } : {} }),
+      prisma.esporotricose.count({ where: f ? { dataVisita: f } : {} }),
+      prisma.denunciaCaoAgressivo.count({ where: f ? { dataDenuncia: f } : {} }),
+      prisma.cadastroProcedimento.groupBy({
+        by: ["tipo"],
+        where: f ? { dataProcedimento: f } : {},
+        _count: { _all: true },
+      }),
+    ]);
+
+    const procedimentosPorTipo = porTipo
+      .map((g) => ({ tipo: g.tipo || "Não especificado", count: g._count._all }))
+      .sort((a, b) => b.count - a.count);
+
+    return {
+      success: true,
+      data: {
+        tutores,
+        animais,
+        animaisComTutor,
+        animaisSemTutor,
+        procedimentos,
+        esporotricose,
+        denuncias,
+        procedimentosPorTipo,
+      },
+    };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao calcular estatísticas do dashboard (CCZ):", error);
+    return { success: false, error: "Erro ao carregar as estatísticas." };
+  }
+}
+
+// ── ANIMAIS QUE ENTRARAM POR MÊS (empilhado com/sem tutor) ──────────────────
+// Data de referência: COALESCE(dataDevolucao, dataCadastro) para Adotado e
+// Devolvido; dataCadastro para CCZ/"" . A janela do ano é aplicada em JS sobre
+// a data efetiva (a consulta traz quem tem qualquer das datas no ano).
+// Retorno: { success, data: [{ mes, comTutor, semTutor }] (12 itens) }.
+export async function estatisticaAnimaisEntradaPorMes(ano) {
+  try {
+    await requireAcessoModulo(MODULOS.CCZ);
+
+    const janela = janelaAno(ano);
+    const f = filtroData(janela);
+
+    const animais = await prisma.animal.findMany({
+      where: f
+        ? { OR: [{ dataCadastro: f }, { dataDevolucao: f }] }
+        : undefined,
+      select: {
+        dataCadastro: true,
+        dataDevolucao: true,
+        situacao: true,
+        pessoaCpf: true,
+      },
+    });
+
+    const dentroDoAno = (d) =>
+      !!d &&
+      (!janela ||
+        (d.getTime() >= janela.inicio.getTime() && d.getTime() < janela.fim.getTime()));
+
+    const dados = esqueletoMeses();
+    for (const a of animais) {
+      const usaDataSituacao =
+        (a.situacao === "Adotado" || a.situacao === "Devolvido") &&
+        a.dataDevolucao;
+      const dataRef = usaDataSituacao
+        ? new Date(a.dataDevolucao)
+        : a.dataCadastro
+        ? new Date(a.dataCadastro)
+        : null;
+
+      if (!dentroDoAno(dataRef)) continue;
+
+      const mes = dataRef.getUTCMonth(); // 0-11
+      if (a.pessoaCpf) dados[mes].comTutor += 1;
+      else dados[mes].semTutor += 1;
+    }
+
+    return { success: true, data: dados };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao agregar animais por mês (CCZ):", error);
+    return { success: false, error: "Erro ao carregar as entradas por mês." };
+  }
+}
+
+// ── ANIMAIS DEVOLVIDOS POR MÊS — APENAS SEM TUTOR ───────────────────────────
+// situacao = "Devolvido" AND pessoaCpf IS NULL, por mês de dataDevolucao.
+// Retorno: { success, data: [{ mes, semTutor }] (12 itens) }.
+export async function estatisticaAnimaisDevolvidosPorMes(ano) {
+  try {
+    await requireAcessoModulo(MODULOS.CCZ);
+
+    const f = filtroData(janelaAno(ano));
+
+    const animais = await prisma.animal.findMany({
+      where: {
+        situacao: "Devolvido",
+        pessoaCpf: null,
+        dataDevolucao: f ?? { not: null },
+      },
+      select: { dataDevolucao: true },
+    });
+
+    const dados = MESES_LABEL.map((mes) => ({ mes, semTutor: 0 }));
+    for (const a of animais) {
+      if (!a.dataDevolucao) continue;
+      dados[new Date(a.dataDevolucao).getUTCMonth()].semTutor += 1;
+    }
+
+    return { success: true, data: dados };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao agregar animais devolvidos por mês (CCZ):", error);
+    return { success: false, error: "Erro ao carregar as devoluções por mês." };
   }
 }

@@ -4,12 +4,19 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./DashboardCCZ.module.css";
 import {
-  listarTutoresComAnimais,
-  listarAnimais,
-  listarProcedimentos,
-  listarEsporotricose,
-  listarDenuncias,
+  CCZMensalEmpilhadoChart,
+  CCZMensalSimplesChart,
+} from "@/components/charts/CCZCharts";
+import {
+  estatisticasDashboardCCZ,
+  estatisticaAnimaisEntradaPorMes,
+  estatisticaAnimaisDevolvidosPorMes,
 } from "./actions";
+
+// Opções de ano para o dropdown: ano atual e os 5 anteriores + "Todos os anos".
+const ANO_ATUAL = new Date().getFullYear();
+const ANOS_DISPONIVEIS = Array.from({ length: 6 }, (_, i) => ANO_ATUAL - i);
+const TODOS = "todos";
 
 export default function DashboardCCZ() {
   const router = useRouter();
@@ -25,60 +32,48 @@ export default function DashboardCCZ() {
   const [procedimentosPorTipo, setProcedimentosPorTipo] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // FILTRO DE ANO GLOBAL (fora dos gráficos): afeta KPIs, "Procedimentos por
+  // Tipo" e os dois gráficos mensais. Default: ano atual; TODOS = total geral.
+  // Regras de data de cada indicador: ver comentário em actions.js.
+  const [anoSelecionado, setAnoSelecionado] = useState(ANO_ATUAL);
+  const [entradasPorMes, setEntradasPorMes] = useState([]);
+  const [devolucoesPorMes, setDevolucoesPorMes] = useState([]);
+
+  const rotuloPeriodo =
+    anoSelecionado === TODOS ? "todos os anos" : String(anoSelecionado);
+
+  // Recarrega KPIs e gráficos sempre que o ano global muda.
   useEffect(() => {
-    async function carregarStats() {
-      setLoading(true);
-      
+    let cancelado = false;
+
+    async function carregar() {
       try {
-        const [tutoresRes, animaisRes, procedimentosRes, esporoRes, denunciasRes] = 
-          await Promise.all([
-            listarTutoresComAnimais(),
-            listarAnimais(),
-            listarProcedimentos(),
-            listarEsporotricose(),
-            listarDenuncias(),
-          ]);
+        const [statsRes, entradasRes, devolucoesRes] = await Promise.all([
+          estatisticasDashboardCCZ(anoSelecionado),
+          estatisticaAnimaisEntradaPorMes(anoSelecionado),
+          estatisticaAnimaisDevolvidosPorMes(anoSelecionado),
+        ]);
+        if (cancelado) return;
 
-        const animaisData = animaisRes.success ? animaisRes.data : [];
-        const animaisComTutor = animaisData.filter(a => a.tutorNome && a.tutorNome.trim() !== "");
-        const animaisSemTutor = animaisData.filter(a => !a.tutorNome || a.tutorNome.trim() === "");
-
-        // Agrupar procedimentos por tipo
-        const procedimentosData = procedimentosRes.success ? procedimentosRes.data : [];
-        const tiposMap = {};
-        procedimentosData.forEach(proc => {
-          const tipo = proc.tipo || "Não especificado";
-          tiposMap[tipo] = (tiposMap[tipo] || 0) + 1;
-        });
-
-        const tiposArray = Object.entries(tiposMap)
-          .map(([tipo, count]) => ({ tipo, count }))
-          .sort((a, b) => b.count - a.count);
-
-        setProcedimentosPorTipo(tiposArray);
-
-        const newStats = {
-          tutores: tutoresRes.success ? tutoresRes.data.length : 0,
-          animais: animaisData.length,
-          animaisComTutor: animaisComTutor.length,
-          animaisSemTutor: animaisSemTutor.length,
-          procedimentos: procedimentosRes.success ? procedimentosRes.data.length : 0,
-          esporotricose: esporoRes.success ? esporoRes.data.length : 0,
-          denuncias: denunciasRes.success ? denunciasRes.data.length : 0,
-        };
-
-        console.log("[Dashboard] Stats carregadas:", newStats);
-        setStats(newStats);
+        if (statsRes.success) {
+          const { procedimentosPorTipo: tipos, ...kpis } = statsRes.data;
+          setStats(kpis);
+          setProcedimentosPorTipo(tipos);
+        }
+        setEntradasPorMes(entradasRes.success ? entradasRes.data : []);
+        setDevolucoesPorMes(devolucoesRes.success ? devolucoesRes.data : []);
       } catch (err) {
-        console.error("Erro ao carregar estatísticas:", err);
+        console.error("Erro ao carregar dashboard:", err);
       } finally {
-        setLoading(false);
+        if (!cancelado) setLoading(false);
       }
     }
 
-    carregarStats();
-  }, []);
-
+    carregar();
+    return () => {
+      cancelado = true;
+    };
+  }, [anoSelecionado]);
   if (loading) {
     return (
       <div className={styles.container}>
@@ -96,6 +91,26 @@ export default function DashboardCCZ() {
 
   return (
     <div className={styles.container}>
+      {/* FILTRO DE ANO GLOBAL: interfere em KPIs, procedimentos e gráficos */}
+      <div className={styles.toolbar}>
+        <label className={styles.anoFiltro}>
+          <span className={styles.anoFiltroLabel}>Ano</span>
+          <select
+            value={anoSelecionado}
+            onChange={(e) =>
+              setAnoSelecionado(e.target.value === TODOS ? TODOS : Number(e.target.value))
+            }
+            aria-label="Filtrar dashboard por ano"
+          >
+            <option value={TODOS}>Todos os anos</option>
+            {ANOS_DISPONIVEIS.map((ano) => (
+              <option key={ano} value={ano}>{ano}</option>
+            ))}
+          </select>
+        </label>
+        <span className={styles.toolbarHint}>Indicadores referentes a: {rotuloPeriodo}</span>
+      </div>
+
       {/* KPIs PRINCIPAIS */}
       <section className={styles.kpiGrid}>
         <div className={`${styles.kpiCard} ${styles.clickable}`} onClick={() => navegarPara("TUTORES")}>
@@ -203,13 +218,17 @@ export default function DashboardCCZ() {
           <div className={styles.kpiValue}>{stats.denuncias}<span className={styles.kpiUnit}>registros</span></div>
           <div className={styles.kpiFooter}>Denúncias de cães agressivos</div>
         </div>
+      </section>
 
+      {/* SEÇÃO DE GRÁFICOS (fora do kpiGrid): o painel de procedimentos divide
+          espaço com os dois gráficos mensais empilhados. */}
+      <section className={styles.chartsSection}>
         {/* GRÁFICO DE PROCEDIMENTOS POR TIPO */}
         <div className={styles.chartPanel}>
           <div className={styles.panelHeader}>
             <h3>Procedimentos por Tipo</h3>
             <span className={styles.cardSubtitle}>
-              Distribuição dos {stats.procedimentos} procedimentos registrados
+              Distribuição dos {stats.procedimentos} procedimentos ({rotuloPeriodo})
             </span>
           </div>
           
@@ -252,17 +271,37 @@ export default function DashboardCCZ() {
                           width: `${percentage}%`,
                           backgroundColor: color 
                         }}
-                      >
-                        <span className={styles.chartBarLabel}>
-                          {((item.count / stats.procedimentos) * 100).toFixed(1)}%
-                        </span>
-                      </div>
+                      ></div>
                     </div>
                   </div>
                 );
               })}
             </div>
           )}
+        </div>
+
+        {/* GRÁFICO: ANIMAIS QUE ENTRARAM POR MÊS (empilhado com/sem tutor) */}
+        <div className={styles.chartPanelCompact}>
+          <div className={styles.chartPanelHead}>
+            <div className={styles.panelHeader}>
+              <h3>Animais que entraram por mês</h3>
+              <span className={styles.cardSubtitle}>
+                Entradas ({rotuloPeriodo}) · Com tutor x Sem tutor
+              </span>
+            </div>
+          </div>
+          <CCZMensalEmpilhadoChart data={entradasPorMes} bare />
+        </div>
+
+        {/* GRÁFICO: ANIMAIS DEVOLVIDOS POR MÊS (somente sem tutor) */}
+        <div className={styles.chartPanelCompact}>
+          <div className={styles.panelHeader}>
+            <h3>Animais devolvidos por mês (sem tutor)</h3>
+            <span className={styles.cardSubtitle}>
+              Devoluções ({rotuloPeriodo}) · Somente sem tutor
+            </span>
+          </div>
+          <CCZMensalSimplesChart data={devolucoesPorMes} bare />
         </div>
       </section>
     </div>

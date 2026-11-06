@@ -28,6 +28,7 @@ const FORM_VAZIO = {
   qualTratamento: "",
   observacoes: "",
   situacao: "",
+  dataDevolucao: "",
 };
 
 export default function CadastroAnimal({ animalInicial = null, onSalvo, onCancelar }) {
@@ -215,6 +216,19 @@ export default function CadastroAnimal({ animalInicial = null, onSalvo, onCancel
       ...prev,
       doencaCronica: valor,
       qualDoenca: valor === "Sim" ? prev.qualDoenca : "",
+    }));
+  };
+
+  const handleSituacao = (valor) => {
+    setForm((prev) => ({
+      ...prev,
+      situacao: valor,
+      // O campo de data (mesma coluna dataDevolucao) existe para as situações
+      // "Devolvido" (data da devolução) e "Adotado" (data da adoção); preserva
+      // o valor nesses casos e limpa para "CCZ"/"" (a action também grava null
+      // quando a situação não é Devolvido nem Adotado).
+      dataDevolucao:
+        valor === "Devolvido" || valor === "Adotado" ? prev.dataDevolucao : "",
     }));
   };
 
@@ -489,7 +503,7 @@ export default function CadastroAnimal({ animalInicial = null, onSalvo, onCancel
               <label>Situação</label>
               <select
                 value={form.situacao}
-                onChange={(e) => atualizar("situacao", e.target.value)}
+                onChange={(e) => handleSituacao(e.target.value)}
                 disabled={camposDesabilitados}
               >
                 <option value="">Não informado</option>
@@ -498,6 +512,26 @@ export default function CadastroAnimal({ animalInicial = null, onSalvo, onCancel
                 <option value="CCZ">CCZ</option>
               </select>
             </div>
+
+            {/* Campo de data (mesma coluna dataDevolucao): aparece para
+                "Devolvido" (Data da devolução) e "Adotado" (Data da adoção).
+                Campo opcional (não trava cadastros antigos). Oculto para
+                "CCZ"/"", situações em que a action grava null. */}
+            {(form.situacao === "Devolvido" || form.situacao === "Adotado") && (
+              <div className={`${styles.field} ${styles.colSm}`}>
+                <label>
+                  {form.situacao === "Adotado"
+                    ? "Data da adoção"
+                    : "Data da devolução"}
+                </label>
+                <input
+                  type="date"
+                  value={form.dataDevolucao || ""}
+                  onChange={(e) => atualizar("dataDevolucao", e.target.value)}
+                  disabled={camposDesabilitados}
+                />
+              </div>
+            )}
           </div>
 
           <div className={styles.formSectionTitle}>Dados clínicos</div>

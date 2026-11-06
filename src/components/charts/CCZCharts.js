@@ -1,6 +1,6 @@
 "use client";
 
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from "recharts";
 import styles from "./Charts.module.css";
 
 const COLORS = {
@@ -99,6 +99,110 @@ export function CCZProcedureTypesChart({ data }) {
   );
 }
 
+// Rótulo com o total do mês acima da barra empilhada (omitido quando 0).
+// Renderizado a partir do último segmento da pilha; `dados[index].total` vem
+// do cálculo feito no componente.
+const renderTotalLabel = (dados) => function TotalLabel(props) {
+  const { x, y, width, index } = props;
+  const total = dados[index]?.total;
+  if (!total) return null;
+  return (
+    <text
+      x={x + width / 2}
+      y={y - 6}
+      textAnchor="middle"
+      fill="#0f172a"
+      fontSize={12}
+      fontWeight={700}
+    >
+      {total}
+    </text>
+  );
+};
+
+// Formatter que esconde zeros nos rótulos.
+const semZero = (v) => (v > 0 ? v : "");
+
+/**
+ * Stacked bar chart for monthly counts split into "Com tutor" / "Sem tutor".
+ * Expects data as 12 items: { mes, comTutor, semTutor }.
+ * Mostra o número de cada segmento (quando > 0) e o total acima da barra.
+ */
+export function CCZMensalEmpilhadoChart({ data, titulo, height = 300, bare = false }) {
+  const dados = (data && data.length > 0 ? data : []).map((d) => ({
+    ...d,
+    total: (d.comTutor || 0) + (d.semTutor || 0),
+  }));
+
+  const chart = (
+    <>
+      {titulo && <h3 className={styles.chartTitle}>{titulo}</h3>}
+      <ResponsiveContainer width="100%" height={height}>
+        <BarChart data={dados} margin={{ top: 22, right: 16, left: 0, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+          <XAxis dataKey="mes" stroke="#64748b" fontSize={12} />
+          <YAxis stroke="#64748b" fontSize={12} allowDecimals={false} />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: "8px",
+              fontSize: "14px",
+            }}
+          />
+          <Legend wrapperStyle={{ fontSize: "12px" }} />
+          <Bar dataKey="comTutor" stackId="tutor" fill={COLORS.success} name="Com tutor" radius={[0, 0, 0, 0]}>
+            <LabelList dataKey="comTutor" position="center" formatter={semZero} fill="#ffffff" fontSize={11} fontWeight={700} />
+          </Bar>
+          <Bar dataKey="semTutor" stackId="tutor" fill={COLORS.warning} name="Sem tutor" radius={[4, 4, 0, 0]}>
+            <LabelList dataKey="semTutor" position="center" formatter={semZero} fill="#1f2937" fontSize={11} fontWeight={700} />
+            <LabelList dataKey="semTutor" content={renderTotalLabel(dados)} />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </>
+  );
+
+  // bare: sem o cartão interno (quando o painel pai já é o cartão).
+  if (bare) return chart;
+  return <div className={styles.chartContainer}>{chart}</div>;
+}
+
+/**
+ * Bar chart simples (série única "Sem tutor") por mês, com o valor acima da barra.
+ * Expects data as 12 items: { mes, semTutor }.
+ */
+export function CCZMensalSimplesChart({ data, titulo, height = 300, bare = false }) {
+  const dados = data && data.length > 0 ? data : [];
+
+  const chart = (
+    <>
+      {titulo && <h3 className={styles.chartTitle}>{titulo}</h3>}
+      <ResponsiveContainer width="100%" height={height}>
+        <BarChart data={dados} margin={{ top: 22, right: 16, left: 0, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+          <XAxis dataKey="mes" stroke="#64748b" fontSize={12} />
+          <YAxis stroke="#64748b" fontSize={12} allowDecimals={false} />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: "8px",
+              fontSize: "14px",
+            }}
+          />
+          <Legend wrapperStyle={{ fontSize: "12px" }} />
+          <Bar dataKey="semTutor" fill="#64748b" name="Sem tutor" radius={[4, 4, 0, 0]}>
+            <LabelList dataKey="semTutor" position="top" formatter={semZero} fill="#0f172a" fontSize={12} fontWeight={700} />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </>
+  );
+
+  if (bare) return chart;
+  return <div className={styles.chartContainer}>{chart}</div>;
+}
 /**
  * Pie chart showing animals by species
  */

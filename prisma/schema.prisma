@@ -386,6 +386,7 @@ model Animal {
   situacao               String?                @default("") @map("situacao") @db.VarChar(20)
   enderecoRecolhimento   String?                @map("endereco_recolhimento")
   dataCadastro           DateTime?              @default(now()) @map("data_cadastro") @db.Timestamptz(6)
+  dataDevolucao          DateTime?              @map("data_devolucao") @db.Date
   tutor                  Tutor?                 @relation(fields: [pessoaCpf], references: [pessoaCpf])
   denuncias              DenunciaCaoAgressivo[]
   esporotricose          Esporotricose[]

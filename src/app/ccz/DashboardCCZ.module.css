@@ -381,23 +381,110 @@
   }
 }
 
-/* GRÁFICO DE BARRAS (dentro do kpiGrid) */
+/* SEÇÃO DE GRÁFICOS (fora do kpiGrid): o painel de procedimentos divide
+   espaço com os dois gráficos mensais empilhados. Grid responsivo. */
+.chartsSection {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  align-items: stretch;
+}
+
+@media (max-width: 1024px) {
+  .chartsSection {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .chartsSection {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* PAINEL DE GRÁFICO (procedimentos por tipo – barras CSS) */
 .chartPanel {
   background-color: #ffffff;
   border-radius: 12px;
   padding: 1.25rem;
   border: 1px solid #e2e8f0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
 }
 
-@media (max-width: 768px) {
-  .chartPanel {
-    grid-column: span 1;
-  }
+/* PAINEL DOS GRÁFICOS MENSAIS (recharts). O componente de gráfico já traz o
+   próprio cartão interno; aqui envolvemos cabeçalho + dropdown de ano. */
+.chartPanelCompact {
+  background-color: #ffffff;
+  border-radius: 12px;
+  padding: 1.25rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+}
+
+.chartPanelCompact :global(.recharts-wrapper) {
+  margin: 0 auto;
+}
+
+/* Cabeçalho com título à esquerda e dropdown de ano à direita. */
+.chartPanelHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* Toolbar do filtro de ano GLOBAL (acima dos KPIs). */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.75rem 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.toolbarHint {
+  font-size: 0.8125rem;
+  color: #475569;
+}
+
+.anoFiltro {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.anoFiltroLabel {
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.anoFiltro select {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: #1e293b;
+  background-color: #ffffff;
+  cursor: pointer;
+}
+
+.anoFiltro select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
 }
 
 .chartContainer {
