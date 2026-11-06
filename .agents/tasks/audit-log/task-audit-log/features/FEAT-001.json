@@ -1,0 +1,30 @@
+﻿{
+    "id":  "FEAT-001",
+    "type":  "feat",
+    "description":  "FundaÃ§Ã£o: model AuditLog + migration manual aplicada ao banco local, helper src/lib/audit.js (best-effort, sanitizado) e instrumentaÃ§Ã£o de LOGIN e troca de senha. Independente das demais, mas FEAT-002 e FEAT-003 dependem dela.",
+    "status":  "completed",
+    "steps":  [
+                  "Ler plan.md (seÃ§Ãµes Design e Etapa 1) e context.json.",
+                  "Adicionar model AuditLog ao FINAL de prisma/schema.prisma exatamente como no plan.md (tabela audit_logs, Ã­ndices idx_audit_user_data, idx_audit_modulo_data, idx_audit_data). NÃ£o tocar em outros models.",
+                  "Criar prisma/migrations/20261107130000_add_audit_log/migration.sql (CREATE TABLE audit_logs + 3 CREATE INDEX; user_cpf sem FK).",
+                  "Aplicar: npx prisma db execute --file prisma/migrations/20261107130000_add_audit_log/migration.sql ; npx prisma migrate resolve --applied 20261107130000_add_audit_log ; npx prisma generate. NÃ£o usar migrate dev/reset. NÃ£o imprimir URL/senha.",
+                  "Criar src/lib/audit.js com registrarAuditoria({user,acao,modulo,entidade,entidadeId,descricao,detalhes,ip}), AUDIT_ACOES, AUDIT_MODULOS: resolve usuÃ¡rio pela sessÃ£o (cookies()/prisma.session) quando user nÃ£o Ã© passado e nÃ£o grava se nÃ£o houver usuÃ¡rio; IP via await headers() (x-forwarded-for/x-real-ip) em try/catch; trunca campos; sanitiza detalhes (remove chaves senha/hash/token/secret/foto/base64/imagem/jwt, strings \u003e200, JSON \u003c=2KB); tudo em try/catch com console.error, nunca relanÃ§a.",
+                  "Instrumentar src/app/actions/auth.js#loginAction (LOGIN, modulo AUTH, apÃ³s cookieStore.set e antes do return success; passar user e ip) e src/app/api/auth/trocar-senha/route.js POST (EDITAR, entidade Senha, sem detalhes, apÃ³s sucesso). NÃ£o alterar retornos.",
+                  "Validar com rota temporÃ¡ria src/app/api/_tmp-audit/route.js em servidor 3100: gravaÃ§Ã£o OK, payload invÃ¡lido nÃ£o lanÃ§a/nÃ£o grava, detalhes filtrados. Remover rota e linhas de teste de audit_logs."
+              ],
+    "acceptance_criteria":  [
+                                "docker exec orion_db psql -U admin -d integrasaude -c \"\\d audit_logs\" mostra as colunas, a PK e os 3 Ã­ndices",
+                                "npx prisma migrate status/ resolve registra 20261107130000_add_audit_log como aplicada; npx prisma generate conclui",
+                                "registrarAuditoria grava 1 linha vÃ¡lida e nÃ£o lanÃ§a com entrada invÃ¡lida",
+                                "detalhes com chaves sensÃ­veis saem filtrados",
+                                "npm run lint sem erros novos e npm run build ok"
+                            ],
+    "verification":  [
+                         "npx prisma generate",
+                         "npm run lint",
+                         "npm run build",
+                         "docker exec orion_db psql -U admin -d integrasaude -c \"\\d audit_logs\""
+                     ],
+    "blocked_reason":  null,
+    "findings":  "Concluído. audit_logs criada/aplicada (db execute + migrate resolve; _prisma_migrations registra 20261107130000_add_audit_log), prisma generate ok, lint 0 erros/5 warnings pré-existentes, build ok. migration.sql é ignorado pelo .gitignore (*.sql): usuário precisa de git add -f. Helper src/lib/audit.js exporta registrarAuditoria, AUDIT_ACOES, AUDIT_MODULOS. Uso: await registrarAuditoria({user,acao,modulo,entidade,entidadeId,descricao,detalhes}) após sucesso; user opcional (resolve via cookie session_token; sem usuário não grava; ip via headers, null fora de request). detalhes aceita só primitivos (objetos aninhados descartados), remove chaves senha/hash/token/secret/foto/base64/imagem/jwt, strings\u003e200 truncadas, \u003e2KB vira null. Testado (script node temporário com o código do helper, stubs de next/headers): grava OK, filtro de chaves sensíveis, circular/bigint não lançam, user sem cpf/sem sessão/sem args retorna false sem gravar, cpf longo truncado; linhas de teste removidas (audit_logs=0). Instrumentados: loginAction (LOGIN/AUTH/Sessão, entidadeId=cpf) e trocar-senha POST (EDITAR/AUTH/Senha). AVISOS: (1) pastas com prefixo _ em src/app são privadas no App Router (rota _tmp-audit dá 404); para rotas de teste nunca usar _. (2) O dev server do usuário na porta 3000 (pid 5544) segura o lock do .next/dev, então next dev -p 3100 não sobe; e ele mantém o PrismaClient antigo em globalThis (sem prisma.auditLog) até ser reiniciado: enquanto isso o helper só loga [audit] erro e não quebra nada. Para testes ao vivo nas FEATs seguintes: pedir ao usuário para reiniciar o dev 3000 ou validar via script node (use --env-file=.env --env-file=.env.local, pois .env sozinho tem credencial diferente do .env.local) ou next build + next start em outra porta. Server actions não são chamáveis por curl. Nada de arquivos temporários restou."
+}

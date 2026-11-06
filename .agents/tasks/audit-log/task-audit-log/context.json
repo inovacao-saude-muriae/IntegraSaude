@@ -1,0 +1,29 @@
+{
+  "project_type": "Next.js 16 (App Router, proxy.js) + React 19 + Prisma 7.9 (adapter-pg) + PostgreSQL 16 em Docker; JS, CSS Modules",
+  "language": "JavaScript (ESM, alias @/ -> src/)",
+  "build_system": "npm; next build. AGENTS.md: Next 16 tem breaking changes, consultar node_modules/next/dist/docs/; cookies()/headers()/params são async. Windows/PowerShell: use ';' e não '&&'. Sem worktree: caminhos absolutos em c:/Users/Jefinny/Documents/10. IntegraSaude",
+  "test_framework": "Sem suíte para auditoria (só npm run test:ccz -> scripts/test-ccz.mjs). Validar com scripts/rotas temporárias (removê-los ao fim) e psql.",
+  "build_command": "npm run build",
+  "test_command": "npm run lint (0 erros; 5 warnings pré-existentes) ; npm run build",
+  "verification_instructions": "Ver plan.md (seção Etapas e validação) em c:/Users/Jefinny/Documents/10. IntegraSaude/.agents/tasks/audit-log/plan.md. Servidor de teste em porta 3100 (npx next dev -p 3100); NUNCA derrubar a 3000. Sessão de teste = inserir Session temporária (proxy.js faz jwtVerify com JWT_SECRET; assinar com jose sem imprimir segredo) e apagar depois.",
+  "snapshot_or_generated_files": "npx prisma generate regenera o client (não versionado). prisma/migrations/*/migration.sql é ignorado pelo .gitignore (*.sql): NÃO commitar; avisar que precisa de git add -f.",
+  "environment_constraints": "NÃO usar prisma migrate dev/reset (drift pré-existente em regula_pedidos_historico). Migration manual: prisma db execute --file + migrate resolve --applied. Container orion_db (db integrasaude, user admin, porta 5433). NÃO imprimir DATABASE_URL/senha/JWT_SECRET. NÃO git add/commit/push/stash/checkout/reset. Sem libs novas (server-only não está instalado). Não alterar outros models/migrations/.env nem dados existentes; limpar todo dado de teste.",
+  "contribution_requirements": "Diff deve conter só esta feature. Só o model AuditLog muda no schema. Não alterar lógica de negócio nem retornos das actions. Auditoria best-effort, sem dados sensíveis/clínicos, só após sucesso. Acesso à consulta: requireGestor.",
+  "key_patterns": "Guardas em src/lib/auth.js (requireAcessoModulo/requireAdminModulo/requireGestor/requireAcessoPessoas/requireAcessoServicoJunta...) retornam user {cpf,nome,role,acessos}; muitas actions não atribuem o retorno. Actions retornam {success,error}; catch trata error.status 401/403. 5 actions de Regulação não têm guarda (createPedidoExame, updateCommunicationDate, releasePaciente, updatePedidoExame, deletePedidoExame): helper resolve o usuário pela sessão; não adicionar guarda. Rotas API usam NextResponse e requireGestor (ver src/app/api/admin/acessos/route.js). IDs do schema: Int autoincrement; colunas snake_case via @map; Timestamptz(6); VarChar.",
+  "relevant_files": [
+    "prisma/schema.prisma",
+    "prisma/migrations/20261107120000_add_animal_data_devolucao/migration.sql (padrão)",
+    "src/lib/auth.js", "src/lib/permissions.js", "src/lib/prisma.js",
+    "src/app/actions/auth.js", "src/app/api/auth/trocar-senha/route.js",
+    "src/app/ccz/actions.js", "src/app/api/ccz/**/route.js",
+    "src/app/regulacao/actions.js", "src/app/regulacao/procedimentosActions.js",
+    "src/app/camara-tecnica/farmacia-judicial/actions.js",
+    "src/app/junta-reguladora/actions.js", "src/app/junta-reguladora/servicosActions.js",
+    "src/app/gerenciamento/pessoas/actions.js", "src/app/api/pessoas/route.js",
+    "src/app/api/gerenciamento/usuarios/**/route.js",
+    "src/app/gerenciamento/relatorios/page.js", "src/app/gerenciamento/relatorios/layout.js", "src/app/gerenciamento/relatorios/RelatoriosGerais.module.css",
+    "src/components/admin/RelatorioAcessos.js", "src/components/admin/RelatorioAcessos.module.css",
+    "src/app/api/admin/acessos/route.js", "src/app/api/me/route.js", "src/proxy.js"
+  ],
+  "directory_structure": "src/app/<modulo>/actions.js (server actions), src/app/api/**/route.js (rotas), src/lib (helpers), src/components/admin (componentes de relatório), prisma/ (schema + migrations manuais), .agents/tasks/audit-log/ (plano/artefatos)"
+}

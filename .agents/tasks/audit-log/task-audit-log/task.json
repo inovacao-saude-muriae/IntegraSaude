@@ -1,0 +1,7 @@
+{
+  "task_id": "task-audit-log",
+  "task_description": "Criar tabela audit_logs + helper registrarAuditoria, instrumentar escritas de todos os módulos e adicionar em Gerenciamento > Relatórios Gerais uma aba (gestor) de linha do tempo de auditoria por usuário, juntando rastros antigos. Plano completo em c:/Users/Jefinny/Documents/10. IntegraSaude/.agents/tasks/audit-log/plan.md",
+  "status": "pending",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003"],
+  "blocked_reason": null
+}
