@@ -91,7 +91,15 @@ export async function GET() {
             },
           },
           denuncias: {
-            select: { id: true, dataDenuncia: true, localizacao: true },
+            select: {
+              id: true,
+              dataDenuncia: true,
+              logradouro: true,
+              numero: true,
+              bairro: true,
+              cidade: true,
+              uf: true,
+            },
           },
           esporotricose: {
             select: { id: true, dataVisita: true },
@@ -194,15 +202,25 @@ export async function GET() {
             data: item.dataProcedimento,
           }),
         );
-        animal.denuncias.forEach((item) =>
+        animal.denuncias.forEach((item) => {
+          // O endereço da denúncia é composto por vários campos (não existe
+          // mais uma coluna única "localizacao").
+          const partes = [];
+          if (item.logradouro) partes.push(item.logradouro);
+          if (item.numero) partes.push(`nº ${item.numero}`);
+          if (item.bairro) partes.push(item.bairro);
+          if (item.cidade) partes.push(item.cidade);
+          if (item.uf) partes.push(item.uf);
+          const localizacao = partes.length > 0 ? partes.join(", ") : "-";
+
           adicionarEvento(animal.pessoaCpf, {
             id: `ccz-denuncia-${item.id}`,
             modulo: "CCZ",
             tipo: "Denúncia registrada",
-            descricao: `${nomeAnimal} - ${item.localizacao}`,
+            descricao: `${nomeAnimal} - ${localizacao}`,
             data: item.dataDenuncia,
-          }),
-        );
+          });
+        });
         animal.esporotricose.forEach((item) =>
           adicionarEvento(animal.pessoaCpf, {
             id: `ccz-esporo-${item.id}`,

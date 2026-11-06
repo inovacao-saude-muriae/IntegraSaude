@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { registrarAuditoria } from '@/lib/audit';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
@@ -39,6 +40,15 @@ export async function PUT(request) {
     // Remove todas as sessões ativas do usuário
     await prisma.session.deleteMany({
       where: { userId: cpf },
+    });
+
+    // Usuário que executa a ação é resolvido pela sessão (a rota não tem guarda própria).
+    await registrarAuditoria({
+      acao: 'DESATIVAR',
+      modulo: 'GERENCIAMENTO',
+      entidade: 'Usuario',
+      entidadeId: String(cpf),
+      descricao: `Usuário '${usuarioExistente.nome}' desativado`,
     });
 
     return NextResponse.json({

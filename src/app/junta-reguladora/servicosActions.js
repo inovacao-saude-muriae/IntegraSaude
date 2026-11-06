@@ -3,6 +3,7 @@
 import { requireAcessoModulo } from "@/lib/auth";
 import { MODULOS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { registrarAuditoria } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 
 // Serviços-e-Especialidades passam a pertencer à Junta (FR-3.3). Mudança
@@ -84,15 +85,27 @@ export async function getServicosData() {
 // Cria um registro. Serviço obrigatório (por id ou nome novo); especialidade opcional.
 export async function createRegistro(data) {
   try {
-    await requireAcessoModulo(MODULOS.JUNTA);
+    const user = await requireAcessoModulo(MODULOS.JUNTA);
     const servicoId = await resolverServicoId(data);
 
     const especialidadeNome = (data.especialidadeNome || "").trim();
+    let especialidadeCriada = null;
     if (especialidadeNome) {
-      await prisma.especialidade.create({
+      especialidadeCriada = await prisma.especialidade.create({
         data: { nome: especialidadeNome, servicoId },
       });
     }
+
+    await registrarAuditoria({
+      user,
+      acao: "CRIAR",
+      modulo: "JUNTA",
+      entidade: especialidadeCriada ? "Especialidade" : "Servico",
+      entidadeId: String(especialidadeCriada ? especialidadeCriada.id : servicoId),
+      descricao: especialidadeCriada
+        ? `Especialidade '${especialidadeNome}' cadastrada`
+        : `Serviço #${servicoId} cadastrado`,
+    });
 
     revalidatePath("/junta-reguladora");
     return { success: true };
@@ -107,7 +120,7 @@ export async function createRegistro(data) {
 // e, se informada especialidade, cria a especialidade nesse serviço.
 export async function updateRegistro(linha, data) {
   try {
-    await requireAcessoModulo(MODULOS.JUNTA);
+    const user = await requireAcessoModulo(MODULOS.JUNTA);
     const servicoId = await resolverServicoId(data);
     const especialidadeNome = (data.especialidadeNome || "").trim();
 
@@ -130,6 +143,17 @@ export async function updateRegistro(linha, data) {
       });
     }
 
+    await registrarAuditoria({
+      user,
+      acao: "EDITAR",
+      modulo: "JUNTA",
+      entidade: linha.especialidadeId ? "Especialidade" : "Servico",
+      entidadeId: String(linha.especialidadeId || servicoId),
+      descricao: linha.especialidadeId
+        ? `Especialidade #${linha.especialidadeId} atualizada`
+        : `Serviço #${servicoId} atualizado`,
+    });
+
     revalidatePath("/junta-reguladora");
     return { success: true };
   } catch (error) {
@@ -142,7 +166,7 @@ export async function updateRegistro(linha, data) {
 // Serviço sozinho -> apaga o serviço.
 export async function deleteRegistro(linha) {
   try {
-    await requireAcessoModulo(MODULOS.JUNTA);
+    const user = await requireAcessoModulo(MODULOS.JUNTA);
 
     if (linha.especialidadeId) {
       await prisma.especialidade.delete({
@@ -151,6 +175,17 @@ export async function deleteRegistro(linha) {
     } else {
       await prisma.servico.delete({ where: { id: Number(linha.servicoId) } });
     }
+
+    await registrarAuditoria({
+      user,
+      acao: "EXCLUIR",
+      modulo: "JUNTA",
+      entidade: linha.especialidadeId ? "Especialidade" : "Servico",
+      entidadeId: String(linha.especialidadeId || linha.servicoId),
+      descricao: linha.especialidadeId
+        ? `Especialidade #${linha.especialidadeId} excluída`
+        : `Serviço #${linha.servicoId} excluído`,
+    });
 
     revalidatePath("/junta-reguladora");
     return { success: true };

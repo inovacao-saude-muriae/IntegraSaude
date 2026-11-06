@@ -21,6 +21,7 @@ import ModalSeletorCotas from "./Modals/ModalSeletorCotas";
 
 import ProcedimentosTab from "./ProcedimentosTab";
 import PacientesTab from "./PacientesTab";
+import AuditoriaTab from "./AuditoriaTab";
 
 import AcessoNegadoModulo from "@/components/AcessoNegadoModulo";
 import { usePermissoesRegulacao } from "./PermissoesRegulacaoContext";
@@ -41,7 +42,7 @@ function RegulacaoPageContent() {
   // Flag injetada pelo servidor (layout.js) — mesma regra do cadastro de
   // pessoas do Gerenciamento (GESTOR ∨ REGULACAO/ADMIN ∨ JUNTA/ADMIN),
   // fail-closed.
-  const { podeGerenciarPessoas } = usePermissoesRegulacao();
+  const { podeGerenciarPessoas, podeVerAuditoria } = usePermissoesRegulacao();
 
   const activeTab = searchParams.get("tab") || "DASHBOARD";
 
@@ -296,6 +297,13 @@ function RegulacaoPageContent() {
           <PacientesTab />
         ) : (
           <AcessoNegadoModulo modulo="Cadastro de Pessoas" />
+        ))}
+
+      {activeTab === "AUDITORIA" &&
+        (podeVerAuditoria ? (
+          <AuditoriaTab />
+        ) : (
+          <AcessoNegadoModulo modulo="Auditoria de Alterações" />
         ))}
 
       {activeTab === "FINANCEIRO" && (

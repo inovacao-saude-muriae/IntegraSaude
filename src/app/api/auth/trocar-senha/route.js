@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 import { SignJWT } from "jose";
 import { prisma } from "@/lib/prisma";
+import { registrarAuditoria } from "@/lib/audit";
 
 // Valida senha forte
 function validarSenhaForte(senha) {
@@ -138,6 +139,15 @@ export async function POST(request) {
       sameSite: "lax",
       expires: expiresAt,
       path: "/",
+    });
+
+    await registrarAuditoria({
+      user: session.user,
+      acao: "EDITAR",
+      modulo: "AUTH",
+      entidade: "Senha",
+      entidadeId: session.user.cpf,
+      descricao: "Senha alterada",
     });
 
     return NextResponse.json(

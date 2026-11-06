@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { registrarAuditoria } from '@/lib/audit';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
@@ -93,6 +94,22 @@ export async function PUT(request) {
         })),
       });
     }
+
+    // Usuário que executa a ação é resolvido pela sessão (a rota não tem guarda própria).
+    await registrarAuditoria({
+      acao: 'EDITAR',
+      modulo: 'GERENCIAMENTO',
+      entidade: 'Usuario',
+      entidadeId: String(cpf),
+      descricao: `Perfil/acessos do usuário '${usuarioExistente.nome}' alterados`,
+      detalhes: {
+        roleAnterior: usuarioExistente.role,
+        roleNovo: novoRole,
+        acessos: novosAcessos
+          .map((a) => `${a.modulo}:${a.nivel}${a.servicoJunta ? `:${a.servicoJunta}` : ''}`)
+          .join(', '),
+      },
+    });
 
     return NextResponse.json({
       success: true,

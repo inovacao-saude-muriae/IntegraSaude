@@ -4,6 +4,7 @@
 import { requireAdminModulo, requireAcessoModulo } from "@/lib/auth";
 import { MODULOS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { registrarAuditoria } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 
 // Helper para converter tipos especiais do Prisma (BigInt/Dates) para objetos JS simples
@@ -58,7 +59,7 @@ export async function createPacienteJudicial(data) {
   const cleanCpf = (data.cpf || "").replace(/\D/g, "");
 
   try {
-    await requireAdminModulo(MODULOS.FARMACIA);
+    const user = await requireAdminModulo(MODULOS.FARMACIA);
 
     if (cleanCpf.length !== 11) {
       throw new Error("Selecione uma pessoa válida (CPF com 11 dígitos).");
@@ -109,6 +110,15 @@ export async function createPacienteJudicial(data) {
           }
         }
       }
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "SALVAR",
+      modulo: "FARMACIA_JUDICIAL",
+      entidade: "PacienteJudicial",
+      entidadeId: String(data.numeroPasta),
+      descricao: `Paciente judicial da pasta ${data.numeroPasta} salvo`,
     });
 
     revalidatePath("/camara-tecnica/farmacia-judicial");
@@ -183,12 +193,19 @@ export async function getCatalogoCompleto() {
 
 export async function createMedicamento(data) {
   try {
-    await requireAdminModulo(MODULOS.FARMACIA);
+    const user = await requireAdminModulo(MODULOS.FARMACIA);
 
     await prisma.$executeRaw`
       INSERT INTO public.farmacia_medicamentos (nome, tipo, dosagem, ativo)
       VALUES (${data.nome}, ${data.tipo}, ${data.dosagem}, true)
     `;
+    await registrarAuditoria({
+      user,
+      acao: "CRIAR",
+      modulo: "FARMACIA_JUDICIAL",
+      entidade: "Medicamento",
+      descricao: `Medicamento '${data.nome}' cadastrado`,
+    });
     revalidatePath("/camara-tecnica/farmacia-judicial");
     return { success: true };
   } catch (error) {
@@ -199,7 +216,7 @@ export async function createMedicamento(data) {
 
 export async function updateMedicamento(id, data) {
   try {
-    await requireAdminModulo(MODULOS.FARMACIA);
+    const user = await requireAdminModulo(MODULOS.FARMACIA);
 
     const medId = Number(id);
     if (!Number.isSafeInteger(medId) || medId <= 0) {
@@ -215,6 +232,15 @@ export async function updateMedicamento(id, data) {
       WHERE id = ${medId}
     `;
 
+    await registrarAuditoria({
+      user,
+      acao: "EDITAR",
+      modulo: "FARMACIA_JUDICIAL",
+      entidade: "Medicamento",
+      entidadeId: String(medId),
+      descricao: `Medicamento '${data.nome}' atualizado`,
+    });
+
     revalidatePath("/camara-tecnica/farmacia-judicial");
     return { success: true };
   } catch (error) {
@@ -225,7 +251,7 @@ export async function updateMedicamento(id, data) {
 
 export async function deleteMedicamento(id) {
   try {
-    await requireAdminModulo(MODULOS.FARMACIA);
+    const user = await requireAdminModulo(MODULOS.FARMACIA);
 
     const medId = Number(id);
     if (!Number.isSafeInteger(medId) || medId <= 0) {
@@ -238,6 +264,15 @@ export async function deleteMedicamento(id) {
       WHERE id = ${medId}
     `;
 
+    await registrarAuditoria({
+      user,
+      acao: "EXCLUIR",
+      modulo: "FARMACIA_JUDICIAL",
+      entidade: "Medicamento",
+      entidadeId: String(medId),
+      descricao: `Medicamento #${medId} desativado`,
+    });
+
     revalidatePath("/camara-tecnica/farmacia-judicial");
     return { success: true };
   } catch (error) {
@@ -248,7 +283,7 @@ export async function deleteMedicamento(id) {
 
 export async function createLoteMedicamento(data) {
   try {
-    await requireAdminModulo(MODULOS.FARMACIA);
+    const user = await requireAdminModulo(MODULOS.FARMACIA);
 
     await prisma.$executeRaw`
       INSERT INTO public.farmacia_lotes_medicamentos 
@@ -263,6 +298,14 @@ export async function createLoteMedicamento(data) {
         ${data.dataValidade}::date
       )
     `;
+    await registrarAuditoria({
+      user,
+      acao: "CRIAR",
+      modulo: "FARMACIA_JUDICIAL",
+      entidade: "LoteMedicamento",
+      descricao: `Entrada do lote '${data.numeroLote}' (medicamento #${Number(data.medicamentoId)})`,
+      detalhes: { medicamentoId: Number(data.medicamentoId), qtdInicial: Number(data.qtdInicial) },
+    });
     revalidatePath("/camara-tecnica/farmacia-judicial");
     return { success: true };
   } catch (error) {
@@ -273,7 +316,7 @@ export async function createLoteMedicamento(data) {
 
 export async function updateLoteMedicamento(loteId, data) {
   try {
-    await requireAdminModulo(MODULOS.FARMACIA);
+    const user = await requireAdminModulo(MODULOS.FARMACIA);
 
     const id = Number(loteId);
     if (!Number.isSafeInteger(id) || id <= 0) {
@@ -313,6 +356,16 @@ export async function updateLoteMedicamento(loteId, data) {
         data_validade = ${data.dataValidade}::date
       WHERE id = ${id}
     `;
+
+    await registrarAuditoria({
+      user,
+      acao: "EDITAR",
+      modulo: "FARMACIA_JUDICIAL",
+      entidade: "LoteMedicamento",
+      entidadeId: String(id),
+      descricao: `Lote '${data.numeroLote}' atualizado`,
+      detalhes: { qtdInicial },
+    });
 
     revalidatePath("/camara-tecnica/farmacia-judicial");
     return { success: true };
@@ -434,6 +487,16 @@ export async function ajustarEstoque(medicamentoId, data) {
         justificativa,
         responsavel,
       },
+    });
+
+    await registrarAuditoria({
+      user: session,
+      acao: "AJUSTAR",
+      modulo: "FARMACIA_JUDICIAL",
+      entidade: "Estoque",
+      entidadeId: String(id),
+      descricao: `Estoque do medicamento #${id} ajustado`,
+      detalhes: { saldoAnterior, saldoNovo, delta },
     });
 
     revalidatePath("/camara-tecnica/farmacia-judicial");
@@ -598,6 +661,16 @@ export async function registrarDispensacao(data) {
           throw new Error(`Estoque insuficiente para o medicamento solicitado.`);
         }
       }
+    });
+
+    await registrarAuditoria({
+      user: usuario,
+      acao: "DISPENSAR",
+      modulo: "FARMACIA_JUDICIAL",
+      entidade: "Dispensacao",
+      entidadeId: data.numeroPasta ? String(data.numeroPasta) : undefined,
+      descricao: `Dispensação registrada (pasta ${data.numeroPasta ?? "-"})`,
+      detalhes: { itens: data.itens.length },
     });
 
     revalidatePath("/camara-tecnica/farmacia-judicial");

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAcessoPessoas } from "@/lib/auth";
+import { registrarAuditoria } from "@/lib/audit";
 
 /**
  * GET /api/pessoas?q=searchTerm
@@ -64,7 +65,7 @@ export async function GET(req) {
  */
 export async function POST(req) {
   try {
-    await requireAcessoPessoas();
+    const user = await requireAcessoPessoas();
 
     const body = await req.json();
     const {
@@ -129,6 +130,15 @@ export async function POST(req) {
         enderecos: true,
         ubsReferencia: true,
       },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "CRIAR",
+      modulo: "GERENCIAMENTO",
+      entidade: "Pessoa",
+      entidadeId: String(pessoa.cpf),
+      descricao: `Pessoa '${pessoa.nomeCompleto}' cadastrada`,
     });
 
     return NextResponse.json({ success: true, data: pessoa });

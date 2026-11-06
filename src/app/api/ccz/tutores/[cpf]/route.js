@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAcessoModulo } from "@/lib/auth";
 import { MODULOS } from "@/lib/permissions";
+import { registrarAuditoria } from "@/lib/audit";
 
 // GET /api/ccz/tutores/[cpf] - obter dados completos de um tutor
 export async function GET(request, context) {
@@ -86,7 +87,7 @@ export async function GET(request, context) {
 // DELETE /api/ccz/tutores/[cpf] - excluir um tutor
 export async function DELETE(request, context) {
   try {
-    await requireAcessoModulo(MODULOS.CCZ);
+    const user = await requireAcessoModulo(MODULOS.CCZ);
 
     const params = await context.params;
     const cpf = params.cpf;
@@ -117,6 +118,15 @@ export async function DELETE(request, context) {
     // Remove o tutor
     await prisma.tutor.delete({
       where: { pessoaCpf: cpf },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "EXCLUIR",
+      modulo: "CCZ",
+      entidade: "Tutor",
+      entidadeId: cpf,
+      descricao: "Tutor excluído",
     });
 
     return NextResponse.json({ success: true });

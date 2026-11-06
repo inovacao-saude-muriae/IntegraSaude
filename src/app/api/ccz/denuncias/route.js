@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAcessoModulo } from "@/lib/auth";
 import { MODULOS } from "@/lib/permissions";
+import { registrarAuditoria } from "@/lib/audit";
 
 export async function GET(request) {
   try {
@@ -32,7 +33,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    await requireAcessoModulo(MODULOS.CCZ);
+    const user = await requireAcessoModulo(MODULOS.CCZ);
 
     const dados = await request.json();
 
@@ -70,6 +71,16 @@ export async function POST(request) {
       include: {
         animal: true,
       },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "CRIAR",
+      modulo: "CCZ",
+      entidade: "Denuncia",
+      entidadeId: novoId,
+      descricao: `Denúncia ${novoId} registrada`,
+      detalhes: { tipo: denuncia.tipo },
     });
 
     return NextResponse.json(denuncia);

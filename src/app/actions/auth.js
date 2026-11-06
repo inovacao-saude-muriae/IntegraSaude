@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { cookies, headers } from "next/headers";
 import { SignJWT } from "jose";
+import { registrarAuditoria } from "@/lib/audit";
 
 // Sistema de rate limiting in-memory
 const loginAttempts = new Map();
@@ -195,6 +196,16 @@ export async function loginAction(formData) {
       sameSite: "lax",
       expires: expiresAt,
       path: "/",
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "LOGIN",
+      modulo: "AUTH",
+      entidade: "Sessão",
+      entidadeId: user.cpf,
+      descricao: "Login realizado",
+      ip,
     });
 
     return { success: true, role: user.role };

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Role } from '@prisma/client';
 import { requireGestor } from '@/lib/auth';
+import { registrarAuditoria } from '@/lib/audit';
 import bcrypt from 'bcryptjs';
 
 const ROLES_VALIDAS = Object.values(Role);
@@ -46,7 +47,7 @@ function mapearRoleParaAcessos(role) {
 
 export async function POST(request) {
   try {
-    await requireGestor();
+    const gestor = await requireGestor();
     const body = await request.json();
     const { cpf, nomeCompleto, role, cargo } = body;
 
@@ -66,6 +67,12 @@ export async function POST(request) {
 
     // Mapeia a role para os vínculos de acesso
     const acessos = mapearRoleParaAcessos(role);
+
+    // Somente leitura, usada apenas para distinguir criação/edição/reativação na auditoria.
+    const existenteAntes = await prisma.user.findUnique({
+      where: { cpf: cpfLimpo },
+      select: { ativo: true },
+    });
 
     // Usa transaction para criar usuário + vínculos atomicamente
     const user = await prisma.$transaction(async (tx) => {
@@ -107,6 +114,24 @@ export async function POST(request) {
       }
 
       return user;
+    });
+
+    await registrarAuditoria({
+      user: gestor,
+      acao: !existenteAntes ? 'CRIAR' : existenteAntes.ativo === false ? 'REATIVAR' : 'EDITAR',
+      modulo: 'GERENCIAMENTO',
+      entidade: 'Usuario',
+      entidadeId: user.cpf,
+      descricao: !existenteAntes
+        ? `Usuário '${user.nome}' criado`
+        : `Usuário '${user.nome}' existente atualizado (perfil, acessos e credencial inicial redefinidos)`,
+      detalhes: {
+        role: user.role,
+        cargo: cargo || null,
+        acessos: acessos
+          .map((a) => `${a.modulo}:${a.nivel}${a.servicoJunta ? `:${a.servicoJunta}` : ''}`)
+          .join(', '),
+      },
     });
 
     return NextResponse.json(

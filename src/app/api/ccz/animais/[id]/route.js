@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAcessoModulo } from "@/lib/auth";
 import { MODULOS } from "@/lib/permissions";
+import { registrarAuditoria } from "@/lib/audit";
 
 const formatarData = (data) => {
   if (!data) return null;
@@ -79,7 +80,7 @@ export async function GET(request, context) {
 // DELETE /api/ccz/animais/[id] - excluir um animal
 export async function DELETE(request, context) {
   try {
-    await requireAcessoModulo(MODULOS.CCZ);
+    const user = await requireAcessoModulo(MODULOS.CCZ);
 
     const { params } = context;
     const id = decodeURIComponent(params.id);
@@ -119,6 +120,15 @@ export async function DELETE(request, context) {
     // Remove o animal
     await prisma.animal.delete({
       where: { id },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "EXCLUIR",
+      modulo: "CCZ",
+      entidade: "Animal",
+      entidadeId: id,
+      descricao: `Animal '${animal.nome || id}' excluído`,
     });
 
     return NextResponse.json({ success: true });

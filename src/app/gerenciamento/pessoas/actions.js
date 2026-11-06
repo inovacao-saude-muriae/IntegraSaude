@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireAcessoPessoas } from "@/lib/auth";
+import { registrarAuditoria } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import {
   soDigitos,
@@ -106,7 +107,7 @@ export async function listarPessoas(termo = "") {
 // ── CRIAR ──────────────────────────────────────────────────────────────────
 export async function criarPessoa(data) {
   try {
-    await requireAcessoPessoas();
+    const user = await requireAcessoPessoas();
 
     // Valida os dígitos verificadores do CPF antes de cadastrar.
     if (!validarCpf(data.cpf)) {
@@ -128,6 +129,15 @@ export async function criarPessoa(data) {
       await gravarEnderecoTx(tx, pessoaData.cpf, data);
     });
 
+    await registrarAuditoria({
+      user,
+      acao: "CRIAR",
+      modulo: "GERENCIAMENTO",
+      entidade: "Pessoa",
+      entidadeId: pessoaData.cpf,
+      descricao: `Pessoa '${pessoaData.nomeCompleto || pessoaData.cpf}' cadastrada`,
+    });
+
     revalidatePath("/gerenciamento/pessoas");
     return { success: true };
   } catch (error) {
@@ -145,12 +155,21 @@ export async function criarPessoa(data) {
 // ── ATUALIZAR ────────────────────────────────────────────────────────────
 export async function atualizarPessoa(cpfOriginal, data) {
   try {
-    await requireAcessoPessoas();
+    const user = await requireAcessoPessoas();
     const cpf = soDigitos(cpfOriginal);
 
     await prisma.$transaction(async (tx) => {
       await atualizarPessoaTx(tx, cpf, data);
       await gravarEnderecoTx(tx, cpf, data);
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "EDITAR",
+      modulo: "GERENCIAMENTO",
+      entidade: "Pessoa",
+      entidadeId: cpf,
+      descricao: "Pessoa atualizada",
     });
 
     revalidatePath("/gerenciamento/pessoas");
@@ -170,12 +189,21 @@ export async function atualizarPessoa(cpfOriginal, data) {
 // ── EXCLUIR ──────────────────────────────────────────────────────────────
 export async function excluirPessoa(cpf) {
   try {
-    await requireAcessoPessoas();
+    const user = await requireAcessoPessoas();
     const cpfLimpo = soDigitos(cpf);
 
     await prisma.$transaction(async (tx) => {
       await tx.endereco.deleteMany({ where: { pessoaCpf: cpfLimpo } });
       await tx.pessoa.delete({ where: { cpf: cpfLimpo } });
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "EXCLUIR",
+      modulo: "GERENCIAMENTO",
+      entidade: "Pessoa",
+      entidadeId: cpfLimpo,
+      descricao: "Pessoa excluída",
     });
 
     revalidatePath("/gerenciamento/pessoas");

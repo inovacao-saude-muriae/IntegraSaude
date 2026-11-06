@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireAcessoModulo } from "@/lib/auth";
+import { registrarAuditoria } from "@/lib/audit";
 import { MODULOS } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import {
@@ -227,7 +228,7 @@ export async function obterAnimal(id) {
 // ── EXCLUIR ANIMAL ──────────────────────────────────────────────────────────
 export async function excluirAnimal(id) {
   try {
-    await requireAcessoModulo(MODULOS.CCZ);
+    const user = await requireAcessoModulo(MODULOS.CCZ);
 
     const animalId = String(id || "").trim();
     if (!animalId) return { success: false, error: "ID do animal não informado." };
@@ -266,6 +267,15 @@ export async function excluirAnimal(id) {
       where: { id: animalId },
     });
 
+    await registrarAuditoria({
+      user,
+      acao: "EXCLUIR",
+      modulo: "CCZ",
+      entidade: "Animal",
+      entidadeId: animalId,
+      descricao: `Animal '${animal.nome || animalId}' excluído`,
+    });
+
     revalidatePath("/ccz");
     return { success: true };
   } catch (error) {
@@ -280,7 +290,7 @@ export async function excluirAnimal(id) {
 // ── SALVAR TUTOR (Pessoa + Endereço + ccz_tutores) ──────────────────────────
 export async function salvarTutor(dados) {
   try {
-    await requireAcessoModulo(MODULOS.CCZ);
+    const user = await requireAcessoModulo(MODULOS.CCZ);
 
     if (!validarCpf(dados.cpf)) {
       return { success: false, error: "CPF inválido. Verifique os dígitos informados." };
@@ -333,6 +343,15 @@ export async function salvarTutor(dados) {
         update: dadosTutor,
         create: { pessoaCpf: cpf, ...dadosTutor },
       });
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: dados.jaEhTutor ? "EDITAR" : "CRIAR",
+      modulo: "CCZ",
+      entidade: "Tutor",
+      entidadeId: cpf,
+      descricao: `Tutor '${String(dados.nomeCompleto).trim()}' ${dados.jaEhTutor ? "atualizado" : "cadastrado"}`,
     });
 
     revalidatePath("/ccz");
@@ -503,7 +522,7 @@ export async function buscarAnimaisCCZ(termo = "") {
 // ── SALVAR ANIMAL (ccz_animais) ─────────────────────────────────────────────
 export async function salvarAnimal(dados) {
   try {
-    await requireAcessoModulo(MODULOS.CCZ);
+    const user = await requireAcessoModulo(MODULOS.CCZ);
 
     // Id do animal: digitado pelo usuário (NÃO há geração automática). É PK
     // obrigatória e não pode ficar em branco. Normaliza (maiúsculas, até 50).
@@ -615,6 +634,16 @@ export async function salvarAnimal(dados) {
         update: dadosAnimal,
         create: { id, ...dadosAnimal },
       });
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: editando ? "EDITAR" : "CRIAR",
+      modulo: "CCZ",
+      entidade: "Animal",
+      entidadeId: id,
+      descricao: `Animal '${dadosAnimal.nome || id}' ${editando ? "atualizado" : "cadastrado"}`,
+      detalhes: { situacao: dadosAnimal.situacao },
     });
 
     revalidatePath("/ccz");
@@ -957,7 +986,7 @@ const dateParaYMD = (data) => (data ? new Date(data).toISOString().slice(0, 10) 
 // ── SALVAR PROCEDIMENTO (cria ou atualiza) ──────────────────────────────────
 export async function salvarProcedimento(dados) {
   try {
-    await requireAcessoModulo(MODULOS.CCZ);
+    const user = await requireAcessoModulo(MODULOS.CCZ);
 
     const animalId = String(dados.animalId || "").trim();
     if (!animalId) return { success: false, error: "Selecione o animal." };
@@ -1007,6 +1036,16 @@ export async function salvarProcedimento(dados) {
       where: { id },
       update: dadosProc,
       create: { id, ...dadosProc },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: idInformado ? "EDITAR" : "CRIAR",
+      modulo: "CCZ",
+      entidade: "Procedimento",
+      entidadeId: id,
+      descricao: `Procedimento '${tipo}' ${idInformado ? "atualizado" : "cadastrado"} (animal ${animalId})`,
+      detalhes: { tipo, status },
     });
 
     revalidatePath("/ccz");
@@ -1150,7 +1189,7 @@ export async function obterProcedimento(id) {
 // ── EXCLUIR PROCEDIMENTO ────────────────────────────────────────────────────
 export async function excluirProcedimento(id) {
   try {
-    await requireAcessoModulo(MODULOS.CCZ);
+    const user = await requireAcessoModulo(MODULOS.CCZ);
 
     const procId = String(id || "").trim();
     if (!procId) return { success: false, error: "ID do procedimento não informado." };
@@ -1167,6 +1206,15 @@ export async function excluirProcedimento(id) {
     // Remove o procedimento
     await prisma.cadastroProcedimento.delete({
       where: { id: procId },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "EXCLUIR",
+      modulo: "CCZ",
+      entidade: "Procedimento",
+      entidadeId: procId,
+      descricao: `Procedimento '${procedimento.tipo}' excluído (animal ${procedimento.animalId})`,
     });
 
     revalidatePath("/ccz");
@@ -1403,7 +1451,7 @@ export async function obterDadosTermoInternacao(procedimentoId) {
 // Salva (cria ou atualiza) o termo de internação de um procedimento.
 export async function salvarTermoInternacao(dados) {
   try {
-    await requireAcessoModulo(MODULOS.CCZ);
+    const user = await requireAcessoModulo(MODULOS.CCZ);
 
     const procId = String(dados.procedimentoId || "").trim();
     if (!procId) return { success: false, error: "Procedimento não informado." };
@@ -1442,6 +1490,15 @@ export async function salvarTermoInternacao(dados) {
       create: { procedimentoId: procId, ...dadosTermo },
     });
 
+    await registrarAuditoria({
+      user,
+      acao: "SALVAR",
+      modulo: "CCZ",
+      entidade: "TermoInternacao",
+      entidadeId: procId,
+      descricao: `Termo de internação salvo (animal ${proc.animalId})`,
+    });
+
     revalidatePath("/ccz");
     return { success: true };
   } catch (error) {
@@ -1471,7 +1528,7 @@ const simNao = (v) => (v === "Sim" ? "Sim" : "Não");
 // ── SALVAR ESPOROTRICOSE (cria ou atualiza) ─────────────────────────────────
 export async function salvarEsporotricose(dados) {
   try {
-    await requireAcessoModulo(MODULOS.CCZ);
+    const user = await requireAcessoModulo(MODULOS.CCZ);
 
     const animalId = String(dados.animalId || "").trim();
     if (!animalId) return { success: false, error: "Selecione o animal." };
@@ -1580,6 +1637,15 @@ export async function salvarEsporotricose(dados) {
           })),
         });
       }
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: idInformado ? "EDITAR" : "CRIAR",
+      modulo: "CCZ",
+      entidade: "Esporotricose",
+      entidadeId: id,
+      descricao: `Registro de esporotricose ${idInformado ? "atualizado" : "cadastrado"} (animal ${animalId})`,
     });
 
     // Revalida MÚLTIPLAS rotas para garantir atualização
@@ -1790,7 +1856,7 @@ export async function obterEsporotricose(id) {
 export async function excluirEsporotricose(id) {
   "use server";
   try {
-    await requireAcessoModulo(MODULOS.CCZ);
+    const user = await requireAcessoModulo(MODULOS.CCZ);
 
     const regId = String(id || "").trim();
     if (!regId) return { success: false, error: "ID não informado." };
@@ -1807,6 +1873,15 @@ export async function excluirEsporotricose(id) {
     // Remove o registro (as visitas e relatórios devem ser removidos em cascata pelo schema)
     await prisma.esporotricose.delete({
       where: { id: regId },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "EXCLUIR",
+      modulo: "CCZ",
+      entidade: "Esporotricose",
+      entidadeId: regId,
+      descricao: `Registro de esporotricose excluído (animal ${registro.animalId})`,
     });
 
     revalidatePath("/ccz");
@@ -1851,6 +1926,15 @@ export async function encerrarEsporotricose(id) {
       },
     });
 
+    await registrarAuditoria({
+      user,
+      acao: "ENCERRAR",
+      modulo: "CCZ",
+      entidade: "Esporotricose",
+      entidadeId: regId,
+      descricao: "Caso de esporotricose encerrado",
+    });
+
     revalidatePath("/ccz");
     return { success: true };
   } catch (error) {
@@ -1867,7 +1951,7 @@ export async function encerrarEsporotricose(id) {
 // limpando a data e o responsável pelo encerramento. Não altera a incineração.
 export async function reabrirEsporotricose(id) {
   try {
-    await requireAcessoModulo(MODULOS.CCZ);
+    const user = await requireAcessoModulo(MODULOS.CCZ);
 
     const regId = String(id || "").trim();
     if (!regId) return { success: false, error: "ID não informado." };
@@ -1893,6 +1977,15 @@ export async function reabrirEsporotricose(id) {
       },
     });
 
+    await registrarAuditoria({
+      user,
+      acao: "REABRIR",
+      modulo: "CCZ",
+      entidade: "Esporotricose",
+      entidadeId: regId,
+      descricao: "Caso de esporotricose reaberto",
+    });
+
     revalidatePath("/ccz");
     return { success: true };
   } catch (error) {
@@ -1911,7 +2004,7 @@ export async function reabrirEsporotricose(id) {
 // contrário, limpa a data.
 export async function registrarIncineracaoEsporotricose(id, valor) {
   try {
-    await requireAcessoModulo(MODULOS.CCZ);
+    const user = await requireAcessoModulo(MODULOS.CCZ);
 
     const regId = String(id || "").trim();
     if (!regId) return { success: false, error: "ID não informado." };
@@ -1936,6 +2029,15 @@ export async function registrarIncineracaoEsporotricose(id, valor) {
       },
     });
 
+    await registrarAuditoria({
+      user,
+      acao: "OUTRO",
+      modulo: "CCZ",
+      entidade: "Esporotricose",
+      entidadeId: regId,
+      descricao: "Incineração registrada",
+    });
+
     revalidatePath("/ccz");
     return { success: true };
   } catch (error) {
@@ -1958,7 +2060,7 @@ export async function registrarIncineracaoEsporotricose(id, valor) {
 // ── SALVAR RELATÓRIO DE VISITA ──────────────────────────────────────────────
 export async function salvarRelatorioVisita(dados) {
   try {
-    await requireAcessoModulo(MODULOS.CCZ);
+    const user = await requireAcessoModulo(MODULOS.CCZ);
 
     const visitaId = String(dados.visitaId || "").trim();
     if (!visitaId) return { success: false, error: "ID da visita não informado." };
@@ -2069,6 +2171,15 @@ export async function salvarRelatorioVisita(dados) {
       }
     }
 
+    await registrarAuditoria({
+      user,
+      acao: "SALVAR",
+      modulo: "CCZ",
+      entidade: "RelatorioVisita",
+      entidadeId: visitaId,
+      descricao: "Relatório de visita de esporotricose salvo",
+    });
+
     revalidatePath("/ccz");
     revalidatePath("/ccz", "layout");
 
@@ -2149,7 +2260,7 @@ export async function obterRelatorioVisita(visitaId) {
 // ── SALVAR DENÚNCIA ──────────────────────────────────────────────────────────
 export async function salvarDenuncia(dados) {
   try {
-    await requireAcessoModulo(MODULOS.CCZ);
+    const user = await requireAcessoModulo(MODULOS.CCZ);
 
     // Gerar próximo ID no formato DEN-XX
     const denuncias = await prisma.denunciaCaoAgressivo.findMany({
@@ -2193,6 +2304,16 @@ export async function salvarDenuncia(dados) {
         relato: dados.relato,
         tipo: dados.tipo || "AGRESSIVO",
       },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "CRIAR",
+      modulo: "CCZ",
+      entidade: "Denuncia",
+      entidadeId: novoId,
+      descricao: `Denúncia ${novoId} registrada`,
+      detalhes: { tipo: denuncia.tipo },
     });
 
     revalidatePath("/ccz");

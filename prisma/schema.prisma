@@ -622,3 +622,20 @@ model PedidoExameHistorico {
   @@index([dataHora], map: "idx_historico_data")
   @@map("regula_pedidos_historico")
 }
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  userCpf    String   @map("user_cpf") @db.VarChar(11)
+  userNome   String   @map("user_nome") @db.VarChar(150)
+  acao       String   @db.VarChar(30)
+  modulo     String   @db.VarChar(40)
+  entidade   String   @db.VarChar(60)
+  entidadeId String?  @map("entidade_id") @db.VarChar(100)
+  descricao  String?  @db.VarChar(500)
+  detalhes   Json?
+  ip         String?  @db.VarChar(60)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  @@index([userCpf, createdAt], map: "idx_audit_user_data")
+  @@index([modulo, createdAt], map: "idx_audit_modulo_data")
+  @@index([createdAt], map: "idx_audit_data")
+  @@map("audit_logs")
+}

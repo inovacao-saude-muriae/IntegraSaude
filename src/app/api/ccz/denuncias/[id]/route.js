@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAcessoModulo } from "@/lib/auth";
 import { MODULOS } from "@/lib/permissions";
+import { registrarAuditoria } from "@/lib/audit";
 
 export async function GET(request, context) {
   try {
@@ -101,7 +102,7 @@ export async function GET(request, context) {
 
 export async function PUT(request, context) {
   try {
-    await requireAcessoModulo(MODULOS.CCZ);
+    const user = await requireAcessoModulo(MODULOS.CCZ);
 
     const params = await context.params;
     const { id } = params;
@@ -117,6 +118,15 @@ export async function PUT(request, context) {
       },
     });
 
+    await registrarAuditoria({
+      user,
+      acao: "EDITAR",
+      modulo: "CCZ",
+      entidade: "Denuncia",
+      entidadeId: id,
+      descricao: `Denúncia ${id} atualizada`,
+    });
+
     return NextResponse.json(denuncia);
   } catch (error) {
     console.error("Erro ao atualizar denúncia:", error);
@@ -129,7 +139,7 @@ export async function PUT(request, context) {
 
 export async function DELETE(request, context) {
   try {
-    await requireAcessoModulo(MODULOS.CCZ);
+    const user = await requireAcessoModulo(MODULOS.CCZ);
 
     const params = await context.params;
     const { id } = params;
@@ -147,6 +157,15 @@ export async function DELETE(request, context) {
 
     await prisma.denunciaCaoAgressivo.delete({
       where: { id },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "EXCLUIR",
+      modulo: "CCZ",
+      entidade: "Denuncia",
+      entidadeId: id,
+      descricao: `Denúncia ${id} excluída`,
     });
 
     return NextResponse.json({ 

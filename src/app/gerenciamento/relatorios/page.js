@@ -5,7 +5,9 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { documentoPaciente } from "@/app/regulacao/constants";
 import { mascararTelefone } from "@/lib/telefone";
+import AuditoriaUsuario from "@/components/admin/AuditoriaUsuario";
 import styles from "./RelatoriosGerais.module.css";
+import abasStyles from "./RelatoriosAbas.module.css";
 
 // Ordem fixa dos módulos para agrupar a timeline e as tabelas do PDF.
 const ORDEM_MODULOS = [
@@ -35,7 +37,61 @@ const formatarStatusFarmacia = (status) => {
   return st.charAt(0) + st.slice(1).toLowerCase();
 };
 
+// Página com abas: a aba de auditoria só aparece para GESTOR. Para os demais
+// perfis, renderiza apenas o relatório do paciente (comportamento original).
 export default function RelatoriosGeraisPage() {
+  const [ehGestor, setEhGestor] = useState(false);
+  const [aba, setAba] = useState("paciente");
+
+  useEffect(() => {
+    let cancelado = false;
+    fetch("/api/me", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((dados) => {
+        if (!cancelado && dados?.user?.role === "GESTOR") setEhGestor(true);
+      })
+      .catch(() => {});
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  if (!ehGestor) return <RelatorioPacienteView />;
+
+  return (
+    <>
+      <div className={abasStyles.abas} role="tablist" aria-label="Relatórios gerais">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={aba === "paciente"}
+          className={aba === "paciente" ? abasStyles.abaAtiva : abasStyles.aba}
+          onClick={() => setAba("paciente")}
+        >
+          Relatório do paciente
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={aba === "auditoria"}
+          className={aba === "auditoria" ? abasStyles.abaAtiva : abasStyles.aba}
+          onClick={() => setAba("auditoria")}
+        >
+          Auditoria de usuário
+        </button>
+      </div>
+      {aba === "paciente" ? (
+        <RelatorioPacienteView />
+      ) : (
+        <div className={abasStyles.painelAuditoria}>
+          <AuditoriaUsuario />
+        </div>
+      )}
+    </>
+  );
+}
+
+function RelatorioPacienteView() {
   const [usuarios, setUsuarios] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");

@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { requireAcessoModulo } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { MODULOS } from "@/lib/permissions";
+import { registrarAuditoria } from "@/lib/audit";
 
 export async function POST(req) {
   try {
-    await requireAcessoModulo(MODULOS.CCZ);
+    const user = await requireAcessoModulo(MODULOS.CCZ);
 
     const { animalId, tipo, data, observacao } = await req.json();
 
@@ -44,6 +45,16 @@ export async function POST(req) {
         status: "Agendado",
         descricao: observacao || null,
       },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "CRIAR",
+      modulo: "CCZ",
+      entidade: "Procedimento",
+      entidadeId: procedimento.id,
+      descricao: `Procedimento '${procedimento.tipo}' agendado (animal ${procedimento.animalId})`,
+      detalhes: { tipo: procedimento.tipo },
     });
 
     return NextResponse.json({

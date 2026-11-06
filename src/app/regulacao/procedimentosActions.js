@@ -3,6 +3,7 @@
 import { requireAdminModulo } from "@/lib/auth";
 import { MODULOS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { registrarAuditoria } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 
 // Tipos de exame / procedimentos pertencem à Regulação (design §4.4).
@@ -88,15 +89,27 @@ export async function getProcedimentosData() {
 // Cria um registro. Tipo de exame obrigatório (id ou nome novo); procedimento opcional.
 export async function createRegistro(data) {
   try {
-    await requireAdminModulo(MODULOS.REGULACAO);
+    const user = await requireAdminModulo(MODULOS.REGULACAO);
     const tipoExameId = await resolverTipoExameId(data);
 
     const procedimentoNome = (data.procedimentoNome || "").trim();
+    let procedimentoCriado = null;
     if (procedimentoNome) {
-      await prisma.procedimento.create({
+      procedimentoCriado = await prisma.procedimento.create({
         data: { nome: procedimentoNome, valor: parseValor(data.valor), tipoExameId },
       });
     }
+
+    await registrarAuditoria({
+      user,
+      acao: "CRIAR",
+      modulo: "REGULACAO",
+      entidade: procedimentoCriado ? "Procedimento" : "TipoExame",
+      entidadeId: String(procedimentoCriado ? procedimentoCriado.id : tipoExameId),
+      descricao: procedimentoCriado
+        ? `Procedimento '${procedimentoNome}' cadastrado`
+        : `Tipo de exame #${tipoExameId} cadastrado`,
+    });
 
     revalidatePath("/regulacao");
     return { success: true };
@@ -108,7 +121,7 @@ export async function createRegistro(data) {
 
 export async function updateRegistro(linha, data) {
   try {
-    await requireAdminModulo(MODULOS.REGULACAO);
+    const user = await requireAdminModulo(MODULOS.REGULACAO);
     const tipoExameId = await resolverTipoExameId(data);
     const procedimentoNome = (data.procedimentoNome || "").trim();
 
@@ -131,6 +144,17 @@ export async function updateRegistro(linha, data) {
       });
     }
 
+    await registrarAuditoria({
+      user,
+      acao: "EDITAR",
+      modulo: "REGULACAO",
+      entidade: linha.procedimentoId ? "Procedimento" : "TipoExame",
+      entidadeId: String(linha.procedimentoId || tipoExameId),
+      descricao: linha.procedimentoId
+        ? `Procedimento #${linha.procedimentoId} atualizado`
+        : `Tipo de exame #${tipoExameId} atualizado`,
+    });
+
     revalidatePath("/regulacao");
     return { success: true };
   } catch (error) {
@@ -141,7 +165,7 @@ export async function updateRegistro(linha, data) {
 
 export async function deleteRegistro(linha) {
   try {
-    await requireAdminModulo(MODULOS.REGULACAO);
+    const user = await requireAdminModulo(MODULOS.REGULACAO);
 
     if (linha.procedimentoId) {
       await prisma.procedimento.delete({
@@ -150,6 +174,17 @@ export async function deleteRegistro(linha) {
     } else {
       await prisma.tipoExame.delete({ where: { id: Number(linha.tipoExameId) } });
     }
+
+    await registrarAuditoria({
+      user,
+      acao: "EXCLUIR",
+      modulo: "REGULACAO",
+      entidade: linha.procedimentoId ? "Procedimento" : "TipoExame",
+      entidadeId: String(linha.procedimentoId || linha.tipoExameId),
+      descricao: linha.procedimentoId
+        ? `Procedimento #${linha.procedimentoId} excluído`
+        : `Tipo de exame #${linha.tipoExameId} excluído`,
+    });
 
     revalidatePath("/regulacao");
     return { success: true };

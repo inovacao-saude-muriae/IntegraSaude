@@ -1,6 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import { registrarAuditoria } from '@/lib/audit';
 import { revalidatePath } from 'next/cache';
 import {
   requireAcessoModulo,
@@ -111,7 +112,7 @@ export async function cadastrarPacienteJunta(data) {
   try {
     // Cadastro de paciente é ato administrativo da Junta e cria Servico
     // on-the-fly: nunca liberar a OPERADOR (design §2.6).
-    await requireAdminModulo(MODULOS.JUNTA);
+    const user = await requireAdminModulo(MODULOS.JUNTA);
     const { cpf, tipoDeficiencia, locaisEncaminhados = [] } = data;
 
     const cpfClean = (cpf || '').replace(/\D/g, '').slice(0, 11);
@@ -174,6 +175,15 @@ export async function cadastrarPacienteJunta(data) {
       }
 
       return paciente;
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: 'SALVAR',
+      modulo: 'JUNTA',
+      entidade: 'PacienteJunta',
+      entidadeId: String(pacienteJunta.id),
+      descricao: `Paciente #${pacienteJunta.id} da Junta salvo`,
     });
 
     return { success: true, id: pacienteJunta.id };
@@ -353,7 +363,7 @@ export async function registrarAtendimentoServico(data) {
 
     // Escrita por serviço: nome mapeado exige o sub-serviço; não mapeado exige
     // ADMIN da Junta (operador nunca cria serviço on-the-fly) — design §2.6.
-    await requireEscritaServicoJuntaPorNome(nomeDoServico);
+    const user = await requireEscritaServicoJuntaPorNome(nomeDoServico);
 
     let juntaServico = await prisma.servico.findFirst({
       where: { nome: { equals: nomeDoServico, mode: 'insensitive' } },
@@ -388,7 +398,9 @@ export async function registrarAtendimentoServico(data) {
       },
     });
 
+    let atendimentoId;
     if (existente) {
+      atendimentoId = existente.id;
       // Edição: atualiza o registro existente (não cria outro no relatório).
       await prisma.juntaAtendimento.update({
         where: { id: existente.id },
@@ -399,7 +411,7 @@ export async function registrarAtendimentoServico(data) {
         },
       });
     } else {
-      await prisma.juntaAtendimento.create({
+      const criado = await prisma.juntaAtendimento.create({
         data: {
           pacienteJuntaId: Number(idDoPaciente),
           servicoId: juntaServico.id,
@@ -410,7 +422,18 @@ export async function registrarAtendimentoServico(data) {
           profissionalResponsavel: profissional || null,
         },
       });
+      atendimentoId = criado.id;
     }
+
+    await registrarAuditoria({
+      user,
+      acao: existente ? 'EDITAR' : 'CRIAR',
+      modulo: 'JUNTA',
+      entidade: 'Atendimento',
+      entidadeId: String(atendimentoId),
+      descricao: `Atendimento ${existente ? 'atualizado' : 'registrado'} (${juntaServico.nome})`,
+      detalhes: { status: status || 'PRESENCA' },
+    });
 
     revalidatePath('/junta-reguladora');
     return { success: true };
@@ -809,7 +832,7 @@ export async function getAgendamentosDoDia(servicoNome, dataYMD) {
 export async function criarAgendamentoJunta(dados) {
   try {
     // Escrita por serviço: valida o sub-serviço antes de resolver/criar o Servico.
-    await requireEscritaServicoJuntaPorNome(dados.servicoNome);
+    const user = await requireEscritaServicoJuntaPorNome(dados.servicoNome);
     const servicoId = await resolverServicoIdPorNome(dados.servicoNome);
 
     const pacienteJuntaId = Number(dados.pacienteJuntaId);
@@ -818,7 +841,7 @@ export async function criarAgendamentoJunta(dados) {
     if (!dados.data) return { success: false, error: 'Informe a data.' };
     if (!dados.hora) return { success: false, error: 'Informe o horário.' };
 
-    await prisma.agendamentoJunta.create({
+    const agendamentoCriado = await prisma.agendamentoJunta.create({
       data: {
         servicoId,
         pacienteJuntaId,
@@ -827,6 +850,15 @@ export async function criarAgendamentoJunta(dados) {
         hora: dados.hora,
         observacao: dados.observacao || null,
       },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: 'CRIAR',
+      modulo: 'JUNTA',
+      entidade: 'Agendamento',
+      entidadeId: String(agendamentoCriado.id),
+      descricao: `Agendamento criado (${dados.servicoNome}, ${dados.especialidade})`,
     });
 
     return { success: true };
@@ -852,9 +884,19 @@ export async function excluirAgendamentoJunta(id) {
     });
     if (!agendamento) return { success: false, error: 'Agendamento inválido.' };
 
-    await requireEscritaServicoJuntaPorNome(agendamento.servico?.nome || '');
+    const user = await requireEscritaServicoJuntaPorNome(agendamento.servico?.nome || '');
 
     await prisma.agendamentoJunta.delete({ where: { id: agId } });
+
+    await registrarAuditoria({
+      user,
+      acao: 'EXCLUIR',
+      modulo: 'JUNTA',
+      entidade: 'Agendamento',
+      entidadeId: String(agId),
+      descricao: `Agendamento #${agId} excluído`,
+    });
+
     return { success: true };
   } catch (error) {
     console.error('Erro ao excluir agendamento:', error);

@@ -7,6 +7,7 @@ import {
 } from "@/lib/auth";
 import { MODULOS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { registrarAuditoria } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import {
   criarPessoaTx,
@@ -344,6 +345,7 @@ export async function searchPessoasAutocomplete(term) {
 // 5. Salvar Novo Pedido
 export async function createPedidoExame(data) {
   try {
+    const user = await requireAcessoModulo(MODULOS.REGULACAO);
     const newRecord = await prisma.pedidoExame.create({
       data: {
         pessoaCpf: data.cpf,
@@ -362,6 +364,15 @@ export async function createPedidoExame(data) {
       },
     });
 
+    await registrarAuditoria({
+      user,
+      acao: "CRIAR",
+      modulo: "REGULACAO",
+      entidade: "PedidoExame",
+      entidadeId: String(newRecord.id),
+      descricao: `Pedido de exame #${newRecord.id} criado`,
+    });
+
     revalidatePath("/regulacao");
     return { success: true, data: newRecord };
   } catch (error) {
@@ -375,6 +386,7 @@ export async function createPedidoExame(data) {
 // lógica antiga de marcar ENVIADO/PENDENTE conforme a data.
 export async function updateCommunicationDate(idStr, dateStr, extra = {}) {
   try {
+    const user = await requireAcessoModulo(MODULOS.REGULACAO);
     const numericId = Number(String(idStr).replace(/\D/g, ""));
 
     const data = {
@@ -392,6 +404,16 @@ export async function updateCommunicationDate(idStr, dateStr, extra = {}) {
       data,
     });
 
+    await registrarAuditoria({
+      user,
+      acao: "EDITAR",
+      modulo: "REGULACAO",
+      entidade: "PedidoExame",
+      entidadeId: String(numericId),
+      descricao: `Comunicação do pedido #${numericId} atualizada`,
+      detalhes: { statusComunicacao: data.statusComunicacao },
+    });
+
     revalidatePath("/regulacao");
     return { success: true };
   } catch (error) {
@@ -403,6 +425,7 @@ export async function updateCommunicationDate(idStr, dateStr, extra = {}) {
 // 7. Liberar Paciente
 export async function releasePaciente(idStr, releaseData) {
   try {
+    const user = await requireAcessoModulo(MODULOS.REGULACAO);
     const numericId = Number(String(idStr).replace(/\D/g, ""));
     await prisma.pedidoExame.update({
       where: { id: numericId },
@@ -420,6 +443,15 @@ export async function releasePaciente(idStr, releaseData) {
       },
     });
 
+    await registrarAuditoria({
+      user,
+      acao: "LIBERAR",
+      modulo: "REGULACAO",
+      entidade: "PedidoExame",
+      entidadeId: String(numericId),
+      descricao: `Pedido de exame #${numericId} liberado`,
+    });
+
     revalidatePath("/regulacao");
     return { success: true };
   } catch (error) {
@@ -431,12 +463,21 @@ export async function releasePaciente(idStr, releaseData) {
 // 8. Cadastrar Nova Pessoa / Paciente
 export async function createPessoa(data) {
   try {
-    await requireAcessoPessoas();
+    const user = await requireAcessoPessoas();
     const result = await prisma.$transaction(async (tx) => {
       // criarPessoaTx grava todos os campos obrigatórios (inclui sexo e cns).
       const pessoa = await criarPessoaTx(tx, data);
       await gravarEnderecoTx(tx, pessoa.cpf, data);
       return pessoa;
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "CRIAR",
+      modulo: "REGULACAO",
+      entidade: "Pessoa",
+      entidadeId: String(result.cpf),
+      descricao: `Pessoa '${result.nomeCompleto || result.cpf}' cadastrada`,
     });
 
     revalidatePath("/regulacao");
@@ -450,7 +491,7 @@ export async function createPessoa(data) {
 // 9. Cadastrar Novo Médico
 export async function createMedico(data) {
   try {
-    await requireAdminModulo(MODULOS.REGULACAO);
+    const user = await requireAdminModulo(MODULOS.REGULACAO);
     const medico = await prisma.medico.create({
       data: {
         nome: data.nome,
@@ -459,6 +500,15 @@ export async function createMedico(data) {
         especialidade: data.especialidade,
         tipo: data.tipo || "Solicitante",
       },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "CRIAR",
+      modulo: "REGULACAO",
+      entidade: "Medico",
+      entidadeId: String(medico.id),
+      descricao: `Médico '${medico.nome}' cadastrado`,
     });
 
     revalidatePath("/regulacao");
@@ -472,12 +522,21 @@ export async function createMedico(data) {
 // 10. Cadastrar Nova UBS
 export async function createUbs(data) {
   try {
-    await requireAdminModulo(MODULOS.REGULACAO);
+    const user = await requireAdminModulo(MODULOS.REGULACAO);
     const ubs = await prisma.ubs.create({
       data: {
         nome: data.nome,
         cnes: data.cnes,
       },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "CRIAR",
+      modulo: "REGULACAO",
+      entidade: "Ubs",
+      entidadeId: String(ubs.id),
+      descricao: `UBS '${ubs.nome}' cadastrada`,
     });
 
     revalidatePath("/regulacao");
@@ -491,13 +550,22 @@ export async function createUbs(data) {
 // 11. Cadastrar Novo Procedimento
 export async function createProcedimento(data) {
   try {
-    await requireAdminModulo(MODULOS.REGULACAO);
+    const user = await requireAdminModulo(MODULOS.REGULACAO);
     const procedimento = await prisma.procedimento.create({
       data: {
         nome: data.nome,
         valor: parseFloat(data.valor),
         tipoExameId: Number(data.tipoExameId),
       },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "CRIAR",
+      modulo: "REGULACAO",
+      entidade: "Procedimento",
+      entidadeId: String(procedimento.id),
+      descricao: `Procedimento '${procedimento.nome}' cadastrado`,
     });
 
     revalidatePath("/regulacao");
@@ -511,7 +579,7 @@ export async function createProcedimento(data) {
 // 12. Atualizar Procedimento
 export async function updateProcedimento(id, data) {
   try {
-    await requireAdminModulo(MODULOS.REGULACAO);
+    const user = await requireAdminModulo(MODULOS.REGULACAO);
     const procedimento = await prisma.procedimento.update({
       where: { id: Number(id) },
       data: {
@@ -519,6 +587,15 @@ export async function updateProcedimento(id, data) {
         valor: parseFloat(data.valor),
         tipoExameId: Number(data.tipoExameId),
       },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "EDITAR",
+      modulo: "REGULACAO",
+      entidade: "Procedimento",
+      entidadeId: String(procedimento.id),
+      descricao: `Procedimento '${procedimento.nome}' atualizado`,
     });
 
     revalidatePath("/regulacao");
@@ -532,8 +609,16 @@ export async function updateProcedimento(id, data) {
 // 12b. Excluir Procedimento
 export async function deleteProcedimento(id) {
   try {
-    await requireAdminModulo(MODULOS.REGULACAO);
+    const user = await requireAdminModulo(MODULOS.REGULACAO);
     await prisma.procedimento.delete({ where: { id: Number(id) } });
+    await registrarAuditoria({
+      user,
+      acao: "EXCLUIR",
+      modulo: "REGULACAO",
+      entidade: "Procedimento",
+      entidadeId: String(Number(id)),
+      descricao: `Procedimento #${Number(id)} excluído`,
+    });
     revalidatePath("/regulacao");
     return { success: true };
   } catch (error) {
@@ -571,7 +656,7 @@ export async function getCotasFinanceiras() {
 // 13. Salvar Teto de Cota
 export async function saveCotaFinanceira({ tipoCota, mes, ano, valorTeto }) {
   try {
-    await requireAdminModulo(MODULOS.REGULACAO);
+    const user = await requireAdminModulo(MODULOS.REGULACAO);
 
     // Normaliza a competência (mês com 2 dígitos, ano com 4).
     const mesStr = String(mes ?? "").padStart(2, "0").slice(0, 2);
@@ -609,6 +694,16 @@ export async function saveCotaFinanceira({ tipoCota, mes, ano, valorTeto }) {
         ano: anoStr,
         valorTeto: valorNum,
       },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "SALVAR",
+      modulo: "REGULACAO",
+      entidade: "CotaFinanceira",
+      entidadeId: String(record.id),
+      descricao: `Teto de cota '${tipoCota}' salvo para ${mesStr}/${anoStr}`,
+      detalhes: { tipoCota, mes: mesStr, ano: anoStr, valorTeto: valorNum },
     });
 
     revalidatePath("/regulacao");
@@ -692,6 +787,16 @@ export async function savePlanejamentoCidade({ cidade, ano, mes, valor }) {
       },
     });
 
+    await registrarAuditoria({
+      user,
+      acao: "SALVAR",
+      modulo: "REGULACAO",
+      entidade: "PlanejamentoCidade",
+      entidadeId: `${cidadeStr}/${anoStr}/${mesStr}`,
+      descricao: `Planejamento de '${cidadeStr}' salvo para ${mesStr}/${anoStr}`,
+      detalhes: { cidade: cidadeStr, ano: anoStr, mes: mesStr, valor: valorNum },
+    });
+
     revalidatePath("/regulacao");
     return {
       success: true,
@@ -713,13 +818,22 @@ export async function savePlanejamentoCidade({ cidade, ano, mes, valor }) {
 // 14. Atualizar Data de Faturamento
 export async function updateBillingDate(idStr, dateStr) {
   try {
-    await requireAdminModulo(MODULOS.REGULACAO);
+    const user = await requireAdminModulo(MODULOS.REGULACAO);
     const numericId = Number(String(idStr).replace(/\D/g, ""));
     await prisma.pedidoExame.update({
       where: { id: numericId },
       data: {
         dataComunicacao: dateStr ? new Date(dateStr) : null,
       },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "EDITAR",
+      modulo: "REGULACAO",
+      entidade: "PedidoExame",
+      entidadeId: String(numericId),
+      descricao: `Data de faturamento do pedido #${numericId} atualizada`,
     });
 
     revalidatePath("/regulacao");
@@ -733,6 +847,7 @@ export async function updateBillingDate(idStr, dateStr) {
 // 15. Atualizar Pedido
 export async function updatePedidoExame(idStr, updateData) {
   try {
+    const user = await requireAcessoModulo(MODULOS.REGULACAO);
     const numericId = Number(String(idStr).replace(/\D/g, ""));
     const isRevertingToWaiting = updateData.status === "Aguardando";
 
@@ -786,6 +901,16 @@ export async function updatePedidoExame(idStr, updateData) {
       data: payload,
     });
 
+    await registrarAuditoria({
+      user,
+      acao: "EDITAR",
+      modulo: "REGULACAO",
+      entidade: "PedidoExame",
+      entidadeId: String(numericId),
+      descricao: `Pedido de exame #${numericId} atualizado`,
+      detalhes: { status: payload.status },
+    });
+
     revalidatePath("/regulacao");
     return { success: true };
   } catch (error) {
@@ -797,9 +922,19 @@ export async function updatePedidoExame(idStr, updateData) {
 // 16. Excluir Pedido
 export async function deletePedidoExame(idStr) {
   try {
+    const user = await requireAcessoModulo(MODULOS.REGULACAO);
     const numericId = Number(String(idStr).replace(/\D/g, ""));
     await prisma.pedidoExame.delete({
       where: { id: numericId },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "EXCLUIR",
+      modulo: "REGULACAO",
+      entidade: "PedidoExame",
+      entidadeId: String(numericId),
+      descricao: `Pedido de exame #${numericId} excluído`,
     });
 
     revalidatePath("/regulacao");
@@ -813,7 +948,7 @@ export async function deletePedidoExame(idStr) {
 // 17. Atualizar Médico
 export async function updateMedico(id, data) {
   try {
-    await requireAdminModulo(MODULOS.REGULACAO);
+    const user = await requireAdminModulo(MODULOS.REGULACAO);
     const medico = await prisma.medico.update({
       where: { id: Number(id) },
       data: {
@@ -823,6 +958,15 @@ export async function updateMedico(id, data) {
         especialidade: data.especialidade,
         tipo: data.tipo || "Solicitante",
       },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "EDITAR",
+      modulo: "REGULACAO",
+      entidade: "Medico",
+      entidadeId: String(medico.id),
+      descricao: `Médico '${medico.nome}' atualizado`,
     });
 
     revalidatePath("/regulacao");
@@ -836,10 +980,19 @@ export async function updateMedico(id, data) {
 // 18. Excluir Médico
 export async function deleteMedico(id) {
   try {
-    await requireAdminModulo(MODULOS.REGULACAO);
+    const user = await requireAdminModulo(MODULOS.REGULACAO);
     await prisma.medico.update({
       where: { id: Number(id) },
       data: { ativo: false },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "EXCLUIR",
+      modulo: "REGULACAO",
+      entidade: "Medico",
+      entidadeId: String(Number(id)),
+      descricao: `Médico #${Number(id)} desativado`,
     });
 
     revalidatePath("/regulacao");
@@ -853,11 +1006,20 @@ export async function deleteMedico(id) {
 // 19. Atualizar Pessoa / Paciente
 export async function updatePessoa(cpf, data) {
   try {
-    await requireAcessoPessoas();
+    const user = await requireAcessoPessoas();
     const result = await prisma.$transaction(async (tx) => {
       const pessoa = await atualizarPessoaTx(tx, cpf, data);
       await gravarEnderecoTx(tx, cpf, data);
       return pessoa;
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "EDITAR",
+      modulo: "REGULACAO",
+      entidade: "Pessoa",
+      entidadeId: String(cpf),
+      descricao: `Pessoa '${result?.nomeCompleto || cpf}' atualizada`,
     });
 
     revalidatePath("/regulacao");
@@ -871,10 +1033,19 @@ export async function updatePessoa(cpf, data) {
 // 20. Excluir Pessoa / Paciente
 export async function deletePessoa(cpf) {
   try {
-    await requireAcessoPessoas();
+    const user = await requireAcessoPessoas();
     await prisma.$transaction(async (tx) => {
       await tx.endereco.deleteMany({ where: { pessoaCpf: cpf } });
       await tx.pessoa.delete({ where: { cpf } });
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "EXCLUIR",
+      modulo: "REGULACAO",
+      entidade: "Pessoa",
+      entidadeId: String(cpf),
+      descricao: "Pessoa excluída",
     });
 
     revalidatePath("/regulacao");
@@ -888,13 +1059,22 @@ export async function deletePessoa(cpf) {
 // 21. Atualizar UBS
 export async function updateUbs(id, data) {
   try {
-    await requireAdminModulo(MODULOS.REGULACAO);
+    const user = await requireAdminModulo(MODULOS.REGULACAO);
     const ubs = await prisma.ubs.update({
       where: { id: Number(id) },
       data: {
         nome: data.nome,
         cnes: data.cnes,
       },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "EDITAR",
+      modulo: "REGULACAO",
+      entidade: "Ubs",
+      entidadeId: String(ubs.id),
+      descricao: `UBS '${ubs.nome}' atualizada`,
     });
 
     revalidatePath("/regulacao");
@@ -908,10 +1088,19 @@ export async function updateUbs(id, data) {
 // 22. Excluir UBS
 export async function deleteUbs(id) {
   try {
-    await requireAdminModulo(MODULOS.REGULACAO);
+    const user = await requireAdminModulo(MODULOS.REGULACAO);
     await prisma.ubs.update({
       where: { id: Number(id) },
       data: { ativo: false },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "EXCLUIR",
+      modulo: "REGULACAO",
+      entidade: "Ubs",
+      entidadeId: String(Number(id)),
+      descricao: `UBS #${Number(id)} desativada`,
     });
 
     revalidatePath("/regulacao");

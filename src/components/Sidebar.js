@@ -72,6 +72,7 @@ const menuSections = [
           { name: "Médicos", path: "/gerenciamento/medicos", visivelSe: "REGULACAO" },
           { name: "Unidade Básica de Saúde", path: "/gerenciamento/ubs", visivelSe: "REGULACAO" },
           { name: "Dashboard", tab: "DASHBOARD", visivelSe: "REGULACAO" },
+          { name: "Auditoria de Alterações", tab: "AUDITORIA", visivelSe: "GESTOR" },
         ],
       },
     ],
