@@ -1,0 +1,10 @@
+{
+    "reviewDoc":  "c:\\Users\\Jefinny\\Documents\\10. IntegraSaude\\.agents\\tasks\\ccz-dashboard-filtro-ano\\review.md",
+    "verdict":  "APPROVED",
+    "findings":  [
+                     "Janela de ano em UTC pode deslocar registros Timestamptz perto da virada de ano/mês (likely, não bloqueante)",
+                     "KPI Animais (dataCadastro) pode divergir do gráfico \u0027entraram\u0027 (COALESCE dataDevolucao) (confirmed, documentado)",
+                     "Sem indicador de loading/erro ao trocar o ano (confirmed)",
+                     "Visual não verificado no navegador (confirmed)"
+                 ]
+}
