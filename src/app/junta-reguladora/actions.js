@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { registrarAuditoria } from '@/lib/audit';
 import { revalidatePath } from 'next/cache';
+import { normalizarCpfChave } from '@/lib/cpf';
 import {
   requireAcessoModulo,
   requireAdminModulo,
@@ -31,10 +32,12 @@ export async function buscarPessoaExistente(termo) {
 
     // Termo vazio/curto: lista os primeiros registros (para o dropdown já
     // aparecer ao focar o campo, como na Farmácia Judicial).
+    // Cadastros absorvidos por unificação (ativo=false) ficam fora da busca.
     const where =
       termoClean.length === 0
-        ? undefined
+        ? { ativo: true }
         : {
+            ativo: true,
             OR: [
               { nomeCompleto: { contains: termoClean, mode: 'insensitive' } },
               ...(apenasNumeros.length > 0 ? [{ cpf: { contains: apenasNumeros } }] : []),
@@ -115,7 +118,8 @@ export async function cadastrarPacienteJunta(data) {
     const user = await requireAdminModulo(MODULOS.JUNTA);
     const { cpf, tipoDeficiencia, locaisEncaminhados = [] } = data;
 
-    const cpfClean = (cpf || '').replace(/\D/g, '').slice(0, 11);
+    // CPF provisório (T + 10 dígitos) também é uma chave válida de pessoa.
+    const cpfClean = normalizarCpfChave(cpf).slice(0, 11);
 
     if (!cpfClean || cpfClean.length !== 11) {
       return { success: false, error: 'CPF inválido. Deve conter 11 dígitos.' };
@@ -127,9 +131,9 @@ export async function cadastrarPacienteJunta(data) {
     // A pessoa deve estar previamente cadastrada em Gerenciamento > Cadastro de Pessoas.
     const pessoa = await prisma.pessoa.findUnique({
       where: { cpf: cpfClean },
-      select: { cpf: true },
+      select: { cpf: true, ativo: true },
     });
-    if (!pessoa) {
+    if (!pessoa || !pessoa.ativo) {
       return {
         success: false,
         error:
@@ -281,7 +285,7 @@ export async function getPacientesPorServico(servicoNome) {
     const pessoaCpfs = pacientesJunta.map((pj) => pj.pessoaCpf).filter(Boolean);
 
     const pessoas = await prisma.pessoa.findMany({
-      where: { cpf: { in: pessoaCpfs } },
+      where: { cpf: { in: pessoaCpfs }, ativo: true },
       include: {
         enderecos: {
           where: { enderecoAtual: true },
@@ -537,6 +541,7 @@ export async function getProntuarioUnificado(termoBusca) {
     // 1. Busca os dados primários da pessoa diretamente pelo Prisma ORM
     const pessoa = await prisma.pessoa.findFirst({
       where: {
+        ativo: true,
         OR: [
           { nomeCompleto: { contains: termoClean, mode: 'insensitive' } },
           ...(apenasNumeros.length > 0 ? [{ cpf: { contains: apenasNumeros } }] : []),

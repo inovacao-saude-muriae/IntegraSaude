@@ -6,6 +6,7 @@ import { MODULOS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { registrarAuditoria } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
+import { normalizarCpfChave } from "@/lib/cpf";
 
 // Helper para converter tipos especiais do Prisma (BigInt/Dates) para objetos JS simples
 function serializeData(data) {
@@ -56,7 +57,8 @@ function normalizarStatusPaciente(status) {
 }
 
 export async function createPacienteJudicial(data) {
-  const cleanCpf = (data.cpf || "").replace(/\D/g, "");
+  // CPF provisório (T + 10 dígitos) também é uma chave válida de pessoa.
+  const cleanCpf = normalizarCpfChave(data.cpf);
 
   try {
     const user = await requireAdminModulo(MODULOS.FARMACIA);
@@ -70,9 +72,9 @@ export async function createPacienteJudicial(data) {
 
     const pessoa = await prisma.pessoa.findUnique({
       where: { cpf: cleanCpf },
-      select: { cpf: true },
+      select: { cpf: true, ativo: true },
     });
-    if (!pessoa) {
+    if (!pessoa || !pessoa.ativo) {
       throw new Error(
         "Pessoa não encontrada. Cadastre-a primeiro em Gerenciamento > Cadastro de Pessoas."
       );

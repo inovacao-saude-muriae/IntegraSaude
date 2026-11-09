@@ -21,6 +21,7 @@ export async function GET() {
       animais,
     ] = await Promise.all([
       prisma.pessoa.findMany({
+        where: { ativo: true },
         orderBy: { nomeCompleto: "asc" },
         select: {
           cpf: true,

@@ -5,6 +5,7 @@ import { buscarPessoaExistente } from './actions';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { documentoPaciente } from '@/app/regulacao/constants';
 import { mascararTelefone } from '@/lib/telefone';
+import { formatarCpfExibicao } from '@/lib/cpf';
 import SeletorPaciente from '@/components/SeletorPaciente';
 import styles from './PacientesJudiciais.module.css';
 
@@ -32,8 +33,7 @@ export default function TabPacientesJudiciais({
 
   const formatCPF = (cpf) => {
     if (!cpf) return '';
-    const d = cpf.replace(/\D/g, '');
-    return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    return formatarCpfExibicao(cpf);
   };
 
   const handleSelectPessoa = (p) => {

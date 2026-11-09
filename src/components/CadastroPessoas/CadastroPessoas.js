@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import styles from "./CadastroPessoas.module.css";
 import { buscarCep } from "@/lib/viacep";
-import { useConfirm } from "@/components/ConfirmDialog";
+import { useConfirm, useNotify } from "@/components/ConfirmDialog";
 import BotaoEditar from "@/components/BotaoEditar";
 import { documentoPaciente } from "@/app/regulacao/constants";
+import { isCpfProvisorio, DATA_NASC_PLACEHOLDER } from "@/lib/cpf";
 import { mascararTelefone as maskTelefone } from "@/lib/telefone";
 import { validarCNS } from "@/lib/validations/cns";
 import { useModalKeyboard } from "@/hooks/useModalKeyboard";
@@ -15,6 +16,7 @@ import {
   criarPessoa,
   atualizarPessoa,
   excluirPessoa,
+  confirmarUnificacaoPessoas,
 } from "@/app/gerenciamento/pessoas/actions";
 
 // ── Máscaras ────────────────────────────────────────────────────────────
@@ -31,7 +33,15 @@ const maskCep = (v) =>
 
 const soDigitos = (v) => (v ? v.replace(/\D/g, "") : "");
 
+const NOMES_MODULOS = {
+  JUNTA: "Junta Reguladora",
+  FARMACIA_JUDICIAL: "Farmácia Judicial",
+  CCZ: "CCZ (tutor)",
+};
+
 const FORM_VAZIO = {
+  // cpfChave = identidade da pessoa carregada (oficial ou provisório "T...").
+  cpfChave: "",
   cpf: "",
   nomeCompleto: "",
   sexo: "Masculino",
@@ -53,7 +63,10 @@ const FORM_VAZIO = {
 const pessoaParaForm = (p) => ({
   ...FORM_VAZIO,
   ...p,
-  cpf: maskCpf(p.cpf),
+  cpfChave: p.cpf,
+  // CPF provisório não é exibido: o campo fica vazio para informar o oficial.
+  cpf: isCpfProvisorio(p.cpf) ? "" : maskCpf(p.cpf),
+  dataNascimento: p.dataNascimento === DATA_NASC_PLACEHOLDER ? "" : p.dataNascimento || "",
   telefone: maskTelefone(p.telefone),
   cep: maskCep(p.cep),
   ubsReferenciaId: p.ubsReferenciaId ? String(p.ubsReferenciaId) : "",
@@ -64,6 +77,7 @@ const pessoaParaForm = (p) => ({
 // consome as MESMAS server actions de @/app/gerenciamento/pessoas/actions.
 export default function CadastroPessoas() {
   const confirm = useConfirm();
+  const notify = useNotify();
   const [ubsList, setUbsList] = useState([]);
   const [erro, setErro] = useState("");
 
@@ -84,7 +98,23 @@ export default function CadastroPessoas() {
   const [confirmarExclusao, setConfirmarExclusao] = useState(false);
   const [cnsErro, setCnsErro] = useState("");
 
+  // Conflito de CPF: { cpf, nome, payload } quando o CPF informado já existe.
+  const [conflito, setConflito] = useState(null);
+  const [unificando, setUnificando] = useState(false);
+  const [conflitoErro, setConflitoErro] = useState("");
+  const [conflitoModulos, setConflitoModulos] = useState([]);
+
   const { modalRef: deleteModalRef } = useModalKeyboard(confirmarExclusao, () => setConfirmarExclusao(false));
+
+  // Fecha o modal de conflito (não fecha durante a unificação) e devolve o foco ao campo CPF.
+  const fecharConflito = useCallback(() => {
+    if (unificando) return;
+    setConflito(null);
+    setConflitoErro("");
+    setConflitoModulos([]);
+    setTimeout(() => document.getElementById("cpf")?.focus(), 30);
+  }, [unificando]);
+  const { modalRef: conflitoModalRef } = useModalKeyboard(Boolean(conflito), fecharConflito);
 
   const editavel = modo === "novo" || modo === "edicao";
 
@@ -135,7 +165,7 @@ export default function CadastroPessoas() {
     if (!t) return true;
     const nome = (p.nomeCompleto || "").toLowerCase();
     const mae = (p.nomeMae || "").toLowerCase();
-    const cpfLimpo = (p.cpf || "").replace(/\D/g, "");
+    const cpfLimpo = isCpfProvisorio(p.cpf) ? "" : (p.cpf || "").replace(/\D/g, "");
     const buscaLimpa = t.replace(/\D/g, "");
     return (
       nome.includes(t) ||
@@ -231,18 +261,33 @@ export default function CadastroPessoas() {
       ubsReferenciaId: form.ubsReferenciaId || null,
     };
 
+    // Em edição de pessoa com CPF provisório, cpf vazio mantém o provisório.
     const res =
       modo === "edicao"
-        ? await atualizarPessoa(payload.cpf, payload)
+        ? await atualizarPessoa(form.cpfChave, payload)
         : await criarPessoa(payload);
 
     setSalvando(false);
 
+    // CPF informado já pertence a outro cadastro ativo: nada foi salvo; abre o modal.
+    if (res.status === "CPF_DUPLICADO_CONFLITO") {
+      setErro("");
+      setConflitoErro("");
+      setConflitoModulos([]);
+      setConflito({
+        cpf: res.pessoa_conflito?.cpf || "",
+        nome: res.pessoa_conflito?.nome || "",
+        payload,
+      });
+      return;
+    }
+
     if (res.success) {
       setErro("");
-      const busca = await listarPessoas(payload.cpf);
+      const chaveFinal = res.cpf || payload.cpf;
+      const busca = await listarPessoas(chaveFinal);
       const salva = busca.success
-        ? busca.data.find((x) => soDigitos(x.cpf) === payload.cpf)
+        ? busca.data.find((x) => x.cpf === chaveFinal)
         : null;
       if (salva) selecionarPessoa(salva);
       else cancelar();
@@ -253,14 +298,53 @@ export default function CadastroPessoas() {
 
   const confirmarRemover = async () => {
     setSalvando(true);
-    const res = await excluirPessoa(soDigitos(form.cpf));
+    const res = await excluirPessoa(form.cpfChave);
     setSalvando(false);
     setConfirmarExclusao(false);
     if (res.success) cancelar();
     else setErro(res.error || "Não foi possível excluir.");
   };
 
-  const pessoaSelecionada = Boolean(soDigitos(form.cpf));
+  const confirmarUnificacao = async () => {
+    if (!conflito || unificando) return;
+    setUnificando(true);
+    setConflitoErro("");
+    setConflitoModulos([]);
+    let res;
+    try {
+      res = await confirmarUnificacaoPessoas({
+        pessoaAlvoCpf: conflito.cpf,
+        pessoaOrigemCpf: form.cpfChave,
+        motivo: "Unificação por informação de CPF oficial",
+        dadosFormulario: conflito.payload,
+      });
+    } catch {
+      res = { success: false, error: "Erro de comunicação ao unificar. Nada foi alterado." };
+    }
+    setUnificando(false);
+
+    if (!res.success) {
+      setConflitoErro(res.mensagem || res.error || "Não foi possível unificar os cadastros.");
+      setConflitoModulos(res.status === "CONFLITO_MODULO" ? res.modulos || [] : []);
+      return;
+    }
+
+    const principal = res.pessoa_alvo;
+    setConflito(null);
+    setErro("");
+    await notify({
+      tipo: "sucesso",
+      title: "Cadastros unificados",
+      message: `Históricos transferidos para ${principal.nomeCompleto}.`,
+    });
+    // Recarrega a lista e abre a ficha do cadastro principal.
+    const busca = await listarPessoas(principal.cpf);
+    if (busca.success) setPessoas(busca.data);
+    selecionarPessoa(principal);
+  };
+
+  const pessoaSelecionada = Boolean(form.cpfChave);
+  const cpfProvisorioAtual = modo === "edicao" && isCpfProvisorio(form.cpfChave);
   const tituloForm =
     modo === "novo" ? "Nova pessoa" : modo === "edicao" ? "Editar pessoa" : "Dados da pessoa";
 
@@ -335,12 +419,12 @@ export default function CadastroPessoas() {
                           <tr
                             key={p.cpf}
                             role="option"
-                            aria-selected={soDigitos(form.cpf) === soDigitos(p.cpf)}
+                            aria-selected={form.cpfChave === p.cpf}
                             onMouseDown={(e) => {
                               e.preventDefault();
                               selecionarPessoa(p);
                             }}
-                            className={soDigitos(form.cpf) === soDigitos(p.cpf) ? styles.selectedRow : ""}
+                            className={form.cpfChave === p.cpf ? styles.selectedRow : ""}
                           >
                             <td>{documentoPaciente({ cpf: p.cpf, cns: p.cns })}</td>
                             <td className={styles.boldName}>{p.nomeCompleto}</td>
@@ -413,17 +497,23 @@ export default function CadastroPessoas() {
             />
           </div>
           <div className={styles.field}>
-            <label htmlFor="cpf">CPF <span aria-label="obrigatório">*</span></label>
+            <label htmlFor="cpf">CPF {modo !== "edicao" && <span aria-label="obrigatório">*</span>}</label>
             <input
               type="text"
               id="cpf"
               value={form.cpf}
               onChange={(e) => setForm({ ...form, cpf: maskCpf(e.target.value) })}
-              placeholder="000.000.000-00"
-              disabled={modo !== "novo"}
-              required
-              aria-required="true"
+              placeholder={isCpfProvisorio(form.cpfChave) ? "CPF não informado" : "000.000.000-00"}
+              disabled={!(modo === "novo" || cpfProvisorioAtual)}
+              required={modo === "novo"}
+              aria-required={modo === "novo" ? "true" : "false"}
+              aria-describedby={cpfProvisorioAtual ? "cpf-hint" : undefined}
             />
+            {cpfProvisorioAtual && (
+              <small id="cpf-hint" className={styles.hint}>
+                Informe o CPF oficial para substituir o cadastro provisório.
+              </small>
+            )}
           </div>
           <div className={styles.field}>
             <label htmlFor="cns">CNS (Cartão SUS)</label>
@@ -580,6 +670,59 @@ export default function CadastroPessoas() {
           )}
         </div>
       </form>
+
+      {/* MODAL: CPF JÁ CADASTRADO EM OUTRO REGISTRO (unificação de históricos) */}
+      {conflito && (
+        <div className={styles.modalOverlay} onClick={fecharConflito}>
+          <div
+            ref={conflitoModalRef}
+            className={styles.modal}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="conflito-title"
+            aria-describedby="conflito-text"
+          >
+            <h3 id="conflito-title" className={styles.modalTitle}>Cadastro existente com este CPF</h3>
+            <p id="conflito-text" className={styles.modalText}>
+              O CPF informado pertence a <strong>{conflito.nome}</strong>. Deseja transferir o
+              histórico atual (medicamentos/exames) para o cadastro principal?
+            </p>
+            {conflitoErro && (
+              <div className={styles.alertErro} role="alert">
+                {conflitoErro}
+                {conflitoModulos.length > 0 && (
+                  <ul>
+                    {conflitoModulos.map((m) => (
+                      <li key={m}>{NOMES_MODULOS[m] || m}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+            <div className={styles.modalActions}>
+              <button
+                type="button"
+                className={styles.btnGhost}
+                onClick={fecharConflito}
+                disabled={unificando}
+              >
+                Cancelar / Corrigir CPF
+              </button>
+              {conflitoModulos.length === 0 && (
+                <button
+                  type="button"
+                  className={styles.btnPrimary}
+                  onClick={confirmarUnificacao}
+                  disabled={unificando}
+                >
+                  {unificando ? "Unificando..." : "Sim, Unificar Históricos"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* POPUP DE CONFIRMAÇÃO DE EXCLUSÃO */}
       {confirmarExclusao && (

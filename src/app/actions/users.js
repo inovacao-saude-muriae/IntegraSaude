@@ -7,7 +7,7 @@ import { prisma } from '@/lib/prisma';
 export async function buscarPessoaPorCpfAction(cpfLimpo) {
   try {
     const pessoa = await prisma.pessoa.findUnique({
-      where: { cpf: cpfLimpo },
+      where: { cpf: cpfLimpo, ativo: true },
       select: { cpf: true, nomeCompleto: true, usuario: true }
     });
     

@@ -5,6 +5,7 @@ import { useUnsavedChanges } from './hooks/useUnsavedChanges';
 import { LOCAIS_REALIZACAO } from './constants';
 import { mascararTelefone } from '@/lib/telefone';
 import SeletorPaciente from '@/components/SeletorPaciente';
+import { formatarCpfExibicao } from '@/lib/cpf';
 
 export default function NovoPedido({
   newRequest = {
@@ -31,9 +32,7 @@ export default function NovoPedido({
   // Função para formatar o CPF na exibição do campo somente leitura (000.000.000-00)
   const formatCPF = (cpf) => {
     if (!cpf) return '';
-    const clean = cpf.replace(/\D/g, '');
-    if (clean.length !== 11) return cpf;
-    return clean.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    return formatarCpfExibicao(cpf);
   };
 
   // Fonte de busca do SeletorPaciente: filtra a lista de pessoas (auxData.pessoas),

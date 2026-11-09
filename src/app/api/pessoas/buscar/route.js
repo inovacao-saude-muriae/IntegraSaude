@@ -19,6 +19,7 @@ export async function GET(req) {
 
     const searchTerm = termo.trim();
     const where = {
+      ativo: true,
       OR: [
         { nomeCompleto: { contains: searchTerm, mode: "insensitive" } },
         { cpf: { contains: searchTerm } },

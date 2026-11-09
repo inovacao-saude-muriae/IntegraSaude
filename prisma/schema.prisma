@@ -8,19 +8,21 @@ datasource db {
 }
 
 model User {
-  cpf          String       @id @db.VarChar(11)
-  username     String?      @unique @db.VarChar(50)
-  nome         String       @db.VarChar(150)
-  senhaHash    String       @map("senha_hash") @db.VarChar(255)
-  cargo        String?      @db.VarChar(100)
-  role         Role         @default(REGULACAO_COMUM)
-  ativo        Boolean      @default(true)
-  primeiroAcesso Boolean    @default(true) @map("primeiro_acesso")
-  ultimoAcesso DateTime?    @map("ultimo_acesso") @db.Timestamptz(6)
-  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
-  acessos      UserAcesso[]
-  sessions     Session[]
+  cpf                  String                @id @db.VarChar(11)
+  username             String?               @unique @db.VarChar(50)
+  nome                 String                @db.VarChar(150)
+  senhaHash            String                @map("senha_hash") @db.VarChar(255)
+  cargo                String?               @db.VarChar(100)
+  role                 Role                  @default(REGULACAO_COMUM)
+  ativo                Boolean               @default(true)
+  primeiroAcesso       Boolean               @default(true) @map("primeiro_acesso")
+  ultimoAcesso         DateTime?             @map("ultimo_acesso") @db.Timestamptz(6)
+  createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  acessos              UserAcesso[]
+  sessions             Session[]
+  pessoasUnificadas    Pessoa[]              @relation("PessoaUnificadaPor")
+  auditoriaUnificacaos AuditoriaUnificacao[]
 
   @@map("users")
 }
@@ -37,21 +39,33 @@ model Session {
 }
 
 model Pessoa {
-  cpf              String                    @id @db.VarChar(11)
-  nomeCompleto     String                    @map("nome_completo") @db.VarChar(150)
-  sexo             String                    @db.VarChar(20)
-  dataNascimento   DateTime                  @map("data_nascimento") @db.Date
-  nomeMae          String                    @map("nome_mae") @db.VarChar(150)
-  telefone         String                    @db.VarChar(20)
-  cns              String?                   @unique @db.VarChar(15)
-  ubsReferenciaId  Int?                      @map("ubs_referencia_id")
-  tutor            Tutor?
-  pacienteFarmacia PacienteFarmaciaJudicial?
-  pacienteJunta    PacienteJunta?
-  ubsReferencia    Ubs?                      @relation(fields: [ubsReferenciaId], references: [id], map: "fk_pessoa_ubs_referencia")
-  enderecos        Endereco[]
-  pedidos          PedidoExame[]
+  cpf                  String                    @id @db.VarChar(11)
+  nomeCompleto         String                    @map("nome_completo") @db.VarChar(150)
+  sexo                 String                    @db.VarChar(20)
+  dataNascimento       DateTime                  @map("data_nascimento") @db.Date
+  nomeMae              String                    @map("nome_mae") @db.VarChar(150)
+  telefone             String                    @db.VarChar(20)
+  cns                  String?                   @unique @db.VarChar(15)
+  ubsReferenciaId      Int?                      @map("ubs_referencia_id")
+  tutor                Tutor?
+  pacienteFarmacia     PacienteFarmaciaJudicial?
+  pacienteJunta        PacienteJunta?
+  ubsReferencia        Ubs?                      @relation(fields: [ubsReferenciaId], references: [id], map: "fk_pessoa_ubs_referencia")
+  enderecos            Endereco[]
+  pedidos              PedidoExame[]
+  auditoriaUnificacaos AuditoriaUnificacao[]
 
+  // EMPI: unificação de cadastros (ativo=false => absorvida em unificadoEmCpf)
+  ativo                 Boolean   @default(true)
+  unificadoEmCpf        String?   @map("unificado_em_cpf") @db.VarChar(11)
+  dataUnificacao        DateTime? @map("data_unificacao") @db.Timestamptz(6)
+  unificadoPorUsuarioId String?   @map("unificado_por_usuario_id") @db.VarChar(11)
+  unificadoEm           Pessoa?   @relation("PessoaUnificacao", fields: [unificadoEmCpf], references: [cpf], onDelete: Restrict, onUpdate: Cascade, map: "fk_pessoa_unificado_em")
+  absorvidas            Pessoa[]  @relation("PessoaUnificacao")
+  unificadoPor          User?     @relation("PessoaUnificadaPor", fields: [unificadoPorUsuarioId], references: [cpf], onDelete: SetNull, onUpdate: Cascade, map: "fk_pessoa_unificado_por")
+
+  @@index([ativo], map: "idx_pessoa_ativo")
+  @@index([unificadoEmCpf], map: "idx_pessoa_unificado_em")
   @@index([nomeCompleto, dataNascimento], map: "idx_pessoa_nome")
   @@map("pessoa")
 }
@@ -68,7 +82,7 @@ model Endereco {
   cep           String?  @db.VarChar(8)
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   enderecoAtual Boolean  @default(true) @map("endereco_atual")
-  pessoa        Pessoa   @relation(fields: [pessoaCpf], references: [cpf], onDelete: Cascade, map: "fk_endereco_pessoa")
+  pessoa        Pessoa   @relation(fields: [pessoaCpf], references: [cpf], onDelete: Cascade, onUpdate: Cascade, map: "fk_endereco_pessoa")
 
   @@index([pessoaCpf], map: "pessoa_cpf_idx")
   @@map("pessoa_endereco")
@@ -143,7 +157,7 @@ model PedidoExame {
   localRealizacao     String?      @map("local_realizacao") @db.VarChar(20)
   medicoResponsavel   Medico?      @relation("medico_responsavel", fields: [medicoResponsavelId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_pedidos_med_resp")
   medicoSolicitante   Medico?      @relation("medico_solicitante", fields: [medicoSolicitanteId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_pedidos_med_solic")
-  pessoa              Pessoa       @relation(fields: [pessoaCpf], references: [cpf], onDelete: Cascade, map: "fk_pedidos_pessoa")
+  pessoa              Pessoa       @relation(fields: [pessoaCpf], references: [cpf], onDelete: Cascade, onUpdate: Cascade, map: "fk_pedidos_pessoa")
   procedimento        Procedimento @relation(fields: [procedimentoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_pedidos_procedimento")
   ubs                 Ubs?         @relation(fields: [ubsResponsavelId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_pedidos_ubs")
 
@@ -217,7 +231,7 @@ model PacienteFarmaciaJudicial {
   status         String                   @default("ATIVO") @db.VarChar(20)
   createdAt      DateTime?                @default(now()) @map("created_at") @db.Timestamptz(6)
   dispensacoes   DispensacaoMedicamento[]
-  pessoa         Pessoa                   @relation(fields: [pessoaCpf], references: [cpf], onDelete: Cascade)
+  pessoa         Pessoa                   @relation(fields: [pessoaCpf], references: [cpf], onDelete: Cascade, onUpdate: Cascade)
   tratamentos    TratamentoPaciente[]
 
   @@map("farmacia_pacientes")
@@ -302,7 +316,7 @@ model PacienteJunta {
   agendamentos    AgendamentoJunta[]
   atendimentos    JuntaAtendimento[]
   servicos        PacienteJuntaServico[]
-  pessoa          Pessoa                 @relation(fields: [pessoaCpf], references: [cpf], onDelete: Cascade)
+  pessoa          Pessoa                 @relation(fields: [pessoaCpf], references: [cpf], onDelete: Cascade, onUpdate: Cascade)
 
   @@map("junta_pacientes")
 }
@@ -361,7 +375,7 @@ model Tutor {
   observacoes        String?
   createdAt          DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
   animais            Animal[]
-  pessoa             Pessoa    @relation(fields: [pessoaCpf], references: [cpf], onDelete: Cascade)
+  pessoa             Pessoa    @relation(fields: [pessoaCpf], references: [cpf], onDelete: Cascade, onUpdate: Cascade)
 
   @@map("ccz_tutores")
 }
@@ -387,7 +401,7 @@ model Animal {
   enderecoRecolhimento   String?                @map("endereco_recolhimento")
   dataCadastro           DateTime?              @default(now()) @map("data_cadastro") @db.Timestamptz(6)
   dataDevolucao          DateTime?              @map("data_devolucao") @db.Date
-  tutor                  Tutor?                 @relation(fields: [pessoaCpf], references: [pessoaCpf])
+  tutor                  Tutor?                 @relation(fields: [pessoaCpf], references: [pessoaCpf], onDelete: SetNull, onUpdate: Cascade)
   denuncias              DenunciaCaoAgressivo[]
   esporotricose          Esporotricose[]
   procedimentos          CadastroProcedimento[]
@@ -433,22 +447,22 @@ model TermoInternacao {
 }
 
 model DenunciaCaoAgressivo {
-  id           String    @id(map: "zoonoses_denuncia_pkey") @db.VarChar(50)
-  dataDenuncia DateTime? @default(now()) @db.Timestamptz(6)
-  cep          String?   @db.VarChar(10)
-  logradouro   String?   @db.VarChar(200)
-  numero       String?   @db.VarChar(20)
-  complemento  String?   @db.VarChar(100)
-  bairro       String?   @db.VarChar(100)
-  cidade       String?   @default("Muriaé") @db.VarChar(100)
-  uf           String?   @default("MG") @db.VarChar(2)
-  pontoReferencia String? @map("ponto_referencia")
-  descricaoCao String    @map("descricao_cao")
-  relato       String
-  animalId     String?   @map("animal_id") @db.VarChar(50)
-  causouRisco  String?   @default("Não") @map("causou_risco") @db.VarChar(10)
-  tipo         String    @default("AGRESSIVO") @map("tipo") @db.VarChar(20)
-  animal       Animal?   @relation(fields: [animalId], references: [id])
+  id              String    @id(map: "zoonoses_denuncia_pkey") @db.VarChar(50)
+  dataDenuncia    DateTime? @default(now()) @db.Timestamptz(6)
+  cep             String?   @db.VarChar(10)
+  logradouro      String?   @db.VarChar(200)
+  numero          String?   @db.VarChar(20)
+  complemento     String?   @db.VarChar(100)
+  bairro          String?   @db.VarChar(100)
+  cidade          String?   @default("Muriaé") @db.VarChar(100)
+  uf              String?   @default("MG") @db.VarChar(2)
+  pontoReferencia String?   @map("ponto_referencia")
+  descricaoCao    String    @map("descricao_cao")
+  relato          String
+  animalId        String?   @map("animal_id") @db.VarChar(50)
+  causouRisco     String?   @default("Não") @map("causou_risco") @db.VarChar(10)
+  tipo            String    @default("AGRESSIVO") @map("tipo") @db.VarChar(20)
+  animal          Animal?   @relation(fields: [animalId], references: [id])
 
   @@map("ccz_denuncias")
 }
@@ -501,12 +515,12 @@ model Esporotricose {
 }
 
 model EsporotricoseVisita {
-  id              String                      @id @default(uuid()) @db.VarChar(50)
-  esporotricoseId String                      @map("esporotricose_id") @db.VarChar(50)
-  data            DateTime                    @db.Date
+  id              String                  @id @default(uuid()) @db.VarChar(50)
+  esporotricoseId String                  @map("esporotricose_id") @db.VarChar(50)
+  data            DateTime                @db.Date
   observacao      String?
-  createdAt       DateTime?                   @default(now()) @map("created_at") @db.Timestamptz(6)
-  esporotricose   Esporotricose               @relation(fields: [esporotricoseId], references: [id], onDelete: Cascade)
+  createdAt       DateTime?               @default(now()) @map("created_at") @db.Timestamptz(6)
+  esporotricose   Esporotricose           @relation(fields: [esporotricoseId], references: [id], onDelete: Cascade)
   relatorio       EsporotricoseRelatorio?
 
   @@index([esporotricoseId], map: "idx_esporo_visita")
@@ -514,44 +528,44 @@ model EsporotricoseVisita {
 }
 
 model EsporotricoseRelatorio {
-  id                       String              @id @default(uuid()) @db.VarChar(50)
-  visitaId                 String              @unique @map("visita_id") @db.VarChar(50)
-  dataRelatorio            DateTime            @default(now()) @map("data_relatorio") @db.Timestamptz(6)
-  profissionalResponsavel  String              @map("profissional_responsavel") @db.VarChar(150)
-  
+  id                      String   @id @default(uuid()) @db.VarChar(50)
+  visitaId                String   @unique @map("visita_id") @db.VarChar(50)
+  dataRelatorio           DateTime @default(now()) @map("data_relatorio") @db.Timestamptz(6)
+  profissionalResponsavel String   @map("profissional_responsavel") @db.VarChar(150)
+
   // Condição clínica observada
-  apresentaLesoes          String              @default("Não") @map("apresenta_lesoes") @db.VarChar(10)
-  descricaoLesoes          String?             @map("descricao_lesoes")
-  evolucaoQuadro           String?             @map("evolucao_quadro") @db.VarChar(50)
-  
+  apresentaLesoes String  @default("Não") @map("apresenta_lesoes") @db.VarChar(10)
+  descricaoLesoes String? @map("descricao_lesoes")
+  evolucaoQuadro  String? @map("evolucao_quadro") @db.VarChar(50)
+
   // Tratamento atual
-  emTratamento             String              @default("Sim") @map("em_tratamento") @db.VarChar(10)
-  medicamentosAtuais       String?             @map("medicamentos_atuais")
-  adesaoTratamento         String?             @map("adesao_tratamento") @db.VarChar(50)
-  
+  emTratamento       String  @default("Sim") @map("em_tratamento") @db.VarChar(10)
+  medicamentosAtuais String? @map("medicamentos_atuais")
+  adesaoTratamento   String? @map("adesao_tratamento") @db.VarChar(50)
+
   // Manejo e cuidados
-  isolamentoAdequado       String              @default("Sim") @map("isolamento_adequado") @db.VarChar(10)
-  usoEpiAdequado           String              @default("Sim") @map("uso_epi_adequado") @db.VarChar(10)
-  higienizacaoAdequada     String              @default("Sim") @map("higienizacao_adequada") @db.VarChar(10)
-  
+  isolamentoAdequado   String @default("Sim") @map("isolamento_adequado") @db.VarChar(10)
+  usoEpiAdequado       String @default("Sim") @map("uso_epi_adequado") @db.VarChar(10)
+  higienizacaoAdequada String @default("Sim") @map("higienizacao_adequada") @db.VarChar(10)
+
   // Orientações fornecidas
-  orientacoesRepassadas    String?             @map("orientacoes_repassadas")
-  
+  orientacoesRepassadas String? @map("orientacoes_repassadas")
+
   // Avaliação e próximos passos
-  observacoesGerais        String?             @map("observacoes_gerais")
-  necessidadeNovaVisita    String              @default("Sim") @map("necessidade_nova_visita") @db.VarChar(10)
-  dataProximaVisita        DateTime?           @map("data_proxima_visita") @db.Date
-  
+  observacoesGerais     String?   @map("observacoes_gerais")
+  necessidadeNovaVisita String    @default("Sim") @map("necessidade_nova_visita") @db.VarChar(10)
+  dataProximaVisita     DateTime? @map("data_proxima_visita") @db.Date
+
   // Encaminhamentos
-  encVeterinario           Boolean             @default(false) @map("enc_veterinario")
-  encNotificacao           Boolean             @default(false) @map("enc_notificacao")
-  encOutros                Boolean             @default(false) @map("enc_outros")
-  descricaoEncaminhamentos String?             @map("descricao_encaminhamentos")
-  
-  createdAt                DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
-  
-  visita                   EsporotricoseVisita @relation(fields: [visitaId], references: [id], onDelete: Cascade)
+  encVeterinario           Boolean @default(false) @map("enc_veterinario")
+  encNotificacao           Boolean @default(false) @map("enc_notificacao")
+  encOutros                Boolean @default(false) @map("enc_outros")
+  descricaoEncaminhamentos String? @map("descricao_encaminhamentos")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  visita EsporotricoseVisita @relation(fields: [visitaId], references: [id], onDelete: Cascade)
 
   @@index([visitaId], map: "idx_relatorio_visita")
   @@map("ccz_esporotricose_relatorios")
@@ -607,21 +621,22 @@ enum ServicoJunta {
 }
 
 model PedidoExameHistorico {
-  id                Int      @id @default(autoincrement())
-  pedidoId          Int      @map("pedido_id")
-  usuarioCpf        String   @map("usuario_cpf") @db.VarChar(11)
-  usuarioNome       String   @map("usuario_nome") @db.VarChar(150)
-  acao              String   @db.VarChar(50)
-  campoAlterado     String?  @map("campo_alterado") @db.VarChar(100)
-  valorAnterior     String?  @map("valor_anterior")
-  valorNovo         String?  @map("valor_novo")
-  observacao        String?
-  dataHora          DateTime @default(now()) @map("data_hora") @db.Timestamptz(6)
+  id            Int      @id @default(autoincrement())
+  pedidoId      Int      @map("pedido_id")
+  usuarioCpf    String   @map("usuario_cpf") @db.VarChar(11)
+  usuarioNome   String   @map("usuario_nome") @db.VarChar(150)
+  acao          String   @db.VarChar(50)
+  campoAlterado String?  @map("campo_alterado") @db.VarChar(100)
+  valorAnterior String?  @map("valor_anterior")
+  valorNovo     String?  @map("valor_novo")
+  observacao    String?
+  dataHora      DateTime @default(now()) @map("data_hora") @db.Timestamptz(6)
 
   @@index([pedidoId], map: "idx_historico_pedido")
   @@index([dataHora], map: "idx_historico_data")
   @@map("regula_pedidos_historico")
 }
+
 model AuditLog {
   id         Int      @id @default(autoincrement())
   userCpf    String   @map("user_cpf") @db.VarChar(11)
@@ -634,8 +649,25 @@ model AuditLog {
   detalhes   Json?
   ip         String?  @db.VarChar(60)
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
   @@index([userCpf, createdAt], map: "idx_audit_user_data")
   @@index([modulo, createdAt], map: "idx_audit_modulo_data")
   @@index([createdAt], map: "idx_audit_data")
   @@map("audit_logs")
+}
+
+model AuditoriaUnificacao {
+  id                    Int      @id @default(autoincrement())
+  pessoaPrincipalCpf    String   @map("pessoa_principal_cpf") @db.VarChar(11)
+  pessoasAbsorvidasCpfs Json     @map("pessoas_absorvidas_cpfs")
+  motivo                String?
+  usuarioId             String?  @map("usuario_id") @db.VarChar(11)
+  snapshotAnterior      Json     @map("snapshot_anterior")
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  pessoaPrincipal       Pessoa   @relation(fields: [pessoaPrincipalCpf], references: [cpf], onDelete: Restrict, onUpdate: Cascade, map: "fk_auditoria_unif_principal")
+  usuario               User?    @relation(fields: [usuarioId], references: [cpf], onDelete: SetNull, onUpdate: Cascade, map: "fk_auditoria_unif_usuario")
+
+  @@index([pessoaPrincipalCpf], map: "idx_auditoria_unif_principal")
+  @@index([createdAt], map: "idx_auditoria_unif_data")
+  @@map("auditoria_unificacoes")
 }

@@ -1,4 +1,5 @@
 'use client';
+import { formatarCpfExibicao } from '@/lib/cpf';
 
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
@@ -64,9 +65,7 @@ export default function FiltersBar({
 
   const formatCPF = (cpf) => {
     if (!cpf) return '';
-    const d = cpf.replace(/\D/g, '');
-    if (d.length !== 11) return cpf;
-    return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    return formatarCpfExibicao(cpf);
   };
 
   const selecionarPaciente = (p) => {

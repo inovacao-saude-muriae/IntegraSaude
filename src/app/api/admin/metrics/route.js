@@ -48,7 +48,7 @@ export async function GET() {
       ultimosPedidos,
       ultimasDispensacoes,
     ] = await Promise.all([
-      prisma.pessoa.count(),
+      prisma.pessoa.count({ where: { ativo: true } }),
 
       prisma.pedidoExame.groupBy({
         by: ["status"],

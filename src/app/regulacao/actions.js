@@ -222,6 +222,7 @@ export async function getAuxiliaryData() {
           orderBy: { nome: "asc" },
         }),
         prisma.pessoa.findMany({
+          where: { ativo: true },
           include: {
             enderecos: { where: { enderecoAtual: true } },
             ubsReferencia: true,
@@ -291,6 +292,7 @@ export async function searchPessoa(term) {
 
     const pessoa = await prisma.pessoa.findFirst({
       where: {
+        ativo: true,
         OR: [
           { cpf: term },
           ...(cleanTerm ? [{ cpf: cleanTerm }] : []),
@@ -320,6 +322,7 @@ export async function searchPessoasAutocomplete(term) {
 
     const pessoas = await prisma.pessoa.findMany({
       where: {
+        ativo: true,
         OR: [
           { cpf: { contains: term } },
           ...(cleanTerm ? [{ cpf: { contains: cleanTerm } }] : []),
@@ -346,6 +349,19 @@ export async function searchPessoasAutocomplete(term) {
 export async function createPedidoExame(data) {
   try {
     const user = await requireAcessoModulo(MODULOS.REGULACAO);
+
+    // Pessoa absorvida por unificação não pode receber novos pedidos.
+    const pessoaPedido = await prisma.pessoa.findUnique({
+      where: { cpf: String(data.cpf || "") },
+      select: { ativo: true },
+    });
+    if (pessoaPedido && !pessoaPedido.ativo) {
+      return {
+        success: false,
+        error: "Este cadastro foi unificado em outro. Selecione o cadastro principal.",
+      };
+    }
+
     const newRecord = await prisma.pedidoExame.create({
       data: {
         pessoaCpf: data.cpf,

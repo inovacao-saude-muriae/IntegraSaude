@@ -6,6 +6,8 @@
 //
 // Não use "use server" aqui: este arquivo é um utilitário, não server actions.
 
+import { isCpfProvisorio, normalizarCpfChave } from "@/lib/cpf";
+
 export const soDigitos = (valor) => (valor ? String(valor).replace(/\D/g, "") : "");
 
 /**
@@ -51,8 +53,8 @@ function paraData(valor) {
  * @returns objeto pronto para prisma.pessoa.create (inclui cpf).
  */
 export function normalizarPessoa(data, { exigirData = true } = {}) {
-  const cpf = soDigitos(data.cpf);
-  if (cpf.length !== 11) {
+  const cpf = normalizarCpfChave(data.cpf);
+  if (cpf.length !== 11 && !isCpfProvisorio(cpf)) {
     throw new Error("CPF inválido. Informe 11 dígitos.");
   }
   if (!data.nomeCompleto?.trim()) {
@@ -100,7 +102,7 @@ export async function criarPessoaTx(tx, data) {
 export async function atualizarPessoaTx(tx, cpf, data) {
   const pessoa = normalizarPessoa(data);
   const { cpf: _, ...campos } = pessoa;
-  return tx.pessoa.update({ where: { cpf: soDigitos(cpf) }, data: campos });
+  return tx.pessoa.update({ where: { cpf: normalizarCpfChave(cpf) }, data: campos });
 }
 
 /**
@@ -125,7 +127,7 @@ export async function gravarEnderecoTx(tx, cpf, data) {
   const temEndereco = data.logradouro || data.bairro || data.cep;
   if (!temEndereco) return;
 
-  const pessoaCpf = soDigitos(cpf);
+  const pessoaCpf = normalizarCpfChave(cpf);
   await tx.endereco.deleteMany({ where: { pessoaCpf } });
   await tx.endereco.create({
     data: {

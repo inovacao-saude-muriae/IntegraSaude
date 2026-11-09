@@ -1,0 +1,19 @@
+-- ROLLBACK (NÃO executado) da migration 20261108120000_empi_unificacao_pessoa.
+-- As FKs existentes já eram ON UPDATE CASCADE, então nada a restaurar nelas.
+-- Atenção: pessoas já unificadas perdem a marcação (ativo/unificado_em_cpf) ao remover as colunas.
+BEGIN;
+DROP TABLE IF EXISTS "auditoria_unificacoes";
+DROP FUNCTION IF EXISTS "gerar_cpf_provisorio"();
+DROP SEQUENCE IF EXISTS "seq_cpf_provisorio";
+ALTER TABLE "pessoa" DROP CONSTRAINT IF EXISTS "chk_pessoa_unificado_inativo";
+DROP INDEX IF EXISTS "idx_pessoa_ativo";
+DROP INDEX IF EXISTS "idx_pessoa_unificado_em";
+ALTER TABLE "pessoa" DROP CONSTRAINT IF EXISTS "fk_pessoa_unificado_em";
+ALTER TABLE "pessoa" DROP CONSTRAINT IF EXISTS "fk_pessoa_unificado_por";
+ALTER TABLE "pessoa"
+    DROP COLUMN IF EXISTS "ativo",
+    DROP COLUMN IF EXISTS "unificado_em_cpf",
+    DROP COLUMN IF EXISTS "data_unificacao",
+    DROP COLUMN IF EXISTS "unificado_por_usuario_id";
+COMMIT;
+-- Depois: DELETE FROM "_prisma_migrations" WHERE migration_name = '20261108120000_empi_unificacao_pessoa';

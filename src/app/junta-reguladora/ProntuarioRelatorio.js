@@ -6,6 +6,7 @@ import autoTable from 'jspdf-autotable';
 import { listarPacientesJunta } from './actions';
 import { documentoPaciente } from '@/app/regulacao/constants';
 import { mascararTelefone } from '@/lib/telefone';
+import { formatarCpfExibicao } from '@/lib/cpf';
 import styles from './ProntuarioRelatorio.module.css';
 import { rotuloEspecialidade } from './rotuloEspecialidade';
 import { usaRelatorioFinal } from './usaRelatorioFinal';
@@ -78,8 +79,7 @@ export default function ProntuarioRelatorio({ prontuarioData, onBuscar }) {
 
   const formatCPF = (cpf) => {
     if (!cpf) return '';
-    const digits = cpf.replace(/\D/g, '');
-    return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    return formatarCpfExibicao(cpf);
   };
 
   const handleInputChange = async (valor) => {

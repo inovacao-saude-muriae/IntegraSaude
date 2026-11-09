@@ -5,6 +5,7 @@ import { requireAcessoModulo } from "@/lib/auth";
 import { registrarAuditoria } from "@/lib/audit";
 import { MODULOS } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
+import { normalizarCpfChave } from "@/lib/cpf";
 import {
   soDigitos,
   validarCpf,
@@ -65,14 +66,16 @@ export async function buscarPessoasCCZ(termo = "") {
     const termoLimpo = String(termo || "").trim();
     const termoDigitos = soDigitos(termoLimpo);
 
+    // Cadastros absorvidos por unificação (ativo=false) ficam fora da busca.
     const where = termoLimpo
       ? {
+          ativo: true,
           OR: [
             { nomeCompleto: { contains: termoLimpo, mode: "insensitive" } },
             ...(termoDigitos ? [{ cpf: { contains: termoDigitos } }] : []),
           ],
         }
-      : {};
+      : { ativo: true };
 
     const pessoas = await prisma.pessoa.findMany({
       where,
@@ -99,7 +102,7 @@ export async function listarAnimaisDoTutor(pessoaCpf) {
   try {
     await requireAcessoModulo(MODULOS.CCZ);
 
-    const cpf = soDigitos(pessoaCpf);
+    const cpf = normalizarCpfChave(pessoaCpf);
     if (!cpf) return { success: true, data: [] };
 
     const animais = await prisma.animal.findMany({
@@ -562,7 +565,7 @@ export async function salvarAnimal(dados) {
     const possuiResponsavel = dados.possuiResponsavel === "Sim" ? "Sim" : "Não";
     const pessoaCpf =
       possuiResponsavel === "Sim" && dados.pessoaCpf
-        ? soDigitos(dados.pessoaCpf)
+        ? normalizarCpfChave(dados.pessoaCpf)
         : null;
 
     // "Qual doença" não tem coluna própria: concatena em observacoes.
@@ -615,9 +618,9 @@ export async function salvarAnimal(dados) {
       if (pessoaCpf) {
         const pessoa = await tx.pessoa.findUnique({
           where: { cpf: pessoaCpf },
-          select: { cpf: true },
+          select: { cpf: true, ativo: true },
         });
-        if (!pessoa) {
+        if (!pessoa || !pessoa.ativo) {
           throw Object.assign(new Error("Pessoa (tutor) não encontrada no cadastro."), {
             codigoApp: "TUTOR_INEXISTENTE",
           });

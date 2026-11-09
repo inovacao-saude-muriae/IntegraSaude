@@ -36,7 +36,8 @@ export async function GET(req, { params }) {
       },
     });
 
-    if (!pessoa) {
+    // Cadastro absorvido por unificação não é usado em novos registros.
+    if (!pessoa || !pessoa.ativo) {
       return NextResponse.json(
         { success: false, error: "Pessoa não encontrada" },
         { status: 404 }

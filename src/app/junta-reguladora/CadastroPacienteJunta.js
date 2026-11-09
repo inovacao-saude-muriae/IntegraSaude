@@ -6,6 +6,7 @@ import { useConfirm } from '@/components/ConfirmDialog';
 import { documentoPaciente } from '@/app/regulacao/constants';
 import { mascararTelefone } from '@/lib/telefone';
 import SeletorPaciente from '@/components/SeletorPaciente';
+import { formatarCpfExibicao } from '@/lib/cpf';
 import styles from './CadastroPacienteJunta.module.css';
 
 const LOCAIS_DISPONIVEIS = [
@@ -28,8 +29,7 @@ export default function CadastroPacienteJunta({ onCadastrar }) {
 
   const formatCPF = (cpf) => {
     if (!cpf) return '';
-    const d = cpf.replace(/\D/g, '');
-    return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    return formatarCpfExibicao(cpf);
   };
 
   const handleSelectPessoa = (p) => {

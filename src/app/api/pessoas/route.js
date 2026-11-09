@@ -20,6 +20,7 @@ export async function GET(req) {
 
     const searchTerm = q.trim();
     const where = {
+      ativo: true,
       OR: [
         { nomeCompleto: { contains: searchTerm, mode: "insensitive" } },
         { cpf: { contains: searchTerm } },
@@ -92,7 +93,12 @@ export async function POST(req) {
     const existing = await prisma.pessoa.findUnique({ where: { cpf } });
     if (existing) {
       return NextResponse.json(
-        { success: false, error: "CPF já cadastrado" },
+        {
+          success: false,
+          error: existing.ativo
+            ? "CPF já cadastrado"
+            : "CPF pertence a um cadastro que foi unificado em outro",
+        },
         { status: 409 }
       );
     }

@@ -16,6 +16,7 @@ export const AUDIT_ACOES = [
   "DESATIVAR",
   "REATIVAR",
   "SALVAR",
+  "UNIFICAR",
   "OUTRO",
 ];
 

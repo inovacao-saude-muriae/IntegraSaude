@@ -1,3 +1,5 @@
+import { isCpfProvisorio, ROTULO_CPF_PROVISORIO } from "@/lib/cpf";
+
 // Opções de status da comunicação com o paciente.
 // Usadas tanto no select de gravação (Lista de Espera) quanto no filtro,
 // garantindo que o valor gravado seja exatamente o valor filtrável.
@@ -22,7 +24,9 @@ export const STATUS_PEDIDO = [
 ];
 
 // Formata um CPF (11 dígitos) em 000.000.000-00; retorna o valor original se não bater.
+// CPF provisório (T + 10 dígitos) é exibido como "CPF não informado".
 export function formatarCpf(cpf) {
+  if (isCpfProvisorio(cpf)) return ROTULO_CPF_PROVISORIO;
   const d = String(cpf || "").replace(/\D/g, "");
   if (d.length !== 11) return cpf || "";
   return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
@@ -30,7 +34,12 @@ export function formatarCpf(cpf) {
 
 // Documento a exibir na busca de paciente:
 // mostra o CPF (formatado) se existir; caso contrário, o CNS; senão "—".
+// Com CPF provisório mostra o CNS (se houver) ou "CPF não informado".
 export function documentoPaciente({ cpf, cns } = {}) {
+  const cnsProvisorio = String(cns || "").replace(/\D/g, "");
+  if (isCpfProvisorio(cpf)) {
+    return cnsProvisorio ? `CNS ${cnsProvisorio}` : ROTULO_CPF_PROVISORIO;
+  }
   const cpfLimpo = String(cpf || "").replace(/\D/g, "");
   if (cpfLimpo) return formatarCpf(cpfLimpo);
   const cnsLimpo = String(cns || "").replace(/\D/g, "");

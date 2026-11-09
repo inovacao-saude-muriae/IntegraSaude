@@ -9,9 +9,10 @@ import {
   validarCpf,
   normalizarPessoa,
   criarPessoaTx,
-  atualizarPessoaTx,
   gravarEnderecoTx,
 } from "@/lib/pessoa";
+import { normalizarCpfChave } from "@/lib/cpf";
+import { atualizarPessoaComCpf, unificarPessoas } from "@/lib/unificacaoPessoa";
 
 // Cadastro central de pessoas: GESTOR ∨ REGULACAO/ADMIN ∨ JUNTA/ADMIN
 // (guarda "pessoas", refinamento #5 / design §5).
@@ -72,14 +73,16 @@ export async function listarPessoas(termo = "") {
     const termoLimpo = termo.trim();
     const termoDigitos = soDigitos(termoLimpo);
 
+    // Cadastros absorvidos por unificação (ativo=false) nunca são listados.
     const where = termoLimpo
       ? {
+          ativo: true,
           OR: [
             { nomeCompleto: { contains: termoLimpo, mode: "insensitive" } },
             ...(termoDigitos ? [{ cpf: { contains: termoDigitos } }] : []),
           ],
         }
-      : {};
+      : { ativo: true };
 
     const pessoas = await prisma.pessoa.findMany({
       where,
@@ -118,10 +121,15 @@ export async function criarPessoa(data) {
 
     const existente = await prisma.pessoa.findUnique({
       where: { cpf: pessoaData.cpf },
-      select: { cpf: true },
+      select: { cpf: true, ativo: true },
     });
     if (existente) {
-      return { success: false, error: "Já existe uma pessoa com este CPF." };
+      return {
+        success: false,
+        error: existente.ativo
+          ? "Já existe uma pessoa com este CPF."
+          : "Este CPF pertence a um cadastro que foi unificado em outro.",
+      };
     }
 
     await prisma.$transaction(async (tx) => {
@@ -156,33 +164,81 @@ export async function criarPessoa(data) {
 export async function atualizarPessoa(cpfOriginal, data) {
   try {
     const user = await requireAcessoPessoas();
-    const cpf = soDigitos(cpfOriginal);
 
-    await prisma.$transaction(async (tx) => {
-      await atualizarPessoaTx(tx, cpf, data);
-      await gravarEnderecoTx(tx, cpf, data);
-    });
+    // O CPF só muda quando o atual é provisório; conflito devolve objeto de
+    // controle (status CPF_DUPLICADO_CONFLITO) SEM salvar nada.
+    const res = await atualizarPessoaComCpf(prisma, cpfOriginal, data);
+    if (!res.success) return res;
 
     await registrarAuditoria({
       user,
       acao: "EDITAR",
       modulo: "GERENCIAMENTO",
       entidade: "Pessoa",
-      entidadeId: cpf,
-      descricao: "Pessoa atualizada",
+      entidadeId: res.cpf,
+      descricao: res.trocouCpf ? "CPF provisório substituído pelo oficial" : "Pessoa atualizada",
+      detalhes: res.trocouCpf ? { cpfAnterior: res.cpfAnterior } : undefined,
     });
 
     revalidatePath("/gerenciamento/pessoas");
-    return { success: true };
+    return { success: true, cpf: res.cpf };
   } catch (error) {
     if (error.status === 401 || error.status === 403) {
       return { success: false, error: error.message };
     }
     if (error.code === "P2002") {
-      return { success: false, error: "CNS já cadastrado para outra pessoa." };
+      return { success: false, error: "CPF ou CNS já cadastrado para outra pessoa." };
     }
     console.error("Erro ao atualizar pessoa:", error);
     return { success: false, error: error.message || "Erro ao atualizar pessoa." };
+  }
+}
+
+// ── CONFIRMAR UNIFICAÇÃO ───────────────────────────────────────────────────
+// pessoaAlvoCpf = cadastro oficial (principal); pessoaOrigemCpf = cadastro com
+// CPF provisório que será absorvido (fica inativo, nada é apagado).
+export async function confirmarUnificacaoPessoas({
+  pessoaAlvoCpf,
+  pessoaOrigemCpf,
+  motivo,
+  dadosFormulario,
+} = {}) {
+  try {
+    const user = await requireAcessoPessoas();
+
+    const res = await unificarPessoas(prisma, {
+      pessoaAlvoCpf,
+      pessoaOrigemCpf,
+      motivo,
+      dadosFormulario,
+      usuarioCpf: user.cpf,
+    });
+    if (!res.success) return res;
+
+    await registrarAuditoria({
+      user,
+      acao: "UNIFICAR",
+      modulo: "GERENCIAMENTO",
+      entidade: "Pessoa",
+      entidadeId: normalizarCpfChave(pessoaAlvoCpf),
+      descricao: `Pessoa '${res.origemNome}' unificada em '${res.alvo.nomeCompleto}'`,
+      detalhes: {
+        origemCpf: normalizarCpfChave(pessoaOrigemCpf),
+        pedidosMovidos: res.pedidosMovidos,
+      },
+    });
+
+    revalidatePath("/gerenciamento/pessoas");
+    return {
+      success: true,
+      pessoa_alvo: { ...serializarPessoa(res.alvo), contagens: res.contagens },
+    };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao unificar pessoas:", error);
+    return { success: false, error: "Erro ao unificar cadastros. Nada foi alterado." };
   }
 }
 
@@ -190,7 +246,7 @@ export async function atualizarPessoa(cpfOriginal, data) {
 export async function excluirPessoa(cpf) {
   try {
     const user = await requireAcessoPessoas();
-    const cpfLimpo = soDigitos(cpf);
+    const cpfLimpo = normalizarCpfChave(cpf);
 
     await prisma.$transaction(async (tx) => {
       await tx.endereco.deleteMany({ where: { pessoaCpf: cpfLimpo } });
