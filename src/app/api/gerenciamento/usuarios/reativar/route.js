@@ -1,15 +1,11 @@
 import { NextResponse } from 'next/server';
 import { registrarAuditoria } from '@/lib/audit';
-import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg';
-
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+import { prisma } from '@/lib/prisma';
+import { requireGestor } from '@/lib/auth';
 
 export async function PUT(request) {
   try {
+    const gestor = await requireGestor();
     const { cpf } = await request.json();
 
     if (!cpf) {
@@ -37,8 +33,9 @@ export async function PUT(request) {
       data: { ativo: true },
     });
 
-    // Usuário que executa a ação é resolvido pela sessão (a rota não tem guarda própria).
+    // Usuario autenticado (gestor) que executou a acao fica registrado na auditoria.
     await registrarAuditoria({
+      user: gestor,
       acao: 'REATIVAR',
       modulo: 'GERENCIAMENTO',
       entidade: 'Usuario',
@@ -51,6 +48,9 @@ export async function PUT(request) {
       message: 'Usuário reativado com sucesso',
     });
   } catch (error) {
+    if ([401, 403].includes(error?.status)) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error('[API /reativar] Erro:', error);
     return NextResponse.json(
       { error: 'Erro ao reativar usuário' },

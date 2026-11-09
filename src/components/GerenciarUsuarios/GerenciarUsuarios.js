@@ -209,6 +209,8 @@ export default function GerenciarUsuarios() {
       const data = await res.json();
       if (res.ok) {
         setUsuarios(data.usuarios || []);
+      } else {
+        setMensagem({ tipo: 'erro', texto: data.error || 'Erro ao carregar usuarios.' });
       }
     } catch (error) {
       console.error('Erro ao carregar usuários:', error);

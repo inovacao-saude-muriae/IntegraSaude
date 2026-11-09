@@ -1,14 +1,10 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg';
-
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+import { prisma } from '@/lib/prisma';
+import { requireGestor } from '@/lib/auth';
 
 export async function GET() {
   try {
+    await requireGestor();
     const usuarios = await prisma.user.findMany({
       select: {
         cpf: true,
@@ -28,6 +24,9 @@ export async function GET() {
 
     return NextResponse.json({ usuarios });
   } catch (error) {
+    if ([401, 403].includes(error?.status)) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error('[API /gerenciamento/usuarios/listar] Erro:', error);
     return NextResponse.json(
       { error: 'Erro ao listar usuários' },
