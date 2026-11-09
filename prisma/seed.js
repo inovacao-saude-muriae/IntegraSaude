@@ -19,6 +19,16 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log("🌱 Iniciando seed do banco de dados...\n");
 
+  // Em produção, nunca usar credenciais padrão
+  if (
+    process.env.NODE_ENV === "production" &&
+    (!process.env.GESTOR_USERNAME || !process.env.GESTOR_SENHA)
+  ) {
+    console.error(
+      "❌ ERRO: Em produção (NODE_ENV=production) defina GESTOR_USERNAME e GESTOR_SENHA (e GESTOR_NOME) antes de executar o seed."
+    );
+    process.exit(1);
+  }
   // Admin do Sistema (com username)
   const usernameAdmin = process.env.GESTOR_USERNAME || "admin_integra";
   const nomeAdmin = process.env.GESTOR_NOME || "Administrador IntegraSaúde";
@@ -56,7 +66,9 @@ async function main() {
   console.log("✅ Admin do Sistema configurado com sucesso!");
   console.log(`👤 Nome: ${adminUser.nome}`);
   console.log(`🆔 Username/Login: ${adminUser.username}`);
-  console.log(`🔑 Senha: ${senhaAdmin}`);
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`🔑 Senha: ${senhaAdmin}`);
+  }
   console.log(`🎯 Permissão: ${adminUser.role} (Acesso Total)\n`);
 
   console.log("🎉 Seed concluído com sucesso!");

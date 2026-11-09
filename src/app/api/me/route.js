@@ -40,8 +40,6 @@ export async function GET() {
       return NextResponse.json({ error: 'Sessão expirada' }, { status: 401 });
     }
 
-    // DEBUG: Log do primeiroAcesso
-    console.log(`[API /me] Usuario: ${session.user.nome}, primeiroAcesso: ${session.user.primeiroAcesso}`);
 
     return NextResponse.json(
       {

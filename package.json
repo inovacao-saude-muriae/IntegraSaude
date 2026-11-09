@@ -2,6 +2,9 @@
   "name": "integrasaude",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.19"
+  },
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0 --port 3000 --turbo",
     "build": "next build",
@@ -13,33 +16,27 @@
     "db:backfill": "node prisma/backfill-acessos.js",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
-    "db:reset": "prisma migrate reset --force",
-    "test:ccz": "node scripts/test-ccz.mjs"
+    "db:reset": "prisma migrate reset --force"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
     "bcryptjs": "^3.0.3",
+    "dotenv": "^17.4.2",
     "jose": "^6.2.10",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
-    "lucide-react": "^1.31.0",
     "next": "16.3.0",
     "pg": "^8.23.0",
+    "prisma": "^7.9.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "recharts": "^3.10.1",
-    "swr": "^2.5.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
-    "@types/node": "^26.2.0",
-    "babel-plugin-react-compiler": "1.0.0",
-    "dotenv": "^17.4.2",
     "eslint": "^9",
-    "eslint-config-next": "16.3.0",
-    "prisma": "^7.9.1"
+    "eslint-config-next": "16.3.0"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

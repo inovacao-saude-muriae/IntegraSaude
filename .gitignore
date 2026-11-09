@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -65,3 +66,5 @@ test-*.js
 *.sql.gz
 *.sql.zip
 *.dump
+# Migrations do Prisma precisam ser versionadas (nao ignorar os .sql delas)
+!prisma/migrations/**/*.sql

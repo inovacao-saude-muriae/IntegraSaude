@@ -43,7 +43,6 @@ export default function CadastroAnimal({ animalInicial = null, onSalvo, onCancel
   const [erro, setErro] = useState("");
   const [fotoErro, setFotoErro] = useState("");
 
-  console.log("CadastroAnimal - Estados:", { editando, modoEdicao, animalCarregado: !!animalCarregado });
 
   // Busca de animal via campo Nome
   const [animaisResultados, setAnimaisResultados] = useState([]);
@@ -103,7 +102,6 @@ export default function CadastroAnimal({ animalInicial = null, onSalvo, onCancel
     setForm((prev) => ({ ...prev, nome: valor }));
     
     if (modoEdicao || editando) {
-      console.log("Busca bloqueada - modoEdicao:", modoEdicao, "editando:", editando);
       return;
     }
     
@@ -114,11 +112,9 @@ export default function CadastroAnimal({ animalInicial = null, onSalvo, onCancel
     }
     
     // Faz a busca somente se houver texto
-    console.log("Buscando animais com termo:", valor);
     setAnimaisDropAberto(true);
     setAnimaisBuscando(true);
     const res = await buscarAnimaisCCZ(valor.trim());
-    console.log("Resultados da busca:", res);
     setAnimaisResultados(res.success ? res.data : []);
     setAnimaisBuscando(false);
   };

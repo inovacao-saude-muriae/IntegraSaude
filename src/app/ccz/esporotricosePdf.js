@@ -513,7 +513,6 @@ Comprometo-me a seguir todas as orientações fornecidas pela equipe do CCZ e a 
   const mes = MESES[dataAtual.getMonth()];
   const ano = dataAtual.getFullYear();
   
-  console.log('Data Esporotricose:', { dia, mes, ano, dataAtual }); // Debug
   
   doc.text(`Muriaé, ${dia} de ${mes} de ${ano}`, margemX, y);
   y += 20;

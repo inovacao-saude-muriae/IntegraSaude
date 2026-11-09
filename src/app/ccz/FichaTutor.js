@@ -38,9 +38,7 @@ export default function FichaTutor({ cpf, onFechar, onEditar, onExcluir }) {
       setCarregando(true);
       setErro("");
       try {
-        console.log("Buscando tutor CPF:", cpf);
         const res = await fetch(`/api/ccz/tutores/${cpf}`);
-        console.log("Response status:", res.status);
         
         if (!res.ok) {
           const errorText = await res.text();
@@ -49,7 +47,6 @@ export default function FichaTutor({ cpf, onFechar, onEditar, onExcluir }) {
         }
         
         const data = await res.json();
-        console.log("Dados recebidos:", data);
         setDados(data);
       } catch (error) {
         console.error("Erro ao carregar ficha:", error);

@@ -90,23 +90,14 @@ export default function Home() {
 
         const dataUser = await resUser.json();
         
-        // DEBUG: Log do primeiroAcesso
-        console.log('🔍 DEBUG - Dados do usuário:', {
-          nome: dataUser.user?.nomeCompleto,
-          role: dataUser.user?.role,
-          primeiroAcesso: dataUser.user?.primeiroAcesso,
-        });
-        
         // IMPORTANTE: Verifica primeiro acesso e mostra modal
         if (dataUser.user?.primeiroAcesso === true) {
-          console.log('✅ Primeiro acesso detectado! Mostrando modal...');
           setUser(dataUser.user);
           setMostrarModalSenha(true);
           setLoading(false);
           return;
         }
 
-        console.log('ℹ️ Não é primeiro acesso, mostrando módulos normalmente');
         setUser(dataUser.user);
       } catch (err) {
         console.error("Erro ao carregar usuário:", err);

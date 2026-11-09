@@ -40,7 +40,9 @@ export function validateEnv() {
     );
   }
 
-  console.log('✅ Variáveis de ambiente validadas com sucesso!');
+  if (process.env.NODE_ENV === 'development') {
+    console.log('✅ Variáveis de ambiente validadas com sucesso!');
+  }
 }
 
 /**

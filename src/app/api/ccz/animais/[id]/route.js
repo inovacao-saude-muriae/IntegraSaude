@@ -17,9 +17,6 @@ export async function GET(request, context) {
     const { params } = context;
     const id = decodeURIComponent(params.id);
 
-    console.log("=== GET /api/ccz/animais/[id] ===");
-    console.log("params.id (raw):", params.id);
-    console.log("id (decoded):", id);
 
     if (!id) {
       return NextResponse.json({ error: "ID não informado" }, { status: 400 });
@@ -36,8 +33,6 @@ export async function GET(request, context) {
       },
     });
 
-    console.log("Animal encontrado:", animal ? "SIM" : "NÃO");
-    console.log("Animal ID no banco:", animal?.id);
 
     if (!animal) {
       return NextResponse.json({ error: "Animal não encontrado" }, { status: 404 });
