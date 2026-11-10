@@ -26,6 +26,8 @@ export default function GerenciarUsuarios() {
   const [editandoUsuario, setEditandoUsuario] = useState(null);
   const [novoRoleEdicao, setNovoRoleEdicao] = useState('');
   const [salvandoEdicao, setSalvandoEdicao] = useState(false);
+  // CPF do usuário logado (a UI apenas reflete; o backend é a autoridade da autoproteção)
+  const [meuCpf, setMeuCpf] = useState(null);
   
   // Estado para controlar exibição do formulário
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
@@ -221,6 +223,10 @@ export default function GerenciarUsuarios() {
   // Carregar lista de usuários ao montar o componente
   useEffect(() => {
     carregarUsuarios();
+    fetch('/api/me')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setMeuCpf(d?.user?.cpf ?? null))
+      .catch(() => {});
   }, []);
 
   // Filtros aplicados
@@ -722,8 +728,8 @@ export default function GerenciarUsuarios() {
                             <button
                               onClick={() => iniciarEdicao(user)}
                               className={styles.btnEdit}
-                              disabled={!user.ativo}
-                              title="Alterar nível de acesso"
+                              disabled={!user.ativo || user.cpf === meuCpf}
+                              title={user.cpf === meuCpf ? 'Você não pode alterar o seu próprio perfil' : 'Alterar nível de acesso'}
                             >
                               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -735,7 +741,8 @@ export default function GerenciarUsuarios() {
                               <button
                                 onClick={() => desativarUsuario(user.cpf, user.nome)}
                                 className={styles.btnDeactivate}
-                                title="Desativar acesso"
+                                disabled={user.cpf === meuCpf}
+                                title={user.cpf === meuCpf ? 'Você não pode desativar a sua própria conta' : 'Desativar acesso'}
                               >
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                   <circle cx="12" cy="12" r="10"/>

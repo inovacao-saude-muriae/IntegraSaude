@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { Role } from '@prisma/client';
 import { requireGestor } from '@/lib/auth';
+import { ROLES_VALIDAS, GestorGuardError, validarAlteracaoGestor } from '@/lib/gestorGuard';
 import { registrarAuditoria } from '@/lib/audit';
 import bcrypt from 'bcryptjs';
 
-const ROLES_VALIDAS = Object.values(Role);
 
 // Mapeia role para os vínculos de acesso (UserAcesso)
 function mapearRoleParaAcessos(role) {
@@ -76,6 +75,15 @@ export async function POST(request) {
 
     // Usa transaction para criar usuário + vínculos atomicamente
     const user = await prisma.$transaction(async (tx) => {
+      // Autoproteção do Gestor: o upsert pode alterar o role de um usuário existente
+      // (inclusive rebaixar o próprio gestor ou o último gestor ativo).
+      await validarAlteracaoGestor(tx, {
+        executorCpf: gestor.cpf,
+        alvoCpf: cpfLimpo,
+        novoRole: role,
+        alvoObrigatorio: false,
+      });
+
       // Cria/atualiza o usuário
       const user = await tx.user.upsert({
         where: { cpf: cpfLimpo },
@@ -147,6 +155,9 @@ export async function POST(request) {
       { status: 201 }
     );
   } catch (error) {
+    if (error instanceof GestorGuardError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     if (error.status === 401 || error.status === 403) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { registrarAuditoria } from '@/lib/audit';
 import { prisma } from '@/lib/prisma';
 import { requireGestor } from '@/lib/auth';
+import { GestorGuardError, validarAlteracaoGestor } from '@/lib/gestorGuard';
 
 export async function PUT(request) {
   try {
@@ -15,29 +16,26 @@ export async function PUT(request) {
       );
     }
 
-    // Verifica se o usuário existe
-    const usuarioExistente = await prisma.user.findUnique({
-      where: { cpf },
+    // Guarda (autoproteção do Gestor) + desativação + limpeza de sessões na MESMA transação.
+    const usuarioExistente = await prisma.$transaction(async (tx) => {
+      const alvo = await validarAlteracaoGestor(tx, {
+        executorCpf: gestor.cpf,
+        alvoCpf: cpf,
+        desativar: true,
+      });
+
+      await tx.user.update({
+        where: { cpf },
+        data: { ativo: false },
+      });
+
+      // Remove todas as sessões ativas do usuário
+      await tx.session.deleteMany({
+        where: { userId: cpf },
+      });
+
+      return alvo;
     });
-
-    if (!usuarioExistente) {
-      return NextResponse.json(
-        { error: 'Usuário não encontrado' },
-        { status: 404 }
-      );
-    }
-
-    // Desativa o usuário
-    await prisma.user.update({
-      where: { cpf },
-      data: { ativo: false },
-    });
-
-    // Remove todas as sessões ativas do usuário
-    await prisma.session.deleteMany({
-      where: { userId: cpf },
-    });
-
     // Usuario autenticado (gestor) que executou a acao fica registrado na auditoria.
     await registrarAuditoria({
       user: gestor,
@@ -53,6 +51,9 @@ export async function PUT(request) {
       message: 'Usuário desativado com sucesso',
     });
   } catch (error) {
+    if (error instanceof GestorGuardError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     if ([401, 403].includes(error?.status)) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }

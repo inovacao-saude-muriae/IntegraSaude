@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { registrarAuditoria } from '@/lib/audit';
 import { prisma } from '@/lib/prisma';
 import { requireGestor } from '@/lib/auth';
+import { ROLES_VALIDAS, GestorGuardError, validarAlteracaoGestor } from '@/lib/gestorGuard';
 
 // Mapear Role para acessos nos módulos
 function mapearRoleParaAcessos(role) {
@@ -53,44 +54,43 @@ export async function PUT(request) {
       );
     }
 
-    // Verifica se o usuário existe
-    const usuarioExistente = await prisma.user.findUnique({
-      where: { cpf },
-      include: { acessos: true },
-    });
-
-    if (!usuarioExistente) {
-      return NextResponse.json(
-        { error: 'Usuário não encontrado' },
-        { status: 404 }
-      );
+    if (!ROLES_VALIDAS.includes(novoRole)) {
+      return NextResponse.json({ error: 'Perfil informado é inválido.' }, { status: 400 });
     }
 
-    // Atualiza o role e o cargo do usuário
-    await prisma.user.update({
-      where: { cpf },
-      data: {
-        role: novoRole,
-        cargo: novoCargo,
-      },
-    });
-
-    // Remove os acessos antigos
-    await prisma.userAcesso.deleteMany({
-      where: { userCpf: cpf },
-    });
-
-    // Cria os novos acessos baseados no novo role
     const novosAcessos = mapearRoleParaAcessos(novoRole);
-    if (novosAcessos.length > 0) {
-      await prisma.userAcesso.createMany({
-        data: novosAcessos.map((acesso) => ({
-          userCpf: cpf,
-          ...acesso,
-        })),
-      });
-    }
 
+    // Guarda + update do usuário + troca de acessos na MESMA transação (atômico).
+    const usuarioExistente = await prisma.$transaction(async (tx) => {
+      const alvo = await validarAlteracaoGestor(tx, {
+        executorCpf: gestor.cpf,
+        alvoCpf: cpf,
+        novoRole,
+      });
+
+      await tx.user.update({
+        where: { cpf },
+        data: {
+          role: novoRole,
+          cargo: novoCargo,
+        },
+      });
+
+      await tx.userAcesso.deleteMany({
+        where: { userCpf: cpf },
+      });
+
+      if (novosAcessos.length > 0) {
+        await tx.userAcesso.createMany({
+          data: novosAcessos.map((acesso) => ({
+            userCpf: cpf,
+            ...acesso,
+          })),
+        });
+      }
+
+      return alvo;
+    });
     // Usuario autenticado (gestor) que executou a acao fica registrado na auditoria.
     await registrarAuditoria({
       user: gestor,
@@ -113,6 +113,9 @@ export async function PUT(request) {
       message: 'Nível de acesso alterado com sucesso',
     });
   } catch (error) {
+    if (error instanceof GestorGuardError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     if ([401, 403].includes(error?.status)) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }

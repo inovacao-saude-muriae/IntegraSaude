@@ -368,3 +368,17 @@ npx prisma migrate deploy
 - `prisma.config.js` (raiz) → Configuração do Prisma CLI
 - `src/lib/prisma.js` → Cliente Prisma (singleton)
 - `.env` → Variáveis de conexão com banco
+
+---
+
+## 🛡️ Gestor inicial e recuperação de acesso
+
+- `npx prisma db seed` só cria o gestor inicial quando **não existe nenhum Gestor ativo**
+  (variáveis `GESTOR_USERNAME`, `GESTOR_NOME`, `GESTOR_SENHA`; CPF fixo `00000000000`,
+  `primeiroAcesso = true`). Havendo um Gestor ativo, o seed não altera nada.
+- O sistema recusa (HTTP 409) desativar/rebaixar o próprio Gestor e o último Gestor ativo.
+- **Recuperação (único Gestor perdeu a senha):** como ele continua ativo, o seed não age.
+  Ajuste o CPF fixo no topo de `prisma/set-primeiro-acesso.js` e rode `node prisma/set-primeiro-acesso.js` (redefine para a senha
+  padrão e exige troca no próximo login), ou, se o Gestor foi desativado/removido por fora da
+  aplicação, rode o seed com novas `GESTOR_USERNAME`/`GESTOR_SENHA` (se o username/CPF colidir
+  com outro usuário, o seed aborta sem alterar dados e a correção é manual).

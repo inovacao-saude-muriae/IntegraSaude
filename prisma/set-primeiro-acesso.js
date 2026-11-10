@@ -1,3 +1,16 @@
+/**
+ * Reset de senha de emergência para um usuário.
+ *
+ * Uso:
+ *   node prisma/set-primeiro-acesso.js <CPF> <NOVA_SENHA>
+ *
+ * Exemplo:
+ *   node prisma/set-primeiro-acesso.js 12345678900 MinhaSenha@2026
+ *
+ * O usuário será obrigado a trocar a senha no próximo login.
+ * Nunca rode este script em produção sem substituir a senha logo em seguida.
+ */
+
 require("dotenv").config({ path: ".env.local" });
 require("dotenv").config();
 const { PrismaClient } = require("@prisma/client");
@@ -5,66 +18,74 @@ const { PrismaPg } = require("@prisma/adapter-pg");
 const { Pool } = require("pg");
 const bcrypt = require("bcryptjs");
 
+// ─── Argumentos ──────────────────────────────────────────────────────────────
+const [, , cpfArg, senhaArg] = process.argv;
+
+if (!cpfArg || !senhaArg) {
+  console.error("Uso: node prisma/set-primeiro-acesso.js <CPF> <NOVA_SENHA>");
+  console.error("Exemplo: node prisma/set-primeiro-acesso.js 12345678900 MinhaSenha@2026");
+  process.exit(1);
+}
+
+const cpf = cpfArg.replace(/\D/g, ""); // aceita CPF com ou sem máscara
+
+if (cpf.length !== 11) {
+  console.error(`CPF inválido: "${cpfArg}" (deve ter 11 dígitos numéricos)`);
+  process.exit(1);
+}
+
+if (senhaArg.length < 8) {
+  console.error("A senha deve ter pelo menos 8 caracteres.");
+  process.exit(1);
+}
+
+// ─── Conexão ─────────────────────────────────────────────────────────────────
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
+// ─── Main ────────────────────────────────────────────────────────────────────
 async function main() {
-  const cpf = "12912453674"; // O CPF correto é 12912453674, não 12312453674
-  const SENHA_PADRAO = "Integr@123";
-  
-  console.log(`🔄 Configurando usuário ${cpf} para primeiro acesso...\n`);
+  console.log(`🔄 Resetando senha do usuário ${cpf}...\n`);
 
-  // Verifica se o usuário existe
-  const usuario = await prisma.user.findUnique({
-    where: { cpf },
-  });
+  const usuario = await prisma.user.findUnique({ where: { cpf } });
 
   if (!usuario) {
-    console.log(`❌ Usuário com CPF ${cpf} não encontrado.`);
-    console.log(`\n📋 Usuários cadastrados:`);
-    
+    console.error(`❌ Usuário com CPF ${cpf} não encontrado.`);
+
     const usuarios = await prisma.user.findMany({
-      select: { cpf: true, nome: true, role: true },
+      select: { cpf: true, nome: true, role: true, ativo: true },
     });
-    
-    usuarios.forEach(u => {
-      console.log(`   - ${u.cpf}: ${u.nome} (${u.role})`);
-    });
-    
-    return;
+
+    console.error("\n📋 Usuários cadastrados:");
+    usuarios.forEach((u) =>
+      console.error(`   - ${u.cpf}: ${u.nome} (${u.role}, ativo: ${u.ativo})`)
+    );
+    process.exit(1);
   }
 
-  // Reseta a senha para a padrão e marca como primeiro acesso
-  const senhaHash = await bcrypt.hash(SENHA_PADRAO, 10);
-  
+  const senhaHash = await bcrypt.hash(senhaArg, 10);
+
   await prisma.user.update({
     where: { cpf },
-    data: {
-      senhaHash,
-      primeiroAcesso: true,
-    },
+    data: { senhaHash, primeiroAcesso: true },
   });
 
-  // Remove todas as sessões do usuário para forçar novo login
-  await prisma.session.deleteMany({
-    where: { userId: cpf },
-  });
+  await prisma.session.deleteMany({ where: { userId: cpf } });
 
-  console.log(`✅ Usuário atualizado com sucesso!`);
-  console.log(`   Nome: ${usuario.nome}`);
-  console.log(`   CPF: ${usuario.cpf}`);
-  console.log(`   Senha resetada para: ${SENHA_PADRAO}`);
-  console.log(`   Primeiro Acesso: SIM`);
-  console.log(`   Sessões removidas: O usuário precisará fazer login novamente\n`);
-  console.log(`🧪 Para testar:`);
-  console.log(`   1. Faça login com CPF: ${cpf}`);
-  console.log(`   2. Use senha: ${SENHA_PADRAO}`);
-  console.log(`   3. O modal de troca de senha deve aparecer automaticamente\n`);
+  // Nunca imprime a senha — só confirma que o reset aconteceu.
+  console.log(`✅ Senha resetada com sucesso.`);
+  console.log(`   Nome:            ${usuario.nome}`);
+  console.log(`   CPF:             ${cpf}`);
+  console.log(`   Primeiro acesso: SIM (troca de senha obrigatória no próximo login)`);
+  console.log(`   Sessões:         encerradas`);
 }
 
 main()
-  .catch(console.error)
+  .catch((err) => {
+    console.error("Erro inesperado:", err.message);
+    process.exit(1);
+  })
   .finally(async () => {
     await prisma.$disconnect();
     await pool.end();
