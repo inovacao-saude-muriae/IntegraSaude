@@ -169,11 +169,14 @@ async function main() {
   console.log("\n🎉 Backfill concluído com sucesso!");
 }
 
+// Remove credenciais de URLs de conexão antes de imprimir erros.
+function logErroSeguro(err) {
+  const msg = (err?.message || String(err)).replace(/postgresql:\/\/[^\s"')]+/gi, "postgresql://***");
+  console.error("❌ Erro:", msg);
+}
+
 main()
-  .catch((e) => {
-    console.error("❌ Erro ao executar backfill:", e);
-    process.exit(1);
-  })
+  .catch((e) => { logErroSeguro(e); process.exit(1); })
   .finally(async () => {
     await prisma.$disconnect();
     await pool.end(); // Fecha a pilha de conexões do driver pg

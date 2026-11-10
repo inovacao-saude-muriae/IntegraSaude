@@ -118,7 +118,8 @@ async function main() {
 
 main()
   .catch((err) => {
-    console.error("Erro inesperado:", err.message);
+    const msg = (err?.message || String(err)).replace(/postgresql:\/\/[^\s"')]+/gi, "postgresql://***");
+    console.error("Erro inesperado:", msg);
     process.exit(1);
   })
   .finally(async () => {

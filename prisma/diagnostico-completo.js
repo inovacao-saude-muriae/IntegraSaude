@@ -173,7 +173,8 @@ async function diagnosticoCompleto() {
     console.log('\n========================================\n');
 
   } catch (error) {
-    console.error('❌ Erro no diagnóstico:', error);
+    const msg = (error?.message || String(error)).replace(/postgresql:\/\/[^\s"')]+/gi, "postgresql://***");
+    console.error('❌ Erro no diagnóstico:', msg);
   } finally {
     await prisma.$disconnect();
   }

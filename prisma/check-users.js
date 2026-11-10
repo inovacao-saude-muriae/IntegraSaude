@@ -31,8 +31,14 @@ async function main() {
   }
 }
 
+// Remove credenciais de URLs de conexão antes de imprimir erros.
+function logErroSeguro(err) {
+  const msg = (err?.message || String(err)).replace(/postgresql:\/\/[^\s"')]+/gi, "postgresql://***");
+  console.error("❌ Erro:", msg);
+}
+
 main()
-  .catch(console.error)
+  .catch((err) => { logErroSeguro(err); process.exit(1); })
   .finally(async () => {
     await prisma.$disconnect();
     await pool.end();
