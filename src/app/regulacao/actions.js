@@ -1,6 +1,7 @@
 "use server";
 
 import {
+  requireAdminDeAlgumModulo,
   requireAdminModulo,
   requireAcessoModulo,
   requireAcessoPessoas,
@@ -79,7 +80,17 @@ function montarCompetenciaCota({
 
 // 1. Buscar todos os pedidos relacionando as tabelas pessoa, procedimento, ubs e medicos
 export async function getPedidosExames() {
-  return buscarPedidosMapeados();
+  // Leitura de dados do módulo Regulação: exige vínculo (GESTOR sempre passa).
+  try {
+    await requireAcessoModulo(MODULOS.REGULACAO);
+    return buscarPedidosMapeados();
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      console.error("Acesso negado a getPedidosExames:", error.message);
+      return [];
+    }
+    throw error;
+  }
 }
 
 // ── DASHBOARD DA REGULAÇÃO: pedidos filtrados por ANO (servidor) ────────────
@@ -204,8 +215,13 @@ async function buscarPedidosMapeados(where) {
 }
 
 // 2. Buscar Dados Auxiliares
+// ATENÇÃO: além da tela de novo pedido da Regulação, esta função alimenta as telas
+// de Gerenciamento > Médicos e UBS (ambas GESTOR ∨ REGULACAO/ADMIN). Por isso a
+// guarda é "admin de módulo" e não "acesso ao módulo": fechar por módulo quebraria
+// essas duas telas de Gerenciamento.
 export async function getAuxiliaryData() {
   try {
+    await requireAdminDeAlgumModulo();
     const [tiposExame, procedimentos, medicos, ubsList, pessoas] =
       await Promise.all([
         prisma.tipoExame.findMany({ orderBy: { nome: "asc" } }),
@@ -285,6 +301,8 @@ export async function getAuxiliaryData() {
 }
 
 // 3. Buscar uma pessoa específica por CPF ou Nome (Suporta CPF limpo ou formatado)
+// Busca de pessoa = cadastro ÚNICO compartilhado entre Regulação, Junta, Farmácia e
+// CCZ. Deve continuar disponível para qualquer usuário logado (integração do EMPI).
 export async function searchPessoa(term) {
   try {
     if (!term) return null;
@@ -314,6 +332,7 @@ export async function searchPessoa(term) {
 }
 
 // 4. Autocomplete de Pessoas (Suporta CPF limpo ou formatado)
+// Idem item 3: cadastro único, aberto a qualquer usuário logado (máx. 10 resultados).
 export async function searchPessoasAutocomplete(term) {
   if (!term || term.trim().length < 2) return [];
 

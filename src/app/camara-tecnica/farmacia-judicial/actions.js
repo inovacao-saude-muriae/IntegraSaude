@@ -18,6 +18,7 @@ function serializeData(data) {
 // ==========================================
 export async function getPacientesJudiciais() {
   try {
+    await requireAcessoModulo(MODULOS.FARMACIA);
     const rows = await prisma.$queryRaw`
       SELECT 
         pfj.numero_pasta AS "numeroPasta",
@@ -136,6 +137,7 @@ export async function createPacienteJudicial(data) {
 // ==========================================
 export async function getMedicamentosEEstoque() {
   try {
+    await requireAcessoModulo(MODULOS.FARMACIA);
     const rows = await prisma.$queryRaw`
       SELECT 
         lm.id AS "loteId",
@@ -165,6 +167,7 @@ export async function getMedicamentosEEstoque() {
 
 export async function getCatalogoMedicamentos() {
   try {
+    await requireAcessoModulo(MODULOS.FARMACIA);
     const rows = await prisma.$queryRaw`
       SELECT id, nome, tipo, dosagem, ativo 
       FROM public.farmacia_medicamentos 
@@ -180,6 +183,7 @@ export async function getCatalogoMedicamentos() {
 
 export async function getCatalogoCompleto() {
   try {
+    await requireAcessoModulo(MODULOS.FARMACIA);
     const rows = await prisma.$queryRaw`
       SELECT id, nome, tipo, dosagem
       FROM public.farmacia_medicamentos
@@ -379,6 +383,7 @@ export async function updateLoteMedicamento(loteId, data) {
 
 export async function getEstoqueAgrupado() {
   try {
+    await requireAcessoModulo(MODULOS.FARMACIA);
     const rows = await prisma.$queryRaw`
       SELECT
         m.id AS "medicamentoId",
@@ -511,6 +516,7 @@ export async function ajustarEstoque(medicamentoId, data) {
 
 export async function getAjustesEstoque(medicamentoId) {
   try {
+    await requireAcessoModulo(MODULOS.FARMACIA);
     const id = Number(medicamentoId);
     if (!Number.isSafeInteger(id) || id <= 0) return [];
 
@@ -539,6 +545,7 @@ export async function getAjustesEstoque(medicamentoId) {
 // ==========================================
 export async function getMedicamentosDoPaciente(numeroPasta) {
   try {
+    await requireAcessoModulo(MODULOS.FARMACIA);
     if (!numeroPasta) return [];
 
     const meds = await prisma.$queryRaw`
@@ -688,6 +695,7 @@ export async function registrarDispensacao(data) {
 // ==========================================
 export async function getRelatorioEntradas() {
   try {
+    await requireAcessoModulo(MODULOS.FARMACIA);
     const rows = await prisma.$queryRaw`
       SELECT 
         lm.id AS "loteId",
@@ -714,6 +722,7 @@ export async function getRelatorioEntradas() {
 
 export async function getRelatorioSaidas() {
   try {
+    await requireAcessoModulo(MODULOS.FARMACIA);
     const rows = await prisma.$queryRaw`
       SELECT 
         dm.id AS "dispensacaoId",
@@ -742,6 +751,7 @@ export async function getRelatorioSaidas() {
 
 export async function getRelatorioSaidaPorMedicamento() {
   try {
+    await requireAcessoModulo(MODULOS.FARMACIA);
     const rows = await prisma.$queryRaw`
       SELECT
         m.id AS "medicamentoId",
@@ -793,6 +803,7 @@ export async function getRelatorioSaidaPorMedicamento() {
 //   • Dispensações (unidades e nº de registros) → DispensacaoMedicamento.dataDispensacao
 export async function getDashboardMetrics(ano) {
   try {
+    await requireAcessoModulo(MODULOS.FARMACIA);
     const filtrar = !(ano === undefined || ano === null || ano === "todos");
     const y = filtrar ? Number(ano) || new Date().getFullYear() : null;
     // timestamptz (created_at, data_dispensacao)
