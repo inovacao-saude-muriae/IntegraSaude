@@ -1,6 +1,6 @@
 "use server";
 
-import { requireAdminModulo } from "@/lib/auth";
+import { requireAdminModulo, requireAcessoModulo } from "@/lib/auth";
 import { MODULOS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { registrarAuditoria } from "@/lib/audit";
@@ -36,6 +36,8 @@ function parseValor(valor) {
 // Tipos de exame sem nenhum procedimento aparecem como uma linha (procedimento vazio).
 export async function getProcedimentosData() {
   try {
+    // Leitura do catálogo da Regulação: exige vínculo com o módulo.
+    await requireAcessoModulo(MODULOS.REGULACAO);
     const [tiposExame, procedimentos] = await Promise.all([
       prisma.tipoExame.findMany({ orderBy: { nome: "asc" } }),
       prisma.procedimento.findMany({

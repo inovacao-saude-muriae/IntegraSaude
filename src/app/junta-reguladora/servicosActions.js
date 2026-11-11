@@ -32,6 +32,8 @@ async function resolverServicoId({ servicoId, servicoNome }) {
 // Serviços sem nenhuma especialidade aparecem como uma linha (especialidade vazia).
 export async function getServicosData() {
   try {
+    // Leitura do catálogo da Junta: exige vínculo com o módulo.
+    await requireAcessoModulo(MODULOS.JUNTA);
     const [servicos, especialidades] = await Promise.all([
       prisma.servico.findMany({ orderBy: { nome: "asc" } }),
       prisma.especialidade.findMany({
