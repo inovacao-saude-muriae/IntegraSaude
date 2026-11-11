@@ -11,30 +11,16 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Mapeamento de destinos com base no perfil (Role)
   const getDestinationByRole = (role) => {
     switch (role) {
       case 'ADMIN':
-      case 'GESTOR':
-        return '/'; // Gestor/Admin vai para o Dashboard Geral
-
-      case 'OPERADOR_REGULA':
-      case 'ADMIN_REGULA':
-        return '/regulacao?tab=DASHBOARD';
-
+      case 'GESTOR':        return '/';
       case 'ADMIN_FARMACIA':
-      case 'OPERADOR_FARMACIA':
-        return '/camara-tecnica/farmacia-judicial?tab=DASHBOARD';
-
-      case 'ADMIN_PROCESSO':
-        return '/camara-tecnica/processos';
-
+      case 'OPERADOR_FARMACIA': return '/camara-tecnica/farmacia-judicial?tab=DASHBOARD';
+      case 'ADMIN_PROCESSO':    return '/camara-tecnica/processos';
       case 'OPERADOR_JUNTA':
-      case 'ADMIN_JUNTA':
-        return '/junta-reguladora?tab=CADASTRO';
-
-      default:
-        return '/regulacao';
+      case 'ADMIN_JUNTA':       return '/junta-reguladora?tab=CADASTRO';
+      default:                  return '/regulacao';
     }
   };
 
@@ -42,22 +28,13 @@ export default function LoginPage() {
     e.preventDefault();
     setMsg('');
     setLoading(true);
-
     const formData = new FormData(e.target);
     const res = await loginAction(formData);
-
     if (res?.success) {
-      const cpfDigitado = formData.get('cpf')?.replace(/\D/g, '');
-      if (typeof window !== 'undefined' && cpfDigitado) {
-        localStorage.setItem('user_cpf', cpfDigitado);
-      }
-
-      // 1. Atualiza o cache de rotas do Next.js para reconhecer o cookie recém-criado
+      const cpf = formData.get('cpf')?.replace(/\D/g, '');
+      if (typeof window !== 'undefined' && cpf) localStorage.setItem('user_cpf', cpf);
       router.refresh();
-
-      // 2. Redireciona para o destino baseado no perfil
-      const destination = getDestinationByRole(res.role);
-      router.push(destination);
+      router.push(getDestinationByRole(res.role));
     } else {
       setMsg(res?.error || 'CPF ou senha incorretos.');
       setLoading(false);
@@ -65,75 +42,125 @@ export default function LoginPage() {
   };
 
   return (
-    <div className={styles.pageWrapper}>
-      <div className={styles.loginContainer}>
-        {/* Logo */}
-        <div className={styles.logoContainer}>
-          <img 
-            src="/img/logos-integra/integralogo.png" 
-            alt="IntegraSaúde" 
-            className={styles.logoImage}
+    <div className={styles.page}>
+
+      {/* ── PAINEL ESQUERDO ── */}
+      <aside className={styles.panel} aria-label="Informações institucionais">
+        <div className={styles.panelContent}>
+          <p className={styles.institution}>
+            <span className={styles.instDot}/>
+            Secretaria Municipal de Saúde de Muriaé
+          </p>
+
+          <h1 className={styles.headline}>
+            Setores diferentes.<br/>
+            <span className={styles.mint}>Uma só plataforma.</span>
+          </h1>
+
+          <img
+            src="/img/logos-integra/imglogin.svg"
+            alt=""
+            aria-hidden="true"
+            className={styles.illustration}
           />
         </div>
+      </aside>
 
-        {/* Formulário de Login */}
-        <div className={styles.formCard}>
-          <div className={styles.formHeader}>
-            <h2 className={styles.formTitle}>Bem-vindo</h2>
-            <p className={styles.formSubtitle}>Entre com suas credenciais para acessar o sistema</p>
+      {/* ── ÁREA DE LOGIN (direita) ── */}
+      <section className={styles.loginArea} aria-label="Área de login">
+        <div className={styles.loginBox}>
+
+          <div className={styles.logoWrap}>
+            <img
+              src="/img/logos-integra/logointegra.png"
+              alt="IntegraSaúde — Sistema modular integrado"
+              className={styles.logo}
+            />
           </div>
 
-          <form onSubmit={handleSubmit} className={styles.form}>
+          <p className={styles.subtitle}>Entre com suas credenciais</p>
+
+          <form onSubmit={handleSubmit} className={styles.form} noValidate>
+
             {msg && (
-              <div className={styles.errorAlert}>
-                <span>{msg}</span>
-              </div>
+              <div className={styles.error} role="alert">{msg}</div>
             )}
 
-            <div className={styles.inputGroup}>
-              <label className={styles.label}>CPF ou Usuário</label>
-              <input
-                type="text"
-                name="cpf"
-                required
-                placeholder="Digite seu CPF ou nome de usuário"
-                className={styles.input}
-                autoComplete="username"
-              />
+            {/* CPF ou Usuário */}
+            <div className={styles.field}>
+              <label htmlFor="cpf" className={styles.label}>CPF ou Usuário</label>
+              <div className={styles.inputWrap}>
+                <span className={styles.inputIcon} aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                  </svg>
+                </span>
+                <input
+                  id="cpf"
+                  type="text"
+                  name="cpf"
+                  required
+                  placeholder="Digite seu CPF ou usuário"
+                  className={styles.input}
+                  autoComplete="username"
+                  autoFocus
+                />
+              </div>
             </div>
 
-            <div className={styles.inputGroup}>
-              <label className={styles.label}>Senha</label>
-              <div className={styles.passwordWrapper}>
+            {/* Senha */}
+            <div className={styles.field}>
+              <label htmlFor="senha" className={styles.label}>Senha</label>
+              <div className={styles.inputWrap}>
+                <span className={styles.inputIcon} aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                  </svg>
+                </span>
                 <input
+                  id="senha"
                   type={showPassword ? 'text' : 'password'}
                   name="senha"
                   required
                   placeholder="Digite sua senha"
-                  className={styles.input}
+                  className={`${styles.input} ${styles.inputPwd}`}
                   autoComplete="current-password"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  className={styles.togglePassword}
+                  className={styles.togglePwd}
+                  onClick={() => setShowPassword(v => !v)}
                   aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                  aria-pressed={showPassword}
                 >
-                  {showPassword ? '👁️' : '👁️‍🗨️'}
+                  {showPassword ? (
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  ) : (
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                      <line x1="1" y1="1" x2="23" y2="23"/>
+                    </svg>
+                  )}
                 </button>
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className={`${styles.submitButton} ${loading ? styles.submitButtonLoading : ''}`}
-            >
-              {loading ? 'Entrando...' : 'Entrar'}
+            <button type="submit" disabled={loading} className={styles.submitBtn}>
+              {loading ? 'Entrando…' : (
+                <>Entrar <span aria-hidden="true">→</span></>
+              )}
             </button>
+
           </form>
         </div>
-      </div>
+      </section>
+
     </div>
   );
 }
