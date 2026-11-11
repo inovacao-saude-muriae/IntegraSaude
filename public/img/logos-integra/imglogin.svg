@@ -1,18 +1,56 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="400" height="250" viewBox="0 0 400 250" role="img" aria-label="Ilustração dos módulos conectados">
-      <defs>
-        <pattern id="integra-dots" width="16" height="16" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#8ce8dc" opacity=".25"/></pattern>
-        <linearGradient id="integra-wire"><stop stop-color="#56a8c9"/><stop offset="1" stop-color="#88ead7"/></linearGradient>
-      </defs>
-      <rect width="400" height="250" fill="url(#integra-dots)"/>
-      <g fill="none" stroke="url(#integra-wire)">
-        <rect x="119" y="44" width="162" height="162" rx="45" transform="rotate(45 200 125)" opacity=".28"/>
-        <rect x="145" y="70" width="110" height="110" rx="30" transform="rotate(45 200 125)" opacity=".52"/>
-        <path d="M22 84h47q15 0 25 10l31 31h150l31 31q10 10 25 10h47M22 166h47q15 0 25-10l31-31m150 0 31-31q10-10 25-10h47" stroke-width="1.5"/>
-      </g>
-      <g fill="#124356" stroke="#77dacd">
-        <rect x="13" y="75" width="18" height="18" rx="5"/><rect x="13" y="157" width="18" height="18" rx="5"/>
-        <rect x="369" y="75" width="18" height="18" rx="5"/><rect x="369" y="157" width="18" height="18" rx="5"/>
-        <rect x="166" y="91" width="68" height="68" rx="21" transform="rotate(45 200 125)" fill="#17576a"/>
-      </g>
-      <path d="M183 125h34m-17-17v34" stroke="#a0f3e1" stroke-width="5" stroke-linecap="round"/>
-    </svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="854" height="546" viewBox="0 0 854 546" role="img" aria-label="Ilustração dos módulos conectados">
+  <defs>
+    <pattern id="integra-dots" width="23" height="23" patternUnits="userSpaceOnUse">
+      <circle cx="1.6" cy="1.6" r="1.6" fill="#8ce8dc" opacity=".17"/>
+    </pattern>
+    <linearGradient id="integra-wire" x1="0" y1="0" x2="854" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5FB6D6"/>
+      <stop offset=".5" stop-color="#8CEBDC"/>
+      <stop offset="1" stop-color="#6FD8CE"/>
+    </linearGradient>
+    <radialGradient id="integra-core" cx="50%" cy="50%" r="60%">
+      <stop stop-color="#1E7C8C"/>
+      <stop offset="1" stop-color="#155F70"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Grade de pontos de fundo -->
+  <rect x="0" y="0" width="854" height="546" fill="url(#integra-dots)"/>
+
+  <!-- Losangos concêntricos (anel externo e interno) -->
+  <g fill="none" stroke="#8CEBDC" stroke-linejoin="round">
+    <rect x="248" y="94" width="358" height="358" rx="76"
+          transform="rotate(45 427 273)" opacity=".22" stroke-width="1.4"/>
+    <rect x="292" y="138" width="270" height="270" rx="58"
+          transform="rotate(45 427 273)" opacity=".34" stroke-width="1.4"/>
+  </g>
+
+  <!-- Cabeamento: quatro terminais ligados ao núcleo -->
+  <g fill="none" stroke="url(#integra-wire)" stroke-width="2.4" stroke-linecap="round">
+    <!-- entrada superior esquerda -->
+    <path d="M112 273 H285"/>
+    <!-- entrada inferior esquerda -->
+    <path d="M112 393 H243 Q283 393 311 365 L427 249"/>
+    <!-- saída superior direita -->
+    <path d="M427 273 H742"/>
+    <!-- saída inferior direita -->
+    <path d="M427 297 L543 413 Q571 441 611 441 L742 441"/>
+    <!-- curva da entrada superior esquerda para o centro (continuação visual) -->
+    <path d="M285 273 L427 273"/>
+  </g>
+
+  <!-- Terminais -->
+  <g fill="#0F4055" stroke="#8CEBDC" stroke-width="2.2">
+    <rect x="94" y="254" width="38" height="38" rx="9"/>
+    <rect x="94" y="374" width="38" height="38" rx="9"/>
+    <rect x="742" y="254" width="38" height="38" rx="9"/>
+    <rect x="742" y="422" width="38" height="38" rx="9"/>
+  </g>
+
+  <!-- Núcleo -->
+  <rect x="366" y="212" width="122" height="122" rx="34"
+        transform="rotate(45 427 273)" fill="url(#integra-core)" stroke="#8CEBDC" stroke-width="2.2"/>
+
+  <!-- Cruz central -->
+  <path d="M399 273 H455 M427 245 V301" stroke="#9CF3E3" stroke-width="7" stroke-linecap="round"/>
+</svg>

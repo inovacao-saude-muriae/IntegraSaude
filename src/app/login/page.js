@@ -61,10 +61,11 @@ export default function LoginPage() {
           <Image
             src="/img/logos-integra/imglogin.svg"
             alt=""
-            width={400}
-            height={250}
+            width={854}
+            height={546}
             aria-hidden="true"
             className={styles.illustration}
+            unoptimized
           />
         </div>
       </aside>

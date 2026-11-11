@@ -19,63 +19,80 @@
 ══════════════════════════════════════════════════ */
 .panel {
   flex: 0 0 46%;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  background:
-    radial-gradient(ellipse 55% 45% at 100% 100%, #165469 0%, transparent 60%),
-    linear-gradient(155deg, #0A2639 0%, #10394B 100%);
-  padding: clamp(25px, 5vw, 58px);
+  /* Referência de layout: todo o conteúdo do painel é posicionado em % desta
+     caixa, então a composição se mantém idêntica em qualquer altura. */
+  container-type: size;
+  position: relative;
   overflow: hidden;
+  /* Fundo chapado do print (sem gradiente/vinheta). */
+  background: #082C41;
 }
 
+/* Conteúdo posicionado em %, com margens em cqw (largura do painel):
+   instituição 15% · título 20% · ilustração 36%. */
 .panelContent {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  position: absolute;
+  inset: 0;
+  padding-left: 6.9cqw;
+  padding-right: 6.9cqw;
+  display: block;
 }
 
 .institution {
+  position: absolute;
+  top: 15%;
+  left: 6.9cqw;
+  right: 6.9cqw;
   display: flex;
   align-items: center;
-  gap: 9px;
-  font-size: 11px;
+  gap: 0.62cqw;
+  font-size: clamp(9px, 1.35cqw, 13px);
   font-weight: 600;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.075em;
   text-transform: uppercase;
-  color: rgba(156, 235, 220, 0.75);
-  margin-bottom: 25px;
+  color: #EAF6F6;
+  margin: 0;
 }
 
 .instDot {
   display: inline-block;
-  width: 6px;
-  height: 6px;
+  width: 0.55cqw;
+  height: 0.55cqw;
+  min-width: 5px;
+  min-height: 5px;
   border-radius: 50%;
-  background: #9CEBDC;
-  opacity: 0.75;
+  background: #8CEBDC;
   flex-shrink: 0;
 }
 
 .headline {
-  font-size: clamp(32px, 3.5vw, 50px);
-  font-family: system-ui, sans-serif;
-  font-weight: 650;
-  line-height: 1.08;
-  letter-spacing: -0.055em;
-  color: #F4FCFF;
-  margin-bottom: 18px;
+  position: absolute;
+  top: 20.5%;
+  left: 6.9cqw;
+  right: 6.9cqw;
+  font-size: clamp(30px, 4.9cqw, 58px);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-weight: 800;
+  line-height: 1.07;
+  letter-spacing: -0.035em;
+  color: #F3FBFD;
+  margin: 0;
 }
 
 .mint {
-  color: #9CEBDC;
+  color: #7FE3D4;
   display: block;
 }
 
 .illustration {
-  width: 100%;
-  aspect-ratio: 400 / 250;
+  /* O <img> do next/image recebe a classe; a caixa de posicionamento é ele mesmo. */
+  position: absolute;
+  top: 36%;
+  left: 6.9cqw;
+  width: 86.2cqw;
+  height: auto;
+  max-width: none;
+  aspect-ratio: 854 / 546;
   display: block;
   object-fit: contain;
 }
@@ -295,16 +312,40 @@
   .panel {
     flex: none;
     order: 1;
+    container-type: normal;
     padding: 22px;
     justify-content: flex-start;
   }
 
+  /* No mobile o painel deixa de ser absoluto: volta ao fluxo normal. */
   .panelContent {
+    position: static;
+    inset: auto;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
     align-items: flex-start;
   }
 
-  .institution {
+  .institution,
+  .headline {
+    position: static;
+    left: auto;
+    right: auto;
+    top: auto;
     margin-bottom: 16px;
+  }
+
+  .institution {
+    font-size: 10px;
+    gap: 7px;
+  }
+
+  .instDot {
+    width: 6px;
+    height: 6px;
+    min-width: 6px;
+    min-height: 6px;
   }
 
   .headline {
