@@ -86,26 +86,27 @@
 .loginArea {
   flex: 0 0 54%;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   background: #F7FAFB;
-  padding: 3rem 2rem;
+  padding: 18vh 2rem 3rem;
 }
 
 .loginBox {
   width: 100%;
-  max-width: 300px;
+  max-width: 390px;
 }
 
 /* Logo */
 .logoWrap {
-  margin-bottom: 1.25rem;
+  margin-bottom: 30px;
 }
 
 .logo {
-  max-width: 180px;
+  width: clamp(260px, 28vw, 380px);
   height: auto;
   display: block;
+  max-width: 100%;
 }
 
 /* Subtítulo */
@@ -126,7 +127,7 @@
   background: #fef2f2;
   color: #991b1b;
   border: 1px solid #fecaca;
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 0.7rem 0.9rem;
   font-size: 13px;
 }
@@ -134,7 +135,7 @@
 .field {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 7px;
 }
 
 .label {
@@ -157,17 +158,24 @@
   align-items: center;
   color: #9ca3af;
   pointer-events: none;
+  width: 19px;
+  height: 19px;
+}
+
+.inputIcon svg {
+  width: 19px;
+  height: 19px;
 }
 
 .input {
   width: 100%;
-  height: 44px;
-  padding: 0 1rem 0 2.4rem;
+  height: 52px;
+  padding: 0 1rem 0 2.6rem;
   font-size: 16px;
   color: #111827;
   background: #ffffff;
   border: 1.5px solid #d1d5db;
-  border-radius: 8px;
+  border-radius: 10px;
   outline: none;
   box-sizing: border-box;
   transition: border-color 0.15s, box-shadow 0.15s;
@@ -185,12 +193,14 @@
 
 /* Senha */
 .inputPwd {
-  padding-right: 2.75rem;
+  padding-right: 46px;
 }
 
 .togglePwd {
   position: absolute;
-  right: 0.75rem;
+  right: 0;
+  width: 46px;
+  height: 46px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -198,10 +208,13 @@
   border: none;
   cursor: pointer;
   color: #9ca3af;
-  padding: 0.2rem;
-  border-radius: 4px;
-  line-height: 0;
+  border-radius: 0 10px 10px 0;
   transition: color 0.15s;
+}
+
+.togglePwd svg {
+  width: 19px;
+  height: 19px;
 }
 
 .togglePwd:hover,
@@ -216,20 +229,29 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  height: 44px;
+  gap: 8px;
+  height: 52px;
   width: 100%;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 700;
   color: #ffffff;
   background: linear-gradient(135deg, #09665F 0%, #0C514F 100%);
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   letter-spacing: 0.01em;
   box-shadow: 0 4px 12px rgba(9, 102, 95, 0.28);
   transition: opacity 0.15s, transform 0.12s, box-shadow 0.15s;
   margin-top: 0.4rem;
+}
+
+.submitBtn svg,
+.submitBtn span {
+  width: 19px;
+  height: 19px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .submitBtn:hover:not(:disabled) {
@@ -247,9 +269,6 @@
   cursor: not-allowed;
 }
 
-/* ══════════════════════════════════════════════════
-   Responsividade
-══════════════════════════════════════════════════ */
 @media (max-width: 690px) {
   .page {
     flex-direction: column;
@@ -257,12 +276,20 @@
 
   .loginArea {
     flex: none;
-    padding: 2.5rem 1.5rem 2rem;
+    padding: 2rem 22px;
     order: 0;
   }
 
   .loginBox {
     max-width: 100%;
+  }
+
+  .logoWrap {
+    margin-bottom: 20px;
+  }
+
+  .logo {
+    width: clamp(180px, 50vw, 260px);
   }
 
   .panel {
@@ -292,11 +319,7 @@
 }
 
 @media (max-width: 480px) {
-  .loginArea {
-    padding: 2rem 1.25rem 1.75rem;
-  }
-
   .logo {
-    max-width: 170px;
+    width: clamp(160px, 45vw, 220px);
   }
 }

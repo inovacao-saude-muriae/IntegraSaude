@@ -68,7 +68,7 @@ const menuSections = [
           { name: "Financeiro", tab: "FINANCEIRO", visivelSe: "REGULACAO_ADMIN" },
           { name: "separator", isSeparator: true, visivelSe: "REGULACAO" },
           { name: "Procedimentos", tab: "PROCEDIMENTOS", visivelSe: "REGULACAO" },
-          { name: "Usuários", tab: "PACIENTES", visivelSe: "PESSOAS_ACESSO" },
+          { name: "Paciente", tab: "PACIENTES", visivelSe: "PESSOAS_ACESSO" },
           { name: "Médicos", path: "/gerenciamento/medicos", visivelSe: "REGULACAO" },
           { name: "Unidade Básica de Saúde", path: "/gerenciamento/ubs", visivelSe: "REGULACAO" },
           { name: "Dashboard", tab: "DASHBOARD", visivelSe: "REGULACAO" },
@@ -113,7 +113,7 @@ const menuSections = [
               { name: "Dispensação", subTab: "DISPENSACAO" },
               { name: "separator", isSeparator: true },
               { name: "Relatórios", subTab: "RELATORIOS" },
-              { name: "Pacientes", subTab: "PESSOAS", visivelSe: "PESSOAS_ACESSO" },
+              { name: "Paciente", subTab: "PESSOAS", visivelSe: "PESSOAS_ACESSO" },
               { name: "Dashboard", subTab: "DASHBOARD" },
             ],
           },
@@ -169,7 +169,7 @@ const menuSections = [
           { name: "separator", isSeparator: true, visivelSe: "JUNTA" },
           { name: "Serviços e Especialidades", tab: "SERVICOS_ESPECIALIDADES", visivelSe: "JUNTA" },
           { name: "Prontuário", tab: "RELATORIO", visivelSe: "JUNTA_ADMIN" },
-          { name: "Pacientes", tab: "PESSOAS", visivelSe: "PESSOAS_ACESSO" },
+          { name: "Paciente", tab: "PESSOAS", visivelSe: "PESSOAS_ACESSO" },
           { name: "Dashboard", tab: "DASHBOARD", visivelSe: "JUNTA" },
          
         ],
@@ -255,7 +255,7 @@ const menuSections = [
         ),
         subItems: [
           {
-            name: "Pacientes",
+            name: "Paciente",
             path: "/gerenciamento/pessoas",
             tab: "PESSOAS",
             visivelSe: "GESTOR",
@@ -553,9 +553,28 @@ function MenuRender({ menuSections, isOpen, onClose }) {
   const currentTab = searchParams.get("tab") || "DASHBOARD";
   const currentSubTab = searchParams.get("subTab") || "";
 
+  const [compact, setCompact] = useState(false);
   const [openGroup, setOpenGroup] = useState({});
   const [openNested, setOpenNested] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Tooltip para modo compacto
+  const [tooltip, setTooltip] = useState({ visible: false, text: "", x: 0, y: 0 });
+
+  function showTooltip(e, text) {
+    if (!compact) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    setTooltip({
+      visible: true,
+      text,
+      x: rect.right + 9,
+      y: Math.min(rect.top, window.innerHeight - 44),
+    });
+  }
+
+  function hideTooltip() {
+    setTooltip((t) => ({ ...t, visible: false }));
+  }
 
   // Monta a URL da primeira aba (padrão) de um módulo, para "resetar" a posição
   // ao reabrir o módulo em vez de ficar na última aba acessada.
@@ -663,24 +682,35 @@ function MenuRender({ menuSections, isOpen, onClose }) {
   };
 
   return (
-    <aside className={`${styles.sidebar} ${isOpen ? styles.sidebarOpen : ''}`}>
+    <aside className={`${styles.sidebar} ${compact ? styles.sidebarCompact : ""} ${isOpen ? styles.sidebarOpen : ""}`}
+      aria-label="Menu lateral">
+
+      {/* Tooltip (compact mode) */}
+      {tooltip.visible && (
+        <div className={styles.tooltip} style={{ left: tooltip.x, top: tooltip.y }} aria-hidden="true">
+          {tooltip.text}
+        </div>
+      )}
+
       {/* HEADER DA SIDEBAR */}
       <div className={styles.sidebarHeader}>
         <div className={styles.brandLogo}>
           <Image
-            src="/img/logos-integra/integralogo.png"
+            src="/img/logos-integra/logointegraCompleto.png"
             alt="IntegraSaúde"
-            width={220}
-            height={80}
+            width={214}
+            height={40}
             quality={100}
             className={styles.brandImage}
             priority
           />
+          <span className={styles.monogram} aria-label="IntegraSaúde">IS</span>
         </div>
       </div>
 
       {/* LISTA NAVEGÁVEL */}
-      <nav className={styles.menuContentList}>
+      <nav className={styles.menuContentList} aria-label="Navegação principal"
+        onScroll={hideTooltip}>
         {menuSections.map((section, sIdx) => {
           const filteredItems = section.items
             // O recorte por perfil já foi aplicado por construirMenu; aqui só
@@ -725,6 +755,10 @@ function MenuRender({ menuSections, isOpen, onClose }) {
                         title={item.name}
                         aria-expanded={isDropdownOpen}
                         aria-controls={subMenuListId}
+                        onMouseEnter={(e) => showTooltip(e, item.name)}
+                        onMouseLeave={hideTooltip}
+                        onFocus={(e) => showTooltip(e, item.name)}
+                        onBlur={hideTooltip}
                       >
                         <span className={styles.itemIcon}>{item.icon}</span>
                         <span className={styles.itemLabel}>{item.name}</span>
@@ -910,6 +944,10 @@ function MenuRender({ menuSections, isOpen, onClose }) {
                       className={`${styles.menuItemBtn} ${isActive ? styles.activeLink : ""}`}
                       title={item.name}
                       onClick={handleLinkClick}
+                      onMouseEnter={(e) => showTooltip(e, item.name)}
+                      onMouseLeave={hideTooltip}
+                      onFocus={(e) => showTooltip(e, item.name)}
+                      onBlur={hideTooltip}
                     >
                       <span className={styles.itemIcon}>{item.icon}</span>
                       <span className={styles.itemLabel}>{item.name}</span>
@@ -921,6 +959,31 @@ function MenuRender({ menuSections, isOpen, onClose }) {
           );
         })}
       </nav>
+
+      {/* BOTÃO COLLAPSE */}
+      <div className={styles.collapseFooter}>
+        <button
+          type="button"
+          className={styles.menuItemBtn}
+          onClick={() => setCompact((v) => !v)}
+          aria-label={compact ? "Expandir menu" : "Recolher menu"}
+          title={compact ? "Expandir menu" : "Recolher menu"}
+          onMouseEnter={(e) => showTooltip(e, compact ? "Expandir menu" : "Recolher menu")}
+          onMouseLeave={hideTooltip}
+          onFocus={(e) => showTooltip(e, compact ? "Expandir menu" : "Recolher menu")}
+          onBlur={hideTooltip}
+        >
+          <span className={styles.itemIcon} aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="18" rx="1"/>
+              <rect x="14" y="3" width="7" height="18" rx="1"/>
+            </svg>
+          </span>
+          <span className={styles.itemLabel}>
+            {compact ? "Expandir menu" : "Recolher menu"}
+          </span>
+        </button>
+      </div>
     </aside>
   );
 }

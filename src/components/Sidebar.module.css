@@ -1,215 +1,225 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+/* ═══════════════════════════════════════════════════════
+   Sidebar — IntegraSaúde
+   Visual: gradiente azul-petróleo, modo compact, tooltip
+═══════════════════════════════════════════════════════ */
 
-/* 1. CONTAINER PRINCIPAL DA SIDEBAR */
+/* 1. CONTAINER PRINCIPAL */
 .sidebar {
-  position: fixed;
-  top: 0; /* Sobe até o topo da tela, ocupando a faixa do cabeçalho */
-  left: 0;
-  bottom: 0;
-  width: 270px; /* Sempre aberta */
-  height: 100vh;
-  background-color: #4a6fa5;
-  border-right: 1px solid #e2e8f0;
-  z-index: 1000; /* Acima do Header */
-
-  /* HABILITA A BARRA DE ROLAGEM VERTICAL */
-  overflow-y: auto;
-  overflow-x: hidden;
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  width: 270px;
+  flex: 0 0 270px;
   display: flex;
   flex-direction: column;
+  padding: 14px 12px;
+  color: #f4fcff;
+  background: radial-gradient(ellipse at 100% 80%, #154758, transparent 65%), #0a2639;
+  font: 15px/1.5 system-ui, sans-serif;
   box-sizing: border-box;
+  z-index: 100;
+  transition: width .2s ease, flex-basis .2s ease;
+  overflow: visible; /* para o tooltip não ser clipado */
 }
 
-/* 2. HEADER DA SIDEBAR / LOGO */
+/* Modo compacto */
+.sidebarCompact {
+  width: 76px;
+  flex: 0 0 76px;
+}
+
+/* Mobile: drawer */
+.sidebarOpen {
+  /* sobreposto pelo media query abaixo */
+}
+
+/* 2. HEADER / LOGO */
 .sidebarHeader {
-  padding: 1rem;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 68px;
+  padding: 8px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid #ffffff22;
   flex-shrink: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .brandLogo {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  padding: 0.5rem 0;
+  flex: 1;
+  min-width: 0;
 }
 
 .brandImage {
-  width: 100%;
+  width: min(100%, 190px);
   height: auto;
-  max-width: 220px;
+  border-radius: 6px;
+  background: #f7fafb;
+  padding: 10px 14px;
+  box-sizing: border-box;
   object-fit: contain;
-  filter: brightness(0) invert(1);
+  display: block;
 }
 
-/* 3. CAMPO DE BUSCA */
-.searchContainer {
-  padding: 0.85rem;
-  opacity: 1;
-  flex-shrink: 0;
+.monogram {
+  display: none;
+  color: #9cebdc;
+  font-size: 19px;
+  font-weight: 750;
+  margin: auto;
+  letter-spacing: .02em;
 }
 
-.searchWrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
+/* No modo compacto: oculta logo, mostra monograma */
+.sidebarCompact .brandImage { display: none; }
+.sidebarCompact .monogram  { display: block; }
 
-.searchIcon {
-  position: absolute;
-  left: 0.75rem;
-  color: #94a3b8;
-  pointer-events: none;
-}
-
-.searchInput {
-  width: 100%;
-  padding: 0.5rem 0.75rem 0.5rem 2.25rem;
-  font-size: 0.8125rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  background-color: #f8fafc;
-  color: #0f172a;
-  outline: none;
-  transition: all 0.2s ease;
-}
-
-.searchInput::placeholder {
-  color: #94a3b8;
-}
-
-.searchInput:focus {
-  border-color: #2563eb;
-  background-color: #ffffff;
-}
-
-/* 4. LISTA NAVEGÁVEL PRINCIPAL */
+/* 3. NAV / SCROLL */
 .menuContentList {
   flex: 1;
-  padding: 0.5rem 0.5rem 1rem 0.5rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 3px;
+  scrollbar-width: thin;
+  scrollbar-color: #557c87 transparent;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0;
 }
+
+.menuContentList::-webkit-scrollbar { width: 4px; }
+.menuContentList::-webkit-scrollbar-thumb { background: #557c87; border-radius: 4px; }
 
 .sectionGroup {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0;
 }
 
-/* Espaço extra entre o "Início" e os módulos abaixo */
-.sectionGroup:first-child {
-  margin-bottom: 0.75rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+/* Separador de seção */
+.sectionGroup:not(:last-child) {
+  margin-bottom: 2px;
 }
 
-/* 5. BOTÃO DE ITEM PRINCIPAL (E DROPDOWN ABERTO) */
+/* 4. BOTÃO / LINK DE ITEM PRINCIPAL */
 .menuItemBtn {
   display: flex;
   align-items: center;
+  gap: 11px;
   width: 100%;
-  height: 40px;
-  padding: 0 0.75rem;
-  border-radius: 8px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 9px;
   background: transparent;
-  border: none;
-  color: #ffffff;
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  font-size: 15px;
   text-align: left;
-  transition: all 0.15s ease;
   text-decoration: none;
+  cursor: pointer;
   box-sizing: border-box;
+  transition: background .16s ease, color .16s ease;
   white-space: nowrap;
 }
 
 .menuItemBtn:hover {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #ffffff14;
 }
 
-/* Quando o dropdown/menu principal está aberto/marcado */
 .menuItemBtn.active,
 .menuItemBtn[data-state="open"] {
-  background: transparent;
-  color: #ffffff;
-  font-weight: 700;
+  background: #204e59;
+  border-color: #9cebdc55;
+  color: #c6fff1;
 }
 
+.menuItemBtn:focus-visible {
+  outline: 2px solid #9cebdc;
+  outline-offset: -2px;
+}
+
+/* No modo compacto: centraliza ícone */
+.sidebarCompact .menuItemBtn {
+  justify-content: center;
+  padding-inline: 0;
+  gap: 0;
+}
+
+/* 5. ÍCONES */
 .itemIcon {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 22px;
-  flex-shrink: 0;
-  color: #ffffff;
-  transition: color 0.15s ease;
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
 }
 
 .itemIcon svg {
   width: 18px;
   height: 18px;
+  flex-shrink: 0;
 }
 
-/* No hover, o ícone fica escuro (fundo claro). */
-.menuItemBtn:hover .itemIcon {
-  color: #2563eb;
+.subItemIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  opacity: .9;
 }
 
-/* Ativo/aberto: ícone branco (sem fundo). */
-.menuItemBtn.active .itemIcon,
-.menuItemBtn[data-state="open"] .itemIcon,
-.activeLink .itemIcon {
-  color: #ffffff;
+.subItemIcon svg {
+  width: 16px;
+  height: 16px;
 }
 
+/* 6. LABELS — ocultos no compact */
 .itemLabel {
-  margin-left: 0.6rem;
   flex: 1;
-  opacity: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+.sidebarCompact .itemLabel { display: none; }
+
+/* 7. CHEVRON */
 .arrowIcon {
-  color: #ffffff;
-  opacity: 1;
-  transition: transform 0.2s ease;
+  flex-shrink: 0;
+  margin-left: auto;
+  transition: transform .16s ease;
+  color: inherit;
 }
 
-/* Rotação ao abrir (vale para grupo e nested) */
 .arrowOpen {
   transform: rotate(90deg);
 }
 
-/* Grupo principal aberto: seta branca (sem fundo). */
-.menuItemBtn.active .arrowIcon,
-.menuItemBtn[data-state="open"] .arrowIcon {
-  color: #ffffff;
-}
+.sidebarCompact .arrowIcon { display: none; }
 
-/* No hover, a seta acompanha o texto escuro para não "sumir" no fundo claro */
-.menuItemBtn:hover .arrowIcon,
-.nestedBtn:hover:not(.nestedBtnOpen) .arrowIcon {
-  color: #0f172a;
-}
-
-/* 6. SUBMENUS (NÍVEL 1 E 2) */
+/* 8. SUBMENUS (nível 1) */
 .subMenuList {
   list-style: none;
-  padding: 0.5rem 0;
-  margin: 0.3rem 0 0.5rem 0;
-  margin-left: 0.5rem;
+  margin: 3px 0 7px 18px;
+  padding: 0 0 0 10px;
+  border-left: 1px solid #8ec9ce55;
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  border-left: 2px solid rgba(255, 255, 255, 0.2);
-  padding-left: 0.75rem;
+  gap: 2px;
+}
+
+.sidebarCompact .subMenuList {
+  margin-left: 0;
+  padding-left: 0;
+  border-left: 0;
 }
 
 .subMenuItemLink,
@@ -218,200 +228,156 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  min-height: 36px;
-  padding: 0.5rem 0.75rem;
+  min-height: 44px;
+  padding: 8px 10px;
   font-family: inherit;
-  font-size: 0.8125rem;
-  line-height: 1.3;
-  color: #ffffff;
-  font-weight: 500;
+  font-size: 13px;
+  color: #d8e9ee;
   text-decoration: none;
-  border-radius: 6px;
-  transition: all 0.15s ease;
+  border-radius: 7px;
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   cursor: pointer;
   box-sizing: border-box;
+  transition: background .16s ease, color .16s ease;
   white-space: nowrap;
 }
 
 .subMenuItemLink:hover,
 .nestedBtn:hover {
-  color: #0f172a;
-  background: #f1f5f9;
+  background: #ffffff14;
+  color: #f4fcff;
 }
 
-/* Ícone + texto dos itens de submenu */
+.subMenuItemLink:focus-visible,
+.nestedBtn:focus-visible {
+  outline: 2px solid #9cebdc;
+  outline-offset: -2px;
+}
+
 .subItemContent {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 8px;
   min-width: 0;
   flex: 1;
 }
 
-.subItemIcon {
+/* 9. NESTED (nível 2) */
+.nestedMenuList {
+  list-style: none;
+  margin: 3px 0 5px 16px;
+  padding: 0 0 0 8px;
+  border-left: 1px solid #8ec9ce33;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  opacity: 0.9;
-  width: 16px;
-  height: 16px;
+  flex-direction: column;
+  gap: 2px;
 }
 
-/* Grupo (nível 1) com submenu aberto: sem fundo (apenas peso da fonte). */
+.sidebarCompact .nestedMenuList {
+  margin-left: 0;
+  padding-left: 0;
+  border-left: 0;
+}
+
 .nestedBtnOpen {
-  background: transparent;
-  color: #ffffff;
+  color: #c6fff1;
   font-weight: 600;
 }
 
-/* Mantém o hover padrão (fundo claro) mesmo com o subgrupo aberto. */
-.nestedBtnOpen:hover {
-  background: #f1f5f9;
-  color: #0f172a;
-}
-
-.nestedBtnOpen .arrowIcon {
-  color: #ffffff;
-}
-
-.nestedMenuList {
-  list-style: none;
-  padding: 0.4rem 0;
-  margin: 0.25rem 0 0.3rem 0;
-  margin-left: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  border-left: 2px solid rgba(255, 255, 255, 0.15);
-  padding-left: 0.75rem;
-}
-
-/* 7. ESTADOS ATIVOS (LINKS SELECIONADOS) */
-.activeLink,
-.subMenuItemLink.activeLink,
-.nestedBtn.activeLink {
-  color: #ffffff !important;
-  background: transparent !important;
-  font-weight: 700;
-}
-
-.activeLink .itemIcon {
-  color: #ffffff;
-}
-
-.activeAppBadge {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: #64748b;
-  white-space: nowrap;
-}
-
-.sidebar:hover .badgeText {
-  opacity: 1;
-}
-
-/* 8. SCROLLBAR CUSTOMIZADA (DISCRETA) */
-.sidebar::-webkit-scrollbar {
-  width: 6px;
-}
-
-.sidebar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.sidebar::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
-}
-
-.sidebar::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-
-/* 9. SEPARADOR DE MENU */
+/* 10. SEPARADORES */
 .menuSeparator {
-  margin: 0.5rem 0;
-  padding: 0;
   list-style: none;
+  margin: 4px 0;
+  padding: 0;
 }
 
-.menuSeparator hr {
-  border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
-  margin: 0;
+.menuSeparator hr,
+.sectionSeparator {
+  width: 100%;
+  margin: 6px 0;
+  border: 0;
+  border-top: 1px solid #ffffff24;
 }
 
-
-/* ═══════════════════════════════════════════════════════════════════ */
-/* RESPONSIVIDADE */
-/* ═══════════════════════════════════════════════════════════════════ */
-
-/* Tablets (< 1024px) - Sidebar continua visível mas mais estreita */
-@media (max-width: 1023px) {
-  .sidebar {
-    width: 240px;
-  }
-
-  .brandImage {
-    max-width: 180px;
-  }
-
-  .menuItemBtn, .subMenuItemLink, .nestedBtn {
-    font-size: 0.8rem;
-  }
+/* 11. ITEM ATIVO */
+.activeLink {
+  background: #204e59 !important;
+  border-color: #9cebdc55 !important;
+  color: #c6fff1 !important;
+  font-weight: 600;
 }
 
-/* Mobile (< 768px) - Sidebar vira overlay */
+.activeLink:hover {
+  background: #204e59 !important;
+  color: #c6fff1 !important;
+}
+
+/* 12. BOTÃO COLLAPSE (rodapé) */
+.collapseFooter {
+  padding-top: 9px;
+  margin-top: 8px;
+  border-top: 1px solid #ffffff26;
+  flex-shrink: 0;
+}
+
+/* 13. TOOLTIP (compact mode) */
+.tooltip {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  padding: 6px 10px;
+  background: #0a2639;
+  color: #f4fcff;
+  border: 1px solid #547d8b;
+  border-radius: 7px;
+  font-size: 13px;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,.35);
+}
+
+/* ═══════════════════════════════════════════════════════
+   RESPONSIVIDADE
+═══════════════════════════════════════════════════════ */
+
 @media (max-width: 768px) {
   .sidebar {
     position: fixed;
-    left: -270px; /* Escondida por padrão */
-    width: 270px;
-    height: 100vh;
     top: 0;
-    z-index: 1000;
-    transition: left 0.3s ease;
-    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
-  }
-
-  .sidebarOpen {
-    left: 0; /* Sidebar aberta */
-  }
-
-  /* Ajustar header da sidebar para não ficar atrás do header principal */
-  .sidebarHeader {
-    margin-top: 60px; /* Altura do header principal */
-    padding-top: 0.5rem;
-  }
-}
-
-/* Mobile Pequeno (< 480px) - Sidebar ocupa 85% da tela */
-@media (max-width: 480px) {
-  .sidebar {
-    width: 85%;
-    left: -85%;
-  }
-
-  .sidebarOpen {
     left: 0;
+    bottom: 0;
+    height: 100svh;
+    width: min(310px, 85vw);
+    transform: translateX(-100%);
+    transition: transform .2s ease;
+    z-index: 1000;
+  }
+
+  .sidebarOpen {
+    transform: translateX(0);
+  }
+
+  /* No mobile, o compact não se aplica */
+  .sidebarCompact {
+    width: min(310px, 85vw);
+    flex-basis: auto;
+  }
+
+  .sidebarHeader {
+    justify-content: space-between;
   }
 
   .brandImage {
-    max-width: 160px;
+    max-width: calc(100% - 54px);
   }
+}
 
-  .menuItemBtn, .subMenuItemLink, .nestedBtn {
-    font-size: 0.75rem;
-    padding: 0.45rem 0.6rem;
-  }
-
-  .searchInput {
-    font-size: 0.75rem;
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .menuItemBtn,
+  .subMenuItemLink,
+  .nestedBtn,
+  .arrowIcon {
+    transition: none;
   }
 }

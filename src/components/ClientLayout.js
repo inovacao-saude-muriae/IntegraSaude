@@ -30,7 +30,7 @@ export default function ClientLayout({ children }) {
         <Header onToggleSidebar={toggleSidebar} />
 
         {/* Estrutura inferior posicionada abaixo do Header */}
-        <div style={{ display: "flex", flex: 1, marginTop: "60px", width: "100%" }}>
+        <div style={{ display: "flex", flex: 1, width: "100%" }}>
           <Sidebar isOpen={sidebarOpen} onClose={closeSidebar} />
           
           {/* Backdrop para mobile */}
@@ -55,8 +55,7 @@ export default function ClientLayout({ children }) {
             style={{
               flex: 1,
               minWidth: 0,
-              marginLeft: "270px",
-              width: "calc(100% - 270px)",
+              marginTop: "60px",
               padding: "0.75rem 1rem",
               boxSizing: "border-box",
               minHeight: "calc(100vh - 60px)",
