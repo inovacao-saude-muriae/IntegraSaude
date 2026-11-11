@@ -33,8 +33,11 @@ export default async function RegulacaoLayout({ children }) {
     (await usuarioEhAdminModulo(ctx.user, MODULOS.REGULACAO)) ||
     (await usuarioEhAdminModulo(ctx.user, MODULOS.JUNTA));
 
-  // Aba "Auditoria de Alterações": SOMENTE GESTOR (não vale admin do módulo).
-  const podeVerAuditoria = await usuarioEhGestor(ctx.user);
+  // Aba "Auditoria de Alterações": GESTOR ∨ REGULACAO/ADMIN (regra revisada:
+  // o admin da Regulação passou a ver a auditoria; antes era só Gestor).
+  const podeVerAuditoria =
+    (await usuarioEhGestor(ctx.user)) ||
+    (await usuarioEhAdminModulo(ctx.user, MODULOS.REGULACAO));
 
   return (
     <RegulacaoPermProvider

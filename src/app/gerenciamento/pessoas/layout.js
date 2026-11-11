@@ -1,20 +1,23 @@
 import {
   carregarContextoAcesso,
   usuarioEhGestor,
-  usuarioEhAdminModulo,
+  usuarioTemAcessoModulo,
   MODULOS,
 } from "@/lib/permissions";
 import AcessoNegadoModulo from "@/components/AcessoNegadoModulo";
 
-// Cadastro de Pessoas: GESTOR ∨ REGULACAO/ADMIN ∨ JUNTA/ADMIN
-// (FR-3.8 + premissa A2 — Pacientes é compartilhado; design §4.4 / refinamento #5).
+// Cadastro de Pessoas (Paciente): GESTOR ∨ REGULACAO ∨ JUNTA ∨ FARMACIA ∨ PROCESSOS.
+// Passou a ser um item do Gerenciamento visível a todos os módulos que usam o
+// cadastro único (EMPI). O CCZ não entra: ele usa o item "Tutor".
 export default async function PessoasLayout({ children }) {
   const ctx = await carregarContextoAcesso();
   const permitido =
     ctx &&
     ((await usuarioEhGestor(ctx.user)) ||
-      (await usuarioEhAdminModulo(ctx.user, MODULOS.REGULACAO)) ||
-      (await usuarioEhAdminModulo(ctx.user, MODULOS.JUNTA)));
+      (await usuarioTemAcessoModulo(ctx.user, MODULOS.REGULACAO)) ||
+      (await usuarioTemAcessoModulo(ctx.user, MODULOS.JUNTA)) ||
+      (await usuarioTemAcessoModulo(ctx.user, MODULOS.FARMACIA)) ||
+      (await usuarioTemAcessoModulo(ctx.user, MODULOS.PROCESSOS)));
 
   if (!permitido) {
     return <AcessoNegadoModulo modulo="Cadastro de Pessoas" />;
