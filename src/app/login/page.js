@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { loginAction } from '@/app/actions/auth';
 import styles from './LoginPage.module.css';
@@ -57,9 +58,11 @@ export default function LoginPage() {
             <span className={styles.mint}>Uma só plataforma.</span>
           </h1>
 
-          <img
+          <Image
             src="/img/logos-integra/imglogin.svg"
             alt=""
+            width={400}
+            height={250}
             aria-hidden="true"
             className={styles.illustration}
           />
@@ -71,10 +74,13 @@ export default function LoginPage() {
         <div className={styles.loginBox}>
 
           <div className={styles.logoWrap}>
-            <img
+            <Image
               src="/img/logos-integra/logointegraCompleto.png"
               alt="IntegraSaúde — Sistema modular integrado"
+              width={380}
+              height={70}
               className={styles.logo}
+              priority
             />
           </div>
 
