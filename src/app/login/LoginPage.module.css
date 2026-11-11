@@ -103,10 +103,11 @@
 .loginArea {
   flex: 0 0 54%;
   display: flex;
-  align-items: flex-start;
+  /* Conteúdo do formulário centralizado vertical e horizontalmente na coluna. */
+  align-items: center;
   justify-content: center;
   background: #F7FAFB;
-  padding: 18vh 2rem 3rem;
+  padding: 3rem 2rem;
 }
 
 .loginBox {
