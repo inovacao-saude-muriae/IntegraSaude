@@ -67,12 +67,9 @@ const menuSections = [
           { name: "Liberados", tab: "LIBERADOS", visivelSe: "REGULACAO" },
           { name: "Financeiro", tab: "FINANCEIRO", visivelSe: "REGULACAO_ADMIN" },
           { name: "separator", isSeparator: true, visivelSe: "REGULACAO" },
-          { name: "Procedimentos", tab: "PROCEDIMENTOS", visivelSe: "REGULACAO" },
-          { name: "Paciente", tab: "PACIENTES", visivelSe: "PESSOAS_ACESSO" },
-          { name: "Médicos", path: "/gerenciamento/medicos", visivelSe: "REGULACAO" },
-          { name: "Unidade Básica de Saúde", path: "/gerenciamento/ubs", visivelSe: "REGULACAO" },
           { name: "Dashboard", tab: "DASHBOARD", visivelSe: "REGULACAO" },
-          { name: "Auditoria de Alterações", tab: "AUDITORIA", visivelSe: "GESTOR" },
+          // Auditoria: GESTOR ou ADMIN da Regulação (regra revisada).
+          { name: "Auditoria de Alterações", tab: "AUDITORIA", visivelSe: "REGULACAO_ADMIN" },
         ],
       },
     ],
@@ -108,13 +105,11 @@ const menuSections = [
             visivelSe: "FARMACIA",
             nestedItems: [
               { name: "Novo Processo", subTab: "PACIENTES" },
-              { name: "Medicamentos", subTab: "MEDICAMENTOS" },
               { name: "Estoque", subTab: "ESTOQUE" },
               { name: "Dispensação", subTab: "DISPENSACAO" },
               { name: "separator", isSeparator: true },
-              { name: "Relatórios", subTab: "RELATORIOS" },
-              { name: "Paciente", subTab: "PESSOAS", visivelSe: "PESSOAS_ACESSO" },
               { name: "Dashboard", subTab: "DASHBOARD" },
+              { name: "Relatórios", subTab: "RELATORIOS" },
             ],
           },
           {
@@ -167,9 +162,7 @@ const menuSections = [
             ],
           },
           { name: "separator", isSeparator: true, visivelSe: "JUNTA" },
-          { name: "Serviços e Especialidades", tab: "SERVICOS_ESPECIALIDADES", visivelSe: "JUNTA" },
           { name: "Prontuário", tab: "RELATORIO", visivelSe: "JUNTA_ADMIN" },
-          { name: "Paciente", tab: "PESSOAS", visivelSe: "PESSOAS_ACESSO" },
           { name: "Dashboard", tab: "DASHBOARD", visivelSe: "JUNTA" },
          
         ],
@@ -223,9 +216,6 @@ const menuSections = [
           },
           { name: "Agenda", tab: "AGENDA", visivelSe: "CCZ" },
           { name: "separator", isSeparator: true, visivelSe: "CCZ" },
-          { name: "Animais", tab: "ANIMAIS", visivelSe: "CCZ" },
-          { name: "Tutor", tab: "TUTORES", visivelSe: "CCZ" },
-          { name: "Termos", tab: "TERMOS", visivelSe: "CCZ" },
           { name: "Dashboard", tab: "DASHBOARD", visivelSe: "CCZ" },
         ],
       },
@@ -254,29 +244,60 @@ const menuSections = [
           </svg>
         ),
         subItems: [
+          // ── Gerenciamento (reorganizado): cada item tem seu próprio gate. ──
           {
             name: "Paciente",
             path: "/gerenciamento/pessoas",
             tab: "PESSOAS",
-            visivelSe: "GESTOR",
-          },
-          {
-            name: "Procedimentos",
-            path: "/regulacao?tab=PROCEDIMENTOS",
-            tab: "PROCEDIMENTOS",
-            visivelSe: "GESTOR",
+            visivelSe: "PACIENTE_GERAL",
           },
           {
             name: "Médicos",
             path: "/gerenciamento/medicos",
             tab: "MEDICOS",
-            visivelSe: "GESTOR",
+            visivelSe: "REGULACAO_ADMIN",
           },
           {
             name: "Unidade Básica de Saúde",
             path: "/gerenciamento/ubs",
             tab: "UBS",
-            visivelSe: "GESTOR",
+            visivelSe: "REGULACAO_ADMIN",
+          },
+          {
+            name: "Procedimentos",
+            path: "/regulacao?tab=PROCEDIMENTOS",
+            tab: "PROCEDIMENTOS",
+            visivelSe: "REGULACAO",
+          },
+          {
+            name: "Medicamentos",
+            path: "/gerenciamento/medicamentos",
+            tab: "MEDICAMENTOS",
+            visivelSe: "FARMACIA",
+          },
+          {
+            name: "Serviços e Especialidades",
+            path: "/gerenciamento/servicos-especialidades",
+            tab: "SERVICOS_ESPECIALIDADES",
+            visivelSe: "JUNTA",
+          },
+          {
+            name: "Tutor",
+            path: "/gerenciamento/tutores",
+            tab: "TUTORES",
+            visivelSe: "PACIENTE_GERAL",
+          },
+          {
+            name: "Animais",
+            path: "/gerenciamento/animais",
+            tab: "ANIMAIS",
+            visivelSe: "CCZ",
+          },
+          {
+            name: "Termos",
+            path: "/gerenciamento/termos",
+            tab: "TERMOS",
+            visivelSe: "CCZ",
           },
           {
             name: "Gerenciar Usuários",
@@ -435,6 +456,17 @@ function construirMenu(me) {
         // Cadastro de Pessoas (Pacientes): GESTOR ∨ REGULACAO/ADMIN ∨
         // JUNTA/ADMIN (espelha requireAcessoPessoas / pessoas/layout.js).
         return ehGestor || ehAdminMod("REGULACAO") || ehAdminMod("JUNTA");
+      case "PACIENTE_GERAL":
+        // Cadastro único (Paciente/Tutor) no Gerenciamento: GESTOR ∨ qualquer
+        // vínculo com REGULACAO, JUNTA, FARMACIA ou PROCESSOS (o CCZ usa "Tutor"
+        // separadamente). Espelha gerenciamento/pessoas|tutores/layout.js.
+        return (
+          ehGestor ||
+          temModulo("REGULACAO") ||
+          temModulo("JUNTA") ||
+          temModulo("FARMACIA") ||
+          temModulo("PROCESSOS")
+        );
       case "JUNTA":
         return temModulo("JUNTA");
       case "JUNTA_ADMIN":

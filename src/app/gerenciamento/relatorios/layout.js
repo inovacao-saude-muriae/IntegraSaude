@@ -1,14 +1,14 @@
 import {
   carregarContextoAcesso,
-  usuarioEhAdminDeAlgumModulo,
+  usuarioEhGestor,
 } from "@/lib/permissions";
 import AcessoNegadoModulo from "@/components/AcessoNegadoModulo";
 
-// Relatórios: GESTOR ∨ admin de qualquer módulo (FR-3.10, design §4.4).
-// usuarioEhAdminDeAlgumModulo já curto-circuita em GESTOR.
+// Relatórios Gerais: EXCLUSIVO do GESTOR (junto com Gerenciar Usuários).
+// Antes aceitava "admin de qualquer módulo"; a regra passou a ser só Gestor.
 export default async function RelatoriosLayout({ children }) {
   const ctx = await carregarContextoAcesso();
-  const permitido = ctx && (await usuarioEhAdminDeAlgumModulo(ctx.user));
+  const permitido = ctx && (await usuarioEhGestor(ctx.user));
 
   if (!permitido) {
     return <AcessoNegadoModulo modulo="Relatórios" />;

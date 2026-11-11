@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
-import { requireGestor } from "@/lib/auth";
+import { requireAdminModulo } from "@/lib/auth";
+import { MODULOS } from "@/lib/permissions";
 import { consultarAuditoriaRegulacao } from "@/lib/auditoriaRegulacao";
 
-// Relatório de auditoria da Regulação. SOMENTE GESTOR (401 sem sessão, 403 demais).
+// Relatório de auditoria da Regulação. GESTOR ∨ REGULACAO/ADMIN
+// (401 sem sessão, 403 sem ser admin da Regulação).
 export async function GET(req) {
   try {
-    const gestor = await requireGestor();
+    const gestor = await requireAdminModulo(MODULOS.REGULACAO);
     const { searchParams } = new URL(req.url);
     const resultado = await consultarAuditoriaRegulacao(
       {
