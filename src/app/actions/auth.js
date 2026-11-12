@@ -5,6 +5,12 @@ import bcrypt from "bcryptjs";
 import { cookies, headers } from "next/headers";
 import { SignJWT } from "jose";
 import { registrarAuditoria } from "@/lib/audit";
+import {
+  carregarSessao,
+  opcoesCookieSessao,
+  SESSION_COOKIE,
+  SESSION_DURATION_MS,
+} from "@/lib/auth";
 
 // Sistema de rate limiting in-memory
 const loginAttempts = new Map();
@@ -159,7 +165,7 @@ export async function loginAction(formData) {
 
     // 3. Gera JWT assinado com informações do usuário
     const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-    const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000); // 8 horas de sessão
+    const expiresAt = new Date(Date.now() + SESSION_DURATION_MS); // 8 horas de sessão
     
     const token = await new SignJWT({
       userId: user.cpf,
@@ -190,13 +196,7 @@ export async function loginAction(formData) {
 
     // 6. Salva o Cookie HTTP-Only com o JWT
     const cookieStore = await cookies();
-    cookieStore.set("session_token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      expires: expiresAt,
-      path: "/",
-    });
+    cookieStore.set(SESSION_COOKIE, token, opcoesCookieSessao(expiresAt));
 
     await registrarAuditoria({
       user,
@@ -213,5 +213,47 @@ export async function loginAction(formData) {
     console.error("Erro na ação de login:", error);
     recordAttempt(ip, false);
     return { error: "Erro interno ao tentar realizar login." };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LOGOUT — encerramento REAL da sessão
+// ─────────────────────────────────────────────────────────────────────────
+// Antes, o botão "Sair" só apagava uma chave do localStorage e navegava para
+// /login: o cookie e a linha em user_sessions continuavam válidos (o token
+// seguia reutilizável por até 8h). Agora:
+//   1. a sessão é apagada do banco (token deixa de existir → não reutilizável);
+//   2. o cookie é removido da resposta;
+//   3. o encerramento é registrado na auditoria.
+// Idempotente: sem sessão válida, apenas limpa o cookie e sai.
+// ═══════════════════════════════════════════════════════════════════════════
+export async function logoutAction() {
+  try {
+    const ctx = await carregarSessao();
+
+    if (ctx) {
+      await prisma.session.delete({ where: { id: ctx.session.id } }).catch(() => {});
+      await registrarAuditoria({
+        user: ctx.user,
+        acao: "ENCERRAR",
+        modulo: "AUTH",
+        entidade: "Sessão",
+        entidadeId: ctx.user.cpf,
+        descricao: "Logout: sessão encerrada",
+      });
+    }
+
+    const cookieStore = await cookies();
+    cookieStore.delete(SESSION_COOKIE);
+
+    return { success: true };
+  } catch (error) {
+    console.error("Erro no logout:", error);
+    // Mesmo em erro, remove o cookie: nunca deixa o usuário "preso" logado.
+    try {
+      const cookieStore = await cookies();
+      cookieStore.delete(SESSION_COOKIE);
+    } catch {}
+    return { success: false };
   }
 }

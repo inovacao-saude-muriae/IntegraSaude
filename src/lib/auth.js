@@ -10,21 +10,69 @@ import {
   servicoJuntaDoNome,
 } from "@/lib/permissions";
 
-// Valida a sessão (consulta Session + expiresAt) e retorna o `user` COMPLETO
-// com os vínculos (cpf/nome/role/cargo/acessos). Lança {status:401} quando
-// ausente/inválida/expirada.
+// ═══════════════════════════════════════════════════════════════════════════
+// SESSÃO — VALIDAÇÃO CENTRALIZADA (fonte única)
+// ─────────────────────────────────────────────────────────────────────────
+// Toda leitura de sessão do sistema (Server Actions, Route Handlers e
+// Componentes de Servidor) passa por `carregarSessao()`. Regras aplicadas:
+//   1. o cookie `session_token` existe;
+//   2. a sessão existe no banco (token corresponde a uma sessão registrada);
+//   3. `expires_at` ainda não passou (expiração real, do banco);
+//   4. o usuário dono da sessão está ATIVO.
+// Qualquer falha → sessão inválida (fail-closed).
+// Não há outro caminho de autenticação no sistema.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const SESSION_COOKIE = "session_token";
+
+// Duração da sessão: 8 horas (política atual, mantida).
+export const SESSION_DURATION_MS = 8 * 60 * 60 * 1000;
+
+// Opções padrão do cookie de sessão (usadas no login, na troca de senha e no
+// logout, para que todos os fluxos emitam/limparem o cookie do mesmo jeito).
+export function opcoesCookieSessao(expiresAt) {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    ...(expiresAt ? { expires: expiresAt } : {}),
+  };
+}
+
+// Sessão válida completa, ou null. NUNCA lança: é a primitiva usada tanto por
+// guards (que convertem null em 401) quanto por rotas que precisam só checar.
+// Inclui `user` com os vínculos (`acessos`) para as decisões de autorização.
+export async function carregarSessao() {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  if (!token) return null;
+
+  const session = await prisma.session.findUnique({
+    where: { token },
+    include: { user: { include: { acessos: true } } },
+  });
+
+  if (!session?.user || session.user.ativo === false) return null;
+  if (!session.expiresAt || new Date(session.expiresAt) <= new Date()) return null;
+
+  return { session, user: session.user, token };
+}
+
+// Igual a carregarSessao, mas lança {status:401} quando não há sessão válida.
+// Mantida com o nome antigo para não alterar os call sites existentes.
 async function carregarUsuarioSessao() {
-  const token = (await cookies()).get("session_token")?.value;
-  const session = token
-    ? await prisma.session.findUnique({
-        where: { token },
-        include: { user: { include: { acessos: true } } },
-      })
-    : null;
-  if (!session?.user?.ativo || !session.expiresAt || new Date(session.expiresAt) <= new Date()) {
+  const ctx = await carregarSessao();
+  if (!ctx) {
     throw Object.assign(new Error("Sessão inválida ou expirada."), { status: 401 });
   }
-  return session.user;
+  return ctx.user;
+}
+
+// Versão que devolve o usuário (ou null), sem lançar — para rotas que preferem
+// responder 401 manualmente em vez de capturar exceção.
+export async function usuarioDaSessao() {
+  const ctx = await carregarSessao();
+  return ctx?.user ?? null;
 }
 
 // NOTA (RBAC Etapa 1 / FEAT-003): a antiga requireRole(roles) foi REMOVIDA após
@@ -37,6 +85,12 @@ async function carregarUsuarioSessao() {
 // Cada guarda valida a sessão (401 se ausente/expirada), aplica a função de
 // decisão e lança {status:403} ou retorna o user completo (com acessos).
 // ═══════════════════════════════════════════════════════════════════════════
+
+// Apenas autenticação (sem exigir módulo). Usada nas buscas do cadastro único
+// (EMPI): todo usuário logado pode buscar pessoa, mas ninguém anônimo.
+export async function requireUsuarioAutenticado() {
+  return carregarUsuarioSessao();
+}
 
 export async function requireAcessoModulo(modulo) {
   const user = await carregarUsuarioSessao();

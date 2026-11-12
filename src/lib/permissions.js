@@ -1,7 +1,7 @@
 import "server-only";
 import { cache } from "react";
-import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
+import { carregarSessao } from "@/lib/auth";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FONTE ÚNICA DE VERDADE DE AUTORIZAÇÃO (RBAC Etapa 1)
@@ -38,23 +38,13 @@ export const SERVICOS_JUNTA = {
 // se deve contar com a dedupe entre funções — cada guarda roda a query 1x.
 // IMPORTANTE: usa include SEM select restritivo, para manter nome/role/cargo
 // no `user` retornado (actions existentes consomem user.nome etc.).
+// A validação da sessão em si é delegada a `carregarSessao()` (lib/auth.js),
+// fonte única: cookie → sessão no banco → expiração real → usuário ativo.
+// Aqui só memoizamos por renderização para evitar N queries na mesma árvore.
 export const carregarContextoAcesso = cache(async () => {
-  const token = (await cookies()).get("session_token")?.value;
-  if (!token) return null;
-
-  const session = await prisma.session.findUnique({
-    where: { token },
-    include: { user: { include: { acessos: true } } },
-  });
-
-  if (
-    !session?.user?.ativo ||
-    !session.expiresAt ||
-    new Date(session.expiresAt) <= new Date()
-  ) {
-    return null;
-  }
-  return { user: session.user, acessos: session.user.acessos };
+  const ctx = await carregarSessao();
+  if (!ctx) return null;
+  return { user: ctx.user, acessos: ctx.user.acessos };
 });
 
 // Variante por CPF explícito. Memoizada por render.

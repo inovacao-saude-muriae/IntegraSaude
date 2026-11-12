@@ -4,6 +4,12 @@ import bcrypt from "bcryptjs";
 import { SignJWT } from "jose";
 import { prisma } from "@/lib/prisma";
 import { registrarAuditoria } from "@/lib/audit";
+import {
+  carregarSessao,
+  opcoesCookieSessao,
+  SESSION_COOKIE,
+  SESSION_DURATION_MS,
+} from "@/lib/auth";
 
 // Valida senha forte
 function validarSenhaForte(senha) {
@@ -61,31 +67,21 @@ export async function POST(request) {
       );
     }
 
-    // Busca sessão
+    // Sessão validada pela fonte única (lib/auth): cookie presente, sessão
+    // registrada no banco, NÃO expirada (expires_at) e usuário ativo.
+    // Sessão expirada/revogada nunca troca senha.
+    const ctx = await carregarSessao();
+    if (!ctx) {
+      return NextResponse.json(
+        { error: "Sessão inválida ou expirada. Faça login novamente." },
+        { status: 401 }
+      );
+    }
+    const { session, user } = ctx;
     const cookieStore = await cookies();
-    const token = cookieStore.get("session_token")?.value;
-
-    if (!token) {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
-    }
-
-    const session = await prisma.session.findUnique({
-      where: { token },
-      include: { user: true },
-    });
-
-    if (!session || !session.user) {
-      return NextResponse.json(
-        { error: "Sessão inválida" },
-        { status: 401 }
-      );
-    }
 
     // Verifica senha atual
-    const senhaCorreta = await bcrypt.compare(senhaAtual, session.user.senhaHash);
+    const senhaCorreta = await bcrypt.compare(senhaAtual, user.senhaHash);
 
     if (!senhaCorreta) {
       return NextResponse.json(
@@ -97,57 +93,57 @@ export async function POST(request) {
     // Gera hash da nova senha
     const novaSenhaHash = await bcrypt.hash(novaSenha, 10);
 
-    // Atualiza senha e marca primeiroAcesso como false
-    await prisma.user.update({
-      where: { cpf: session.user.cpf },
-      data: {
-        senhaHash: novaSenhaHash,
-        primeiroAcesso: false,
-        updatedAt: new Date(),
-      },
-    });
-
     // Gera NOVO JWT com primeiroAcesso: false
     const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-    const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000);
-    
+    const expiresAt = new Date(Date.now() + SESSION_DURATION_MS);
+
     const novoToken = await new SignJWT({
-      userId: session.user.cpf,
-      role: session.user.role,
-      nome: session.user.nome,
-      cargo: session.user.cargo,
-      primeiroAcesso: false, // ← ATUALIZA para false
+      userId: user.cpf,
+      role: user.role,
+      nome: user.nome,
+      cargo: user.cargo,
+      primeiroAcesso: false,
     })
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
       .setExpirationTime("8h")
       .sign(secret);
 
-    // Atualiza a sessão no banco com o novo token
-    await prisma.session.update({
-      where: { id: session.id },
-      data: {
-        token: novoToken,
-        expiresAt,
-      },
+    // Transação: troca a senha, REVOGA as demais sessões do usuário (inclusive
+    // as de outros dispositivos, que deixam de valer porque o token some do
+    // banco) e mantém viva apenas esta sessão, já com o novo token.
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { cpf: user.cpf },
+        data: {
+          senhaHash: novaSenhaHash,
+          primeiroAcesso: false,
+          updatedAt: new Date(),
+        },
+      });
+
+      const revogadas = await tx.session.deleteMany({
+        where: { userId: user.cpf, id: { not: session.id } },
+      });
+
+      await tx.session.update({
+        where: { id: session.id },
+        data: { token: novoToken, expiresAt },
+      });
+
+      return revogadas.count;
     });
 
     // Atualiza o cookie com o novo token
-    cookieStore.set("session_token", novoToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      expires: expiresAt,
-      path: "/",
-    });
+    cookieStore.set(SESSION_COOKIE, novoToken, opcoesCookieSessao(expiresAt));
 
     await registrarAuditoria({
-      user: session.user,
+      user,
       acao: "EDITAR",
       modulo: "AUTH",
       entidade: "Senha",
-      entidadeId: session.user.cpf,
-      descricao: "Senha alterada",
+      entidadeId: user.cpf,
+      descricao: "Senha alterada; demais sessões revogadas",
     });
 
     return NextResponse.json(

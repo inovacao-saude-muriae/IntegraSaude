@@ -1,7 +1,11 @@
 // src/app/camara-tecnica/farmacia-judicial/actions.js
 "use server";
 
-import { requireAdminModulo, requireAcessoModulo } from "@/lib/auth";
+import {
+  requireAdminModulo,
+  requireAcessoModulo,
+  requireUsuarioAutenticado,
+} from "@/lib/auth";
 import { MODULOS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { registrarAuditoria } from "@/lib/audit";
@@ -898,6 +902,8 @@ export async function getDashboardMetrics(ano) {
 // 7. BUSCA DE PESSOA NO BANCO (PESSOAS)
 // ==========================================
 export async function buscarPessoaExistente(termo) {
+  // Cadastro único (EMPI): busca aberta a qualquer usuário logado, nunca anônima.
+  await requireUsuarioAutenticado();
   try {
     const searchTerm = `%${(termo || "").trim()}%`;
     const rows = await prisma.$queryRaw`

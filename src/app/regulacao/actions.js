@@ -5,6 +5,7 @@ import {
   requireAdminModulo,
   requireAcessoModulo,
   requireAcessoPessoas,
+  requireUsuarioAutenticado,
 } from "@/lib/auth";
 import { MODULOS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
@@ -304,6 +305,9 @@ export async function getAuxiliaryData() {
 // Busca de pessoa = cadastro ÚNICO compartilhado entre Regulação, Junta, Farmácia e
 // CCZ. Deve continuar disponível para qualquer usuário logado (integração do EMPI).
 export async function searchPessoa(term) {
+  // Cadastro único (EMPI): qualquer usuário LOGADO pode buscar, mas a busca
+  // exige sessão válida — nunca é pública.
+  await requireUsuarioAutenticado();
   try {
     if (!term) return null;
     const cleanTerm = term.replace(/\D/g, "");
@@ -334,6 +338,7 @@ export async function searchPessoa(term) {
 // 4. Autocomplete de Pessoas (Suporta CPF limpo ou formatado)
 // Idem item 3: cadastro único, aberto a qualquer usuário logado (máx. 10 resultados).
 export async function searchPessoasAutocomplete(term) {
+  await requireUsuarioAutenticado();
   if (!term || term.trim().length < 2) return [];
 
   try {

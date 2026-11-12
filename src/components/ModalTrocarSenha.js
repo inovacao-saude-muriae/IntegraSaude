@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import styles from './ModalTrocarSenha.module.css';
 
 // Função para validar força da senha
@@ -31,6 +32,7 @@ function validarSenhaForte(senha) {
 }
 
 export default function ModalTrocarSenha({ onSucesso }) {
+  const router = useRouter();
   const [senhaAtual, setSenhaAtual] = useState('');
   const [novaSenha, setNovaSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
@@ -84,6 +86,13 @@ export default function ModalTrocarSenha({ onSucesso }) {
       });
 
       const data = await res.json();
+
+      // Sessão expirada/revogada: a rota recusa a troca — manda para o login
+      // em vez de exibir um erro genérico.
+      if (res.status === 401) {
+        router.push('/login?error=session_expired');
+        return;
+      }
 
       if (res.ok) {
         setSucesso(true);

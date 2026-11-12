@@ -82,6 +82,13 @@ export default function TrocarSenhaPage() {
 
       const data = await res.json();
 
+      // Sessão expirada/revogada: a rota recusa a troca — manda para o login
+      // em vez de exibir um erro genérico.
+      if (res.status === 401) {
+        router.push('/login?error=session_expired');
+        return;
+      }
+
       if (res.ok) {
         setSucesso(true);
         setTimeout(() => {

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { logoutAction } from "@/app/actions/auth";
 import styles from "./Header.module.css";
 
 export default function Header({ onToggleSidebar }) {
@@ -62,11 +63,18 @@ export default function Header({ onToggleSidebar }) {
     fetchUserData();
   }, []);
 
+  // Logout real: encerra a sessão no banco (o token deixa de valer), remove o
+  // cookie e registra o evento na auditoria — tudo na server action.
   const handleLogout = async () => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("user_cpf");
+    try {
+      await logoutAction();
+    } finally {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("user_cpf");
+      }
+      router.replace("/login");
+      router.refresh();
     }
-    router.push("/login");
   };
 
   const initialLetter =
