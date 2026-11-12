@@ -596,7 +596,10 @@ model UserAcesso {
   //   NENHUM      → nenhum serviço (servicos deve ficar vazio)
   escopo        EscopoServico @default(TODOS)
   servicos      String[]      @default([])
-  // permissoes: permissões efetivas, no formato "funcionalidade:permissao".
+  // permissoes: CONCESSÕES ADICIONAIS fora do pacote do perfil, no formato
+  // "funcionalidade:permissao". removidas: RETIRADAS do pacote do perfil.
+  //   efetivas = (pacote do perfil ∪ permissoes) − removidas
+  removidas     String[]      @default([])
   // Vazio = pacote padrão do perfil (resolvido em código, ver lib/permissoesCatalogo).
   permissoes    String[]      @default([])
   // ativo: desliga o vínculo sem apagar o histórico.

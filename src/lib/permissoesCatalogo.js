@@ -498,12 +498,63 @@ export function permissoesPadrao(modulo, perfil) {
 }
 
 /**
+ * Resolve as permissões EFETIVAS de um vínculo.
+ *
+ *   concedidas → o que está fora do pacote do perfil (coluna `permissoes`)
+ *   retiradas  → o que foi removido do pacote do perfil (coluna `removidas`)
+ *   efetivas   = (pacote do perfil ∪ concedidas) − retiradas
+ *
+ * Fonte única desta conta: a decisão de autorização (permissions.js), a tela de
+ * gerenciamento e o /api/me usam esta função — não há segunda fórmula.
+ * Qualquer item fora do catálogo do módulo é descartado (fail-closed).
+ */
+export function permissoesEfetivas(modulo, perfil, concedidas, retiradas) {
+  const cat = MODULOS_CATALOGO[modulo];
+  if (!cat || !PERFIS_INFO[perfil]) return [];
+
+  const validas = new Set();
+  for (const f of cat.funcionalidades) {
+    for (const p of f.permissoes) validas.add(`${f.chave}:${p}`);
+  }
+
+  const pacote = permissoesPadrao(modulo, perfil);
+  const efetivas = new Set(pacote);
+  for (const item of concedidas || []) {
+    if (validas.has(item)) efetivas.add(item);
+  }
+  for (const item of retiradas || []) {
+    efetivas.delete(item); // retirar algo que não está no pacote é inócuo
+  }
+  return [...efetivas].sort();
+}
+
+/**
+ * Separa o que é do pacote do perfil do que foi personalizado, para a tela
+ * mostrar com clareza (herdada / concedida / retirada).
+ */
+export function detalharPermissoes(modulo, perfil, concedidas, retiradas) {
+  const pacote = permissoesPadrao(modulo, perfil);
+  const conjuntoPacote = new Set(pacote);
+  const ret = new Set((retiradas || []).filter((i) => conjuntoPacote.has(i)));
+  const extra = new Set((concedidas || []).filter((i) => !conjuntoPacote.has(i)));
+  return {
+    pacote,
+    herdadas: pacote.filter((i) => !ret.has(i)),
+    removidas: [...ret],
+    concedidas: [...extra],
+    efetivas: permissoesEfetivas(modulo, perfil, concedidas, retiradas),
+  };
+}
+
+/**
  * Uma permissão é "operacional" quando não é leitura/exportação de painel.
  * Sem serviço nenhum, permissão operacional não faz sentido.
  */
-function temFuncionalidadesOperacionais(permissoes) {
+function temFuncionalidadesOperacionais(permissoes, removidas) {
   const LEITURA = ["visualizar", "exportar"];
+  const retiradas = new Set(removidas || []);
   return (permissoes || []).some((item) => {
+    if (retiradas.has(item)) return false;
     const perm = String(item).split(":")[1];
     return perm && !LEITURA.includes(perm);
   });
@@ -556,6 +607,7 @@ export function validarConfiguracao({
   servicos,
   funcionalidades,
   permissoes,
+  removidas,
 }) {
   const erros = [];
   const cat = MODULOS_CATALOGO[modulo];
@@ -574,7 +626,7 @@ export function validarConfiguracao({
     if (escopo === ESCOPOS.ESPECIFICOS && listaServicos.length === 0) {
       erros.push("O escopo Serviços específicos exige ao menos um serviço marcado.");
     }
-    if (escopo === ESCOPOS.NENHUM && temFuncionalidadesOperacionais(permissoes)) {
+    if (escopo === ESCOPOS.NENHUM && temFuncionalidadesOperacionais(permissoes, removidas)) {
       erros.push(
         "Nenhum serviço: retire as permissões operacionais ou escolha um escopo com serviços.",
       );
@@ -597,15 +649,25 @@ export function validarConfiguracao({
     if (!chaves.has(f)) erros.push(`Funcionalidade inválida em ${cat.nome}: ${f}`);
   }
 
-  for (const item of permissoes || []) {
+  const validarItem = (item, rotulo) => {
     const [func, perm] = String(item).split(':');
     const def = cat.funcionalidades.find((f) => f.chave === func);
     if (!def) {
-      erros.push(`Permissão para funcionalidade inexistente: ${item}`);
-      continue;
+      erros.push(`Permissão para funcionalidade inexistente (${rotulo}): ${item}`);
+      return;
     }
     if (!def.permissoes.includes(perm)) {
-      erros.push(`A funcionalidade "${def.nome}" não oferece a permissão "${perm}".`);
+      erros.push(`A funcionalidade "${def.nome}" não oferece a permissão "${perm}" (${rotulo}).`);
+    }
+  };
+  for (const item of permissoes || []) validarItem(item, "concedida");
+  for (const item of removidas || []) validarItem(item, "retirada");
+
+  // Conceder e retirar a mesma permissão é contraditório.
+  const conjuntoRemovidas = new Set(removidas || []);
+  for (const item of permissoes || []) {
+    if (conjuntoRemovidas.has(item)) {
+      erros.push(`Permissão simultaneamente concedida e retirada: ${item}`);
     }
   }
 

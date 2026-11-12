@@ -3,7 +3,7 @@ import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { carregarSessao } from "@/lib/auth";
 import {
-  permissoesPadrao,
+  permissoesEfetivas,
   PERFIS as PERFIS_CATALOGO,
 } from "@/lib/permissoesCatalogo";
 
@@ -100,16 +100,18 @@ function vinculosAtivos(ctx, modulo) {
 }
 
 /**
- * Permissões efetivas de um vínculo.
- * Gravadas no vínculo quando existem; senão, o pacote do perfil.
+ * Permissões efetivas de um vínculo, já resolvidas:
+ *   (pacote do perfil ∪ concedidas) − retiradas
  * Perfil desconhecido → [] (fail-closed).
  */
 function permissoesDoVinculo(vinculo) {
-  const gravadas = Array.isArray(vinculo.permissoes) ? vinculo.permissoes : [];
-  if (gravadas.length > 0) return gravadas;
-  const perfil = vinculo.perfil;
-  if (!perfil || !PERFIS_CATALOGO[perfil]) return [];
-  return permissoesPadrao(vinculo.modulo, perfil);
+  if (!vinculo) return [];
+  return permissoesEfetivas(
+    vinculo.modulo,
+    vinculo.perfil,
+    vinculo.permissoes,
+    vinculo.removidas,
+  );
 }
 
 /**
