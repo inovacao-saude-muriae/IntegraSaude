@@ -151,9 +151,9 @@ export default function AtendimentoServico({ servicoNome, onRegistrar }) {
   return (
     <div className={styles.card}>
       <div className={styles.headerRow}>
-        <h3 className={styles.title}>
+        <h2 className={styles.title}>
           Recepção e Controle — Serviço: <span className={styles.badgeServico}>{servicoNome}</span>
-        </h3>
+        </h2>
         <div className={styles.datePicker}>
           <label>Dia</label>
           <input type="date" value={data} onChange={(e) => setData(e.target.value)} />

@@ -175,9 +175,9 @@ export default function AgendaServico({ servicoNome }) {
       {/* CABEÇALHO COM NAVEGAÇÃO DE MÊS */}
       <div className={styles.header}>
         <div>
-          <h3 className={styles.title}>
+          <h2 className={styles.title}>
             Agenda — <span className={styles.badgeServico}>{servicoNome}</span>
-          </h3>
+          </h2>
           <p className={styles.subtitle}>Clique em um dia para agendar um paciente.</p>
         </div>
         <div className={styles.monthNav}>

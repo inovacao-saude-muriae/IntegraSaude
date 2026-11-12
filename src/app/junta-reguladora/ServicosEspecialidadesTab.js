@@ -34,10 +34,7 @@ export default function ServicosEspecialidadesTab() {
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <h1>Serviços e Especialidades</h1>
-        <p>Cadastro dos serviços (ex.: Ambulatório) e suas especialidades (ex.: Fonoaudiologia).</p>
-      </header>
+      <h2 className={styles.cardTitle}>Serviços e Especialidades</h2>
 
       <CadastroServicos data={data} reloadData={reloadData} />
     </div>

@@ -76,6 +76,7 @@ export default function JuntaDashboard() {
 
   return (
     <div className={styles.container}>
+      <h2 className={styles.pageTitle}>Dashboard</h2>
       {filtroAno}
 
       {/* KPIs */}

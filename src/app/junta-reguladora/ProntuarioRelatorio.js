@@ -456,7 +456,7 @@ export default function ProntuarioRelatorio({ prontuarioData, onBuscar }) {
   return (
     <div className={styles.card}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
-        <h3 className={styles.title} style={{ margin: 0 }}>Prontuário Unificado e Relatório de Serviços</h3>
+        <h2 className={styles.title} style={{ margin: 0 }}>Prontuário Unificado e Relatório de Serviços</h2>
       </div>
 
       {/* BUSCA DE PACIENTE DA JUNTA (dropdown em tabela, igual aos outros módulos) */}
