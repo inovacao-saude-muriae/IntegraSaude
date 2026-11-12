@@ -151,15 +151,9 @@ function JuntaReguladoraPageContent() {
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <div>
-          <h1>Junta Reguladora</h1>
-          <p>
-            Gestão Multidisciplinar, Recepção de Serviços e Prontuário Unificado
-          </p>
-        </div>
-      </header>
-
+      {/* Sem cabeçalho de módulo: cada aba já traz o próprio título (padrão da
+          Farmácia Judicial). Na aba "Novo Pedido" o título é "Cadastrar Novo
+          Pedido", como "Novo Processo" na Farmácia. */}
       {activeTab === "DASHBOARD" && <Dashboard />}
 
       {/* Aba "Pacientes": tela GERAL de pessoas (model Pessoa), reaproveitada do
@@ -168,7 +162,10 @@ function JuntaReguladoraPageContent() {
       {activeTab === "PESSOAS" && <PacientesTab />}
 
       {activeTab === "CADASTRO" && (
-        <CadastroPacienteJunta onCadastrar={handleCadastrarPaciente} />
+        <CadastroPacienteJunta
+          onCadastrar={handleCadastrarPaciente}
+          titulo="Cadastrar Novo Pedido"
+        />
       )}
 
       {activeTab === "SERVICOS" && !servicoLiberado && (

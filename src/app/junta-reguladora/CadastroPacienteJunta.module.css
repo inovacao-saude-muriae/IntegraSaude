@@ -5,6 +5,14 @@
   width: 100%;
 }
 
+/* Título da tela (padrão dos demais módulos) */
+.cardTitle {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 1.25rem 0;
+}
+
 /* CONTAINER UNIFICADO COM FUNDO BRANCO */
 .mainWrapper {
   background-color: #ffffff;

@@ -18,7 +18,10 @@ const LOCAIS_DISPONIVEIS = [
 
 const TIPOS_DEFICIENCIA = ['Física', 'Intelectual', 'Visual', 'Auditiva'];
 
-export default function CadastroPacienteJunta({ onCadastrar }) {
+export default function CadastroPacienteJunta({
+  onCadastrar,
+  titulo = 'Cadastrar Novo Pedido',
+}) {
   const confirm = useConfirm();
 
   // Pessoa selecionada (cadastro em /pessoas). Aqui só se anexa dados da Junta.
@@ -89,6 +92,8 @@ export default function CadastroPacienteJunta({ onCadastrar }) {
   return (
     <div className={styles.container}>
       <div className={styles.mainWrapper}>
+        <h2 className={styles.cardTitle}>{titulo}</h2>
+
         {/* SEÇÃO 1: IDENTIFICAÇÃO DO PACIENTE (estilo Novo Pedido) */}
         <div className={styles.identSection}>
           <div className={styles.identHeader}>
