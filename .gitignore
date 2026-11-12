@@ -69,3 +69,5 @@ test-*.js
 # Migrations do Prisma precisam ser versionadas (nao ignorar os .sql delas)
 !prisma/migrations/**/*.sql
 relatorios/
+.tmp-*
+*.tmp.*
