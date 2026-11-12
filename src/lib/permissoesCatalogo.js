@@ -497,6 +497,18 @@ export function permissoesPadrao(modulo, perfil) {
   return lista.sort();
 }
 
+/**
+ * Uma permissão é "operacional" quando não é leitura/exportação de painel.
+ * Sem serviço nenhum, permissão operacional não faz sentido.
+ */
+function temFuncionalidadesOperacionais(permissoes) {
+  const LEITURA = ["visualizar", "exportar"];
+  return (permissoes || []).some((item) => {
+    const perm = String(item).split(":")[1];
+    return perm && !LEITURA.includes(perm);
+  });
+}
+
 /** Perfil padrão de um módulo (usado quando a gestão não escolhe outro). */
 export function perfilPadraoDoModulo(modulo) {
   return MODULOS_CATALOGO[modulo] ? PERFIS.OPERADOR : null;
@@ -506,20 +518,78 @@ export function perfilPadraoDoModulo(modulo) {
  * Valida uma configuração de acesso vinda da interface/API.
  * Devolve { ok, erros[] }. Fail-closed: qualquer item fora do catálogo reprova.
  */
-export function validarConfiguracao({ modulo, perfil, servicos, funcionalidades, permissoes }) {
+export const ESCOPOS = {
+  TODOS: "TODOS",
+  ESPECIFICOS: "ESPECIFICOS",
+  NENHUM: "NENHUM",
+};
+
+/** Observação do escopo, para a interface não inventar texto. */
+export const ESCOPOS_INFO = {
+  TODOS: {
+    nome: "Todos os serviços",
+    descricao: "Acesso a todos os serviços do módulo. A lista de serviços fica vazia.",
+  },
+  ESPECIFICOS: {
+    nome: "Serviços específicos",
+    descricao: "Acesso somente aos serviços marcados. É preciso marcar ao menos um.",
+  },
+  NENHUM: {
+    nome: "Nenhum serviço",
+    descricao: "Sem acesso operacional aos serviços. O vínculo existe, mas não alcança serviço.",
+  },
+};
+
+/**
+ * Valida uma configuração de acesso vinda da interface/API.
+ * Devolve { ok, erros[] }. Fail-closed: qualquer item fora do catálogo reprova.
+ *
+ * Regra de escopo (definitiva): o escopo é declarado, nunca deduzido.
+ *  • TODOS / NENHUM → `servicos` tem de estar vazio;
+ *  • ESPECIFICOS    → `servicos` tem de ter ao menos um item;
+ *  • escopo ausente ou desconhecido → reprova (nada de "vazio = tudo").
+ */
+export function validarConfiguracao({
+  modulo,
+  perfil,
+  escopo,
+  servicos,
+  funcionalidades,
+  permissoes,
+}) {
   const erros = [];
   const cat = MODULOS_CATALOGO[modulo];
   if (!cat) return { ok: false, erros: [`Módulo desconhecido: ${modulo}`] };
   if (!PERFIS_INFO[perfil]) erros.push(`Perfil desconhecido: ${perfil}`);
 
+  const listaServicos = Array.isArray(servicos) ? servicos : [];
+
+  // ── Escopo × serviços (coerência) ────────────────────────────────────────
+  if (!ESCOPOS[escopo]) {
+    erros.push(`Escopo inválido: ${escopo || "(não informado)"}. Use TODOS, ESPECIFICOS ou NENHUM.`);
+  } else {
+    if (escopo !== ESCOPOS.TODOS && listaServicos.length > 0) {
+      erros.push(`O escopo ${ESCOPOS_INFO[escopo].nome} não pode listar serviços.`);
+    }
+    if (escopo === ESCOPOS.ESPECIFICOS && listaServicos.length === 0) {
+      erros.push("O escopo Serviços específicos exige ao menos um serviço marcado.");
+    }
+    if (escopo === ESCOPOS.NENHUM && temFuncionalidadesOperacionais(permissoes)) {
+      erros.push(
+        "Nenhum serviço: retire as permissões operacionais ou escolha um escopo com serviços.",
+      );
+    }
+  }
+
+  // ── Serviços válidos para o módulo ──────────────────────────────────────
   const servicosValidos = cat.escopoServico ? Object.values(cat.escopoServico) : [];
-  for (const s of servicos || []) {
+  if (listaServicos.length > 0 && servicosValidos.length === 0) {
+    erros.push(`${cat.nome} não é organizado por serviço: a lista deve ficar vazia.`);
+  }
+  for (const s of listaServicos) {
     if (!servicosValidos.includes(s)) {
       erros.push(`Serviço inválido para ${cat.nome}: ${s}`);
     }
-  }
-  if (cat.escopoServico && (!servicos || servicos.length === 0) && perfil !== PERFIS.ADMINISTRADOR) {
-    erros.push(`Informe ao menos um serviço de ${cat.nome}.`);
   }
 
   const chaves = new Set(cat.funcionalidades.map((f) => f.chave));

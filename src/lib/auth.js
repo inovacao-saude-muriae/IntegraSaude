@@ -7,6 +7,7 @@ import {
   usuarioEhAdminModulo,
   usuarioTemAcessoServicoJunta,
   usuarioEhAdminDeAlgumModulo,
+  usuarioTemPermissao,
   servicoJuntaDoNome,
 } from "@/lib/permissions";
 
@@ -126,6 +127,41 @@ export async function requireGestor() {
     throw Object.assign(new Error("Acesso negado: requer Gestor."), { status: 403 });
   }
   return user;
+}
+
+// ── GUARDA POR FUNCIONALIDADE E PERMISSÃO (arquitetura definitiva) ─────────
+// Substitui as guardas por módulo/nível nas operações que precisam de controle
+// fino. Exemplo:
+//
+//   await requirePermissao(MODULOS.REGULACAO, "novo_pedido", "excluir");
+//   await requirePermissao(MODULOS.JUNTA, "agendas", "editar", SERVICOS_JUNTA.CAEE);
+//
+// `servico` é obrigatório nos módulos com escopo por serviço (Junta hoje); sem
+// ele, a permissão só é concedida se o vínculo alcançar TODOS os serviços.
+export async function requirePermissao(modulo, funcionalidade, permissao, servico) {
+  const user = await carregarUsuarioSessao();
+  const ok = await usuarioTemPermissao(user, modulo, funcionalidade, permissao, servico);
+  if (!ok) {
+    await registrarAcessoNegado(user, {
+      recurso: `Permissao:${modulo}:${funcionalidade}:${permissao}${
+        servico ? `:${servico}` : ""
+      }`,
+      descricao: `Acesso negado: requer a permissão ${permissao} em ${funcionalidade} (${modulo})`,
+    });
+    throw Object.assign(
+      new Error("Acesso negado: você não tem permissão para esta operação."),
+      { status: 403 },
+    );
+  }
+  return user;
+}
+
+// Variante que só responde sim/não, para uso em componentes de servidor e
+// montagem de menu (não lança, não audita).
+export async function podeExecutar(modulo, funcionalidade, permissao, servico) {
+  const user = await carregarUsuarioSessao();
+  if (!user) return false;
+  return usuarioTemPermissao(user, modulo, funcionalidade, permissao, servico);
 }
 
 export async function requireAcessoServicoJunta(servicoJunta) {
