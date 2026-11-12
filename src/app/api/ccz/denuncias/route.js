@@ -6,6 +6,8 @@ import { registrarAuditoria } from "@/lib/audit";
 
 export async function GET(request) {
   try {
+    // 401/403 do próprio módulo, não 500: o guarda lança status e a rota
+    // antiga transformava "Acesso negado ao módulo" em erro interno.
     await requireAcessoModulo(MODULOS.CCZ);
 
     // Filtro por tipo ("AGRESSIVO" | "DOENTE"). Callers antigos sem o parâmetro
@@ -29,10 +31,13 @@ export async function GET(request) {
 
     return NextResponse.json(denuncias);
   } catch (error) {
+    if (error?.status === 401 || error?.status === 403) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("Erro ao buscar denúncias:", error);
     return NextResponse.json(
       { error: "Erro ao buscar denúncias" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
