@@ -580,8 +580,24 @@ model UserAcesso {
   createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   user         User          @relation(fields: [userCpf], references: [cpf], onDelete: Cascade, map: "fk_user_acesso_user")
 
+  // ── Modelo por módulo (evolução aditiva; ver PROPOSTA-CONTROLE-DE-ACESSO) ──
+  // perfil: conjunto nomeado de permissões daquele módulo. NULL = vínculo
+  // anterior à migração, interpretado a partir de `nivel` (convivência).
+  perfil        PerfilModulo? @default(ADMINISTRADOR)
+  // servicos: escopo por serviço/unidade. Vazio = todos os serviços do módulo.
+  servicos      String[]      @default([])
+  // permissoes: permissões efetivas, no formato "funcionalidade:permissao".
+  // Vazio = pacote padrão do perfil (resolvido em código, ver lib/permissoesCatalogo).
+  permissoes    String[]      @default([])
+  // ativo: desliga o vínculo sem apagar o histórico.
+  ativo         Boolean       @default(true)
+  // Rastreabilidade de quem concedeu/alterou o vínculo.
+  atualizadoPor String?       @map("atualizado_por") @db.VarChar(11)
+  atualizadoEm  DateTime?     @map("atualizado_em") @db.Timestamptz(6)
+
   @@unique([userCpf, modulo, nivel, servicoJunta], map: "idx_user_acesso_unico")
   @@index([userCpf], map: "idx_user_acesso_cpf")
+  @@index([userCpf, modulo], map: "idx_user_acesso_cpf_modulo")
   @@map("user_acessos")
 }
 
@@ -611,6 +627,16 @@ enum ModuloAcesso {
 enum NivelAcesso {
   ADMIN
   OPERADOR
+}
+
+// Perfis por módulo (modelo Módulo → Perfil → Serviço → Funcionalidade → Permissão).
+// Não há hierarquia rígida: cada perfil tem um pacote explícito de permissões.
+enum PerfilModulo {
+  ADMINISTRADOR
+  SUPERVISOR
+  OPERADOR
+  CONSULTA
+  AUDITOR
 }
 
 enum ServicoJunta {

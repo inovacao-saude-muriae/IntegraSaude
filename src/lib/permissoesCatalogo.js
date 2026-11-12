@@ -22,6 +22,9 @@ export const MODULOS = {
   PROCESSOS: 'PROCESSOS',
   JUNTA: 'JUNTA',
   CCZ: 'CCZ',
+  // Gestão Geral NÃO é módulo operacional: é um conjunto próprio de
+  // permissões administrativas, sem acesso automático a dados de módulo.
+  GESTAO: 'GESTAO',
 };
 
 // ── 2. Serviços por módulo (subdivisão operacional) ─────────────────────────
@@ -200,6 +203,22 @@ export const MODULOS_CATALOGO = {
       { chave: 'dashboard', nome: 'Dashboard', permissoes: [V, EXP] },
     ],
   },
+
+  [MODULOS.GESTAO]: {
+    chave: MODULOS.GESTAO,
+    nome: 'Gestão Geral',
+    administracao: true,
+    escopoServico: null,
+    funcionalidades: [
+      { chave: 'painel', nome: 'Painel Gerencial', permissoes: [V] },
+      { chave: 'indicadores', nome: 'Indicadores Consolidados', permissoes: [V, EXP] },
+      { chave: 'usuarios', nome: 'Usuários', permissoes: [V, C, E, G] },
+      { chave: 'acessos', nome: 'Perfis e Acessos', permissoes: [V, C, E, G] },
+      { chave: 'relatorios', nome: 'Relatórios Gerais', permissoes: [V, EXP] },
+      { chave: 'auditoria', nome: 'Auditoria Global', permissoes: [V, EXP] },
+      { chave: 'unidades', nome: 'UBS e Serviços', permissoes: [V, C, E, X] },
+    ],
+  },
 };
 
 // ── 6. Pacote padrão de cada perfil, por módulo ─────────────────────────────
@@ -233,8 +252,10 @@ const PACOTES = {
       financeiro: [V],
       dashboard: [V, EXP],
     },
+    // Exclusão definitiva de pedido NÃO é padrão do Operador: cancelar
+    // preserva o registro (status Cancelado) e é a operação do dia a dia.
     [PERFIS.OPERADOR]: {
-      novo_pedido: [V, C, E, X],
+      novo_pedido: [V, C, E],
       lista_espera: [V, E, L],
       liberados: [V, E, L],
       financeiro: [V],
@@ -367,6 +388,8 @@ const PACOTES = {
     // Hoje: ADMIN e OPERADOR executam as mesmas 33 ações do módulo (a guarda
     // é só de módulo). O pacote abaixo preserva isso para ADMIN e dá ao
     // OPERADOR o mesmo alcance operacional, sem exclusões destrutivas.
+    // Exclusão definitiva é permissão específica (Administrador do CCZ e
+    // quem receber `excluir` explicitamente). Operador arquiva/inativa.
     [PERFIS.ADMINISTRADOR]: {
       procedimentos: [V, C, E, X],
       zoonoses: [V, C, E],
@@ -416,6 +439,44 @@ const PACOTES = {
       termos: [V, EXP],
       tutores: [V, EXP],
       dashboard: [V, EXP],
+    },
+  },
+
+  // Gestão Geral: permissões administrativas nomeadas. Não inclui prontuário,
+  // processo judicial nem ficha do CCZ — esses exigem vínculo de módulo.
+  [MODULOS.GESTAO]: {
+    [PERFIS.ADMINISTRADOR]: {
+      painel: [V],
+      indicadores: [V, EXP],
+      usuarios: [V, C, E, G],
+      acessos: [V, C, E, G],
+      relatorios: [V, EXP],
+      auditoria: [V, EXP],
+      unidades: [V, C, E, X],
+    },
+    [PERFIS.SUPERVISOR]: {
+      painel: [V],
+      indicadores: [V, EXP],
+      usuarios: [V],
+      acessos: [V],
+      relatorios: [V, EXP],
+      auditoria: [V, EXP],
+      unidades: [V, E],
+    },
+    [PERFIS.OPERADOR]: {
+      painel: [V],
+      indicadores: [V],
+      relatorios: [V],
+    },
+    [PERFIS.CONSULTA]: {
+      painel: [V],
+      relatorios: [V],
+    },
+    [PERFIS.AUDITOR]: {
+      painel: [V],
+      indicadores: [V, EXP],
+      relatorios: [V, EXP],
+      auditoria: [V, EXP],
     },
   },
 };
