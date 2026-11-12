@@ -11,6 +11,7 @@ const PermissoesRegulacaoContext = createContext({
   podeGerenciarCatalogo: false,
   podeGerenciarPessoas: false,
   podeVerAuditoria: false,
+  podeExcluirPedido: false,
 });
 
 export function RegulacaoPermProvider({
@@ -18,11 +19,18 @@ export function RegulacaoPermProvider({
   podeGerenciarCatalogo = false,
   podeGerenciarPessoas = false,
   podeVerAuditoria = false,
+  podeExcluirPedido = false,
   children,
 }) {
   return (
     <PermissoesRegulacaoContext.Provider
-      value={{ podeEditarFinanceiro, podeGerenciarCatalogo, podeGerenciarPessoas, podeVerAuditoria }}
+      value={{
+        podeEditarFinanceiro,
+        podeGerenciarCatalogo,
+        podeGerenciarPessoas,
+        podeVerAuditoria,
+        podeExcluirPedido,
+      }}
     >
       {children}
     </PermissoesRegulacaoContext.Provider>

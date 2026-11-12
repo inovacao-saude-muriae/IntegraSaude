@@ -3,6 +3,7 @@ import {
   usuarioTemAcessoModulo,
   usuarioEhAdminModulo,
   usuarioEhGestor,
+  usuarioTemPermissao,
   MODULOS,
 } from "@/lib/permissions";
 import AcessoNegadoModulo from "@/components/AcessoNegadoModulo";
@@ -19,11 +20,21 @@ export default async function RegulacaoLayout({ children }) {
     return <AcessoNegadoModulo modulo="Regulação" />;
   }
 
-  // Nesta etapa as duas flags coincidem (admin ∨ gestor); nomeadas em separado
-  // para a Etapa 2 poder divergi-las sem refatorar o provider (design §6.2).
-  const adminOuGestor =
-    (await usuarioEhAdminModulo(ctx.user, MODULOS.REGULACAO)) ||
-    (await usuarioEhGestor(ctx.user));
+  // Flags vindas das PERMISSÕES EFETIVAS (não do nível do vínculo): a mesma
+  // permissão que as server actions exigem, para a tela nunca mostrar um botão
+  // que o backend vai recusar.
+  const podeEditarFinanceiro = await usuarioTemPermissao(
+    ctx.user, MODULOS.REGULACAO, "financeiro", "editar",
+  );
+  const podeGerenciarCatalogo =
+    (await usuarioTemPermissao(ctx.user, MODULOS.REGULACAO, "procedimentos", "editar")) ||
+    (await usuarioTemPermissao(ctx.user, MODULOS.REGULACAO, "medicos", "editar")) ||
+    (await usuarioTemPermissao(ctx.user, MODULOS.REGULACAO, "ubs", "editar"));
+  // Pode excluir de verdade um pedido (exceção). Sem isso, a interface oferece
+  // CANCELAR — que é o padrão da Regulação.
+  const podeExcluirPedido = await usuarioTemPermissao(
+    ctx.user, MODULOS.REGULACAO, "novo_pedido", "excluir",
+  );
 
   // Aba "Pacientes" dentro da Regulação replica EXATAMENTE a regra do cadastro
   // de pessoas do Gerenciamento: GESTOR ∨ REGULACAO/ADMIN ∨ JUNTA/ADMIN
@@ -41,10 +52,11 @@ export default async function RegulacaoLayout({ children }) {
 
   return (
     <RegulacaoPermProvider
-      podeEditarFinanceiro={adminOuGestor}
-      podeGerenciarCatalogo={adminOuGestor}
+      podeEditarFinanceiro={podeEditarFinanceiro}
+      podeGerenciarCatalogo={podeGerenciarCatalogo}
       podeGerenciarPessoas={podeGerenciarPessoas}
       podeVerAuditoria={podeVerAuditoria}
+      podeExcluirPedido={podeExcluirPedido}
     >
       {children}
     </RegulacaoPermProvider>

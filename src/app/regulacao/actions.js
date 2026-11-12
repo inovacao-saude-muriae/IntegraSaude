@@ -5,6 +5,7 @@ import {
   requireAdminModulo,
   requireAcessoModulo,
   requireAcessoPessoas,
+  requirePermissao,
   requireUsuarioAutenticado,
 } from "@/lib/auth";
 import { MODULOS } from "@/lib/permissions";
@@ -959,14 +960,93 @@ export async function updatePedidoExame(idStr, updateData) {
   }
 }
 
-// 16. Excluir Pedido
+// 16. Cancelar Pedido (padrão da Regulação)
+//
+// A Regulação NÃO exclui pedido. Pedido cancelado continua existindo com
+// status "Cancelado": some das listas de trabalho, mantém o histórico de quem
+// pediu, quem liberou e o que foi comunicado — informação que a exclusão
+// definitiva apagaria. Exclusão de verdade é permissão excepcional
+// (`novo_pedido:excluir`), para corrigir lançamento errado.
+export async function cancelarPedidoExame(idStr, motivo) {
+  try {
+    const user = await requirePermissao(MODULOS.REGULACAO, "novo_pedido", "editar");
+    const numericId = Number(String(idStr).replace(/\D/g, ""));
+    if (!Number.isInteger(numericId) || numericId <= 0) {
+      return { success: false, error: "Pedido inválido." };
+    }
+
+    const motivoTexto = String(motivo || "").trim();
+    if (motivoTexto.length < 5) {
+      return { success: false, error: "Informe o motivo do cancelamento (mínimo 5 caracteres)." };
+    }
+
+    const pedido = await prisma.pedidoExame.findUnique({
+      where: { id: numericId },
+      select: { id: true, status: true },
+    });
+    if (!pedido) return { success: false, error: "Pedido não encontrado." };
+    if (pedido.status === "Cancelado") {
+      return { success: false, error: "Este pedido já está cancelado." };
+    }
+
+    await prisma.$transaction([
+      prisma.pedidoExame.update({
+        where: { id: numericId },
+        data: { status: "Cancelado" },
+      }),
+      // Histórico do pedido: por que foi cancelado e por quem.
+      prisma.pedidoExameHistorico.create({
+        data: {
+          pedidoId: numericId,
+          usuarioCpf: user.cpf,
+          usuarioNome: user.nome,
+          acao: "CANCELAR",
+          campoAlterado: "status",
+          valorAnterior: pedido.status,
+          valorNovo: "Cancelado",
+          observacao: motivoTexto,
+        },
+      }),
+    ]);
+
+    await registrarAuditoria({
+      user,
+      acao: "CANCELAR",
+      modulo: "REGULACAO",
+      entidade: "PedidoExame",
+      entidadeId: String(numericId),
+      descricao: `Pedido de exame #${numericId} cancelado`,
+      detalhes: { statusAnterior: pedido.status, motivo: motivoTexto },
+    });
+
+    revalidatePath("/regulacao");
+    return { success: true };
+  } catch (error) {
+    console.error("Erro ao cancelar pedido:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Excluir Pedido — excepção: só com a permissão `novo_pedido:excluir`.
+// Antes esta função exigia apenas acesso ao módulo, o que deixava qualquer
+// OPERADOR apagar o pedido de outro setor.
 export async function deletePedidoExame(idStr) {
   try {
-    const user = await requireAcessoModulo(MODULOS.REGULACAO);
+    const user = await requirePermissao(MODULOS.REGULACAO, "novo_pedido", "excluir");
     const numericId = Number(String(idStr).replace(/\D/g, ""));
-    await prisma.pedidoExame.delete({
+    if (!Number.isInteger(numericId) || numericId <= 0) {
+      return { success: false, error: "Pedido inválido." };
+    }
+
+    const pedido = await prisma.pedidoExame.findUnique({
       where: { id: numericId },
+      select: { id: true, status: true, pessoaCpf: true, procedimentoId: true },
     });
+    if (!pedido) return { success: false, error: "Pedido não encontrado." };
+
+    // A exclusão apaga também o histórico do pedido (dependência em cascata do
+    // banco). Fica registrado na auditoria o que existia antes.
+    await prisma.pedidoExame.delete({ where: { id: numericId } });
 
     await registrarAuditoria({
       user,
@@ -974,7 +1054,12 @@ export async function deletePedidoExame(idStr) {
       modulo: "REGULACAO",
       entidade: "PedidoExame",
       entidadeId: String(numericId),
-      descricao: `Pedido de exame #${numericId} excluído`,
+      descricao: `Pedido de exame #${numericId} excluído definitivamente`,
+      detalhes: {
+        status: pedido.status,
+        pessoaCpf: pedido.pessoaCpf,
+        procedimentoId: pedido.procedimentoId,
+      },
     });
 
     revalidatePath("/regulacao");
