@@ -15,7 +15,7 @@ export async function GET() {
       );
     }
 
-    const ubs = await prisma.uBS.findMany({
+    const ubs = await prisma.ubs.findMany({
       orderBy: { nome: "asc" },
       select: {
         id: true,
