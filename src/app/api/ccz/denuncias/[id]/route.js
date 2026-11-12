@@ -1,8 +1,70 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAcessoModulo } from "@/lib/auth";
+import { requireAcessoModulo, requirePermissao } from "@/lib/auth";
 import { MODULOS } from "@/lib/permissions";
 import { registrarAuditoria } from "@/lib/audit";
+
+// Arquivar denúncia (padrão do CCZ): sai da lista, continua rastreável.
+export async function PATCH(request, context) {
+  try {
+    const user = await requirePermissao(MODULOS.CCZ, "denuncias", "editar");
+    const params = await context.params;
+    const { id } = params;
+
+    let corpo = {};
+    try {
+      corpo = await request.json();
+    } catch {
+      // sem corpo: motivo obrigatório abaixo
+    }
+    const motivo = String(corpo?.motivo || "").trim();
+    if (motivo.length < 5) {
+      return NextResponse.json(
+        { error: "Informe o motivo do arquivamento (mínimo 5 caracteres)." },
+        { status: 400 },
+      );
+    }
+
+    const denuncia = await prisma.denunciaCaoAgressivo.findUnique({
+      where: { id },
+      select: { id: true, situacao: true },
+    });
+    if (!denuncia) {
+      return NextResponse.json({ error: "Denúncia não encontrada" }, { status: 404 });
+    }
+    if (denuncia.situacao === "Arquivada") {
+      return NextResponse.json({ error: "Esta denúncia já está arquivada." }, { status: 409 });
+    }
+
+    await prisma.denunciaCaoAgressivo.update({
+      where: { id },
+      data: {
+        situacao: "Arquivada",
+        motivoArquivamento: motivo,
+        arquivadaEm: new Date(),
+        arquivadaPor: user.nome || user.cpf,
+      },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "ARQUIVAR",
+      modulo: "CCZ",
+      entidade: "Denuncia",
+      entidadeId: id,
+      descricao: `Denúncia ${id} arquivada`,
+      detalhes: { motivo },
+    });
+
+    return NextResponse.json({ success: true, message: "Denúncia arquivada" });
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error("Erro ao arquivar denúncia:", error);
+    return NextResponse.json({ error: "Erro ao arquivar a denúncia." }, { status: 500 });
+  }
+}
 
 export async function GET(request, context) {
   try {
@@ -139,7 +201,10 @@ export async function PUT(request, context) {
 
 export async function DELETE(request, context) {
   try {
-    const user = await requireAcessoModulo(MODULOS.CCZ);
+    // Antes: só exigia acesso ao módulo — qualquer usuário do CCZ apagava
+    // denúncia em definitivo. Agora é permissão excepcional; o padrão é
+    // arquivar (PATCH), que preserva o histórico.
+    const user = await requirePermissao(MODULOS.CCZ, "denuncias", "excluir");
 
     const params = await context.params;
     const { id } = params;

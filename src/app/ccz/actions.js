@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { requireAcessoModulo } from "@/lib/auth";
+import { requireAcessoModulo, requirePermissao } from "@/lib/auth";
 import { registrarAuditoria } from "@/lib/audit";
 import { MODULOS } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
@@ -231,7 +231,8 @@ export async function obterAnimal(id) {
 // ── EXCLUIR ANIMAL ──────────────────────────────────────────────────────────
 export async function excluirAnimal(id) {
   try {
-    const user = await requireAcessoModulo(MODULOS.CCZ);
+    // Exclusão definitiva é permissão excepcional: o padrão do CCZ é ARQUIVAR.
+    const user = await requirePermissao(MODULOS.CCZ, "animais", "excluir");
 
     const animalId = String(id || "").trim();
     if (!animalId) return { success: false, error: "ID do animal não informado." };
@@ -287,6 +288,115 @@ export async function excluirAnimal(id) {
     }
     console.error("Erro ao excluir animal (CCZ):", error);
     return { success: false, error: "Erro ao excluir o animal." };
+  }
+}
+
+// ── ARQUIVAR ANIMAL (padrão do CCZ em vez de excluir) ──────────────────────
+// O animal sai das listas de trabalho e continua no banco, com histórico de
+// procedimentos, esporotricose, termos e denúncias. Usa `ccz_animais.situacao`
+// (coluna existente) — nenhuma tabela nova.
+export async function arquivarAnimal(id, motivo) {
+  try {
+    const user = await requirePermissao(MODULOS.CCZ, "animais", "editar");
+
+    const animalId = String(id || "").trim();
+    if (!animalId) return { success: false, error: "ID do animal não informado." };
+
+    const motivoTexto = String(motivo || "").trim();
+    if (motivoTexto.length < 5) {
+      return {
+        success: false,
+        error: "Informe o motivo do arquivamento (mínimo 5 caracteres).",
+      };
+    }
+
+    const animal = await prisma.animal.findUnique({
+      where: { id: animalId },
+      select: { id: true, nome: true, situacao: true },
+    });
+    if (!animal) return { success: false, error: "Animal não encontrado." };
+    if (animal.situacao === "Arquivado") {
+      return { success: false, error: "Este animal já está arquivado." };
+    }
+
+    await prisma.animal.update({
+      where: { id: animalId },
+      data: { situacao: "Arquivado" },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "ARQUIVAR",
+      modulo: "CCZ",
+      entidade: "Animal",
+      entidadeId: animalId,
+      descricao: `Animal '${animal.nome || animalId}' arquivado`,
+      detalhes: { situacaoAnterior: animal.situacao, motivo: motivoTexto },
+    });
+
+    revalidatePath("/ccz");
+    return { success: true };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao arquivar animal (CCZ):", error);
+    return { success: false, error: "Erro ao arquivar o animal." };
+  }
+}
+
+// ── ARQUIVAR DENÚNCIA ──────────────────────────────────────────────────────
+export async function arquivarDenuncia(id, motivo) {
+  try {
+    const user = await requirePermissao(MODULOS.CCZ, "denuncias", "editar");
+    const denunciaId = String(id || "").trim();
+    if (!denunciaId) return { success: false, error: "ID da denúncia não informado." };
+
+    const motivoTexto = String(motivo || "").trim();
+    if (motivoTexto.length < 5) {
+      return {
+        success: false,
+        error: "Informe o motivo do arquivamento (mínimo 5 caracteres).",
+      };
+    }
+
+    const denuncia = await prisma.denunciaCaoAgressivo.findUnique({
+      where: { id: denunciaId },
+      select: { id: true, situacao: true },
+    });
+    if (!denuncia) return { success: false, error: "Denúncia não encontrada." };
+    if (denuncia.situacao === "Arquivada") {
+      return { success: false, error: "Esta denúncia já está arquivada." };
+    }
+
+    await prisma.denunciaCaoAgressivo.update({
+      where: { id: denunciaId },
+      data: {
+        situacao: "Arquivada",
+        motivoArquivamento: motivoTexto,
+        arquivadaEm: new Date(),
+        arquivadaPor: user.nome || user.cpf,
+      },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "ARQUIVAR",
+      modulo: "CCZ",
+      entidade: "Denuncia",
+      entidadeId: denunciaId,
+      descricao: `Denúncia ${denunciaId} arquivada`,
+      detalhes: { motivo: motivoTexto },
+    });
+
+    revalidatePath("/ccz");
+    return { success: true };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao arquivar denúncia (CCZ):", error);
+    return { success: false, error: "Erro ao arquivar a denúncia." };
   }
 }
 

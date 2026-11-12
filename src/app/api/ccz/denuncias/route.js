@@ -13,8 +13,14 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const tipo = searchParams.get("tipo");
 
+    // Arquivadas não entram na listagem operacional. Para incluí-las,
+    // `?incluirArquivadas=true` (histórico/relatório).
+    const incluirArquivadas = searchParams.get("incluirArquivadas") === "true";
     const denuncias = await prisma.denunciaCaoAgressivo.findMany({
-      where: tipo ? { tipo } : undefined,
+      where: {
+        ...(tipo ? { tipo } : {}),
+        ...(incluirArquivadas ? {} : { situacao: { not: "Arquivada" } }),
+      },
       include: {
         animal: true,
       },
