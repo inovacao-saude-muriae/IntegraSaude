@@ -238,6 +238,10 @@ export async function DELETE(request, context) {
       message: "Denúncia excluída com sucesso" 
     });
   } catch (error) {
+    // Guarda de permissão devolve 401/403 — não pode virar 500.
+    if (error.status === 401 || error.status === 403) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("Erro ao excluir denúncia:", error);
     return NextResponse.json(
       { error: error.message || "Erro ao excluir denúncia" },

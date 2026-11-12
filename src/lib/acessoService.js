@@ -217,12 +217,15 @@ export async function salvarAcessosUsuario({ cpf, vinculos, executor, motivo }) 
         }`
       : "(sem vínculo)";
 
+  // Módulos que continuam existindo depois da gravação (para a auditoria de
+  // vínculos removidos — declarado fora da transação, que só grava).
+  const manter = new Set(desejados.map((v) => v.modulo));
+
   // 5. Gravação.
   await prisma.$transaction(async (tx) => {
     // Remove vínculos de módulos que saíram da configuração. A chave única é
     // (user_cpf, modulo, nivel, servico_junta) — por isso apaga pela chave
     // primária, que não depende dos outros campos.
-    const manter = new Set(desejados.map((v) => v.modulo));
     for (const antigo of anteriores) {
       if (!manter.has(antigo.modulo)) {
         await tx.userAcesso.delete({ where: { id: antigo.id } });

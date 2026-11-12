@@ -569,11 +569,11 @@ export function perfilPadraoDoModulo(modulo) {
  * Valida uma configuração de acesso vinda da interface/API.
  * Devolve { ok, erros[] }. Fail-closed: qualquer item fora do catálogo reprova.
  */
-export const ESCOPOS = {
+export const ESCOPOS = Object.freeze({
   TODOS: "TODOS",
   ESPECIFICOS: "ESPECIFICOS",
   NENHUM: "NENHUM",
-};
+});
 
 /** Observação do escopo, para a interface não inventar texto. */
 export const ESCOPOS_INFO = {
@@ -626,10 +626,18 @@ export function validarConfiguracao({
     if (escopo === ESCOPOS.ESPECIFICOS && listaServicos.length === 0) {
       erros.push("O escopo Serviços específicos exige ao menos um serviço marcado.");
     }
-    if (escopo === ESCOPOS.NENHUM && temFuncionalidadesOperacionais(permissoes, removidas)) {
-      erros.push(
-        "Nenhum serviço: retire as permissões operacionais ou escolha um escopo com serviços.",
-      );
+    // NENHUM: o vínculo existe mas não alcança serviço nenhum, então só
+    // faz sentido se não sobrar permissão operacional — nem concedida, nem
+    // herdada do pacote do perfil. Quem não quer nada escolhe outro perfil ou
+    // desliga o módulo.
+    if (escopo === ESCOPOS.NENHUM) {
+      const efetivas = permissoesEfetivas(modulo, perfil, permissoes, removidas);
+      if (temFuncionalidadesOperacionais(efetivas, [])) {
+        erros.push(
+          "Nenhum serviço: retire as permissões operacionais (do pacote e as concedidas) " +
+            "ou escolha um escopo com serviços.",
+        );
+      }
     }
   }
 
