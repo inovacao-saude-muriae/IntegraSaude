@@ -95,6 +95,10 @@ export async function requireUsuarioAutenticado() {
 export async function requireAcessoModulo(modulo) {
   const user = await carregarUsuarioSessao();
   if (!(await usuarioTemAcessoModulo(user, modulo))) {
+    await registrarAcessoNegado(user, {
+      recurso: `Modulo:${modulo}`,
+      descricao: `Acesso negado ao módulo ${modulo}`,
+    });
     throw Object.assign(new Error("Acesso negado ao módulo."), { status: 403 });
   }
   return user;
@@ -103,6 +107,10 @@ export async function requireAcessoModulo(modulo) {
 export async function requireAdminModulo(modulo) {
   const user = await carregarUsuarioSessao();
   if (!(await usuarioEhAdminModulo(user, modulo))) {
+    await registrarAcessoNegado(user, {
+      recurso: `Admin:${modulo}`,
+      descricao: `Acesso negado: requer administrador do módulo ${modulo}`,
+    });
     throw Object.assign(new Error("Acesso negado: requer administrador do módulo."), { status: 403 });
   }
   return user;
@@ -111,6 +119,10 @@ export async function requireAdminModulo(modulo) {
 export async function requireGestor() {
   const user = await carregarUsuarioSessao();
   if (!(await usuarioEhGestor(user))) {
+    await registrarAcessoNegado(user, {
+      recurso: "Gestor",
+      descricao: "Acesso negado: operação exclusiva do Gestor",
+    });
     throw Object.assign(new Error("Acesso negado: requer Gestor."), { status: 403 });
   }
   return user;
@@ -119,6 +131,10 @@ export async function requireGestor() {
 export async function requireAcessoServicoJunta(servicoJunta) {
   const user = await carregarUsuarioSessao();
   if (!(await usuarioTemAcessoServicoJunta(user, servicoJunta))) {
+    await registrarAcessoNegado(user, {
+      recurso: `Junta:${servicoJunta}`,
+      descricao: `Acesso negado ao serviço da Junta ${servicoJunta}`,
+    });
     throw Object.assign(new Error("Acesso negado ao serviço da Junta."), { status: 403 });
   }
   return user;
@@ -127,6 +143,10 @@ export async function requireAcessoServicoJunta(servicoJunta) {
 export async function requireAdminDeAlgumModulo() {
   const user = await carregarUsuarioSessao();
   if (!(await usuarioEhAdminDeAlgumModulo(user))) {
+    await registrarAcessoNegado(user, {
+      recurso: "AdminDeAlgumModulo",
+      descricao: "Acesso negado: requer administrador de algum módulo",
+    });
     throw Object.assign(new Error("Acesso negado: requer administrador de algum módulo."), { status: 403 });
   }
   return user;
@@ -142,6 +162,10 @@ export async function requireAcessoPessoas() {
     (await usuarioEhAdminModulo(user, MODULOS.REGULACAO)) ||
     (await usuarioEhAdminModulo(user, MODULOS.JUNTA));
   if (!ok) {
+    await registrarAcessoNegado(user, {
+      recurso: "Pessoas",
+      descricao: "Acesso negado ao cadastro de pessoas",
+    });
     throw Object.assign(new Error("Acesso negado ao cadastro de pessoas."), { status: 403 });
   }
   return user;
@@ -163,4 +187,28 @@ export async function requireEscritaServicoJuntaPorNome(servicoNome) {
   const enumServ = servicoJuntaDoNome(servicoNome);
   if (enumServ) return requireAcessoServicoJunta(enumServ);
   return requireAdminModulo(MODULOS.JUNTA);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUDITORIA DE ACESSO NEGADO
+// ─────────────────────────────────────────────────────────────────────────
+// Toda guarda que barra uma operação registra o evento (usuário, ação tentada,
+// módulo). Best-effort: nunca altera a resposta ao cliente e nunca lança.
+// Não grava conteúdo do registro — só a identificação da operação negada.
+// ═══════════════════════════════════════════════════════════════════════════
+async function registrarAcessoNegado(user, { recurso, descricao } = {}) {
+  try {
+    if (!user?.cpf) return;
+    const { registrarAuditoria } = await import("@/lib/audit");
+    await registrarAuditoria({
+      user,
+      acao: "NEGAR",
+      modulo: "AUTH",
+      entidade: recurso || "Autorizacao",
+      entidadeId: user.cpf,
+      descricao: descricao || "Tentativa de acesso não autorizado",
+    });
+  } catch {
+    // silencioso por design
+  }
 }

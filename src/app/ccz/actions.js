@@ -404,7 +404,7 @@ export async function listarTutores() {
 // ── FICHA COMPLETA DO ANIMAL (dados + tutor + histórico de procedimentos) ───
 export async function obterFichaAnimal(id) {
   try {
-    await requireAcessoModulo(MODULOS.CCZ);
+    const usuario = await requireAcessoModulo(MODULOS.CCZ);
 
     const animalId = String(id || "").trim();
     if (!animalId) return { success: false, error: "Id do animal não informado." };
@@ -467,6 +467,16 @@ export async function obterFichaAnimal(id) {
         dataRetorno: ymd(p.dataRetorno),
       })),
     };
+
+    // Auditoria: ficha do animal reúne dados clínicos e do tutor (LGPD).
+    await registrarAuditoria({
+      user: usuario,
+      acao: "OUTRO",
+      modulo: "CCZ",
+      entidade: "Animal",
+      entidadeId: animalId,
+      descricao: "Acesso à ficha do animal",
+    });
 
     return { success: true, data };
   } catch (error) {
@@ -781,7 +791,7 @@ export async function listarAnimais({ termo = "", filtroSituacao = "" } = {}) {
 // ── OBTER HISTÓRICO COMPLETO DO ANIMAL ──────────────────────────────────────
 export async function obterHistoricoCompleto(animalId) {
   try {
-    await requireAcessoModulo(MODULOS.CCZ);
+    const usuario = await requireAcessoModulo(MODULOS.CCZ);
 
     const animal = await prisma.animal.findUnique({
       where: { id: animalId },
@@ -948,6 +958,16 @@ export async function obterHistoricoCompleto(animalId) {
         })),
       })),
     };
+
+    // Auditoria: histórico completo reúne prontuário, visitas e relatórios.
+    await registrarAuditoria({
+      user: usuario,
+      acao: "OUTRO",
+      modulo: "CCZ",
+      entidade: "Animal",
+      entidadeId: String(animalId || ""),
+      descricao: "Acesso ao histórico completo do animal",
+    });
 
     return { success: true, data };
   } catch (error) {
@@ -1356,7 +1376,7 @@ export async function getAgendaProcedimentos(ano, mes) {
 // responsável com o tutor quando ainda não há termo.
 export async function obterDadosTermoInternacao(procedimentoId) {
   try {
-    await requireAcessoModulo(MODULOS.CCZ);
+    const usuario = await requireAcessoModulo(MODULOS.CCZ);
 
     const procId = String(procedimentoId || "").trim();
     if (!procId) return { success: false, error: "Procedimento não informado." };
@@ -1442,6 +1462,16 @@ export async function obterDadosTermoInternacao(procedimentoId) {
             },
       },
     };
+    // Auditoria: o termo traz dados do tutor e do procedimento (dados pessoais).
+    await registrarAuditoria({
+      user: usuario,
+      acao: "OUTRO",
+      modulo: "CCZ",
+      entidade: "TermoInternacao",
+      entidadeId: procId,
+      descricao: "Acesso aos dados do termo de internação",
+    });
+
   } catch (error) {
     if (error.status === 401 || error.status === 403) {
       return { success: false, error: error.message };

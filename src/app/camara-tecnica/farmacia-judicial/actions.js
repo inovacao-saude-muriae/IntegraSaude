@@ -295,7 +295,9 @@ export async function createLoteMedicamento(data) {
   try {
     const user = await requireAdminModulo(MODULOS.FARMACIA);
 
-    await prisma.$executeRaw`
+    // RETURNING id: a entrada do lote passa a ser auditada com o ID do lote,
+    // não só com o número — é o que permite rastrear uma movimentação depois.
+    const inserido = await prisma.$queryRaw`
       INSERT INTO public.farmacia_lotes_medicamentos 
         (medicamento_id, numero_lote, fornecedor, qtd_inicial, valor_unitario, data_entrada, data_validade)
       VALUES (
@@ -307,14 +309,24 @@ export async function createLoteMedicamento(data) {
         ${data.dataEntrada}::date, 
         ${data.dataValidade}::date
       )
+      RETURNING id
     `;
+    const loteId = inserido?.[0]?.id;
+
     await registrarAuditoria({
       user,
       acao: "CRIAR",
       modulo: "FARMACIA_JUDICIAL",
       entidade: "LoteMedicamento",
-      descricao: `Entrada do lote '${data.numeroLote}' (medicamento #${Number(data.medicamentoId)})`,
-      detalhes: { medicamentoId: Number(data.medicamentoId), qtdInicial: Number(data.qtdInicial) },
+      entidadeId: loteId != null ? String(loteId) : undefined,
+      descricao: `Entrada do lote '${data.numeroLote}' (medicamento #${Number(data.medicamentoId)}): ${Number(data.qtdInicial)} unidade(s)`,
+      detalhes: {
+        medicamentoId: Number(data.medicamentoId),
+        qtdInicial: Number(data.qtdInicial),
+        valorUnitario: data.valorUnitario ? Number(data.valorUnitario) : 0,
+        dataEntrada: data.dataEntrada,
+        dataValidade: data.dataValidade,
+      },
     });
     revalidatePath("/camara-tecnica/farmacia-judicial");
     return { success: true };
@@ -506,7 +518,9 @@ export async function ajustarEstoque(medicamentoId, data) {
       modulo: "FARMACIA_JUDICIAL",
       entidade: "Estoque",
       entidadeId: String(id),
-      descricao: `Estoque do medicamento #${id} ajustado`,
+      descricao: `Estoque do medicamento #${id} ajustado: ${saldoAnterior} → ${saldoNovo} (Δ ${delta})`,
+      // A justificativa fica registrada em farmacia_ajustes_estoque; aqui só o
+      // número do ajuste, para não duplicar texto livre nos logs.
       detalhes: { saldoAnterior, saldoNovo, delta },
     });
 

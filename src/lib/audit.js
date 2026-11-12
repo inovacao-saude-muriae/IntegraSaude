@@ -17,6 +17,7 @@ export const AUDIT_ACOES = [
   "REATIVAR",
   "SALVAR",
   "UNIFICAR",
+  "NEGAR",
   "OUTRO",
 ];
 
@@ -29,7 +30,10 @@ export const AUDIT_MODULOS = [
   "AUTH",
 ];
 
-const CHAVES_SENSIVEIS = /senha|hash|token|secret|foto|base64|imagem|jwt/i;
+// Chaves que NUNCA podem ir para o log (credenciais, arquivos embutidos e
+// justificativas/observações livres que podem conter dado pessoal).
+const CHAVES_SENSIVEIS =
+  /senha|hash|token|secret|foto|base64|imagem|jwt|justificativa|observacao|observação|relato|descricaoLivre/i;
 const MAX_DETALHES_BYTES = 2048;
 const MAX_STRING_DETALHE = 200;
 
