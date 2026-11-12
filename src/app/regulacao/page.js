@@ -42,7 +42,8 @@ function RegulacaoPageContent() {
   // Flag injetada pelo servidor (layout.js) — mesma regra do cadastro de
   // pessoas do Gerenciamento (GESTOR ∨ REGULACAO/ADMIN ∨ JUNTA/ADMIN),
   // fail-closed.
-  const { podeGerenciarPessoas, podeVerAuditoria } = usePermissoesRegulacao();
+  const { podeGerenciarPessoas, podeVerAuditoria, podeExcluirPedido } =
+    usePermissoesRegulacao();
 
   const activeTab = searchParams.get("tab") || "DASHBOARD";
 
@@ -144,6 +145,12 @@ function RegulacaoPageContent() {
           handleUpdateCommunicationStatus={data.handleUpdateCommunicationStatus}
           handleOpenReleaseModal={data.handleOpenReleaseModal}
           handleEditOrder={data.handleEditOrder}
+          handleCancelOrder={data.handleCancelOrder}
+          handleDeleteOrder={data.handleDeleteOrder}
+          // Cancelar exige editar (quem já pode editar o pedido). Excluir é
+          // permissão excepcional e só aparece para quem a tem.
+          podeCancelar
+          podeExcluir={podeExcluirPedido}
           reloadData={data.reloadData}
           loading={data.loading}
           handleExportToExcelWaiting={(selectedIds) => {

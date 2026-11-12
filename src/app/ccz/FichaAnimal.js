@@ -10,7 +10,13 @@ import { useConfirm } from "@/components/ConfirmDialog";
 
 const formatarData = (ymd) => (ymd ? ymd.split("-").reverse().join("/") : "-");
 
-export default function FichaAnimal({ animalId, onFechar, onEditar, onExcluir }) {
+export default function FichaAnimal({
+  animalId,
+  onFechar,
+  onEditar,
+  onExcluir,
+  onArquivar,
+}) {
   const confirm = useConfirm();
   const [ficha, setFicha] = useState(null);
   const [carregando, setCarregando] = useState(true);
@@ -483,6 +489,17 @@ export default function FichaAnimal({ animalId, onFechar, onEditar, onExcluir })
         <div className={styles.modalFooter}>
           {ficha && (
             <>
+              <button
+                type="button"
+                className={styles.btnGhost}
+                onClick={async () => {
+                  onArquivar?.(ficha.id);
+                  onFechar();
+                }}
+                title="Tira o animal da lista de trabalho sem apagar o histórico"
+              >
+                Arquivar
+              </button>
               <button 
                 type="button" 
                 className={styles.btnGhost}

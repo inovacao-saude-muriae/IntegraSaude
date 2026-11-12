@@ -23,6 +23,10 @@ export default function ListaEspera({
   handleOpenReleaseModal,
   handleEditOrder,
   handleExportToExcelWaiting = () => {},
+  handleCancelOrder = null,
+  handleDeleteOrder = null,
+  podeExcluir = false,
+  podeCancelar = false,
   loading,
 }) {
   const [selectedIds, setSelectedIds] = useState([]);
@@ -226,6 +230,26 @@ export default function ListaEspera({
                         onClick={() => handleEditOrder(item, "LISTA_ESPERA")}
                         title="Editar Pedido"
                       />
+                      {podeCancelar && handleCancelOrder && (
+                        <button
+                          type="button"
+                          className={styles.cancelBtn}
+                          onClick={() => handleCancelOrder(item)}
+                          title="Cancelar o pedido (preserva o histórico)"
+                        >
+                          Cancelar
+                        </button>
+                      )}
+                      {podeExcluir && (
+                        <button
+                          type="button"
+                          className={styles.excluirBtn}
+                          onClick={() => handleDeleteOrder(item)}
+                          title="Excluir definitivamente (permissão excepcional)"
+                        >
+                          Excluir
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );

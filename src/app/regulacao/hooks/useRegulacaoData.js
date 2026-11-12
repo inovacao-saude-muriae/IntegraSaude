@@ -22,6 +22,7 @@ import {
   updateBillingDate,
   updatePedidoExame,
   deletePedidoExame,
+  cancelarPedidoExame,
   updateMedico,
   deleteMedico,
   updatePessoa,
@@ -246,6 +247,21 @@ export function useRegulacaoData(setActiveTab) {
       alert("Erro ao salvar planejamento: " + res.error);
     }
     return res;
+  };
+
+  // Cancelar pedido — o padrão da Regulação. Some da lista de trabalho, mas
+  // continua no banco com status "Cancelado" e o motivo registrado no
+  // histórico (quem cancelou, quando, de qual status para qual).
+  const handleCancelOrder = async (item) => {
+    const motivo = window.prompt(
+      `Cancelar o pedido de ${item.patientName}?\n\nInforme o motivo do cancelamento (mínimo 5 caracteres):`,
+    );
+    if (motivo === null) return; // desistiu
+    const res = await cancelarPedidoExame(item.dbId || item.id, motivo);
+    if (res.success) {
+      await alert("Pedido cancelado. O histórico foi preservado.");
+      reloadData();
+    } else alert("Não foi possível cancelar: " + res.error);
   };
 
   const handleDeleteOrder = async (item) => {
@@ -762,6 +778,7 @@ export function useRegulacaoData(setActiveTab) {
     setQuotaModalYear,
     cadSubTab,
     setCadSubTab,
+    handleCancelOrder,
     handleDeleteOrder,
     handleDeleteSelectedOrders,
     handleEditOrder,

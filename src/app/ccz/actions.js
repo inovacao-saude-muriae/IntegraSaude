@@ -806,7 +806,11 @@ const WHERE_FILTRO_SITUACAO = {
   INCINERADO: { esporotricose: { some: { incinerado: "Sim" } } },
 };
 
-export async function listarAnimais({ termo = "", filtroSituacao = "" } = {}) {
+export async function listarAnimais({
+  termo = "",
+  filtroSituacao = "",
+  incluirArquivados = false,
+} = {}) {
   try {
     await requireAcessoModulo(MODULOS.CCZ);
 
@@ -831,6 +835,12 @@ export async function listarAnimais({ termo = "", filtroSituacao = "" } = {}) {
 
     if (WHERE_FILTRO_SITUACAO[filtro]) {
       condicoes.push(WHERE_FILTRO_SITUACAO[filtro]);
+    }
+
+    // Arquivado é a saída padrão do CCZ no lugar da exclusão: o registro sai da
+    // lista de trabalho, mas continua no banco. Só aparece quando pedido.
+    if (!incluirArquivados) {
+      condicoes.push({ OR: [{ situacao: null }, { situacao: { not: "Arquivado" } }] });
     }
 
     const where = condicoes.length ? { AND: condicoes } : {};

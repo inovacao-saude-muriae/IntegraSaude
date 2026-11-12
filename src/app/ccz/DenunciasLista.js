@@ -16,13 +16,17 @@ export default function DenunciasLista({ onEditar, tipo = "AGRESSIVO" }) {
   const [carregando, setCarregando] = useState(true);
   const [termo, setTermo] = useState("");
   const [fichaAberta, setFichaAberta] = useState(null);
+  const [incluirArquivadas, setIncluirArquivadas] = useState(false);
 
   const titulo = TITULOS_POR_TIPO[tipo] || TITULOS_POR_TIPO.AGRESSIVO;
 
   const carregar = useCallback(async () => {
     setCarregando(true);
     try {
-      const res = await fetch(`/api/ccz/denuncias?tipo=${encodeURIComponent(tipo)}`);
+      const res = await fetch(
+        `/api/ccz/denuncias?tipo=${encodeURIComponent(tipo)}` +
+          (incluirArquivadas ? "&incluirArquivadas=true" : ""),
+      );
       if (res.ok) {
         const data = await res.json();
         setDenuncias(data);
@@ -32,7 +36,7 @@ export default function DenunciasLista({ onEditar, tipo = "AGRESSIVO" }) {
     } finally {
       setCarregando(false);
     }
-  }, [tipo]);
+  }, [tipo, incluirArquivadas]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronização inicial/carregamento de dados; comportamento intencional
@@ -79,6 +83,24 @@ export default function DenunciasLista({ onEditar, tipo = "AGRESSIVO" }) {
             value={termo}
             onChange={(e) => setTermo(e.target.value)}
           />
+          <label
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 12.5,
+              color: "#475569",
+              fontWeight: 600,
+              whiteSpace: "nowrap",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={incluirArquivadas}
+              onChange={(e) => setIncluirArquivadas(e.target.checked)}
+            />
+            Mostrar arquivadas
+          </label>
         </div>
 
         {carregando ? (
@@ -95,6 +117,7 @@ export default function DenunciasLista({ onEditar, tipo = "AGRESSIVO" }) {
                   <th>Data da Denúncia</th>
                   <th>Localização</th>
                   <th style={{ textAlign: "center" }}>Causou Risco</th>
+                  <th style={{ textAlign: "center" }}>Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -143,6 +166,47 @@ export default function DenunciasLista({ onEditar, tipo = "AGRESSIVO" }) {
                       >
                         {d.causouRisco === "Sim" ? "⚠️ Sim" : "✓ Não"}
                       </span>
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      <button
+                        type="button"
+                        className={styles.btnGhost}
+                        title="Tira a denúncia da lista sem apagar o registro"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const motivo = window.prompt(
+                            "Arquivar esta denúncia?\n\nInforme o motivo (mínimo 5 caracteres):",
+                          );
+                          if (motivo === null) return;
+                          const res = await fetch(`/api/ccz/denuncias/${d.id}`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ motivo }),
+                          });
+                          const dados = await res.json().catch(() => ({}));
+                          if (res.ok) {
+                            await notify({ tipo: "sucesso", message: "Denúncia arquivada." });
+                            carregar();
+                          } else {
+                            await notify({
+                              tipo: "erro",
+                              message: dados.error || "Erro ao arquivar a denúncia.",
+                            });
+                          }
+                        }}
+                        style={{
+                          padding: "0.3rem 0.7rem",
+                          fontSize: "0.75rem",
+                          fontWeight: 600,
+                          border: "1px solid #e5c46b",
+                          background: "#fff8e6",
+                          color: "#7a5600",
+                          borderRadius: "8px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Arquivar
+                      </button>
                     </td>
                   </tr>
                 ))}

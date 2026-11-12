@@ -251,3 +251,33 @@
   background-color: #cbd5e1;
   cursor: not-allowed;
 }
+
+/* Cancelar: ação padrão — preserva o histórico do pedido. */
+.cancelBtn {
+  margin-left: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #e5c46b;
+  background: #fff8e6;
+  color: #7a5600;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.cancelBtn:hover { background: #fdf0cc; }
+
+/* Excluir definitivamente: permissão excepcional, visual de alerta. */
+.excluirBtn {
+  margin-left: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #f1b8b8;
+  background: #fdf2f2;
+  color: #a52525;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.excluirBtn:hover { background: #fbe4e4; }
