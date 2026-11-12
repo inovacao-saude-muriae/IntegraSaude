@@ -1,47 +1,11 @@
 import { NextResponse } from 'next/server';
 import { registrarAuditoria } from '@/lib/audit';
 import { prisma } from '@/lib/prisma';
+import { mapearRoleParaAcessos } from '@/lib/roleAcessos';
 import { requireGestor } from '@/lib/auth';
 import { ROLES_VALIDAS, GestorGuardError, validarAlteracaoGestor } from '@/lib/gestorGuard';
 
-// Mapear Role para acessos nos módulos
-function mapearRoleParaAcessos(role) {
-  switch (role) {
-    case 'GESTOR':
-      return []; // GESTOR não precisa de vínculos, acessa tudo via role
-
-    case 'REGULACAO_ADMIN':
-      return [{ modulo: 'REGULACAO', nivel: 'ADMIN', servicoJunta: null }];
-    case 'REGULACAO_COMUM':
-      return [{ modulo: 'REGULACAO', nivel: 'OPERADOR', servicoJunta: null }];
-
-    case 'FARMACIA_ADMIN':
-      return [{ modulo: 'FARMACIA', nivel: 'ADMIN', servicoJunta: null }];
-    
-    case 'PROCESSO_ADMIN':
-      return [{ modulo: 'PROCESSOS', nivel: 'ADMIN', servicoJunta: null }];
-
-    case 'JUNTA_ADMIN':
-      return [{ modulo: 'JUNTA', nivel: 'ADMIN', servicoJunta: null }];
-    case 'JUNTA_CAEE':
-      return [{ modulo: 'JUNTA', nivel: 'OPERADOR', servicoJunta: 'CAEE' }];
-    case 'JUNTA_EDUCACAO':
-      return [{ modulo: 'JUNTA', nivel: 'OPERADOR', servicoJunta: 'APAE' }];
-    case 'JUNTA_SAUDE':
-      return [{ modulo: 'JUNTA', nivel: 'OPERADOR', servicoJunta: 'AMBULATORIO' }];
-    case 'JUNTA_ASSISTENCIA':
-      return [{ modulo: 'JUNTA', nivel: 'OPERADOR', servicoJunta: 'ESPECIALIDADES' }];
-
-    case 'CCZ_ADMIN':
-      return [{ modulo: 'CCZ', nivel: 'ADMIN', servicoJunta: null }];
-    case 'CCZ_COMUM':
-      return [{ modulo: 'CCZ', nivel: 'OPERADOR', servicoJunta: null }];
-
-    default:
-      return [];
-  }
-}
-
+// Os vínculos padrão do perfil vêm de lib/roleAcessos (fonte única).
 export async function PUT(request) {
   try {
     const gestor = await requireGestor();
