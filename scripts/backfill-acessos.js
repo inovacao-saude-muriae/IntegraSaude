@@ -238,10 +238,11 @@ const PACOTES = {
 function converterVinculo(role, vinculo) {
   const { modulo, nivel, servico_junta: servicoJunta } = vinculo;
 
+  // Gestão Geral: perfil com permissões administrativas próprias. A Gestão
+  // Geral NÃO é módulo operacional — o acesso a cada módulo do GESTOR é
+  // concedido como qualquer outro, vínculo por vínculo.
   if (role === 'GESTOR') {
-    // O GESTOR recebe vínculo explícito de ADMINISTRADOR em todos os módulos,
-    // para que o acesso atual seja preservado e possa ser retirado um a um.
-    return { perfil: PERFIS.ADMINISTRADOR, servicos: [], motivo: 'Gestor: vínculo explícito (preserva o acesso atual)' };
+    return { perfil: PERFIS.ADMINISTRADOR, servicos: [], motivo: 'Gestão Geral: permissões administrativas' };
   }
 
   let perfil;
