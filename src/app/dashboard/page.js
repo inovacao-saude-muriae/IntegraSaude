@@ -116,42 +116,64 @@ export default function GestorDashboardPage() {
               <span className={styles.cardSubtext}>Base compartilhada entre os módulos</span>
             </div>
 
-            <div className={metrics.regulacao.aguardando > 0 ? styles.cardWarning : styles.card}>
-              <span className={styles.cardLabel}>Regulação — aguardando</span>
-              <strong className={styles.cardNumber}>{metrics.regulacao.aguardando}</strong>
-              <span className={styles.cardSubtext}>
-                {metrics.regulacao.liberados} liberados de {metrics.regulacao.total} pedidos
-              </span>
-            </div>
+            {/* Cada bloco só aparece se a API liberou aquele módulo para o
+                usuário (admin do módulo ou GESTOR). Bloco não autorizado vem
+                como null. */}
+            {metrics.regulacao && (
+              <div className={metrics.regulacao.aguardando > 0 ? styles.cardWarning : styles.card}>
+                <span className={styles.cardLabel}>Regulação — aguardando</span>
+                <strong className={styles.cardNumber}>{metrics.regulacao.aguardando}</strong>
+                <span className={styles.cardSubtext}>
+                  {metrics.regulacao.liberados} liberados de {metrics.regulacao.total} pedidos
+                </span>
+              </div>
+            )}
 
-            <div className={styles.card}>
-              <span className={styles.cardLabel}>Farmácia — pacientes ativos</span>
-              <strong className={styles.cardNumber}>{metrics.farmacia.ativos}</strong>
-              <span className={styles.cardSubtext}>
-                {metrics.farmacia.total} pacientes judiciais no total
-              </span>
-            </div>
+            {metrics.farmacia && (
+              <>
+                <div className={styles.card}>
+                  <span className={styles.cardLabel}>Farmácia — pacientes ativos</span>
+                  <strong className={styles.cardNumber}>{metrics.farmacia.ativos}</strong>
+                  <span className={styles.cardSubtext}>
+                    {metrics.farmacia.total} pacientes judiciais no total
+                  </span>
+                </div>
 
-            <div className={metrics.farmacia.estoqueUnidades > 0 ? styles.cardSuccess : styles.cardDanger}>
-              <span className={styles.cardLabel}>Estoque de medicamentos</span>
-              <strong className={styles.cardNumber}>{metrics.farmacia.estoqueUnidades}</strong>
-              <span className={styles.cardSubtext}>
-                unidades disponíveis · {metrics.farmacia.medicamentosAtivos} medicamentos ativos
-              </span>
-            </div>
+                <div className={metrics.farmacia.estoqueUnidades > 0 ? styles.cardSuccess : styles.cardDanger}>
+                  <span className={styles.cardLabel}>Estoque de medicamentos</span>
+                  <strong className={styles.cardNumber}>{metrics.farmacia.estoqueUnidades}</strong>
+                  <span className={styles.cardSubtext}>
+                    unidades disponíveis · {metrics.farmacia.medicamentosAtivos} medicamentos ativos
+                  </span>
+                </div>
+              </>
+            )}
 
-            <div className={styles.card}>
-              <span className={styles.cardLabel}>Junta Reguladora</span>
-              <strong className={styles.cardNumber}>{metrics.junta.pacientes}</strong>
-              <span className={styles.cardSubtext}>
-                pacientes · {metrics.junta.atendimentos} atendimentos
-              </span>
-            </div>
+            {metrics.junta && (
+              <div className={styles.card}>
+                <span className={styles.cardLabel}>Junta Reguladora</span>
+                <strong className={styles.cardNumber}>{metrics.junta.pacientes}</strong>
+                <span className={styles.cardSubtext}>
+                  pacientes · {metrics.junta.atendimentos} atendimentos
+                </span>
+              </div>
+            )}
+
+            {metrics.ccz && (
+              <div className={styles.card}>
+                <span className={styles.cardLabel}>CCZ</span>
+                <strong className={styles.cardNumber}>{metrics.ccz.animais}</strong>
+                <span className={styles.cardSubtext}>
+                  animais cadastrados · {metrics.ccz.denuncias} denúncia(s)
+                </span>
+              </div>
+            )}
           </div>
 
           {/* PAINÉIS DE APOIO */}
           <div className={styles.mainGrid}>
             {/* REGULAÇÃO POR CLASSIFICAÇÃO DE RISCO */}
+            {metrics.regulacao && (
             <div className={styles.panel}>
               <h2>Regulação por classificação de risco</h2>
               <ul className={styles.moduleList}>
@@ -167,8 +189,10 @@ export default function GestorDashboardPage() {
                 )}
               </ul>
             </div>
+            )}
 
             {/* LOTES A VENCER */}
+            {metrics.farmacia && (
             <div className={styles.panel}>
               <h2>Lotes a vencer (próximos 30 dias)</h2>
               <ul className={styles.moduleList}>
@@ -189,8 +213,10 @@ export default function GestorDashboardPage() {
                 )}
               </ul>
             </div>
+            )}
 
-            {/* ATIVIDADE RECENTE */}
+            {/* ATIVIDADE RECENTE (só GESTOR) */}
+            {(metrics.atividadeRecente || []).length > 0 && (
             <div className={styles.panel} style={{ gridColumn: 'span 2' }}>
               <h2>Atividade recente do sistema</h2>
               <ul className={styles.logList}>
@@ -209,6 +235,7 @@ export default function GestorDashboardPage() {
                 )}
               </ul>
             </div>
+            )}
           </div>
         </>
       )}

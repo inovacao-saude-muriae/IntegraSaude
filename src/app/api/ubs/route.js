@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { carregarContextoAcesso } from "@/lib/permissions";
+import { requireUsuarioAutenticado } from "@/lib/auth";
 
+// Lista de UBS para selects (dados de referência, sem dado clínico).
+// Exige sessão válida pela fonte única (lib/auth); não é pública.
 export async function GET() {
   try {
-    const ctx = await carregarContextoAcesso();
-    if (!ctx) {
+    try {
+      await requireUsuarioAutenticado();
+    } catch (e) {
       return NextResponse.json(
         { error: "Não autenticado" },
-        { status: 401 }
+        { status: e?.status === 401 ? 401 : 403 }
       );
     }
 
