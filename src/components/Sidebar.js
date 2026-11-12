@@ -430,17 +430,28 @@ function subIcon(nome = "") {
 // servicoJunta. A decisão real continua no servidor.
 
 // Recorta o array estático `menuSections` conforme o perfil `me` desembrulhado
-// de /api/me ({ role, isGestor, acessos:[{ modulo, nivel, servicoJunta }] }).
+// de /api/me ({ modulos:[...], permissoes:[...], acessos:[...] }).
 // Com `me === null` (carregando/erro) o resultado é fail-closed: só itens
 // universais (Início + Gerenciamento[Pacientes]).
+//
+// DECISÃO VEM DO SERVIDOR: `me.modulos` já traz só os módulos com vínculo
+// ativo, coerente e com permissões. Aqui não se lê mais role/nível — a antiga
+// liberação por `isGestor` foi removida (Gestão Geral não abre módulo por si).
 function construirMenu(me) {
-  const ehGestor = !!me?.isGestor || me?.role === "GESTOR";
-  const temModulo = (m) => ehGestor || (me?.acessos || []).some((a) => a.modulo === m);
-  const ehAdminMod = (m) =>
-    ehGestor || (me?.acessos || []).some((a) => a.modulo === m && a.nivel === "ADMIN");
-  const subServicosOperador = (me?.acessos || [])
-    .filter((a) => a.modulo === "JUNTA" && a.nivel === "OPERADOR" && a.servicoJunta)
-    .map((a) => a.servicoJunta);
+  const moduloEfetivo = (m) => (me?.modulos || []).find((x) => x.modulo === m) || null;
+  const temModulo = (m) => !!moduloEfetivo(m);
+  // Perfil ADMINISTRADOR dentro do módulo (para itens de gestão do módulo).
+  const ehAdminMod = (m) => (moduloEfetivo(m)?.perfis || []).includes("ADMINISTRADOR");
+  // Permissão efetiva "funcionalidade:permissao" no módulo.
+  const temPermissao = (m, alvo) =>
+    (moduloEfetivo(m)?.permissoes || []).includes(alvo);
+  // Sub-serviços da Junta alcançados por ESTE usuário (escopo ESPECIFICOS).
+  const subServicosOperador = (moduloEfetivo("JUNTA")?.servicos || []);
+
+  // Gestão Geral (módulo GESTAO) NÃO abre módulo operacional por si: os itens
+  // de gerenciamento passam a exigir a permissão correspondente, e cada módulo
+  // operacional aparece só se o usuário tiver vínculo com ele. Nada de curinga.
+  const temGestaoGeral = temModulo("GESTAO");
 
   // switch FAIL-CLOSED: default retorna false. Todo sub-item/nestedItem que
   // deva aparecer PRECISA de visivelSe explícito.
@@ -451,17 +462,26 @@ function construirMenu(me) {
       case "REGULACAO":
         return temModulo("REGULACAO");
       case "REGULACAO_ADMIN":
-        return ehGestor || ehAdminMod("REGULACAO");
+        // Catálogo da Regulação: permissão de editar procedimentos/médicos/UBS.
+        return (
+          temPermissao("REGULACAO", "procedimentos:editar") ||
+          temPermissao("REGULACAO", "medicos:editar") ||
+          temPermissao("REGULACAO", "ubs:editar")
+        );
       case "PESSOAS_ACESSO":
-        // Cadastro de Pessoas (Pacientes): GESTOR ∨ REGULACAO/ADMIN ∨
-        // JUNTA/ADMIN (espelha requireAcessoPessoas / pessoas/layout.js).
-        return ehGestor || ehAdminMod("REGULACAO") || ehAdminMod("JUNTA");
+        // Cadastro de Pessoas (Pacientes): permissão de gerenciar pacientes
+        // (espelha requireAcessoPessoas / pessoas/layout.js).
+        return (
+          temPermissao("REGULACAO", "pessoas:gerenciar") ||
+          temPermissao("GESTAO", "usuarios:gerenciar") ||
+          ehAdminMod("REGULACAO") ||
+          ehAdminMod("JUNTA")
+        );
       case "PACIENTE_GERAL":
         // Cadastro único (Paciente/Tutor) no Gerenciamento: GESTOR ∨ qualquer
         // vínculo com REGULACAO, JUNTA, FARMACIA ou PROCESSOS (o CCZ usa "Tutor"
         // separadamente). Espelha gerenciamento/pessoas|tutores/layout.js.
         return (
-          ehGestor ||
           temModulo("REGULACAO") ||
           temModulo("JUNTA") ||
           temModulo("FARMACIA") ||
@@ -470,9 +490,14 @@ function construirMenu(me) {
       case "JUNTA":
         return temModulo("JUNTA");
       case "JUNTA_ADMIN":
-        return ehGestor || ehAdminMod("JUNTA");
+        return (
+          ehAdminMod("JUNTA") ||
+          temPermissao("JUNTA", "servicos:editar") ||
+          temPermissao("JUNTA", "agendas:editar")
+        );
       case "GESTOR":
-        return ehGestor;
+        // "Gestão Geral" no menu: exige o vínculo com o módulo GESTAO.
+        return temGestaoGeral;
       case "FARMACIA":
         return temModulo("FARMACIA");
       case "CCZ":
@@ -481,8 +506,8 @@ function construirMenu(me) {
         return temModulo("PROCESSOS");
       case "JUNTA_SUBSERVICO":
         return (
-          ehGestor ||
           ehAdminMod("JUNTA") ||
+          (moduloEfetivo("JUNTA")?.escopo === "TODOS" && temModulo("JUNTA")) ||
           subServicosOperador.includes(sub.servicoJunta)
         );
       default:
