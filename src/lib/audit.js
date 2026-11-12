@@ -16,6 +16,8 @@ export const AUDIT_ACOES = [
   "DESATIVAR",
   "REATIVAR",
   "SALVAR",
+  "ARQUIVAR",
+  "CANCELAR",
   "UNIFICAR",
   "NEGAR",
   "OUTRO",
@@ -26,6 +28,7 @@ export const AUDIT_MODULOS = [
   "REGULACAO",
   "FARMACIA_JUDICIAL",
   "JUNTA",
+  "GESTAO",
   "GERENCIAMENTO",
   "AUTH",
 ];

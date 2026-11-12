@@ -1,130 +1,164 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { mapearRoleParaAcessos } from '@/lib/roleAcessos';
-import { requireGestor } from '@/lib/auth';
-import { ROLES_VALIDAS, GestorGuardError, validarAlteracaoGestor } from '@/lib/gestorGuard';
-import { registrarAuditoria } from '@/lib/audit';
-import bcrypt from 'bcryptjs';
+import { NextResponse } from "next/server";
+import { requireGestor } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { detalharPermissoes, MODULOS_CATALOGO, PERFIS } from "@/lib/permissoesCatalogo";
+import { AcessoErro, salvarAcessosUsuario } from "@/lib/acessoService";
 
+// ═══════════════════════════════════════════════════════════════════════════
+// /api/gerenciamento/usuarios
+// ─────────────────────────────────────────────────────────────────────────
+// GET  → lista as contas com o RESUMO de acessos por módulo (para a lista da
+//        tela de gerenciamento).
+// POST → cria conta nova. O acesso inicial vem da própria tela (vínculos por
+//        módulo), nunca de um perfil único legado; `role` continua sendo gravado
+//        só como rótulo de compatibilidade, com um dos perfis legados, e sai
+//        junto com eles.
+// ═══════════════════════════════════════════════════════════════════════════
 
+export async function GET() {
+  try {
+    await requireGestor();
+    const usuarios = await prisma.user.findMany({
+      select: {
+        cpf: true,
+        nome: true,
+        cargo: true,
+        ativo: true,
+        primeiroAcesso: true,
+        ultimoAcesso: true,
+        createdAt: true,
+        acessos: {
+          select: {
+            modulo: true,
+            perfil: true,
+            escopo: true,
+            servicos: true,
+            permissoes: true,
+            removidas: true,
+            ativo: true,
+          },
+          orderBy: { modulo: "asc" },
+        },
+      },
+      orderBy: { nome: "asc" },
+    });
+
+    const data = usuarios.map((u) => ({
+      ...u,
+      modulos: u.acessos.map((a) => ({
+        modulo: a.modulo,
+        nome: MODULOS_CATALOGO[a.modulo]?.nome || a.modulo,
+        perfil: a.perfil,
+        escopo: a.escopo,
+        servicos: a.servicos,
+        ativo: a.ativo,
+        totalEfetivas: detalharPermissoes(a.modulo, a.perfil, a.permissoes, a.removidas)
+          .efetivas.length,
+      })),
+      ativos: u.acessos.filter((a) => a.ativo !== false).map((a) => a.modulo),
+      acessos: undefined,
+    }));
+
+    return NextResponse.json({ success: true, data });
+  } catch (error) {
+    if (error?.status === 401 || error?.status === 403) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error("Erro ao listar usuários:", error);
+    return NextResponse.json({ error: "Erro ao listar usuários." }, { status: 500 });
+  }
+}
+
+// Cria a conta (sem vínculos) ou atualiza nome/cargo de uma existente.
+// Os acessos são gravados depois, pela rota /[cpf]/acessos — assim cada passo
+// tem uma responsabilidade e a tela mostra o que foi persistido.
 export async function POST(request) {
   try {
     const gestor = await requireGestor();
-    const body = await request.json();
-    const { cpf, nomeCompleto, role, cargo } = body;
-
-    const cpfLimpo = cpf?.replace(/\D/g, '');
-
-    if (!cpfLimpo || cpfLimpo.length !== 11) {
-      return NextResponse.json({ error: 'CPF inválido. Forneça 11 dígitos.' }, { status: 400 });
+    let corpo = {};
+    try {
+      corpo = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Corpo da requisição inválido." }, { status: 400 });
     }
 
-    if (!ROLES_VALIDAS.includes(role)) {
-      return NextResponse.json({ error: 'Role informada é inválida.' }, { status: 400 });
+    const cpfLimpo = String(corpo.cpf || "").replace(/\D/g, "");
+    if (cpfLimpo.length !== 11) {
+      return NextResponse.json({ error: "CPF inválido. Forneça 11 dígitos." }, { status: 400 });
+    }
+    const nome = String(corpo.nomeCompleto || "").trim();
+    if (nome.length < 3) {
+      return NextResponse.json({ error: "Informe o nome completo." }, { status: 400 });
     }
 
-    // Senha padrão para todos os novos usuários
-    const SENHA_PADRAO = 'Integr@123';
-    const senhaHash = await bcrypt.hash(SENHA_PADRAO, 10);
-
-    // Mapeia a role para os vínculos de acesso
-    const acessos = mapearRoleParaAcessos(role);
-
-    // Somente leitura, usada apenas para distinguir criação/edição/reativação na auditoria.
-    const existenteAntes = await prisma.user.findUnique({
+    const existente = await prisma.user.findUnique({
       where: { cpf: cpfLimpo },
-      select: { ativo: true },
+      select: { cpf: true, nome: true, ativo: true },
     });
 
-    // Usa transaction para criar usuário + vínculos atomicamente
-    const user = await prisma.$transaction(async (tx) => {
-      // Autoproteção do Gestor: o upsert pode alterar o role de um usuário existente
-      // (inclusive rebaixar o próprio gestor ou o último gestor ativo).
-      await validarAlteracaoGestor(tx, {
-        executorCpf: gestor.cpf,
-        alvoCpf: cpfLimpo,
-        novoRole: role,
-        alvoObrigatorio: false,
-      });
+    const { registrarAuditoria } = await import("@/lib/audit");
+    const bcrypt = (await import("bcryptjs")).default;
 
-      // Cria/atualiza o usuário
-      const user = await tx.user.upsert({
+    if (existente) {
+      // Atualização de dados cadastrais — não redefine senha nem zera acesso.
+      const user = await prisma.user.update({
         where: { cpf: cpfLimpo },
-        update: {
-          nome: nomeCompleto,
-          senhaHash,
-          role,
-          cargo,
-          ativo: true,
-          primeiroAcesso: true,
-        },
-        create: {
-          cpf: cpfLimpo,
-          nome: nomeCompleto || 'Operador do Sistema',
-          senhaHash,
-          role,
-          cargo,
-          ativo: true,
-          primeiroAcesso: true,
-        },
+        data: { nome, cargo: corpo.cargo || null },
+        select: { cpf: true, nome: true, cargo: true },
       });
-
-      // Remove vínculos antigos
-      await tx.userAcesso.deleteMany({
-        where: { userCpf: cpfLimpo },
+      await registrarAuditoria({
+        user: gestor,
+        acao: "EDITAR",
+        modulo: "GESTAO",
+        entidade: "Usuario",
+        entidadeId: cpfLimpo,
+        descricao: `Dados do usuário '${user.nome}' atualizados`,
+        detalhes: { nomeAnterior: existente.nome, cargo: user.cargo },
       });
+      return NextResponse.json({ success: true, usuario: user, criado: false });
+    }
 
-      // Cria os novos vínculos (se houver)
-      if (acessos.length > 0) {
-        await tx.userAcesso.createMany({
-          data: acessos.map(acesso => ({
-            userCpf: cpfLimpo,
-            ...acesso,
-          })),
-        });
-      }
-
-      return user;
+    // Criação: senha inicial padrão, troca obrigatória no primeiro acesso.
+    const SENHA_PADRAO = "Integr@123";
+    const senhaHash = await bcrypt.hash(SENHA_PADRAO, 10);
+    const user = await prisma.user.create({
+      data: {
+        cpf: cpfLimpo,
+        nome,
+        cargo: corpo.cargo || null,
+        senhaHash,
+        ativo: true,
+        primeiroAcesso: true,
+        // Rótulo de compatibilidade até a remoção dos perfis legados.
+        role: corpo.roleCompatibilidade || "REGULACAO_COMUM",
+      },
+      select: { cpf: true, nome: true, cargo: true },
     });
 
     await registrarAuditoria({
       user: gestor,
-      acao: !existenteAntes ? 'CRIAR' : existenteAntes.ativo === false ? 'REATIVAR' : 'EDITAR',
-      modulo: 'GERENCIAMENTO',
-      entidade: 'Usuario',
-      entidadeId: user.cpf,
-      descricao: !existenteAntes
-        ? `Usuário '${user.nome}' criado`
-        : `Usuário '${user.nome}' existente atualizado (perfil, acessos e credencial inicial redefinidos)`,
-      detalhes: {
-        role: user.role,
-        cargo: cargo || null,
-        acessos: acessos
-          .map((a) => `${a.modulo}:${a.nivel}${a.servicoJunta ? `:${a.servicoJunta}` : ''}`)
-          .join(', '),
-      },
+      acao: "CRIAR",
+      modulo: "GESTAO",
+      entidade: "Usuario",
+      entidadeId: cpfLimpo,
+      descricao: `Usuário '${user.nome}' criado`,
+      detalhes: { cargo: user.cargo, primeiroAcesso: true },
     });
 
-    return NextResponse.json(
-      {
-        message: 'Usuário do sistema criado com sucesso!',
-        usuario: {
-          id: user.cpf,
-          cpf: user.cpf,
-          nome: user.nome,
-          role: user.role,
-        },
-      },
-      { status: 201 }
-    );
+    return NextResponse.json({ success: true, usuario: user, criado: true }, { status: 201 });
   } catch (error) {
-    if (error instanceof GestorGuardError) {
+    if (error instanceof AcessoErro) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    if (error.status === 401 || error.status === 403) {
+    if (error?.status === 401 || error?.status === 403) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    console.error('Erro ao cadastrar usuário:', error);
-    return NextResponse.json({ error: 'Erro interno ao salvar usuário.' }, { status: 500 });
+    console.error("Erro ao cadastrar usuário:", error);
+    return NextResponse.json({ error: "Erro ao salvar usuário." }, { status: 500 });
   }
+}
+
+// Nomes dos perfis para a tela (evita duplicar rótulo no cliente).
+export async function OPTIONS() {
+  return NextResponse.json({ perfis: Object.values(PERFIS) });
 }
