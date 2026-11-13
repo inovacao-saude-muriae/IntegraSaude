@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { carregarSessao } from "@/lib/auth";
 import {
   permissoesEfetivas,
+  permissoesPadrao,
   PERFIS as PERFIS_CATALOGO,
 } from "@/lib/permissoesCatalogo";
 
@@ -106,12 +107,25 @@ function vinculosAtivos(ctx, modulo) {
  */
 function permissoesDoVinculo(vinculo) {
   if (!vinculo) return [];
-  return permissoesEfetivas(
-    vinculo.modulo,
-    vinculo.perfil,
-    vinculo.permissoes,
-    vinculo.removidas,
-  );
+  // Vínculo antigo pode estar sem perfil gravado (coluna `nivel` é a legada):
+  // nesse caso usa o perfil padrão do módulo, que é o que o sistema sempre
+  // aplicou por padrão — e nunca um curinga.
+  const perfil = vinculo.perfil || perfilPadraoDoModulo(vinculo.modulo);
+  if (!perfil) return [];
+  const concedidas = Array.isArray(vinculo.permissoes) ? vinculo.permissoes : [];
+  const retiradas = Array.isArray(vinculo.removidas) ? vinculo.removidas : [];
+  // Sem NENHUMA permissão gravada → pacote padrão do perfil (perfil em branco
+  // não pode significar "nenhum acesso": isso bloquearia o Administrador).
+  if (concedidas.length === 0 && retiradas.length === 0) {
+    return permissoesPadrao(vinculo.modulo, perfil);
+  }
+  return permissoesEfetivas(vinculo.modulo, perfil, concedidas, retiradas);
+}
+
+// Perfil padrão do módulo (o mesmo que a tela de acessos oferece primeiro).
+function perfilPadraoDoModulo(modulo) {
+  const padrao = PERFIS_CATALOGO.ADMINISTRADOR;
+  return modulo ? padrao : null;
 }
 
 /**

@@ -34,6 +34,12 @@ function check(nome, cond, extra = "") {
 }
 
 // ── Sessão de teste (mesmo cookie do sistema) ──────────────────────────────
+// Módulo de server actions do catálogo próprio de Processos.
+const CAT = {
+  rota: "/camara-tecnica/processos/especialidades",
+  arquivo: "camara-tecnica/processos/especialidades/actions",
+};
+
 const sessoes = new Map();
 async function tokenDe(cpf) {
   if (sessoes.has(cpf)) return sessoes.get(cpf);
@@ -56,7 +62,7 @@ async function tokenDe(cpf) {
 let manifest = null;
 // O manifest mapeia id da ação → { filename, exportedName }. Usamos o NOME da
 // função para achar o id, como o próprio Next faz no cliente.
-function actionId(nome) {
+function actionId(nome, arquivo = "camara-tecnica/processos/actions") {
   if (!manifest) {
     manifest = JSON.parse(
       fs.readFileSync(".next/server/server-reference-manifest.json", "utf8"),
@@ -65,7 +71,7 @@ function actionId(nome) {
   for (const [id, info] of Object.entries(manifest.node || {})) {
     if (
       info?.exportedName === nome &&
-      String(info?.filename || "").includes("camara-tecnica/processos/actions")
+      String(info?.filename || "").includes(arquivo)
     ) {
       return id;
     }
@@ -87,15 +93,19 @@ const ROUTER_STATE = encodeURIComponent(
   ]),
 );
 
-async function chamarAction(cpf, nome, args) {
+async function chamarAction(cpf, nome, args, opcoes = {}) {
+  const {
+    rota = "/camara-tecnica/processos",
+    arquivo = "camara-tecnica/processos/actions",
+  } = opcoes;
   const token = await tokenDe(cpf);
-  const id = actionId(nome);
+  const id = actionId(nome, arquivo);
   if (!id) throw new Error(`server action "${nome}" não encontrada no manifest`);
 
   const form = new FormData();
   form.append("0", JSON.stringify(args));
 
-  const r = await fetch(`${BASE}/camara-tecnica/processos`, {
+  const r = await fetch(`${BASE}${rota}`, {
     method: "POST",
     headers: {
       cookie: `session_token=${token}`,
@@ -142,8 +152,11 @@ async function main() {
   if (!pessoa) { console.log("  (sem pessoa no banco — nada a testar)"); process.exit(0); }
   console.log(`  pessoa: ${pessoa.nome_completo} (${pessoa.cpf})`);
 
-  // Limpa processos de teste de execuções anteriores.
+  // Limpa processos e catálogo de teste de execuções anteriores.
   await db.query("DELETE FROM processos_judiciais WHERE numero_processo LIKE 'TESTE-%'");
+  await db.query("DELETE FROM processos_especialidade_procedimento");
+  await db.query("DELETE FROM processos_procedimentos WHERE nome LIKE 'TESTE-%'");
+  await db.query("DELETE FROM processos_especialidades WHERE nome LIKE 'TESTE-%'");
 
   console.log("\n1. Usuário sem permissão no módulo");
   const semAcesso = await chamarAction(JEFINNY, "listarProcessos", [{}]);
@@ -206,31 +219,56 @@ async function main() {
     console.log("  (só um paciente no banco — troca de paciente não testada)");
   }
 
-  console.log("\n7. Especialidade e procedimento");
-  const esp = (await db.query("SELECT id, nome, tipo_exame_id FROM junta_especialidades WHERE ativo = true ORDER BY id LIMIT 1")).rows[0];
-  if (esp) {
-    const comEsp = await chamarAction(GESTOR, "editarProcesso", [id, {
+  console.log("\n7. Especialidade e procedimento (catálogo PRÓPRIO de Processos)");
+  const espPropria = await chamarAction(GESTOR, "criarEspecialidadeProcesso", [{ nome: "TESTE-Cardiologia" }], CAT);
+  check("cria especialidade no catálogo próprio", espPropria.success === true, JSON.stringify(espPropria).slice(0, 140));
+  const espId = espPropria?.data?.id;
+
+  const procProprio = await chamarAction(GESTOR, "criarProcedimentoProcesso", [
+    { nome: "TESTE-Consulta Cardiológica", especialidadeIds: [espId] },
+  ], CAT);
+  check("cria procedimento vinculado à especialidade", procProprio.success === true, JSON.stringify(procProprio).slice(0, 140));
+  const procId = procProprio?.data?.id;
+
+  const outroProc = await chamarAction(GESTOR, "criarProcedimentoProcesso", [
+    { nome: "TESTE-Procedimento sem vínculo", especialidadeIds: [] },
+  ], CAT);
+  const outroProcId = outroProc?.data?.id;
+
+  const comEsp = await chamarAction(GESTOR, "editarProcesso", [id, {
+    pacienteCpf: pessoa.cpf, numeroProcesso: "TESTE-001", numeroPasta: "PASTA-EDITADA",
+    especialidadeId: espId,
+  }]);
+  check("grava especialidade do catálogo próprio", comEsp.success === true && String(comEsp.data?.especialidadeId) === String(espId), JSON.stringify(comEsp).slice(0, 140));
+
+  const comPar = await chamarAction(GESTOR, "editarProcesso", [id, {
+    pacienteCpf: pessoa.cpf, numeroProcesso: "TESTE-001", numeroPasta: "PASTA-EDITADA",
+    especialidadeId: espId, procedimentoId: procId,
+  }]);
+  check("grava procedimento vinculado à especialidade", comPar.success === true && String(comPar.data?.procedimentoId) === String(procId), JSON.stringify(comPar).slice(0, 140));
+
+  if (outroProcId) {
+    const semVinculo = await chamarAction(GESTOR, "editarProcesso", [id, {
       pacienteCpf: pessoa.cpf, numeroProcesso: "TESTE-001", numeroPasta: "PASTA-EDITADA",
-      especialidadeId: esp.id,
+      especialidadeId: espId, procedimentoId: outroProcId,
     }]);
-    check("grava especialidade", comEsp.success === true && String(comEsp.data?.especialidadeId) === String(esp.id), JSON.stringify(comEsp).slice(0, 140));
-    const procIncompativel = (await db.query(
-      "SELECT id, nome FROM regula_procedimentos WHERE tipo_exame_id IS NOT NULL LIMIT 1",
-    )).rows[0];
-    if (procIncompativel && esp.tipo_exame_id) {
-      const incompat = await chamarAction(GESTOR, "editarProcesso", [id, {
-        pacienteCpf: pessoa.cpf, numeroProcesso: "TESTE-001", numeroPasta: "PASTA-EDITADA",
-        especialidadeId: esp.id, procedimentoId: procIncompativel.id,
-      }]);
-      const compativel = procIncompativel;
-      const r = incompat.success === false || String(incompat.data?.procedimentoId) === String(compativel.id);
-      check("procedimento incompatível é barrado (ou aceito quando compatível)", r, JSON.stringify(incompat).slice(0, 140));
-    } else {
-      console.log("  (catálogo sem tipo de exame classificado — vínculo não testado)");
-    }
-  } else {
-    console.log("  (sem especialidade cadastrada — teste de catálogo pulado)");
+    check("procedimento NÃO vinculado é barrado no backend", semVinculo.success === false && /não está vinculado/i.test(semVinculo.error || ""), semVinculo.error);
   }
+
+  // Filtragem: o formulário só recebe os procedimentos da especialidade.
+  const formCatalogo = await chamarAction(GESTOR, "obterCatalogoParaFormulario", [], CAT);
+  const espNoForm = (formCatalogo.especialidades || []).find((e) => e.id === espId);
+  check("catálogo do formulário traz a especialidade", Boolean(espNoForm), JSON.stringify(formCatalogo).slice(0, 120));
+  check("formulário só oferece procedimentos vinculados", (espNoForm?.procedimentos || []).every((p) => p.id !== outroProcId) && (espNoForm?.procedimentos || []).some((p) => p.id === procId));
+
+  // Inativação: some do formulário, mas o processo existente continua legível.
+  const inativado = await chamarAction(GESTOR, "alterarSituacaoProcedimentoProcesso", [procId, { ativo: false }], CAT);
+  check("inativa procedimento", inativado.success === true && inativado.data?.ativo === false, JSON.stringify(inativado).slice(0, 120));
+  const formDepois = await chamarAction(GESTOR, "obterCatalogoParaFormulario", [], CAT);
+  const espDepois = (formDepois.especialidades || []).find((e) => e.id === espId);
+  check("procedimento inativo sai do formulário", !(espDepois?.procedimentos || []).some((p) => p.id === procId));
+  const detalheHist = await chamarAction(GESTOR, "obterProcesso", [id]);
+  check("processo histórico mantém o procedimento inativado", detalheHist.data?.procedimentoId === procId && detalheHist.data?.procedimentoInativo === true, JSON.stringify(detalheHist.data || {}).slice(0, 160));
 
   console.log("\n8. Lista reflete a edição (sem duplicar)");
   const lista = await chamarAction(GESTOR, "listarProcessos", [{ termo: "TESTE-001" }]);

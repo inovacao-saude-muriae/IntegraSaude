@@ -12,16 +12,17 @@
 // operação é revalidada no backend por `requirePermissao`.
 // ═══════════════════════════════════════════════════════════════════════════
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useConfirm } from "@/components/ConfirmDialog";
 import SeletorPaciente from "@/components/SeletorPaciente";
 import { formatarCpfExibicao } from "@/lib/cpf";
+import { obterCatalogoParaFormulario } from "./especialidades/actions";
 import {
   criarProcesso,
   editarProcesso,
   excluirProcesso,
   listarProcessos,
-  obterCatalogosProcesso,
   obterProcesso,
   verificarDependenciasProcesso,
 } from "./actions";
@@ -89,7 +90,9 @@ export default function ProcessosJudiciaisPage({
 
   const [aba, setAba] = useState("consultar");
   const [processos, setProcessos] = useState([]);
-  const [catalogos, setCatalogos] = useState({ especialidades: [], procedimentos: [] });
+  // Catálogo PRÓPRIO da área Processos: cada especialidade já vem com os
+  // procedimentos vinculados a ela (nada de Junta Reguladora).
+  const [especialidades, setEspecialidades] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
   const [busca, setBusca] = useState("");
@@ -123,17 +126,12 @@ export default function ProcessosJudiciaisPage({
     (async () => {
       const [lista, cats] = await Promise.all([
         listarProcessos({}),
-        obterCatalogosProcesso(),
+        obterCatalogoParaFormulario(),
       ]);
       if (!vivo) return;
       if (lista.success) setProcessos(lista.data);
       else setErro(lista.error);
-      if (cats.success) {
-        setCatalogos({
-          especialidades: cats.especialidades || [],
-          procedimentos: cats.procedimentos || [],
-        });
-      }
+      if (cats.success) setEspecialidades(cats.especialidades || []);
       setCarregando(false);
     })();
     return () => {
@@ -141,30 +139,18 @@ export default function ProcessosJudiciaisPage({
     };
   }, []);
 
-  const especialidadeNome = useMemo(() => {
-    const e = catalogos.especialidades.find(
-      (x) => String(x.id) === String(form.especialidadeId),
-    );
-    return e?.nome || "";
-  }, [catalogos.especialidades, form.especialidadeId]);
+  const especialidadeAtual = useMemo(
+    () => especialidades.find((x) => String(x.id) === String(form.especialidadeId)) || null,
+    [especialidades, form.especialidadeId],
+  );
+  const especialidadeNome = especialidadeAtual?.nome || "";
 
-  const procedimentoNome = useMemo(() => {
-    const p = catalogos.procedimentos.find(
-      (x) => String(x.id) === String(form.procedimentoId),
-    );
-    return p?.nome || "";
-  }, [catalogos.procedimentos, form.procedimentoId]);
-
-  // Procedimentos compatíveis: os do tipo de exame da especialidade escolhida.
-  // Especialidade ainda não classificada → todos (o backend valida quando houver
-  // classificação; nada é adivinhado aqui).
-  const procedimentosCompativeis = useMemo(() => {
-    const esp = catalogos.especialidades.find(
-      (x) => String(x.id) === String(form.especialidadeId),
-    );
-    if (!esp?.tipoExameId) return catalogos.procedimentos;
-    return catalogos.procedimentos.filter((p) => p.tipoExameId === esp.tipoExameId);
-  }, [catalogos, form.especialidadeId]);
+  // Só os procedimentos VINCULADOS à especialidade escolhida — é o catálogo
+  // próprio da área Processos, não o da Junta Reguladora.
+  const procedimentosDaEspecialidade = especialidadeAtual?.procedimentos || [];
+  const procedimentoNome =
+    procedimentosDaEspecialidade.find((p) => String(p.id) === String(form.procedimentoId))
+      ?.nome || "";
 
   // ── Formulário ───────────────────────────────────────────────────────────
   function limparFormulario() {
@@ -336,24 +322,29 @@ export default function ProcessosJudiciaisPage({
             Câmara Técnica › Processos — consulta, cadastro, edição e exclusão.
           </p>
         </div>
-        <div className={styles.abas}>
-          <button
-            type="button"
-            className={aba === "consultar" ? styles.abaAtiva : styles.aba}
-            onClick={() => setAba("consultar")}
-          >
-            Consultar Processos
-          </button>
-          <button
-            type="button"
-            className={aba === "novo" ? styles.abaAtiva : styles.aba}
-            onClick={() => {
-              if (!editandoId) limparFormulario();
-              setAba("novo");
-            }}
-          >
-            {editandoId ? "Editar Processo" : "Novo Processo"}
-          </button>
+        <div className={styles.cabecalhoAcoes}>
+          <Link href="/camara-tecnica/processos/especialidades" className={styles.linkCatalogo}>
+            ⚙ Especialidades e Procedimentos
+          </Link>
+          <div className={styles.abas}>
+            <button
+              type="button"
+              className={aba === "consultar" ? styles.abaAtiva : styles.aba}
+              onClick={() => setAba("consultar")}
+            >
+              Consultar Processos
+            </button>
+            <button
+              type="button"
+              className={aba === "novo" ? styles.abaAtiva : styles.aba}
+              onClick={() => {
+                if (!editandoId) limparFormulario();
+                setAba("novo");
+              }}
+            >
+              {editandoId ? "Editar Processo" : "Novo Processo"}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -698,18 +689,14 @@ export default function ProcessosJudiciaisPage({
             onChange={(e) => setFiltroModal(e.target.value)}
           />
           <div className={styles.listaModal}>
-            {catalogos.especialidades.length === 0 && (
+            {especialidades.length === 0 && (
               <p className={styles.vazio}>
-                Nenhuma especialidade cadastrada. Cadastre em Gerenciamento › Serviços e
-                Especialidades.
+                Nenhuma especialidade cadastrada. Cadastre em Câmara Técnica › Processos ›
+                Especialidades e Procedimentos.
               </p>
             )}
-            {catalogos.especialidades
-              .filter((e) =>
-                (e.nome + " " + (e.servico || ""))
-                  .toLowerCase()
-                  .includes(filtroModal.toLowerCase()),
-              )
+            {especialidades
+              .filter((e) => e.nome.toLowerCase().includes(filtroModal.toLowerCase()))
               .map((e) => (
                 <button
                   key={e.id}
@@ -721,7 +708,9 @@ export default function ProcessosJudiciaisPage({
                   }}
                 >
                   <span>{e.nome}</span>
-                  <span className={styles.itemModalSub}>{e.servico}</span>
+                  <span className={styles.itemModalSub}>
+                    {e.procedimentos.length} procedimento(s)
+                  </span>
                 </button>
               ))}
           </div>
@@ -738,12 +727,13 @@ export default function ProcessosJudiciaisPage({
             onChange={(e) => setFiltroModal(e.target.value)}
           />
           <div className={styles.listaModal}>
-            {procedimentosCompativeis.length === 0 && (
+            {procedimentosDaEspecialidade.length === 0 && (
               <p className={styles.vazio}>
-                Nenhum procedimento compatível com esta especialidade.
+                Nenhum procedimento vinculado a esta especialidade. Cadastre em
+                Câmara Técnica › Processos › Especialidades e Procedimentos.
               </p>
             )}
-            {procedimentosCompativeis
+            {procedimentosDaEspecialidade
               .filter((p) => p.nome.toLowerCase().includes(filtroModal.toLowerCase()))
               .map((p) => (
                 <button

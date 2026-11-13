@@ -176,6 +176,24 @@ export const MODULOS_CATALOGO = {
         nome: 'Processos Judiciais (consultar, editar, excluir)',
         permissoes: [V, C, E, X],
       },
+      // Catálogo PRÓPRIO da área Processos (tabelas processos_especialidades,
+      // processos_procedimentos e o vínculo entre eles). Independente da Junta
+      // Reguladora: nenhuma permissão daqui abre a Junta, e vice-versa.
+      //   C = cadastrar   E = editar   "inativar" = ativar/desativar o item
+      //   L = liberar/gerenciar os vínculos especialidade ↔ procedimento
+      // (Nada de exclusão: o catálogo nunca apaga um item — inativa.)
+      {
+        chave: 'catalogo_especialidades',
+        nome: 'Especialidades dos Processos',
+        permissoes: [V, C, E, X],
+      },
+      {
+        chave: 'catalogo_procedimentos',
+        nome: 'Procedimentos dos Processos',
+        // "inativar" e "vincular" não usam os códigos X/L: no catálogo central
+        // X é "excluir" e L é "liberar". Aqui são permissões próprias e nominais.
+        permissoes: [V, C, E, "inativar", "vincular"],
+      },
       { chave: 'movimentacoes', nome: 'Movimentações', permissoes: [V, C, E] },
       { chave: 'documentos', nome: 'Documentos', permissoes: [V, C, X, EXP] },
       { chave: 'acompanhamento', nome: 'Acompanhamento e Relatórios', permissoes: [V, E, EXP] },
@@ -334,6 +352,9 @@ const PACOTES = {
       // Exclusão definitiva de processo é permissão EXCEPCIONAL: fica com o
       // Administrador do módulo, sempre com confirmação e checagem de vínculos.
       processo_judicial: [V, C, E, X],
+      // Administrador do módulo mantém o catálogo completo.
+      catalogo_especialidades: [V, C, E, "inativar"],
+      catalogo_procedimentos: [V, C, E, "inativar", "vincular"],
       movimentacoes: [V, C, E],
       documentos: [V, C, X, EXP],
       acompanhamento: [V, E, EXP],
@@ -342,6 +363,8 @@ const PACOTES = {
       consulta: [V, EXP],
       // Supervisor edita, mas NÃO exclui.
       processo_judicial: [V, C, E],
+      catalogo_especialidades: [V, C, E, "inativar"],
+      catalogo_procedimentos: [V, C, E, "inativar", "vincular"],
       movimentacoes: [V, C, E],
       documentos: [V, EXP],
       acompanhamento: [V, E, EXP],
@@ -350,16 +373,23 @@ const PACOTES = {
       consulta: [V],
       // Operador cadastra e corrige; exclusão não é dele.
       processo_judicial: [V, C, E],
+      // Operador consulta o catálogo, mas não o altera.
+      catalogo_especialidades: [V],
+      catalogo_procedimentos: [V],
       movimentacoes: [V, C, E],
       documentos: [V, C],
     },
     [PERFIS.CONSULTA]: {
       consulta: [V],
       processo_judicial: [V],
+      catalogo_especialidades: [V],
+      catalogo_procedimentos: [V],
     },
     [PERFIS.AUDITOR]: {
       consulta: [V, EXP],
       processo_judicial: [V],
+      catalogo_especialidades: [V],
+      catalogo_procedimentos: [V],
       acompanhamento: [V, EXP],
     },
   },

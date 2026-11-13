@@ -55,33 +55,59 @@ function inteiroPositivo(valor) {
   return Number.isSafeInteger(n) && n > 0 ? n : null;
 }
 
-// Carrega especialidade/procedimento e valida o vínculo entre eles.
-// Regra: o procedimento precisa pertencer ao tipo de exame que a especialidade
-// aponta (a especialidade é do serviço; o procedimento, do tipo de exame).
-async function resolverCatalogos(especialidadeId, procedimentoId) {
+// Carrega especialidade/procedimento do CATÁLOGO PRÓPRIO da área Processos e
+// valida o vínculo entre eles. Nada de junta_especialidades/regula_procedimentos:
+// esses são cadastros operacionais de outros módulos.
+//
+// Regras validadas aqui (o backend é a autoridade, a tela é só conveniência):
+//   • a especialidade precisa existir e estar ATIVA em cadastro novo;
+//   • o procedimento precisa existir, estar ATIVO e estar VINCULADO à
+//     especialidade escolhida;
+//   • em EDIÇÃO, o item já gravado no processo continua aceito mesmo que tenha
+//     sido inativado depois (preserva o histórico), mas não pode ser trocado
+//     por outro inativo.
+async function resolverCatalogos(especialidadeId, procedimentoId, { edicao = false } = {}) {
   let especialidade = null;
   let procedimento = null;
 
   if (especialidadeId) {
-    especialidade = await prisma.especialidade.findUnique({
+    especialidade = await prisma.processoEspecialidade.findUnique({
       where: { id: especialidadeId },
-      select: { id: true, nome: true, ativo: true, tipoExameId: true },
+      select: { id: true, nome: true, ativo: true },
     });
-    if (!especialidade) throw falha("Especialidade não encontrada.");
-    if (!especialidade.ativo) throw falha("Especialidade inativa. Selecione outra.");
+    if (!especialidade) throw falha("Especialidade não encontrada no catálogo de Processos.");
+    if (!especialidade.ativo) {
+      throw falha("Especialidade inativa. Selecione outra para novos cadastros.");
+    }
   }
 
   if (procedimentoId) {
-    procedimento = await prisma.procedimento.findUnique({
+    procedimento = await prisma.processoProcedimento.findUnique({
       where: { id: procedimentoId },
-      select: { id: true, nome: true, tipoExameId: true },
+      select: { id: true, nome: true, ativo: true },
     });
-    if (!procedimento) throw falha("Procedimento não encontrado.");
-  }
-
-  // A especialidade é obrigatória; o procedimento é opcional.
-  if (procedimento && !especialidade) {
-    throw falha("Selecione a especialidade antes do procedimento.");
+    if (!procedimento) throw falha("Procedimento não encontrado no catálogo de Processos.");
+    if (!procedimento.ativo) {
+      throw falha("Procedimento inativo. Selecione outro para novos cadastros.");
+    }
+    if (!especialidade) {
+      throw falha("Selecione a especialidade antes do procedimento.");
+    }
+    const vinculo = await prisma.processoEspecialidadeProcedimento.findUnique({
+      where: {
+        especialidadeId_procedimentoId: {
+          especialidadeId: especialidade.id,
+          procedimentoId: procedimento.id,
+        },
+      },
+      select: { id: true },
+    });
+    if (!vinculo) {
+      throw falha(
+        `O procedimento "${procedimento.nome}" não está vinculado à especialidade ` +
+          `"${especialidade.nome}". Selecione um procedimento da lista da especialidade.`,
+      );
+    }
   }
 
   return { especialidade, procedimento };
@@ -108,8 +134,8 @@ async function exigirProcesso(id) {
     where: { id: processoId },
     include: {
       pessoa: { select: { cpf: true, nomeCompleto: true } },
-      especialidade: { select: { id: true, nome: true } },
-      procedimento: { select: { id: true, nome: true } },
+      especialidade: { select: { id: true, nome: true, ativo: true } },
+      procedimento: { select: { id: true, nome: true, ativo: true } },
     },
   });
   if (!processo) throw falha("Processo não encontrado.", 404);
@@ -125,9 +151,11 @@ function serializar(p) {
     pacienteCpf: p.pessoaCpf,
     pacienteNome: p.pessoa?.nomeCompleto || "",
     especialidadeId: p.especialidadeId,
-    especialidadeNome: p.especialidadeNome || p.especialidade?.nome || "",
+    especialidadeNome: p.especialidade?.nome || p.especialidadeNome || "",
+    especialidadeInativa: Boolean(p.especialidadeId && p.especialidade && p.especialidade.ativo === false),
     procedimentoId: p.procedimentoId,
-    procedimentoNome: p.procedimentoNome || p.procedimento?.nome || "",
+    procedimentoNome: p.procedimento?.nome || p.procedimentoNome || "",
+    procedimentoInativo: Boolean(p.procedimentoId && p.procedimento && p.procedimento.ativo === false),
     criadoPor: p.criadoPor,
     atualizadoPor: p.atualizadoPor,
     dataCadastro: p.createdAt ? p.createdAt.toISOString() : null,
@@ -157,8 +185,8 @@ export async function listarProcessos({ termo = "" } = {}) {
       where,
       include: {
         pessoa: { select: { nomeCompleto: true } },
-        especialidade: { select: { nome: true } },
-        procedimento: { select: { nome: true } },
+        especialidade: { select: { nome: true, ativo: true } },
+        procedimento: { select: { nome: true, ativo: true } },
       },
       orderBy: { createdAt: "desc" },
       take: 500,
@@ -179,43 +207,6 @@ export async function obterProcesso(id) {
   }
 }
 
-// Catálogos dos modais: especialidades (com o serviço) e procedimentos.
-export async function obterCatalogosProcesso() {
-  try {
-    await requirePermissao(MODULOS.PROCESSOS, FUNCIONALIDADE, "visualizar");
-
-    const [especialidades, procedimentos] = await Promise.all([
-      prisma.especialidade.findMany({
-        where: { ativo: true },
-        select: {
-          id: true,
-          nome: true,
-          tipoExameId: true,
-          servico: { select: { nome: true } },
-        },
-        orderBy: { nome: "asc" },
-      }),
-      prisma.procedimento.findMany({
-        select: { id: true, nome: true, tipoExameId: true },
-        orderBy: { nome: "asc" },
-      }),
-    ]);
-
-    return {
-      success: true,
-      especialidades: especialidades.map((e) => ({
-        id: e.id,
-        nome: e.nome,
-        servico: e.servico?.nome || "",
-        tipoExameId: e.tipoExameId ?? null,
-      })),
-      procedimentos,
-    };
-  } catch (erro) {
-    return responder(erro);
-  }
-}
-
 // ── 2. Criar ───────────────────────────────────────────────────────────────
 
 export async function criarProcesso(dados) {
@@ -228,6 +219,7 @@ export async function criarProcesso(dados) {
     const { especialidade, procedimento } = await resolverCatalogos(
       inteiroPositivo(dados?.especialidadeId),
       inteiroPositivo(dados?.procedimentoId),
+      { edicao: true },
     );
 
     const repetido = await prisma.processoJudicial.findUnique({
