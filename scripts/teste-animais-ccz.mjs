@@ -200,8 +200,12 @@ async function main() {
 
   const sidebar = fs.readFileSync("src/components/Sidebar.js", "utf8");
   check(
-    "menu do CCZ tem o item Animais (aba de cadastro acessível)",
-    /name: "Animais", tab: "ANIMAIS", visivelSe: "CCZ"/.test(sidebar),
+    "menu do Gerenciamento tem o item Animais apontando para a tela do CCZ",
+    /name: "Animais",\s*\n\s*path: "\/ccz\?tab=ANIMAIS"/.test(sidebar),
+  );
+  check(
+    "o item Animais NÃO fica no submenu do CCZ (fica no Gerenciamento)",
+    !/\{ name: "Animais", tab: "ANIMAIS", visivelSe: "CCZ" \}/.test(sidebar),
   );
 
   const meAdmin = await me(ADMIN_CCZ);
@@ -391,7 +395,11 @@ async function main() {
   const esporo = await pagina("/ccz?tab=ESPOROTRICOSE", ADMIN_CCZ);
   check("aba Esporotricose continua acessível", esporo.status === 200);
   const gerAnimais = await pagina("/gerenciamento/animais", ADMIN_CCZ);
-  check("Gerenciamento → Animais continua acessível", gerAnimais.status === 200);
+  check(
+    "Gerenciamento → Animais redireciona para a tela do CCZ",
+    gerAnimais.status === 307 || gerAnimais.status === 308,
+    String(gerAnimais.status),
+  );
 
   // ── Limpeza ────────────────────────────────────────────────────────────
   await db.query("DELETE FROM ccz_animais WHERE id LIKE 'TSTANI-%'");

@@ -245,11 +245,6 @@ const menuSections = [
             ],
           },
           { name: "Agenda", tab: "AGENDA", visivelSe: "CCZ" },
-          // Animais: a tela vive em /ccz?tab=ANIMAIS (abas Lista / Novo), onde
-          // o cadastro do animal é feito com o tutor do cadastro central.
-          // O item "Animais" do Gerenciamento é só consulta — sem esta entrada,
-          // o formulário de cadastro ficava inacessível.
-          { name: "Animais", tab: "ANIMAIS", visivelSe: "CCZ" },
           { name: "separator", isSeparator: true, visivelSe: "CCZ" },
           { name: "Dashboard", tab: "DASHBOARD", visivelSe: "CCZ" },
         ],
@@ -335,8 +330,12 @@ const menuSections = [
             visivelSe: "TUTORES",
           },
           {
+            // Animais: item do GERENCIAMENTO, como os demais cadastros. Abre a
+            // tela de trabalho do CCZ (/ccz?tab=ANIMAIS), com as abas
+            // "Consultar Animais" e "Novo Animal" — é lá que o cadastro
+            // acontece, com o tutor do cadastro central.
             name: "Animais",
-            path: "/gerenciamento/animais",
+            path: "/ccz?tab=ANIMAIS",
             tab: "ANIMAIS",
             visivelSe: "CCZ",
           },
