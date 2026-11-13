@@ -79,6 +79,9 @@ export const MAPA_ROTAS = [
       MODULOS.JUNTA,
       MODULOS.FARMACIA,
       MODULOS.PROCESSOS,
+      // O tutor é dado do CCZ: quem tem vínculo com o CCZ entra pela
+      // permissão `tutores` do próprio módulo (o layout refina).
+      MODULOS.CCZ,
     ],
   },
 

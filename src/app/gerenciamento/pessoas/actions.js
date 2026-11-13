@@ -27,6 +27,9 @@ const dataParaInput = (data) => {
 const serializarPessoa = (pessoa) => {
   const endereco = pessoa.enderecos?.[0] || null;
   return {
+    // Vínculo de tutor no CCZ (quando existir): a exclusão na tela de Tutor
+    // remove SÓ este vínculo, nunca a Pessoa central.
+    ehTutor: Boolean(pessoa.tutor),
     cpf: pessoa.cpf,
     nomeCompleto: pessoa.nomeCompleto,
     sexo: pessoa.sexo || "Masculino",
@@ -94,6 +97,7 @@ export async function listarPessoas(termo = "") {
           take: 1,
         },
         ubsReferencia: { select: { nome: true } },
+        tutor: { select: { pessoaCpf: true } },
       },
     });
 

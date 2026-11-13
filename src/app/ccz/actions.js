@@ -511,6 +511,68 @@ export async function listarTutores() {
   }
 }
 
+// ── EXCLUIR O VÍNCULO DE TUTOR ─────────────────────────────────────────────
+// Exclui APENAS o registro em `ccz_tutores`. A Pessoa central (cadastro único)
+// NUNCA é excluída por aqui, e não há cascata: com animais vinculados a operação
+// é recusada e o caminho é desvincular/transferir antes.
+// Permissão: ccz_tutores:excluir (Administrador do CCZ).
+export async function excluirTutor(pessoaCpf) {
+  try {
+    const user = await requirePermissao(MODULOS.CCZ, "tutores", "excluir");
+    const cpf = normalizarCpfChave(pessoaCpf);
+
+    const tutor = await prisma.tutor.findUnique({
+      where: { pessoaCpf: cpf },
+      include: {
+        pessoa: { select: { nomeCompleto: true } },
+        _count: { select: { animais: true } },
+      },
+    });
+    if (!tutor) {
+      return { success: false, error: "Tutor não encontrado." };
+    }
+
+    const animais = tutor._count?.animais || 0;
+    if (animais > 0) {
+      return {
+        success: false,
+        error:
+          `Este tutor possui ${animais} animal(is) vinculado(s). ` +
+          "Transfira ou desvincule os animais antes de excluir o vínculo de tutor.",
+        animais,
+      };
+    }
+
+    // Sem dependências: remove só o vínculo de tutor.
+    await prisma.tutor.delete({ where: { pessoaCpf: cpf } });
+
+    await registrarAuditoria({
+      user,
+      acao: "EXCLUIR",
+      modulo: "CCZ",
+      entidade: "Tutor",
+      entidadeId: cpf,
+      descricao: `Vínculo de tutor de '${tutor.pessoa?.nomeCompleto || cpf}' excluído (cadastro de pessoa preservado)`,
+    });
+
+    revalidatePath("/gerenciamento/tutores");
+    revalidatePath("/ccz");
+    return { success: true };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    if (error.code === "P2003" || error.code === "P2014") {
+      return {
+        success: false,
+        error: "Este tutor possui registros vinculados. Nada foi excluído.",
+      };
+    }
+    console.error("Erro ao excluir tutor (CCZ):", error);
+    return { success: false, error: "Erro ao excluir o tutor." };
+  }
+}
+
 // ── FICHA COMPLETA DO ANIMAL (dados + tutor + histórico de procedimentos) ───
 export async function obterFichaAnimal(id) {
   try {

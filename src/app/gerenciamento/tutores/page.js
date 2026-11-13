@@ -1,10 +1,19 @@
-"use client";
+import {
+  carregarContextoAcesso,
+  usuarioTemPermissao,
+  MODULOS,
+} from "@/lib/permissions";
+import TutoresGerenciamento from "./TutoresGerenciamento";
 
-import CadastroPessoas from "@/components/CadastroPessoas/CadastroPessoas";
+// Gerenciamento → Tutores.
+//
+// A autorização de ENTRADA fica no layout (módulo/permissão). Aqui só se decide
+// o que a tela mostra: a ação destrutiva aparece apenas para quem tem
+// `ccz_tutores:excluir` — e a server action revalida no backend.
+export default async function TutoresPage() {
+  const ctx = await carregarContextoAcesso();
+  const podeExcluir =
+    ctx && (await usuarioTemPermissao(ctx.user, MODULOS.CCZ, "tutores", "excluir"));
 
-// Tela "Tutor" do Gerenciamento: MESMA tela e MESMA tabela do cadastro de pessoas
-// (cadastro único / EMPI). Só o rótulo muda, porque o público do CCZ reconhece
-// "Tutor" e não "Paciente".
-export default function TutoresPage() {
-  return <CadastroPessoas />;
+  return <TutoresGerenciamento podeExcluir={podeExcluir} />;
 }

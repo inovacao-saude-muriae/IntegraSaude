@@ -224,7 +224,9 @@ export const MODULOS_CATALOGO = {
       { chave: 'agenda', nome: 'Agenda', permissoes: [V, C, E, X] },
       { chave: 'animais', nome: 'Animais', permissoes: [V, C, E, X] },
       { chave: 'termos', nome: 'Termos', permissoes: [V, C, E, EXP] },
-      { chave: 'tutores', nome: 'Tutores', permissoes: [V, C, E] },
+      // Tutores: exclusão aqui significa EXCLUIR O VÍNCULO de tutor
+      // (ccz_tutores) — nunca a Pessoa central, nunca os animais.
+      { chave: 'tutores', nome: 'Tutores', permissoes: [V, C, E, X] },
       { chave: 'dashboard', nome: 'Dashboard', permissoes: [V, EXP] },
     ],
   },
@@ -444,7 +446,9 @@ const PACOTES = {
       agenda: [V, C, E, X],
       animais: [V, C, E, X],
       termos: [V, C, E, EXP],
-      tutores: [V, C, E],
+      // Administrador do CCZ: excluir o VÍNCULO de tutor (a Pessoa central e
+      // os animais permanecem). Sem cascata.
+      tutores: [V, C, E, X],
       dashboard: [V, EXP],
     },
     [PERFIS.SUPERVISOR]: {

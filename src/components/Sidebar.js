@@ -322,10 +322,12 @@ const menuSections = [
             visivelSe: "CATALOGO_PROCESSOS",
           },
           {
+            // Tutor é dado do CCZ: entra pela permissão do módulo CCZ, sem
+            // exigir vínculo com Gestão Geral nem com outros módulos.
             name: "Tutor",
             path: "/gerenciamento/tutores",
             tab: "TUTORES",
-            visivelSe: "PACIENTE_GERAL",
+            visivelSe: "TUTORES",
           },
           {
             name: "Animais",
@@ -520,6 +522,21 @@ function construirMenu(me) {
           temPermissao("GESTAO", "usuarios:gerenciar") ||
           ehAdminMod("REGULACAO") ||
           ehAdminMod("JUNTA")
+        );
+      case "TUTORES":
+        // Gerenciamento → Tutores: permissão do CCZ (ou quem administra o
+        // cadastro único nos módulos de pessoa). Estar no Gerenciamento não
+        // concede nada.
+        return (
+          temPermissao("CCZ", "tutores:visualizar") ||
+          temPermissao("CCZ", "animais:visualizar") ||
+          temPermissao("GESTAO", "pessoas:visualizar") ||
+          ehAdminMod("CCZ") ||
+          temModulo("CCZ") ||
+          temModulo("REGULACAO") ||
+          temModulo("JUNTA") ||
+          temModulo("FARMACIA") ||
+          temModulo("PROCESSOS")
         );
       case "PACIENTE_GERAL":
         // Cadastro único (Paciente/Tutor) no Gerenciamento: GESTOR ∨ qualquer
