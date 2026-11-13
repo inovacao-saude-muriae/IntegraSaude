@@ -58,12 +58,78 @@ export async function carregarSessao() {
   return { session, user: session.user, token };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// PRIMEIRO ACESSO — OBRIGAÇÃO DE TROCAR A SENHA (fonte única)
+// ─────────────────────────────────────────────────────────────────────────
+// O estado NÃO é lido do JWT: ele é gravado no token no momento do login e
+// ficaria "congelado" até o token expirar. A decisão vem sempre de
+// `users.primeiro_acesso` — a MESMA coluna que a troca de senha atualiza e
+// que o gerenciamento de usuários exibe.
+//
+// Quem usa esta primitiva:
+//   • proxy.js             → bloqueia a NAVEGAÇÃO (páginas) enquanto pendente
+//   • requireAcessoModulo / requireAdminModulo / requirePermissao /
+//     requireAcessoPessoas → bloqueiam as OPERAÇÕES (server actions e APIs),
+//     lançando 403. Como toda operação do sistema passa por uma delas, não há
+//     como contornar a troca chamando a API direto.
+//   • /api/me e /api/auth/trocar-senha → liberados (sessão mínima e a troca)
+// Uma regra só, para todos os módulos: não há verificação por módulo.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Rotas que continuam acessíveis com a troca de senha pendente. */
+export const ROTAS_PRIMEIRO_ACESSO = ["/trocar-senha"];
+
+export function ehRotaDeTrocaDeSenha(pathname) {
+  const limpo = String(pathname || "").split("?")[0].split("#")[0];
+  return ROTAS_PRIMEIRO_ACESSO.some(
+    (r) => limpo === r || limpo.startsWith(`${r}/`),
+  );
+}
+
+/**
+ * O usuário do CPF informado ainda precisa trocar a senha?
+ * Fail-closed: CPF ausente, usuário inexistente ou erro de leitura → `true`
+ * (nunca libera o sistema por "otimismo").
+ * @param {string} cpf
+ * @returns {Promise<boolean>}
+ */
+export async function precisaTrocarSenha(cpf) {
+  if (!cpf) return true;
+  const user = await prisma.user.findUnique({
+    where: { cpf },
+    select: { primeiroAcesso: true, ativo: true },
+  });
+  if (!user || user.ativo === false) return true;
+  return user.primeiroAcesso === true;
+}
+
+/** Estado da obrigação para o usuário da sessão informada. */
+export async function primeiroAcessoPendente(ctx) {
+  if (!ctx?.user?.cpf) return true;
+  return precisaTrocarSenha(ctx.user.cpf);
+}
+
 // Igual a carregarSessao, mas lança {status:401} quando não há sessão válida.
 // Mantida com o nome antigo para não alterar os call sites existentes.
+//
+// Aqui também mora o bloqueio do PRIMEIRO ACESSO para as operações: toda
+// guarda de ação (requireAcessoModulo, requireAdminModulo, requirePermissao,
+// requireAcessoPessoas, requirePermissaoGestao, …) passa por esta função.
+// Enquanto `users.primeiro_acesso` for true, nenhuma delas libera — a única
+// coisa que o usuário consegue fazer é trocar a senha (/api/auth/trocar-senha,
+// que usa carregarSessao diretamente) e encerrar a sessão.
 async function carregarUsuarioSessao() {
   const ctx = await carregarSessao();
   if (!ctx) {
     throw Object.assign(new Error("Sessão inválida ou expirada."), { status: 401 });
+  }
+  if (await precisaTrocarSenha(ctx.user.cpf)) {
+    throw Object.assign(
+      new Error(
+        "É necessário alterar a senha inicial antes de usar o sistema.",
+      ),
+      { status: 403, codigo: "PRIMEIRO_ACESSO" },
+    );
   }
   return ctx.user;
 }

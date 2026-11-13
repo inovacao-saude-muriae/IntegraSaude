@@ -98,6 +98,10 @@ export default function ModalTrocarSenha({ onSucesso }) {
         setSucesso(true);
         setTimeout(() => {
           if (onSucesso) onSucesso();
+          else {
+            router.replace('/');
+            router.refresh();
+          }
         }, 1500);
       } else {
         setErro(data.error || 'Erro ao trocar senha');

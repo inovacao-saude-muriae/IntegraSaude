@@ -149,8 +149,8 @@ async function main() {
     [CPF.USUARIO, "TSTI Pessoa que e usuario"],
   ]) {
     await db.query(
-      `INSERT INTO users (cpf, nome, senha_hash, ativo, updated_at)
-       VALUES ($1, $2, $3, true, now()) ON CONFLICT (cpf) DO NOTHING`,
+      `INSERT INTO users (cpf, nome, senha_hash, ativo, primeiro_acesso, updated_at)
+       VALUES ($1, $2, $3, true, false, now()) ON CONFLICT (cpf) DO NOTHING`,
       [cpf, nome, HASH],
     );
   }
@@ -185,8 +185,8 @@ async function main() {
     [CPF.USUARIO, "TSTI Pessoa que e usuario"],
   ]) {
     await db.query(
-      `INSERT INTO users (cpf, nome, senha_hash, ativo, updated_at)
-       VALUES ($1, $2, $3, true, now()) ON CONFLICT (cpf) DO NOTHING`,
+      `INSERT INTO users (cpf, nome, senha_hash, ativo, primeiro_acesso, updated_at)
+       VALUES ($1, $2, $3, true, false, now()) ON CONFLICT (cpf) DO NOTHING`,
       [cpf, nome, HASH],
     );
   }
@@ -268,8 +268,8 @@ async function main() {
 
   // Autor sem vínculo: usuário dedicado, criado só para esta checagem.
   await db.query(
-    `INSERT INTO users (cpf, nome, senha_hash, ativo, updated_at)
-     VALUES ($1, 'TSTI sem vinculo', $2, true, now()) ON CONFLICT (cpf) DO NOTHING`,
+    `INSERT INTO users (cpf, nome, senha_hash, ativo, primeiro_acesso, updated_at)
+     VALUES ($1, 'TSTI sem vinculo', $2, true, false, now()) ON CONFLICT (cpf) DO NOTHING`,
     [CPF.AUTOR_SEM_VINCULO, HASH],
   );
   const semVinculo = await situacao(CPF.AUTOR_SEM_VINCULO, "inativarPessoa", [

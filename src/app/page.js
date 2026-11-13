@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
-import ModalTrocarSenha from "@/components/ModalTrocarSenha";
 
 // Módulos do sistema com suas informações
 const MODULOS = [
@@ -73,7 +72,6 @@ export default function Home() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
-  const [mostrarModalSenha, setMostrarModalSenha] = useState(false);
 
   useEffect(() => {
     let ativo = true;
@@ -90,14 +88,6 @@ export default function Home() {
 
         const dataUser = await resUser.json();
         
-        // IMPORTANTE: Verifica primeiro acesso e mostra modal
-        if (dataUser.user?.primeiroAcesso === true) {
-          setUser(dataUser.user);
-          setMostrarModalSenha(true);
-          setLoading(false);
-          return;
-        }
-
         setUser(dataUser.user);
       } catch (err) {
         console.error("Erro ao carregar usuário:", err);
@@ -113,12 +103,6 @@ export default function Home() {
       ativo = false;
     };
   }, [router]);
-
-  const handleSucessoTrocaSenha = () => {
-    // Recarrega os dados do usuário para atualizar primeiroAcesso
-    setMostrarModalSenha(false);
-    window.location.reload();
-  };
 
   if (loading) {
     return (
@@ -144,11 +128,6 @@ export default function Home() {
 
   return (
     <div className={styles.homeContainer}>
-      {/* Modal de Trocar Senha (primeiro acesso) */}
-      {mostrarModalSenha && (
-        <ModalTrocarSenha onSucesso={handleSucessoTrocaSenha} />
-      )}
-
       {/* CABEÇALHO */}
       <header className={styles.homeHeader}>
         <div className={styles.welcomeSection}>

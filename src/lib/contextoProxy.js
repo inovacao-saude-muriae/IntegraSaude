@@ -20,17 +20,24 @@ import { MODULOS } from "@/lib/permissoesCatalogo";
 
 /**
  * @param {string} cpf
- * @returns {Promise<{ativo: boolean, modulos: string[]}>}
+ * @returns {Promise<{ativo: boolean, modulos: string[], primeiroAcesso: boolean}>}
  */
 export async function contextoDeModulos(cpf) {
-  if (!cpf) return { ativo: false, modulos: [] };
+  if (!cpf) return { ativo: false, modulos: [], primeiroAcesso: false };
 
   const user = await prisma.user.findUnique({
     where: { cpf },
-    select: { ativo: true },
+    select: { ativo: true, primeiroAcesso: true },
   });
   // Conta desativada perde tudo na hora, mesmo com token ainda válido.
-  if (!user || user.ativo !== true) return { ativo: false, modulos: [] };
+  if (!user || user.ativo !== true) {
+    return { ativo: false, modulos: [], primeiroAcesso: false };
+  }
+
+  // Troca de senha pendente: o proxy manda para /trocar-senha em vez de
+  // autorizar a rota. Vem da coluna `users.primeiro_acesso` (fonte única),
+  // nunca do JWT — assim a liberação vale já na requisição seguinte.
+  const primeiroAcesso = user.primeiroAcesso === true;
 
   const vinculos = await prisma.userAcesso.findMany({
     where: { userCpf: cpf, ativo: true },
@@ -47,5 +54,5 @@ export async function contextoDeModulos(cpf) {
     modulos.add(v.modulo);
   }
 
-  return { ativo: true, modulos: [...modulos] };
+  return { ativo: true, modulos: [...modulos], primeiroAcesso };
 }

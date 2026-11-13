@@ -48,38 +48,48 @@ export default function GestorDashboardPage() {
   }, []);
 
   useEffect(() => {
-    let ativo = true;
-
-    (async () => {
-      try {
-        const res = await fetch('/api/admin/metrics', { cache: 'no-store' });
-        if (!ativo) return;
-
-        if (!res.ok) {
-          const corpo = await res.json().catch(() => ({}));
-          throw new Error(corpo.error || 'Falha ao carregar as métricas gerenciais.');
-        }
-
-        const data = await res.json();
-        if (!ativo) return;
-        setMetrics(data);
-        setError('');
-      } catch (err) {
-        if (ativo) setError(err.message);
-      } finally {
-        if (ativo) setLoading(false);
-      }
-    })();
-
-    return () => {
-      ativo = false;
-    };
-  }, []);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carregamento inicial dos indicadores; comportamento intencional
+    fetchMetrics();
+  }, [fetchMetrics]);
 
   if (loading && !metrics) {
     return (
       <div className={styles.container}>
         <p>Carregando indicadores do sistema...</p>
+      </div>
+    );
+  }
+
+  // O Início é de TODOS os usuários autenticados. Quem não tem painel
+  // gerencial (ex.: Operador do CCZ) recebe da API apenas o bloco mínimo —
+  // nenhum indicador de módulo — e vê esta versão da página.
+  const semPainel = metrics && !metrics.pessoas && !metrics.regulacao &&
+    !metrics.farmacia && !metrics.junta && !metrics.ccz && !metrics.processos;
+
+  if (semPainel) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.header}>
+          <div>
+            <h1 className={styles.title}>
+              Bem-vindo(a), {metrics.inicio?.usuario || "usuário"}
+            </h1>
+            <p className={styles.subtitle}>
+              Você tem acesso a {metrics.inicio?.modulos || 0} módulo
+              {metrics.inicio?.modulos === 1 ? "" : "s"}. Use o menu lateral para
+              começar a trabalhar.
+            </p>
+          </div>
+        </div>
+        <div className={styles.gridCards}>
+          <div className={styles.card}>
+            <span className={styles.cardLabel}>Seus módulos</span>
+            <strong className={styles.cardNumber}>{metrics.inicio?.modulos || 0}</strong>
+            <span className={styles.cardSubtext}>
+              Os módulos liberados para você aparecem na Sidebar.
+            </span>
+          </div>
+        </div>
       </div>
     );
   }

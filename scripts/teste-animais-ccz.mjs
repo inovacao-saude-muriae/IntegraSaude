@@ -158,8 +158,8 @@ async function main() {
     [ADMIN_REG, "TST Animais Admin Regulação"],
   ]) {
     await db.query(
-      `INSERT INTO users (cpf, nome, senha_hash, ativo, updated_at)
-       VALUES ($1, $2, $3, true, now())
+      `INSERT INTO users (cpf, nome, senha_hash, ativo, primeiro_acesso, updated_at)
+       VALUES ($1, $2, $3, true, false, now())
        ON CONFLICT (cpf) DO NOTHING`,
       [cpf, nome, "$2b$10$abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLM"],
     );

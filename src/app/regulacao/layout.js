@@ -1,5 +1,4 @@
 import {
-  carregarContextoAcesso,
   usuarioTemAcessoModulo,
   usuarioEhAdminModulo,
   usuarioTemPermissao,
@@ -7,11 +6,12 @@ import {
 } from "@/lib/permissions";
 import AcessoNegadoModulo from "@/components/AcessoNegadoModulo";
 import { RegulacaoPermProvider } from "./PermissoesRegulacaoContext";
+import { contextoDeLayoutOuLogin } from "@/lib/guardaLayout";
 
 // Gate server-side do módulo Regulação. Sem vínculo (ou contexto nulo por
 // corrida) → bloqueia NO CONTEÚDO, preservando Header/Sidebar (fail-closed).
 export default async function RegulacaoLayout({ children }) {
-  const ctx = await carregarContextoAcesso();
+  const ctx = await contextoDeLayoutOuLogin();
   const permitido =
     ctx && (await usuarioTemAcessoModulo(ctx.user, MODULOS.REGULACAO));
 

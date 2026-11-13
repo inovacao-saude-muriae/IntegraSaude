@@ -1,16 +1,16 @@
 import {
-  carregarContextoAcesso,
   usuarioTemPermissao,
   usuarioTemAcessoModulo,
   MODULOS,
 } from "@/lib/permissions";
 import AcessoNegadoModulo from "@/components/AcessoNegadoModulo";
+import { contextoDeLayoutOuLogin } from "@/lib/guardaLayout";
 
 // Cadastro de Pessoas (Paciente): GESTOR ∨ REGULACAO ∨ JUNTA ∨ FARMACIA ∨ PROCESSOS.
 // Passou a ser um item do Gerenciamento visível a todos os módulos que usam o
 // cadastro único (EMPI). O CCZ não entra: ele usa o item "Tutor".
 export default async function PessoasLayout({ children }) {
-  const ctx = await carregarContextoAcesso();
+  const ctx = await contextoDeLayoutOuLogin();
   const permitido =
     ctx &&
     // Cadastro único (EMPI): a porta é a PERMISSÃO `pessoas:visualizar` do

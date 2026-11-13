@@ -9,9 +9,13 @@ import { ConfirmProvider } from "@/components/ConfirmDialog";
 export default function ClientLayout({ children }) {
   const pathname = usePathname();
   const isLoginPage = pathname === "/login";
+  // Troca de senha obrigatória (primeiro acesso): o sistema está bloqueado e
+  // esta é a única tela liberada pelo proxy. Sem Header e sem Sidebar, para
+  // não sugerir navegação que o servidor vai negar.
+  const isTrocarSenha = pathname === "/trocar-senha";
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  if (isLoginPage) {
+  if (isLoginPage || isTrocarSenha) {
     return <ConfirmProvider>{children}</ConfirmProvider>;
   }
 

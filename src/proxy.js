@@ -24,10 +24,27 @@ import { contextoDeModulos } from "@/lib/contextoProxy";
 // EXCLUIR, EDITAR ou CANCELAR continua sendo o backend, por funcionalidade e
 // permissão do catálogo.
 //
-// Rotas públicas e `/api` passam direto (a API responde 401/403 sozinha).
+// Rotas públicas passam direto. `/api` não é autorizada aqui (cada rota
+// responde 401/403 sozinha), mas passa pela checagem de PRIMEIRO ACESSO.
+//
+// PRIMEIRO ACESSO (regra única, para todos os módulos):
+//   users.primeiro_acesso = true  →  só /trocar-senha, /login, logout e as
+//   rotas de sessão (/api/me). Qualquer outra página é redirecionada para
+//   /trocar-senha, e qualquer outra API responde 403. A checagem vem do banco
+//   (`contextoDeModulos`), nunca do JWT, e termina no instante em que a troca
+//   é gravada.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const ROTAS_PUBLICAS = ["/login", "/acesso-negado"];
+
+// A única página liberada enquanto a troca de senha obrigatória está pendente.
+// (A lista oficial fica em lib/auth — ROTAS_PRIMEIRO_ACESSO —, mas o proxy não
+// importa lib/auth para não arrastar `next/headers`/Prisma para o bundle do
+// proxy; a regra é a mesma e há teste cobrindo as duas.)
+function ehRotaDeTrocaDeSenha(pathname) {
+  const limpo = String(pathname || "").split("?")[0].split("#")[0];
+  return limpo === "/trocar-senha" || limpo.startsWith("/trocar-senha/");
+}
 
 function ehPublica(pathname) {
   return (
@@ -48,12 +65,17 @@ export async function proxy(request) {
   const token = request.cookies.get("session_token")?.value;
   const { pathname } = request.nextUrl;
 
-  // ── 1. Públicas e API: seguem sem intervenção ──────────────────────────
-  // (O matcher não exclui /api; a liberação é feita aqui para que o proxy não
-  // redirecione chamadas de API sem token para /login.)
+  // ── 1. Públicas: seguem sem intervenção ────────────────────────────────
   if (ehPublica(pathname)) return NextResponse.next();
 
-  // ── 2. Sem token → login, preservando o destino ────────────────────────
+  // A API não é autorizada pelo proxy: cada rota decide com as próprias
+  // guardas (requirePermissao). O bloqueio do primeiro acesso na API é feito
+  // por essas guardas (ver lib/auth), não aqui.
+  if (pathname.startsWith("/api")) return NextResponse.next();
+
+  // ── 2. Sem token → login (páginas) / 401 (API) ─────────────────────────
+  // (O matcher não exclui /api; a liberação é feita aqui para que o proxy não
+  // redirecione chamadas de API sem token para /login.)
   if (!token) return irParaLogin(request, pathname);
 
   // ── 3. Token válido → identidade propagada (nunca autorização) ─────────
@@ -72,18 +94,7 @@ export async function proxy(request) {
   headers.set("x-user-id", payload.userId);
   headers.set("x-user-name", payload.nome || "Usuário");
 
-  // ── 4. Rota sem módulo (dashboard, trocar-senha, raiz): só sessão ──────
-  const { exigencia, mapeada } = exigenciaDeModulo(pathname);
-  if (!exigencia) {
-    // Rota não mapeada: o proxy não inventa regra. A proteção continua nos
-    // layouts do módulo e nas guardas do backend.
-    if (!mapeada) {
-      console.warn(`[Proxy] Rota sem módulo no mapa: ${pathname}`);
-    }
-    return NextResponse.next({ request: { headers } });
-  }
-
-  // ── 5. Autorização de ENTRADA por módulo (fonte: user_acessos) ─────────
+  // ── 4. Contexto do banco: conta ativa, vínculos e primeiro acesso ──────
   let contexto;
   try {
     contexto = await contextoDeModulos(payload.userId);
@@ -102,6 +113,30 @@ export async function proxy(request) {
     response.cookies.delete("session_token");
     return response;
   }
+
+  // ── 5. PRIMEIRO ACESSO: só a troca de senha (e a sessão) é liberada ────
+  // Regra única, válida para qualquer módulo e para qualquer URL digitada
+  // à mão. Nunca redireciona /trocar-senha para ela mesma (sem loop).
+  if (contexto.primeiroAcesso) {
+    if (ehRotaDeTrocaDeSenha(pathname)) {
+      return NextResponse.next({ request: { headers } });
+    }
+    const url = new URL("/trocar-senha", request.url);
+    return NextResponse.redirect(url);
+  }
+
+  // ── 7. Rota sem módulo (dashboard, trocar-senha, raiz): só sessão ──────
+  const { exigencia, mapeada } = exigenciaDeModulo(pathname);
+  if (!exigencia) {
+    // Rota não mapeada: o proxy não inventa regra. A proteção continua nos
+    // layouts do módulo e nas guardas do backend.
+    if (!mapeada) {
+      console.warn(`[Proxy] Rota sem módulo no mapa: ${pathname}`);
+    }
+    return NextResponse.next({ request: { headers } });
+  }
+
+  // ── 8. Autorização de ENTRADA por módulo (fonte: user_acessos) ─────────
 
   const permitido = exigencia.modulos.some((m) => contexto.modulos.includes(m));
   if (!permitido) {

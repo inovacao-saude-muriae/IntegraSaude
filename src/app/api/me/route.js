@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { carregarSessao } from "@/lib/auth";
+import { carregarSessao, primeiroAcessoPendente } from "@/lib/auth";
 import { obterContextoEfetivo, MODULOS } from "@/lib/permissions";
 import { MODULOS_CATALOGO, PERFIS_INFO } from "@/lib/permissoesCatalogo";
 
@@ -28,6 +28,9 @@ export async function GET() {
     }
 
     const user = ctx.user;
+    // Estado de primeiro acesso: vem do banco (users.primeiro_acesso), não do
+    // JWT. A tela de troca de senha e a página Início leem este campo.
+    const primeiroAcesso = await primeiroAcessoPendente(ctx);
     const efetivo = await obterContextoEfetivo(user);
 
     const modulos = Object.values(efetivo.modulos).map((m) => ({
@@ -47,7 +50,7 @@ export async function GET() {
           nomeCompleto: user.nome,
           cpf: user.cpf,
           cargo: user.cargo || null,
-          primeiroAcesso: user.primeiroAcesso ?? false,
+          primeiroAcesso,
 
           // ── Contexto efetivo (fonte única da UI) ──
           modulos,

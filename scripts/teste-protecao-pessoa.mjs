@@ -144,8 +144,8 @@ async function main() {
 
   console.log("\nPreparando usuário sem permissão de exclusão…");
   await db.query(
-    `INSERT INTO users (cpf, nome, senha_hash, ativo, updated_at)
-     VALUES ($1, 'TST Operador CCZ', '$2b$10$abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLM', true, now())
+    `INSERT INTO users (cpf, nome, senha_hash, ativo, primeiro_acesso, updated_at)
+     VALUES ($1, 'TST Operador CCZ', '$2b$10$abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLM', true, false, now())
      ON CONFLICT (cpf) DO NOTHING`,
     [CPF.SEM_PERMISSAO],
   );

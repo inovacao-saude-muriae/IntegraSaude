@@ -32,6 +32,9 @@ function validarSenhaForte(senha) {
 }
 
 export default function TrocarSenhaPage() {
+  // Enquanto a troca está pendente o sistema inteiro está bloqueado (proxy):
+  // esta é a única tela acessível, por isso ela não tem Sidebar/Header.
+  // Encerrar a sessão continua possível daqui.
   const router = useRouter();
   const [senhaAtual, setSenhaAtual] = useState('');
   const [novaSenha, setNovaSenha] = useState('');
@@ -91,8 +94,11 @@ export default function TrocarSenhaPage() {
 
       if (res.ok) {
         setSucesso(true);
+        // Senha gravada: o proxy já libera o sistema (users.primeiro_acesso =
+        // false). Destino padrão de todos os usuários: o Início.
         setTimeout(() => {
-          router.push('/');
+          router.replace('/');
+          router.refresh();
         }, 2000);
       } else {
         setErro(data.error || 'Erro ao trocar senha');

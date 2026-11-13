@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
-import { requireAdminDeAlgumModulo, registrarNegativaDePainel } from "@/lib/auth";
+import {
+  carregarSessao,
+  primeiroAcessoPendente,
+  requireAdminDeAlgumModulo,
+  registrarNegativaDePainel,
+} from "@/lib/auth";
 import {
   MODULOS,
+  obterContextoEfetivo,
   usuarioEhAdminModulo,
   usuarioTemPermissao,
 } from "@/lib/permissions";
@@ -33,6 +39,26 @@ function toNumber(value) {
   return Number(value || 0);
 }
 
+// Quem não é ADMIN de módulo nenhum recebe só o essencial para o Início:
+// o nome do usuário e quantos módulos ele tem. Nenhum dado operacional.
+async function respostaInicio(ctx) {
+  const efetivo = await obterContextoEfetivo(ctx.user);
+  return NextResponse.json({
+    inicio: {
+      usuario: ctx.user.nome || "",
+      modulos: Object.keys(efetivo.modulos).length,
+    },
+    pessoas: null,
+    regulacao: null,
+    farmacia: null,
+    junta: null,
+    ccz: null,
+    processos: null,
+    usuarios: null,
+    atividadeRecente: null,
+  });
+}
+
 export async function GET() {
   try {
     // Barreira de entrada: sessão válida + ADMIN de algum módulo, OU quem tem
@@ -40,14 +66,34 @@ export async function GET() {
     // `opcional`: a barreira NÃO audita aqui — a negativa desta rota é
     // registrada UMA vez logo abaixo, com o recurso do painel, para que a
     // tentativa não fique sem rastro nem duplicada.
+    // Primeiro acesso pendente: nenhuma operação é liberada (a troca de senha
+    // vem antes de tudo). Esta é a única rota que precisa responder sem passar
+    // pela guarda de ação, porque é a fonte do Início.
+    const ctxInicial = await carregarSessao();
+    if (!ctxInicial) {
+      return NextResponse.json({ error: "Sessão expirada" }, { status: 401 });
+    }
+    if (await primeiroAcessoPendente(ctxInicial)) {
+      return NextResponse.json(
+        {
+          error: "É necessário alterar a senha inicial antes de usar o sistema.",
+          primeiroAcesso: true,
+        },
+        { status: 403 },
+      );
+    }
+
     let user;
     try {
       user = await requireAdminDeAlgumModulo({ opcional: true });
     } catch (erro) {
-      if (erro?.status === 401 || erro?.status === 403) {
-        await registrarNegativaDePainel();
-      }
-      throw erro;
+      if (erro?.status === 401) throw erro;
+
+      // Usuário autenticado, mas sem painel gerencial (ex.: Operador do CCZ).
+      // O Início é comum a TODOS os usuários: devolve o bloco mínimo, sem
+      // consultar nem devolver dado de módulo nenhum. Não é negativa de
+      // acesso — é o Início do usuário operacional.
+      return await respostaInicio(ctxInicial);
     }
 
     // ── Escopo do usuário ────────────────────────────────────────────────

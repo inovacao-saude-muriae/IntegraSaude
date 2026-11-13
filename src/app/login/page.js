@@ -12,23 +12,14 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // O destino é decidido pelos VÍNCULOS que o login devolve, não por um perfil
-  // único: quem tem mais de um módulo escolhe na tela inicial (/), que lista
-  // exatamente os módulos autorizados. Quem tem um só cai direto nele.
-  const DESTINO_POR_MODULO = {
-    REGULACAO: '/regulacao?tab=DASHBOARD',
-    FARMACIA: '/camara-tecnica/farmacia-judicial?tab=DASHBOARD',
-    PROCESSOS: '/camara-tecnica/processos',
-    JUNTA: '/junta-reguladora?tab=DASHBOARD',
-    CCZ: '/ccz?tab=DASHBOARD',
-  };
-
-  const getDestino = (modulos) => {
-    const lista = Array.isArray(modulos) ? modulos : [];
-    const operacionais = lista.filter((m) => DESTINO_POR_MODULO[m]);
-    if (operacionais.length === 1) return DESTINO_POR_MODULO[operacionais[0]];
-    return '/';
-  };
+  // Destino PADRÃO de todo login: a página Início, para todos os perfis —
+  // quem tem um módulo só e quem tem vários. Os módulos continuam acessíveis
+  // pela Sidebar e pelos cartões do Início.
+  //
+  // Primeiro acesso: o servidor (proxy.js) intercepta a navegação e leva para
+  // /trocar-senha antes de qualquer página operacional — o redirecionamento
+  // não depende desta tela nem da página Início.
+  const DESTINO_PADRAO = '/';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -40,7 +31,8 @@ export default function LoginPage() {
       const cpf = formData.get('cpf')?.replace(/\D/g, '');
       if (typeof window !== 'undefined' && cpf) localStorage.setItem('user_cpf', cpf);
       router.refresh();
-      router.push(getDestino(res.modulos));
+      // replace: o botão "voltar" não devolve o usuário ao formulário de login.
+      router.replace(DESTINO_PADRAO);
     } else {
       setMsg(res?.error || 'CPF ou senha incorretos.');
       setLoading(false);

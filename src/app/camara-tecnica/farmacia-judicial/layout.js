@@ -1,5 +1,4 @@
 import {
-  carregarContextoAcesso,
   usuarioTemAcessoModulo,
   usuarioTemPermissao,
   usuarioEhAdminModulo,
@@ -7,10 +6,11 @@ import {
 } from "@/lib/permissions";
 import AcessoNegadoModulo from "@/components/AcessoNegadoModulo";
 import { FarmaciaJudicialPermProvider } from "./PermissoesFarmaciaJudicialContext";
+import { contextoDeLayoutOuLogin } from "@/lib/guardaLayout";
 
 // Gate server-side do módulo Farmácia Judicial (fail-closed).
 export default async function FarmaciaJudicialLayout({ children }) {
-  const ctx = await carregarContextoAcesso();
+  const ctx = await contextoDeLayoutOuLogin();
   const permitido =
     ctx && (await usuarioTemAcessoModulo(ctx.user, MODULOS.FARMACIA));
 

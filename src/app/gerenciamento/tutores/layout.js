@@ -1,10 +1,10 @@
 import {
-  carregarContextoAcesso,
   usuarioTemPermissao,
   usuarioTemAcessoModulo,
   MODULOS,
 } from "@/lib/permissions";
 import AcessoNegadoModulo from "@/components/AcessoNegadoModulo";
+import { contextoDeLayoutOuLogin } from "@/lib/guardaLayout";
 
 // Cadastro de Pessoas (Tutor): GESTOR ∨ REGULACAO ∨ JUNTA ∨ FARMACIA ∨
 // PROCESSOS ∨ CCZ.
@@ -13,7 +13,7 @@ import AcessoNegadoModulo from "@/components/AcessoNegadoModulo";
 // `tutores` do próprio módulo (ccz_tutores:visualizar) — sem precisar de vínculo
 // com Gestão Geral.
 export default async function TutoresLayout({ children }) {
-  const ctx = await carregarContextoAcesso();
+  const ctx = await contextoDeLayoutOuLogin();
   const permitido =
     ctx &&
     // Cadastro único (EMPI): a porta é a PERMISSÃO `pessoas:visualizar` do
