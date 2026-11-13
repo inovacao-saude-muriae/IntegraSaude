@@ -359,6 +359,12 @@ async function main() {
     "Novo Processo",
     "Novo Pedido",
     "Procedimentos",
+    // "Animais": no CCZ é a tela de trabalho (/ccz?tab=ANIMAIS, com as abas
+    // Consultar/Novo Animal); no Gerenciamento é a consulta (/gerenciamento/
+    // animais). Mesmo rótulo, destinos diferentes — como Tutor e Termos.
+    "Animais",
+    "Tutor",
+    "Termos",
   ]);
   const linksRepetidos = [...sidebar.matchAll(/name: "([^"]+)"/g)].map((m) => m[1]);
   const nomesRepetidos = linksRepetidos.filter(

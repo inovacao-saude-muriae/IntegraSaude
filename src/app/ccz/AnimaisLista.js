@@ -18,7 +18,12 @@ const OPCOES_FILTRO = [
   { value: "INCINERADO", label: "Incinerados" },
 ];
 
-export default function AnimaisLista({ onEditar }) {
+export default function AnimaisLista({
+  onEditar,
+  podeEditar = true, // permissão CCZ › Animais › editar
+  podeCriar = false, // permissão CCZ › Animais › criar
+  onNovo = null, // leva para a aba "Novo" (quando a tela tem abas)
+}) {
   const notify = useNotify();
   const [animais, setAnimais] = useState([]);
   const [carregando, setCarregando] = useState(true);
@@ -82,6 +87,16 @@ export default function AnimaisLista({ onEditar }) {
             Animais cadastrados{animais.length > 0 ? ` (${animais.length})` : ""}
           </h2>
           <div className={styles.listaToolbar}>
+            {podeCriar && onNovo && (
+              <button
+                type="button"
+                className={styles.btnCardVisualizar}
+                onClick={onNovo}
+                title="Cadastrar um novo animal"
+              >
+                + Novo animal
+              </button>
+            )}
             <select
               className={styles.filtroSelect}
               value={filtroSituacao}
@@ -246,7 +261,7 @@ export default function AnimaisLista({ onEditar }) {
           onFechar={() => setFichaId(null)}
           onEditar={(id) => {
             setFichaId(null);
-            onEditar(id);
+            if (podeEditar && onEditar) onEditar(id);
           }}
           onExcluir={handleExcluir}
           onArquivar={handleArquivar}

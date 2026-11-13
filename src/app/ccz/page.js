@@ -22,6 +22,31 @@ import styles from "./CadastroTutor.module.css";
 
 function CczPageContent() {
   const searchParams = useSearchParams();
+
+  // Permissões efetivas de Animais (CCZ › Animais) vêm de /api/me, que decide
+  // no servidor. A tela só mostra "Novo" e o botão Editar para quem pode; o
+  // backend (salvarAnimal) revalida com requirePermissao.
+  const [permAnimais, setPermAnimais] = useState({ criar: false, editar: false });
+  useEffect(() => {
+    let ativo = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/me", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        // Lista plana: ["animais:criar", "animais:editar", ...] do módulo CCZ.
+        const lista = data?.user?.permissoes || [];
+        const pode = (p) => lista.includes(`animais:${p}`);
+        if (ativo) setPermAnimais({ criar: pode("criar"), editar: pode("editar") });
+      } catch {
+        // Sem contexto: a tela fica em modo consulta (fail-closed).
+      }
+    })();
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
   const router = useRouter();
 
   const activeTab = (searchParams.get("tab") || "DASHBOARD").toUpperCase();
@@ -41,6 +66,7 @@ function CczPageContent() {
   // Estado de edição vindo das listas.
   const [cpfTutorEdicao, setCpfTutorEdicao] = useState("");
   const [animalEdicao, setAnimalEdicao] = useState(null);
+  const animalIdParam = searchParams.get("id") || "";
   const [carregandoAnimal, setCarregandoAnimal] = useState(false);
   const [procedimentoEdicao, setProcedimentoEdicao] = useState(null);
   const [carregandoProcedimento, setCarregandoProcedimento] = useState(false);
@@ -86,6 +112,32 @@ function CczPageContent() {
       irPara("ANIMAIS", "CADASTRAR");
     }
   };
+
+  // Link direto de edição (/ccz?tab=ANIMAIS&subTab=CADASTRAR&id=XXX), usado
+  // pela tela de Animais do Gerenciamento: carrega o animal uma única vez.
+  const [idCarregado, setIdCarregado] = useState("");
+  useEffect(() => {
+    if (
+      activeTab !== "ANIMAIS" ||
+      activeSubTab !== "CADASTRAR" ||
+      !animalIdParam ||
+      animalIdParam === idCarregado
+    ) {
+      return;
+    }
+    let ativo = true;
+    (async () => {
+      setCarregandoAnimal(true);
+      const res = await obterAnimal(animalIdParam);
+      if (!ativo) return;
+      setCarregandoAnimal(false);
+      setIdCarregado(animalIdParam);
+      if (res.success) setAnimalEdicao(res.data);
+    })();
+    return () => {
+      ativo = false;
+    };
+  }, [activeTab, activeSubTab, animalIdParam, idCarregado]);
 
   // ── Editar procedimento: carrega o registro e vai para Procedimentos > Cadastrar ──
   const editarProcedimento = async (id) => {
@@ -176,15 +228,26 @@ function CczPageContent() {
     }
   } else if (activeTab === "ANIMAIS") {
     if (activeSubTab === "LISTA") {
-      conteudo = <AnimaisLista onEditar={editarAnimal} />;
+      conteudo = (
+        <AnimaisLista
+          onEditar={editarAnimal}
+          podeEditar={permAnimais.editar}
+          podeCriar={permAnimais.criar}
+          onNovo={() => irPara("ANIMAIS", "CADASTRAR")}
+        />
+      );
     } else if (carregandoAnimal) {
       conteudo = <p className={styles.subtitle}>Carregando animal...</p>;
+    } else if (!permAnimais.criar) {
+      // Sem permissão de cadastrar/editar animal: a tela continua na consulta.
+      conteudo = <AnimaisLista onEditar={() => {}} />;
     } else {
       conteudo = (
         <CadastroAnimal
           key={animalEdicao?.id || "novo"}
           animalInicial={animalEdicao}
           onSalvo={voltarListaAnimais}
+          onCancelar={voltarListaAnimais}
         />
       );
     }
@@ -241,6 +304,7 @@ function CczPageContent() {
             </svg>
             Lista
           </button>
+          {(activeTab !== "ANIMAIS" || permAnimais.criar) && (
           <button
             className={`${styles.tabButton} ${activeSubTab === "CADASTRAR" ? styles.tabActive : ""}`}
             onClick={() => irPara(activeTab, "CADASTRAR")}
@@ -261,6 +325,7 @@ function CczPageContent() {
             </svg>
             Novo
           </button>
+          )}
         </div>
       )}
 

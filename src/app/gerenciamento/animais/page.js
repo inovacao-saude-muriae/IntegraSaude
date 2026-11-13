@@ -1,10 +1,19 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import AnimaisLista from "@/app/ccz/AnimaisLista";
 
 // Tela "Animais" do Gerenciamento: reaproveita a lista do CCZ.
-// A edição/cadastro do animal continua nas telas de Zoonoses/Denúncias/Agenda do
-// CCZ (é lá que o animal é criado no fluxo de trabalho); aqui o foco é consultar.
+// O cadastro e a edição ficam na tela do CCZ (/ccz?tab=ANIMAIS), que tem as
+// abas "Consultar Animais" e "Novo Animal" — a edição de um animal começa
+// pela ficha dele na lista.
 export default function AnimaisPage() {
-  return <AnimaisLista />;
+  const router = useRouter();
+
+  return (
+    <AnimaisLista
+      onEditar={(id) => router.push(`/ccz?tab=ANIMAIS&subTab=CADASTRAR&id=${id}`)}
+      onNovo={() => router.push("/ccz?tab=ANIMAIS&subTab=CADASTRAR")}
+    />
+  );
 }

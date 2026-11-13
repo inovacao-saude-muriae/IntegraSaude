@@ -707,7 +707,15 @@ export async function buscarAnimaisCCZ(termo = "") {
 // ── SALVAR ANIMAL (ccz_animais) ─────────────────────────────────────────────
 export async function salvarAnimal(dados) {
   try {
-    const user = await requireAcessoModulo(MODULOS.CCZ);
+    // Cadastro/edição de animal exige a permissão efetiva do catálogo
+    // (CCZ › Animais). Na criação é "criar"; na edição, "editar".
+    // Vínculo com o módulo continua necessário, mas não basta.
+    const editandoDados = dados?.editando === true;
+    const user = await requirePermissao(
+      MODULOS.CCZ,
+      "animais",
+      editandoDados ? "editar" : "criar",
+    );
 
     // Id do animal: digitado pelo usuário (NÃO há geração automática). É PK
     // obrigatória e não pode ficar em branco. Normaliza (maiúsculas, até 50).
@@ -719,7 +727,7 @@ export async function salvarAnimal(dados) {
 
     // Flag de edição enviada pelo cliente. Na criação, o id não pode repetir;
     // na edição o id é a PK existente e não deve disparar o erro de duplicidade.
-    const editando = dados.editando === true;
+    const editando = editandoDados;
 
     if (!editando) {
       const existente = await prisma.animal.findUnique({
