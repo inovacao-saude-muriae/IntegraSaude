@@ -70,23 +70,40 @@ export async function listarUbs() {
 }
 
 // ── LISTAR / BUSCAR ────────────────────────────────────────────────────────
-export async function listarPessoas(termo = "") {
+// `situacao`: "ativas" (padrão) | "inativas" | "todas".
+// Cadastros absorvidos por unificação (unificadoEmCpf preenchido) NUNCA são
+// listados como inativos: eles não são "inativos", foram unificados em outro.
+export async function listarPessoas(termo = "", { situacao = "ativas" } = {}) {
   try {
     await requireAcessoPessoas();
 
     const termoLimpo = termo.trim();
     const termoDigitos = soDigitos(termoLimpo);
 
-    // Cadastros absorvidos por unificação (ativo=false) nunca são listados.
+    // Unificados (unificadoEmCpf preenchido) nunca entram como "inativos".
+    const filtroSituacao =
+      situacao === "inativas"
+        ? { ativo: false }
+        : situacao === "todas"
+          ? {}
+          : { ativo: true };
+
+    // Os dois critérios são combinados com AND de propósito: o termo não pode
+    // reabrir a lista (ex.: buscar um CPF específico em "ativas").
     const where = termoLimpo
       ? {
-          ativo: true,
-          OR: [
-            { nomeCompleto: { contains: termoLimpo, mode: "insensitive" } },
-            ...(termoDigitos ? [{ cpf: { contains: termoDigitos } }] : []),
+          AND: [
+            filtroSituacao,
+            { unificadoEmCpf: null },
+            {
+              OR: [
+                { nomeCompleto: { contains: termoLimpo, mode: "insensitive" } },
+                ...(termoDigitos ? [{ cpf: { contains: termoDigitos } }] : []),
+              ],
+            },
           ],
         }
-      : { ativo: true };
+      : { ...filtroSituacao, unificadoEmCpf: null };
 
     const pessoas = await prisma.pessoa.findMany({
       where,

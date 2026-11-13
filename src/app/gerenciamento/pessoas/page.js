@@ -13,8 +13,19 @@ import CadastroPessoas from "@/components/CadastroPessoas/CadastroPessoas";
 // módulo. A tela só mostra o botão para quem tem; o backend revalida.
 export default async function PessoasPage() {
   const ctx = await carregarContextoAcesso();
-  const podeExcluir =
-    ctx && (await usuarioTemPermissao(ctx.user, MODULOS.GESTAO, "pessoas", "excluir"));
+  const [podeExcluir, podeInativar, podeReativar] = ctx
+    ? await Promise.all([
+        usuarioTemPermissao(ctx.user, MODULOS.GESTAO, "pessoas", "excluir"),
+        usuarioTemPermissao(ctx.user, MODULOS.GESTAO, "pessoas", "inativar"),
+        usuarioTemPermissao(ctx.user, MODULOS.GESTAO, "pessoas", "reativar"),
+      ])
+    : [false, false, false];
 
-  return <CadastroPessoas podeExcluir={podeExcluir} />;
+  return (
+    <CadastroPessoas
+      podeExcluir={podeExcluir}
+      podeInativar={podeInativar}
+      podeReativar={podeReativar}
+    />
+  );
 }

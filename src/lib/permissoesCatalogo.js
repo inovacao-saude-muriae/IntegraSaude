@@ -97,6 +97,10 @@ export const PERMISSOES = {
   DISPENSAR: 'dispensar',
   EXPORTAR: 'exportar',
   GERENCIAR: 'gerenciar',
+  // Situação cadastral da pessoa central (EMPI). São operações próprias e
+  // separadas da exclusão definitiva: não apagam nada e preservam histórico.
+  INATIVAR: 'inativar',
+  REATIVAR: 'reativar',
 };
 
 // Nome legível de cada permissão (para a tela e para os relatórios).
@@ -111,6 +115,8 @@ export const PERMISSOES_INFO = {
   [PERMISSOES.DISPENSAR]: 'Dispensar',
   [PERMISSOES.EXPORTAR]: 'Exportar',
   [PERMISSOES.GERENCIAR]: 'Gerenciar',
+  [PERMISSOES.INATIVAR]: 'Inativar',
+  [PERMISSOES.REATIVAR]: 'Reativar',
 };
 
 const V = PERMISSOES.VISUALIZAR;
@@ -501,9 +507,10 @@ const PACOTES = {
       indicadores: [V, EXP],
       usuarios: [V, C, E, G],
       acessos: [V, C, E, G],
-      // Exclusão DEFINITIVA do cadastro central é permissão própria da
-      // Gestão Geral (nunca herdada de administrador de módulo).
-      pessoas: [V, C, E, X],
+      // Cadastro central: exclusão DEFINITIVA, inativação e reativação são
+      // permissões próprias da Gestão Geral — nunca herdadas de administrador
+      // de módulo (Regulação, Câmara Técnica, Junta, CCZ).
+      pessoas: [V, C, E, X, PERMISSOES.INATIVAR, PERMISSOES.REATIVAR],
       relatorios: [V, EXP],
       auditoria: [V, EXP],
       unidades: [V, C, E, X],
