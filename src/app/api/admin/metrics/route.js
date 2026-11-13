@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdminDeAlgumModulo } from "@/lib/auth";
+import { requireAdminDeAlgumModulo, registrarNegativaDePainel } from "@/lib/auth";
 import {
   MODULOS,
   usuarioEhAdminModulo,
@@ -37,9 +37,18 @@ export async function GET() {
   try {
     // Barreira de entrada: sessão válida + ADMIN de algum módulo, OU quem tem
     // permissão de painel da Gestão Geral.
-    // `opcional`: se o usuário não passar daqui, quem registra a negativa é esta
-    // rota (uma vez), não a barreira — evitando dois registros NEGAR iguais.
-    const user = await requireAdminDeAlgumModulo({ opcional: true });
+    // `opcional`: a barreira NÃO audita aqui — a negativa desta rota é
+    // registrada UMA vez logo abaixo, com o recurso do painel, para que a
+    // tentativa não fique sem rastro nem duplicada.
+    let user;
+    try {
+      user = await requireAdminDeAlgumModulo({ opcional: true });
+    } catch (erro) {
+      if (erro?.status === 401 || erro?.status === 403) {
+        await registrarNegativaDePainel();
+      }
+      throw erro;
+    }
 
     // ── Escopo do usuário ────────────────────────────────────────────────
     // Cada bloco abre pela permissão do SEU módulo. Gestão Geral não abre nada

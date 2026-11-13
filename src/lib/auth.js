@@ -186,6 +186,21 @@ export async function requireAcessoServicoJunta(servicoJunta) {
 }
 
 /**
+ * Registra a negativa de uma rota de painel quando a barreira foi chamada com
+ * `opcional: true`. Exportada para que a ROTA decida o momento de registrar —
+ * assim a tentativa tem um único registro, com o recurso certo.
+ */
+export async function registrarNegativaDePainel() {
+  const user = await carregarUsuarioSessao();
+  await registrarAcessoNegado(user, {
+    recurso: "Permissao:GESTAO:painel:visualizar",
+    descricao:
+      "Acesso negado: requer administrador de algum módulo ou a permissão " +
+      "visualizar em painel (GESTAO)",
+  });
+}
+
+/**
  * Barreira das rotas de painel/consolidado (métricas, relatórios gerais).
  *
  * Entra quem é ADMINISTRADOR de algum módulo OU quem tem permissão de painel da
