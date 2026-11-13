@@ -3,7 +3,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  /* Mesmo degradê da Sidebar (#09665F → #0C514F). */
+  background: linear-gradient(135deg, #09665F 0%, #0C514F 100%);
   padding: 2rem 1rem;
 }
 
@@ -83,8 +84,8 @@
 
 .input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #09665F;
+  box-shadow: 0 0 0 3px rgba(9, 102, 95, 0.15);
 }
 
 .input::placeholder {
@@ -135,7 +136,7 @@
 
 .submitButton {
   padding: 0.875rem 1.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #09665F 0%, #0C514F 100%);
   color: #ffffff;
   font-size: 1rem;
   font-weight: 600;
