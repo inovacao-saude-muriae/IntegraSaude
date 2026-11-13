@@ -113,9 +113,39 @@ const menuSections = [
             ],
           },
           {
+            // Processos Judiciais é um GRUPO (não um item solto): abre em
+            // Novo Processo, Realizar Bloqueio e Dashboard. A tela de Novo
+            // Processo é a página já existente, com as abas Consultar/Novo.
             name: "Processos Judiciais",
             tab: "PROCESSOS",
             path: "/camara-tecnica/processos",
+            isNestedDropdown: true,
+            visivelSe: "PROCESSOS",
+            nestedItems: [
+              {
+                name: "Novo Processo",
+                path: "/camara-tecnica/processos",
+                visivelSe: "PROCESSOS",
+              },
+              // Placeholder: a rota existe e explica que a funcionalidade será
+              // liberada depois. Nenhuma operação fictícia é oferecida.
+              {
+                name: "Realizar Bloqueio",
+                path: "/camara-tecnica/processos/bloqueio",
+                visivelSe: "PROCESSOS",
+              },
+              {
+                name: "Dashboard",
+                path: "/camara-tecnica/processos/dashboard",
+                visivelSe: "PROCESSOS",
+              },
+            ],
+          },
+          // Processos Administrativos: área separada, para desenvolvimento
+          // futuro (rota própria com aviso, sem operação fictícia).
+          {
+            name: "Processos Administrativos",
+            path: "/camara-tecnica/processos-administrativos",
             visivelSe: "PROCESSOS",
           },
         ],
@@ -282,6 +312,16 @@ const menuSections = [
             visivelSe: "JUNTA",
           },
           {
+            // Catálogo PRÓPRIO da área Processos (Câmara Técnica), apresentado
+            // aqui por organização de menu. Os dados continuam sendo de
+            // PROCESSOS: quem não tem vínculo/permissão no módulo não entra —
+            // estar no Gerenciamento não concede acesso.
+            name: "Especialidades e Procedimentos",
+            path: "/gerenciamento/especialidades-procedimentos",
+            tab: "CATALOGO_PROCESSOS",
+            visivelSe: "CATALOGO_PROCESSOS",
+          },
+          {
             name: "Tutor",
             path: "/gerenciamento/tutores",
             tab: "TUTORES",
@@ -342,6 +382,10 @@ function subIcon(nome = "") {
   if (n.includes("lista de espera") || n.includes("espera") || n.includes("exibir") || n.includes("lista"))
     return (
       <svg {...props}><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>
+    );
+  if (n.includes("bloqueio") || n.includes("bloquear"))
+    return (
+      <svg {...props}><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
     );
   if (n.includes("liberad"))
     return (
@@ -504,6 +548,13 @@ function construirMenu(me) {
         return temModulo("CCZ");
       case "PROCESSOS":
         return temModulo("PROCESSOS");
+      case "CATALOGO_PROCESSOS":
+        // Especialidades e Procedimentos: só para quem tem a permissão de
+        // catálogo do módulo PROCESSOS. Ter Gerenciamento NÃO basta.
+        return (
+          temPermissao("PROCESSOS", "catalogo_especialidades:visualizar") ||
+          temPermissao("PROCESSOS", "catalogo_procedimentos:visualizar")
+        );
       case "JUNTA_SUBSERVICO":
         return (
           ehAdminMod("JUNTA") ||
@@ -602,6 +653,29 @@ function MenuContent({ isOpen, onClose }) {
   return <MenuRender menuSections={menuAtual} isOpen={isOpen} onClose={onClose} />;
 }
 
+// A rota ativa pertence a este grupo da Sidebar?
+// Compara o pathname com o caminho do próprio grupo e com o de cada item
+// (leaf e nested). Só apresentação: não decide autorização.
+function rotaPertenceAoItem(pathname, item) {
+  const base = (caminho) => String(caminho || "").split("?")[0].split("#")[0];
+  const atual = base(pathname);
+  if (!atual) return false;
+
+  const candidatos = [item.path];
+  for (const sub of item.subItems || []) {
+    if (sub.path) candidatos.push(sub.path);
+    for (const nested of sub.nestedItems || []) {
+      if (nested.path) candidatos.push(nested.path);
+    }
+  }
+
+  return candidatos.some((caminho) => {
+    const alvo = base(caminho);
+    if (!alvo) return false;
+    return atual === alvo || atual.startsWith(`${alvo}/`);
+  });
+}
+
 function MenuRender({ menuSections, isOpen, onClose }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -612,6 +686,9 @@ function MenuRender({ menuSections, isOpen, onClose }) {
 
   const [compact, setCompact] = useState(false);
   const [openGroup, setOpenGroup] = useState({});
+  // Grupos FECHADOS manualmente pelo usuário (a rota ativa reabre sozinha;
+  // fechar de propósito continua fechado até navegar para dentro do grupo).
+  const [gruposFechados, setGruposFechados] = useState({});
   const [openNested, setOpenNested] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -654,10 +731,19 @@ function MenuRender({ menuSections, isOpen, onClose }) {
     return `${item.path}?tab=${primeiro.tab}`;
   };
 
+  // Um grupo está aberto quando o usuário o abriu OU quando a rota ativa
+  // pertence a ele (entrar por link direto/refresh mantém o grupo expandido).
+  // Derivado do pathname — sem setState em effect.
+  const estaAberto = (item) =>
+    Boolean(searchTerm) ||
+    (!gruposFechados[item.path] &&
+      (Boolean(openGroup[item.path]) || rotaPertenceAoItem(pathname, item)));
+
   const toggleGroup = (item) => {
     const path = item.path;
-    const vaiAbrir = !openGroup[path];
-    setOpenGroup((prev) => ({ ...prev, [path]: !prev[path] }));
+    const vaiAbrir = !estaAberto(item);
+    setOpenGroup((prev) => ({ ...prev, [path]: vaiAbrir }));
+    setGruposFechados((prev) => ({ ...prev, [path]: !vaiAbrir }));
     
     // Se estiver FECHANDO o grupo, fechar todos os submenus nested dentro dele
     if (!vaiAbrir) {
@@ -792,8 +878,7 @@ function MenuRender({ menuSections, isOpen, onClose }) {
           return (
             <div key={sIdx} className={styles.sectionGroup}>
               {filteredItems.map((item) => {
-                const isDropdownOpen =
-                  Boolean(openGroup[item.path]) || Boolean(searchTerm);
+                const isDropdownOpen = estaAberto(item);
 
                 if (item.isDropdown) {
                   // Sub-itens já recortados por perfil em construirMenu.
@@ -921,7 +1006,8 @@ function MenuRender({ menuSections, isOpen, onClose }) {
                                         const nestedQueryTab = nestedQueryParams.get("tab") || "DASHBOARD";
                                         const nestedQuerySubTab = nestedQueryParams.get("subTab");
                                         const isNestedActive = nested.path
-                                          ? pathname === nestedBasePath &&
+                                          ? (pathname === nestedBasePath ||
+                                             pathname.startsWith(`${nestedBasePath}/`)) &&
                                             currentTab === nestedQueryTab &&
                                             (!nestedQuerySubTab || currentSubTab === nestedQuerySubTab)
                                           : pathname === (sub.path || item.path) &&

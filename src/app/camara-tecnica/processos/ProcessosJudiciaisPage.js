@@ -12,7 +12,6 @@
 // operação é revalidada no backend por `requirePermissao`.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useConfirm } from "@/components/ConfirmDialog";
 import SeletorPaciente from "@/components/SeletorPaciente";
@@ -323,9 +322,9 @@ export default function ProcessosJudiciaisPage({
           </p>
         </div>
         <div className={styles.cabecalhoAcoes}>
-          <Link href="/camara-tecnica/processos/especialidades" className={styles.linkCatalogo}>
-            ⚙ Especialidades e Procedimentos
-          </Link>
+          {/* O cadastro de Especialidades e Procedimentos é administrativo e
+              vive em Gerenciamento → Especialidades e Procedimentos. Não é
+              etapa do formulário e não aparece mais na navegação operacional. */}
           <div className={styles.abas}>
             <button
               type="button"

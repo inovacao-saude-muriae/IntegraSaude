@@ -272,6 +272,11 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  /* Cabeçalho + menus podem passar da altura da tela: o submenu rola em vez
+     de empurrar o rodapé (Recolher menu) para fora da área visível. */
+  max-height: min(60vh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .sidebarCompact .nestedMenuList {

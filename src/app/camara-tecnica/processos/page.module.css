@@ -468,31 +468,4 @@
   flex-wrap: wrap;
 }
 
-.linkCatalogo {
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: #1d4ed8;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  border-radius: 8px;
-  padding: 0.45rem 0.7rem;
-  text-decoration: none;
-  white-space: nowrap;
-}
 
-.linkCatalogo:hover {
-  background: #dbeafe;
-}
-
-/* Nome de catálogo inativado exibido em registro histórico. */
-.tagInativo {
-  margin-left: 0.35rem;
-  font-size: 0.65rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  background: #f1f5f9;
-  color: #64748b;
-  border-radius: 999px;
-  padding: 0.05rem 0.4rem;
-}

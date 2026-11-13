@@ -30,6 +30,8 @@ export const MAPA_ROTAS = [
   // distintos — por isso a rota de cada um aponta para o seu módulo.
   { prefixo: "/camara-tecnica/farmacia-judicial", modulo: MODULOS.FARMACIA },
   { prefixo: "/camara-tecnica/processos", modulo: MODULOS.PROCESSOS },
+  // Processos Administrativos: mesma área da Câmara Técnica, mesmo módulo.
+  { prefixo: "/camara-tecnica/processos-administrativos", modulo: MODULOS.PROCESSOS },
   { prefixo: "/camara-tecnica", modulo: MODULOS.FARMACIA },
 
   // ── Junta Reguladora ───────────────────────────────────────────────────
@@ -48,6 +50,13 @@ export const MAPA_ROTAS = [
   { prefixo: "/gerenciamento/termos", modulo: MODULOS.CCZ },
   { prefixo: "/gerenciamento/medicamentos", modulo: MODULOS.FARMACIA },
   { prefixo: "/gerenciamento/servicos-especialidades", modulo: MODULOS.JUNTA },
+  // Catálogo de Especialidades e Procedimentos: aparece no Gerenciamento, mas
+  // os dados são do módulo PROCESSOS. A permissão fina de catálogo é checada
+  // na página (defesa em profundidade); aqui a exigência é o vínculo.
+  {
+    prefixo: "/gerenciamento/especialidades-procedimentos",
+    modulo: MODULOS.PROCESSOS,
+  },
   { prefixo: "/gerenciamento/medicos", modulo: MODULOS.REGULACAO },
   { prefixo: "/gerenciamento/ubs", modulo: MODULOS.REGULACAO },
   // Cadastro único (EMPI): qualquer um dos módulos com a permissão
