@@ -13,7 +13,7 @@ import styles from "./Tutores.module.css";
 // nova nem duplicação de dados pessoais. O que muda aqui é a visão do CCZ:
 // lista de tutores com os animais vinculados, a consulta da ficha do animal e a
 // ação de EXCLUIR O VÍNCULO DE TUTOR (que nunca exclui a Pessoa central).
-export default function TutoresGerenciamento({ podeExcluir = false }) {
+export default function TutoresGerenciamento({ podeExcluir = false, podeExcluirPessoa = false }) {
   const confirm = useConfirm();
   const notify = useNotify();
 
@@ -260,7 +260,7 @@ export default function TutoresGerenciamento({ podeExcluir = false }) {
           Tutor é uma pessoa do cadastro único: os dados pessoais são compartilhados
           com os demais módulos e não são duplicados aqui.
         </p>
-        <CadastroPessoas />
+        <CadastroPessoas podeExcluir={podeExcluirPessoa} />
       </section>
     </div>
   );

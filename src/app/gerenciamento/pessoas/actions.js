@@ -1,8 +1,9 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { requireAcessoPessoas } from "@/lib/auth";
+import { requireAcessoPessoas, requirePermissao } from "@/lib/auth";
 import { registrarAuditoria } from "@/lib/audit";
+import { MODULOS } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import {
   soDigitos,
@@ -246,12 +247,95 @@ export async function confirmarUnificacaoPessoas({
   }
 }
 
-// ── EXCLUIR ──────────────────────────────────────────────────────────────
-export async function excluirPessoa(cpf) {
+// ── DEPENDÊNCIAS DO CADASTRO CENTRAL ──────────────────────────────────────
+// Varredura EXPLÍCITA de todos os vínculos que preservam a pessoa. A ordem
+// espelha os módulos do sistema; módulo novo entra aqui na mesma entrega.
+// A checagem no banco (FKs RESTRICT) é a segunda barreira — esta serve para
+// responder com mensagem clara, sem revelar dados de outro módulo.
+async function contarDependenciasPessoa(cpf) {
+  const [
+    pedidosRegulacao,
+    pastasFarmacia,
+    registrosJunta,
+    vinculoTutor,
+    processosJudiciais,
+    animaisComoTutor,
+    unificacoes,
+    absorvidas,
+  ] = await Promise.all([
+    prisma.pedidoExame.count({ where: { pessoaCpf: cpf } }),
+    prisma.pacienteFarmaciaJudicial.count({ where: { pessoaCpf: cpf } }),
+    prisma.pacienteJunta.count({ where: { pessoaCpf: cpf } }),
+    prisma.tutor.count({ where: { pessoaCpf: cpf } }),
+    prisma.processoJudicial.count({ where: { pessoaCpf: cpf } }),
+    prisma.animal.count({ where: { pessoaCpf: cpf } }),
+    prisma.auditoriaUnificacao.count({ where: { pessoaPrincipalCpf: cpf } }),
+    prisma.pessoa.count({ where: { unificadoEmCpf: cpf } }),
+  ]);
+
+  // Só rótulos de módulo: nunca o conteúdo de outro módulo.
+  const vinculos = [];
+  if (pedidosRegulacao > 0) vinculos.push("Regulação");
+  if (pastasFarmacia > 0) vinculos.push("Câmara Técnica (Farmácia Judicial)");
+  if (processosJudiciais > 0) vinculos.push("Câmara Técnica (Processos Judiciais)");
+  if (registrosJunta > 0) vinculos.push("Junta Reguladora");
+  if (vinculoTutor > 0 || animaisComoTutor > 0) vinculos.push("CCZ (tutor)");
+  if (unificacoes > 0 || absorvidas > 0) vinculos.push("Unificação de cadastros");
+
+  return {
+    total:
+      pedidosRegulacao +
+      pastasFarmacia +
+      registrosJunta +
+      vinculoTutor +
+      processosJudiciais +
+      animaisComoTutor +
+      unificacoes +
+      absorvidas,
+    vinculos,
+  };
+}
+
+// Exclusão DEFINITIVA do cadastro central.
+// Exige permissão própria (`pessoas:excluir` — não é concedida a
+// administradores de módulo por padrão) e bloqueia quando há qualquer vínculo
+// que precise ser preservado. Sem cascata: o histórico nunca é apagado junto.
+export async function excluirPessoa(cpf, { motivo } = {}) {
   try {
-    const user = await requireAcessoPessoas();
+    const user = await requirePermissao(MODULOS.GESTAO, "pessoas", "excluir");
     const cpfLimpo = normalizarCpfChave(cpf);
 
+    const pessoa = await prisma.pessoa.findUnique({
+      where: { cpf: cpfLimpo },
+      select: { cpf: true, nomeCompleto: true, ativo: true },
+    });
+    if (!pessoa) return { success: false, error: "Pessoa não encontrada." };
+
+    const deps = await contarDependenciasPessoa(cpfLimpo);
+    if (deps.total > 0) {
+      // Registra a TENTATIVA bloqueada (rastreabilidade), sem dados de módulo.
+      await registrarAuditoria({
+        user,
+        acao: "NEGAR",
+        modulo: "GERENCIAMENTO",
+        entidade: "Pessoa",
+        entidadeId: cpfLimpo,
+        descricao:
+          "Exclusão de pessoa bloqueada: existem registros vinculados " +
+          `(${deps.vinculos.join(", ")})`,
+      });
+      return {
+        success: false,
+        error:
+          "Não é possível excluir esta pessoa, pois existem registros vinculados em " +
+          "outros módulos do IntegraSaúde. Para preservar o histórico, a exclusão foi " +
+          "bloqueada. Se o cadastro não deve mais ser usado, inative-o.",
+        vinculos: deps.vinculos,
+        status: 409,
+      };
+    }
+
+    // Sem vínculos: remove a pessoa e seus próprios dados (endereço).
     await prisma.$transaction(async (tx) => {
       await tx.endereco.deleteMany({ where: { pessoaCpf: cpfLimpo } });
       await tx.pessoa.delete({ where: { cpf: cpfLimpo } });
@@ -263,7 +347,8 @@ export async function excluirPessoa(cpf) {
       modulo: "GERENCIAMENTO",
       entidade: "Pessoa",
       entidadeId: cpfLimpo,
-      descricao: "Pessoa excluída",
+      descricao: `Pessoa '${pessoa.nomeCompleto}' excluída definitivamente`,
+      detalhes: { motivo: motivo ? String(motivo).slice(0, 500) : null },
     });
 
     revalidatePath("/gerenciamento/pessoas");
@@ -272,11 +357,15 @@ export async function excluirPessoa(cpf) {
     if (error.status === 401 || error.status === 403) {
       return { success: false, error: error.message };
     }
-    // A pessoa está vinculada a outros módulos (regulação, farmácia, junta, CCZ).
+    // Rede de segurança: se algum vínculo escapar da checagem, o banco recusa.
     if (error.code === "P2003" || error.code === "P2014") {
       return {
         success: false,
-        error: "Não é possível excluir: a pessoa está vinculada a registros de outros módulos.",
+        error:
+          "Não é possível excluir esta pessoa, pois existem registros vinculados em " +
+          "outros módulos do IntegraSaúde. Para preservar o histórico, a exclusão foi " +
+          "bloqueada.",
+        status: 409,
       };
     }
     console.error("Erro ao excluir pessoa:", error);

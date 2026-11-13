@@ -75,7 +75,10 @@ const pessoaParaForm = (p) => ({
 // Tela de Cadastro de Pessoas (Pacientes) compartilhada entre o Gerenciamento
 // (/gerenciamento/pessoas) e a Regulação (aba PACIENTES). Única fonte de UI e
 // consome as MESMAS server actions de @/app/gerenciamento/pessoas/actions.
-export default function CadastroPessoas() {
+// `podeExcluir`: só quem tem a permissão própria de exclusão do cadastro central
+// (pessoas:excluir) vê o botão. O backend revalida e ainda bloqueia quem tem
+// vínculos em outros módulos.
+export default function CadastroPessoas({ podeExcluir = false }) {
   const confirm = useConfirm();
   const notify = useNotify();
   const [ubsList, setUbsList] = useState([]);
@@ -301,8 +304,14 @@ export default function CadastroPessoas() {
     const res = await excluirPessoa(form.cpfChave);
     setSalvando(false);
     setConfirmarExclusao(false);
-    if (res.success) cancelar();
-    else setErro(res.error || "Não foi possível excluir.");
+    if (res.success) {
+      cancelar();
+    } else {
+      const vinculos = Array.isArray(res.vinculos) && res.vinculos.length
+        ? ` Módulos com vínculo: ${res.vinculos.join(", ")}.`
+        : "";
+      setErro((res.error || "Não foi possível excluir.") + vinculos);
+    }
   };
 
   const confirmarUnificacao = async () => {
@@ -652,7 +661,7 @@ export default function CadastroPessoas() {
               Cancelar
             </button>
           )}
-          {modo === "edicao" && (
+          {modo === "edicao" && podeExcluir && (
             <button
               type="button"
               className={styles.btnDanger}
@@ -731,7 +740,8 @@ export default function CadastroPessoas() {
             <h3 id="delete-title" className={styles.modalTitle}>Excluir pessoa</h3>
             <p className={styles.modalText}>
               Tem certeza que deseja excluir <strong>{form.nomeCompleto}</strong>?
-              Esta ação não pode ser desfeita.
+              Esta ação não pode ser desfeita e só é permitida quando a pessoa não
+              possui registros em outros módulos do IntegraSaúde.
             </p>
             <div className={styles.modalActions}>
               <button

@@ -157,7 +157,7 @@ model PedidoExame {
   localRealizacao     String?      @map("local_realizacao") @db.VarChar(20)
   medicoResponsavel   Medico?      @relation("medico_responsavel", fields: [medicoResponsavelId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_pedidos_med_resp")
   medicoSolicitante   Medico?      @relation("medico_solicitante", fields: [medicoSolicitanteId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_pedidos_med_solic")
-  pessoa              Pessoa       @relation(fields: [pessoaCpf], references: [cpf], onDelete: Cascade, onUpdate: Cascade, map: "fk_pedidos_pessoa")
+  pessoa              Pessoa       @relation(fields: [pessoaCpf], references: [cpf], onDelete: Restrict, onUpdate: Cascade, map: "fk_pedidos_pessoa")
   procedimento        Procedimento @relation(fields: [procedimentoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_pedidos_procedimento")
   ubs                 Ubs?         @relation(fields: [ubsResponsavelId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_pedidos_ubs")
 
@@ -231,7 +231,7 @@ model PacienteFarmaciaJudicial {
   status         String                   @default("ATIVO") @db.VarChar(20)
   createdAt      DateTime?                @default(now()) @map("created_at") @db.Timestamptz(6)
   dispensacoes   DispensacaoMedicamento[]
-  pessoa         Pessoa                   @relation(fields: [pessoaCpf], references: [cpf], onDelete: Cascade, onUpdate: Cascade)
+  pessoa         Pessoa                   @relation(fields: [pessoaCpf], references: [cpf], onDelete: Restrict, onUpdate: Cascade)
   tratamentos    TratamentoPaciente[]
 
   @@map("farmacia_pacientes")
@@ -316,7 +316,7 @@ model PacienteJunta {
   agendamentos    AgendamentoJunta[]
   atendimentos    JuntaAtendimento[]
   servicos        PacienteJuntaServico[]
-  pessoa          Pessoa                 @relation(fields: [pessoaCpf], references: [cpf], onDelete: Cascade, onUpdate: Cascade)
+  pessoa          Pessoa                 @relation(fields: [pessoaCpf], references: [cpf], onDelete: Restrict, onUpdate: Cascade)
 
   @@map("junta_pacientes")
 }
@@ -375,7 +375,7 @@ model Tutor {
   observacoes        String?
   createdAt          DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
   animais            Animal[]
-  pessoa             Pessoa    @relation(fields: [pessoaCpf], references: [cpf], onDelete: Cascade, onUpdate: Cascade)
+  pessoa             Pessoa    @relation(fields: [pessoaCpf], references: [cpf], onDelete: Restrict, onUpdate: Cascade)
 
   @@map("ccz_tutores")
 }

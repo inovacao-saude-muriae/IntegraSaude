@@ -501,7 +501,9 @@ const PACOTES = {
       indicadores: [V, EXP],
       usuarios: [V, C, E, G],
       acessos: [V, C, E, G],
-      pessoas: [V, C, E],
+      // Exclusão DEFINITIVA do cadastro central é permissão própria da
+      // Gestão Geral (nunca herdada de administrador de módulo).
+      pessoas: [V, C, E, X],
       relatorios: [V, EXP],
       auditoria: [V, EXP],
       unidades: [V, C, E, X],
