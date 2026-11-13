@@ -37,7 +37,9 @@ export async function GET() {
   try {
     // Barreira de entrada: sessão válida + ADMIN de algum módulo, OU quem tem
     // permissão de painel da Gestão Geral.
-    const user = await requireAdminDeAlgumModulo();
+    // `opcional`: se o usuário não passar daqui, quem registra a negativa é esta
+    // rota (uma vez), não a barreira — evitando dois registros NEGAR iguais.
+    const user = await requireAdminDeAlgumModulo({ opcional: true });
 
     // ── Escopo do usuário ────────────────────────────────────────────────
     // Cada bloco abre pela permissão do SEU módulo. Gestão Geral não abre nada

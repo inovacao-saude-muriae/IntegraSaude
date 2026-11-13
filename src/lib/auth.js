@@ -185,18 +185,29 @@ export async function requireAcessoServicoJunta(servicoJunta) {
   return user;
 }
 
-export async function requireAdminDeAlgumModulo() {
+/**
+ * Barreira das rotas de painel/consolidado (métricas, relatórios gerais).
+ *
+ * Entra quem é ADMINISTRADOR de algum módulo OU quem tem permissão de painel da
+ * Gestão Geral; a rota decide depois, bloco a bloco, pelo módulo de cada um.
+ *
+ * `opcional`: quando a rota já vai aplicar uma guarda mais específica em
+ * seguida (ex.: `requirePermissaoGestao("auditoria","visualizar")`), esta
+ * barreira NÃO audita a negativa — quem audita é a guarda específica. Assim uma
+ * única tentativa indevida gera um único registro `NEGAR`.
+ */
+export async function requireAdminDeAlgumModulo({ opcional = false } = {}) {
   const user = await carregarUsuarioSessao();
-  // Entra quem é ADMINISTRADOR de algum módulo OU quem tem permissão de painel
-  // da Gestão Geral — a rota decide depois, bloco a bloco, pelo módulo dele.
   const ok =
     (await usuarioEhAdminDeAlgumModulo(user)) ||
     (await usuarioTemPermissao(user, MODULOS.GESTAO, "painel", "visualizar"));
   if (!ok) {
-    await registrarAcessoNegado(user, {
-      recurso: "AdminDeAlgumModulo",
-      descricao: "Acesso negado: requer administrador de algum módulo",
-    });
+    if (!opcional) {
+      await registrarAcessoNegado(user, {
+        recurso: "AdminDeAlgumModulo",
+        descricao: "Acesso negado: requer administrador de algum módulo",
+      });
+    }
     throw Object.assign(new Error("Acesso negado: requer administrador de algum módulo."), { status: 403 });
   }
   return user;
@@ -249,19 +260,77 @@ export async function requireEscritaServicoJuntaPorNome(servicoNome) {
 // módulo). Best-effort: nunca altera a resposta ao cliente e nunca lança.
 // Não grava conteúdo do registro — só a identificação da operação negada.
 // ═══════════════════════════════════════════════════════════════════════════
+// ── Auditoria NEGAR: UMA tentativa = UM registro ───────────────────────────
+// Uma mesma requisição pode passar por duas guardas que negam (ex.: a barreira
+// "admin de algum módulo" e depois a permissão específica da rota, ou uma
+// action que chama duas guardas). Antes isso gerava 2-3 registros para a MESMA
+// tentativa. Agora a guarda que nega registra `recurso`, e a gravação:
+//
+//   1. consolida dentro do processo, por chave (usuário + módulo + operação +
+//      recurso + janela de 5 s), marcando `consolidada: true` quando a mesma
+//      tentativa passa por mais de uma guarda;
+//   2. relê o banco antes de gravar (outro processo/rota pode ter gravado a
+//      mesma tentativa há instantes) e, nesse caso, só consolida a anterior;
+//   3. nunca apaga um registro legítimo de uma tentativa DISTINTA: a janela é
+//      curta e a chave inclui o recurso negado.
+const JANELA_NEGAR_MS = 5000;
+const negacoesEmVoo = new Map(); // chave → { id, em }
+
+function chaveNegacao(user, recurso) {
+  return `${user.cpf}|AUTH|NEGAR|${recurso || "Autorizacao"}`;
+}
+
 async function registrarAcessoNegado(user, { recurso, descricao } = {}) {
   try {
     if (!user?.cpf) return;
     const { registrarAuditoria } = await import("@/lib/audit");
+    const { prisma } = await import("@/lib/prisma");
+
+    const entidade = recurso || "Autorizacao";
+    const chave = chaveNegacao(user, entidade);
+    const agora = Date.now();
+    const emVoo = negacoesEmVoo.get(chave);
+    if (emVoo && agora - emVoo.em < JANELA_NEGAR_MS) return; // mesma tentativa
+    negacoesEmVoo.set(chave, { em: agora });
+
+    // Já gravado por outra guarda/processo nesta janela? Consolida e sai.
+    const recente = await prisma.auditLog.findFirst({
+      where: {
+        userCpf: user.cpf,
+        acao: "NEGAR",
+        entidade,
+        createdAt: { gte: new Date(agora - JANELA_NEGAR_MS) },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    if (recente) {
+      await prisma.auditLog.update({
+        where: { id: recente.id },
+        data: {
+          detalhes: {
+            ...(recente.detalhes || {}),
+            tentativas: Number(recente.detalhes?.tentativas || 1) + 1,
+            consolidada: true,
+          },
+        },
+      });
+      return;
+    }
+
     await registrarAuditoria({
       user,
       acao: "NEGAR",
       modulo: "AUTH",
-      entidade: recurso || "Autorizacao",
+      entidade,
       entidadeId: user.cpf,
       descricao: descricao || "Tentativa de acesso não autorizado",
     });
   } catch {
     // silencioso por design
+  } finally {
+    // limpeza oportunista: a janela é curta, o mapa não pode crescer sem limite
+    for (const [k, v] of negacoesEmVoo) {
+      if (Date.now() - v.em > JANELA_NEGAR_MS * 12) negacoesEmVoo.delete(k);
+    }
   }
 }
