@@ -54,12 +54,21 @@ async function main() {
     console.error(`❌ Usuário com CPF ${cpf} não encontrado.`);
 
     const usuarios = await prisma.user.findMany({
-      select: { cpf: true, nome: true, role: true, ativo: true },
+      select: {
+        cpf: true,
+        nome: true,
+        ativo: true,
+        acessos: { where: { ativo: true }, select: { modulo: true, perfil: true } },
+      },
     });
 
     console.error("\n📋 Usuários cadastrados:");
     usuarios.forEach((u) =>
-      console.error(`   - ${u.cpf}: ${u.nome} (${u.role}, ativo: ${u.ativo})`)
+      console.error(
+        `   - ${u.cpf}: ${u.nome} ` +
+          `(${(u.acessos || []).map((a) => `${a.modulo}:${a.perfil}`).join(", ") || "sem vínculos"}, ` +
+          `ativo: ${u.ativo})`,
+      )
     );
     process.exit(1);
   }

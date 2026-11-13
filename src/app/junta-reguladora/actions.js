@@ -13,7 +13,6 @@ import {
 import {
   MODULOS,
   NIVEIS,
-  usuarioEhGestor,
   usuarioEhAdminModulo,
   SERVICO_JUNTA_PARA_NOME,
 } from '@/lib/permissions';
@@ -480,9 +479,10 @@ export async function getEspecialidadesPorServico(servicoNome) {
     // Nome vazio → entra no módulo e decide o escopo pelo nível (Finding 3).
     const user = await requireAcessoModulo(MODULOS.JUNTA);
 
-    const ehAdminOuGestor =
-      (await usuarioEhGestor(user)) ||
-      (await usuarioEhAdminModulo(user, MODULOS.JUNTA));
+    // "Admin ou gestor" passou a ser: é ADMINISTRADOR do módulo JUNTA. A Gestão
+    // Geral não entra mais por ser gestão — se precisar ver tudo da Junta, o
+    // vínculo dela com JUNTA recebe o perfil correspondente.
+    const ehAdminOuGestor = await usuarioEhAdminModulo(user, MODULOS.JUNTA);
 
     let where = {};
 

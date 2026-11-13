@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireGestor } from "@/lib/auth";
+import { requirePermissaoGestao } from "@/lib/auth";
 import {
   MODULOS_CATALOGO,
   PERFIS,
@@ -22,7 +22,7 @@ import {
 
 export async function GET() {
   try {
-    await requireGestor();
+    await requirePermissaoGestao("acessos", "visualizar");
 
     const modulos = Object.values(MODULOS_CATALOGO).map((m) => ({
       chave: m.chave,

@@ -3,7 +3,7 @@ import {
   usuarioTemAcessoModulo,
   usuarioTemAcessoServicoJunta,
   usuarioEhAdminModulo,
-  usuarioEhGestor,
+  usuarioTemPermissao,
   SUBTAB_PARA_SERVICO_JUNTA,
   MODULOS,
 } from "@/lib/permissions";
@@ -37,7 +37,7 @@ export default async function JuntaReguladoraLayout({ children }) {
   // outros layouts). NÃO afrouxa: as actions de pessoa exigem
   // requireAcessoPessoas.
   const podeGerenciarPessoas =
-    (await usuarioEhGestor(ctx.user)) ||
+    (await usuarioTemPermissao(ctx.user, MODULOS.GESTAO, "pessoas", "editar")) ||
     (await usuarioEhAdminModulo(ctx.user, MODULOS.REGULACAO)) ||
     ehAdminJunta;
 

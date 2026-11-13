@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireGestor } from "@/lib/auth";
+import { requirePermissaoGestao } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { detalharPermissoes, MODULOS_CATALOGO, PERFIS } from "@/lib/permissoesCatalogo";
 import { AcessoErro, salvarAcessosUsuario } from "@/lib/acessoService";
@@ -10,14 +10,13 @@ import { AcessoErro, salvarAcessosUsuario } from "@/lib/acessoService";
 // GET  → lista as contas com o RESUMO de acessos por módulo (para a lista da
 //        tela de gerenciamento).
 // POST → cria conta nova. O acesso inicial vem da própria tela (vínculos por
-//        módulo), nunca de um perfil único legado; `role` continua sendo gravado
-//        só como rótulo de compatibilidade, com um dos perfis legados, e sai
-//        junto com eles.
+//        módulo), nunca de um perfil único: `users.role` foi removido do banco.
+//        A conta nasce SEM vínculos e a tela de acessos define tudo.
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function GET() {
   try {
-    await requireGestor();
+    await requirePermissaoGestao("usuarios", "visualizar");
     const usuarios = await prisma.user.findMany({
       select: {
         cpf: true,
@@ -74,7 +73,8 @@ export async function GET() {
 // tem uma responsabilidade e a tela mostra o que foi persistido.
 export async function POST(request) {
   try {
-    const gestor = await requireGestor();
+    // Criar/editar conta exige permissão de escrita — não basta visualizar.
+    const gestor = await requirePermissaoGestao("usuarios", "criar");
     let corpo = {};
     try {
       corpo = await request.json();
@@ -130,7 +130,6 @@ export async function POST(request) {
         ativo: true,
         primeiroAcesso: true,
         // Rótulo de compatibilidade até a remoção dos perfis legados.
-        role: corpo.roleCompatibilidade || "REGULACAO_COMUM",
       },
       select: { cpf: true, nome: true, cargo: true },
     });

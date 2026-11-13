@@ -58,26 +58,26 @@ export const carregarAcessosPorCpf = cache(async (cpf) => {
 });
 
 // ── 3. Normalização interna do argumento userOuCpf ─────────────────────────
-// Aceita: string CPF | { cpf, role, acessos? }.
-// Resolve para { role, acessos } carregando do banco o que faltar.
+// Aceita: string CPF | { cpf, acessos? }.
+// Resolve SEMPRE para { acessos } — não existe mais perfil de usuário fora dos
+// vínculos. `users.role` foi removido do banco: o contexto é só o conjunto de
+// vínculos (user_acessos).
 
 async function resolverContexto(userOuCpf) {
   if (userOuCpf == null) return null;
 
-  // String CPF → carrega acessos (role desconhecido a partir do CPF puro;
-  // GESTOR deriva de role, então sem role não há atalho de GESTOR).
+  // String CPF → carrega os vínculos do banco.
   if (typeof userOuCpf === "string") {
     const acessos = await carregarAcessosPorCpf(userOuCpf);
-    return { role: undefined, acessos: acessos || [] };
+    return { acessos: acessos || [] };
   }
 
-  // Objeto user: usa role; carrega acessos se não vieram embutidos.
-  const role = userOuCpf.role;
+  // Objeto user: usa os vínculos embutidos; senão carrega pelo CPF.
   let acessos = userOuCpf.acessos;
   if (!Array.isArray(acessos)) {
     acessos = userOuCpf.cpf ? await carregarAcessosPorCpf(userOuCpf.cpf) : [];
   }
-  return { role, acessos: acessos || [] };
+  return { acessos: acessos || [] };
 }
 
 // ── 4. Funções de decisão PURAS (recebem {acessos}) ────────────────────────
@@ -195,6 +195,12 @@ function temPermissaoPura(ctx, modulo, funcionalidade, permissao, servico) {
 // que o perfil legado concedia — e é o que as telas de gerenciamento pedem.
 // Não decide NADA por users.role, então a remoção do perfil legado não muda
 // a resposta.
+/**
+ * @deprecated `users.role` foi removido. Equivale a "tem vínculo ativo com o
+ * módulo GESTAO" e NÃO autoriza nada: nenhuma guarda ou tela deve usá-la.
+ * Use `usuarioTemPermissao(user, MODULOS.GESTAO, funcionalidade, permissao)`.
+ * Mantida só como leitura de identificação até a limpeza final.
+ */
 export async function usuarioEhGestor(userOuCpf) {
   const ctx = await resolverContexto(userOuCpf);
   return (ctx?.acessos || []).some(
@@ -229,6 +235,7 @@ export async function usuarioEhAdminDeAlgumModulo(userOuCpf) {
 // Export das funções puras (sem I/O) para teste com `node --test`, se desejado.
 export const _puras = {
   temAcessoModuloPuro,
+  permissoesEfetivas: permissoesDoVinculo,
   ehAdminModuloPuro,
   temAcessoServicoJuntaPuro,
   ehAdminDeAlgumModuloPuro,

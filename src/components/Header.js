@@ -10,7 +10,7 @@ export default function Header({ onToggleSidebar }) {
   const pathname = usePathname();
   const [userData, setUserData] = useState({
     name: "Carregando...",
-    role: "Aguarde...",
+    cargo: "Aguarde...",
   });
 
   // Função para obter título da página baseado no pathname
@@ -40,7 +40,8 @@ export default function Header({ onToggleSidebar }) {
           if (data?.user) {
             setUserData({
               name: data.user.nomeCompleto || "Usuário do Sistema",
-              role: data.user.cargo || data.user.role || "Operador",
+              // Texto de identificação do cargo — não é autorização.
+              cargo: data.user.cargo || "Usuário do Sistema",
             });
             return;
           }
@@ -49,13 +50,13 @@ export default function Header({ onToggleSidebar }) {
         // Se a sessão for inválida/expirada
         setUserData({
           name: "Sessão Expirada",
-          role: "Não Autenticado",
+          cargo: "Não Autenticado",
         });
       } catch (error) {
         console.error("Erro ao carregar dados do usuário no Header:", error);
         setUserData({
           name: "Erro de Conexão",
-          role: "-",
+          cargo: "-",
         });
       }
     }
@@ -122,7 +123,7 @@ export default function Header({ onToggleSidebar }) {
         <div className={styles.userAvatar} aria-hidden="true">{initialLetter}</div>
         <div className={styles.userDetails}>
           <span className={styles.userName}>{userData.name}</span>
-          <span className={styles.userRole}>{userData.role}</span>
+          <span className={styles.userRole}>{userData.cargo}</span>
         </div>
       </div>
 

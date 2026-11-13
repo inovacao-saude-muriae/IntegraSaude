@@ -15,7 +15,7 @@ const MODULOS = [
     cor: "#0066cc",
     corClara: "#e6f2ff",
     link: "/regulacao?tab=DASHBOARD",
-    roles: ["GESTOR", "REGULACAO_ADMIN", "REGULACAO_COMUM"],
+    modulo: "REGULACAO",
   },
   {
     id: "farmacia",
@@ -25,7 +25,7 @@ const MODULOS = [
     cor: "#00a86b",
     corClara: "#e6f9f3",
     link: "/camara-tecnica/farmacia-judicial?tab=DASHBOARD",
-    roles: ["GESTOR", "FARMACIA_ADMIN"],
+    modulo: "FARMACIA",
   },
   {
     id: "processos",
@@ -35,7 +35,7 @@ const MODULOS = [
     cor: "#059669",
     corClara: "#d1fae5",
     link: "/camara-tecnica/processos",
-    roles: ["GESTOR", "PROCESSO_ADMIN"],
+    modulo: "PROCESSOS",
   },
   {
     id: "junta",
@@ -45,7 +45,7 @@ const MODULOS = [
     cor: "#8b5cf6",
     corClara: "#f3f0ff",
     link: "/junta-reguladora?tab=DASHBOARD",
-    roles: ["GESTOR", "JUNTA_ADMIN", "JUNTA_CAEE", "JUNTA_EDUCACAO", "JUNTA_SAUDE", "JUNTA_ASSISTENCIA"],
+    modulo: "JUNTA",
   },
   {
     id: "ccz",
@@ -55,7 +55,7 @@ const MODULOS = [
     cor: "#d97706",
     corClara: "#fef3e6",
     link: "/ccz?tab=DASHBOARD",
-    roles: ["GESTOR", "CCZ_ADMIN", "CCZ_COMUM"],
+    modulo: "CCZ",
   },
   {
     id: "gerenciamento",
@@ -65,7 +65,7 @@ const MODULOS = [
     cor: "#64748b",
     corClara: "#f1f5f9",
     link: "/gerenciamento/usuarios",
-    roles: ["GESTOR"],
+    modulo: "GESTAO",
   },
 ];
 
@@ -130,10 +130,13 @@ export default function Home() {
 
   if (!user) return null;
 
-  // Filtra módulos baseado nas permissões do usuário
-  const modulosDisponiveis = MODULOS.filter((modulo) =>
-    modulo.roles.includes(user.role)
+  // Filtra os cartões pelos VÍNCULOS ativos que /api/me devolveu. Nenhum
+  // perfil legado participa: quem não tem vínculo com o módulo não vê o cartão,
+  // e quem vê continua barrado no layout do módulo e na API.
+  const meusModulos = new Set(
+    (user?.modulos || []).filter((m) => m).map((m) => m.modulo),
   );
+  const modulosDisponiveis = MODULOS.filter((modulo) => meusModulos.has(modulo.modulo));
 
   const handleModuleClick = (link) => {
     router.push(link);
@@ -199,7 +202,7 @@ export default function Home() {
       {/* INFORMAÇÕES ADICIONAIS */}
       <footer className={styles.homeFooter}>
         <div className={styles.userInfo}>
-          <span className={styles.userRole}>{user?.cargo || user?.role}</span>
+          <span className={styles.userRole}>{user?.cargo || "Usuário do Sistema"}</span>
           <span className={styles.separator}>•</span>
           <span className={styles.accessInfo}>
             {modulosDisponiveis.length} módulo{modulosDisponiveis.length !== 1 ? "s" : ""} disponível

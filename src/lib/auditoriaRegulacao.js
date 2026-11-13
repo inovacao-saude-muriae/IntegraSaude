@@ -264,10 +264,19 @@ export async function consultarAuditoriaRegulacao(params = {}, geradoPor = null)
   const cadastro = cpfs.length
     ? await prisma.user.findMany({
         where: { cpf: { in: cpfs } },
-        select: { cpf: true, nome: true, role: true, cargo: true },
+        select: {
+          cpf: true,
+          nome: true,
+          cargo: true,
+          // Perfis vêm dos vínculos por módulo (users.role não existe mais).
+          acessos: { where: { ativo: true }, select: { modulo: true, perfil: true } },
+        },
       })
     : [];
   const perfilPorCpf = new Map(cadastro.map((c) => [c.cpf, c]));
+  // "Perfil" no relatório = perfis dos vínculos, ex.: "REGULACAO:ADMINISTRADOR".
+  const descreverPerfis = (c) =>
+    (c?.acessos || []).map((a) => `${a.modulo}:${a.perfil}`).join(", ") || null;
 
   const usuarios = [...mapaUsuarios.values()]
     .map((u) => {
@@ -275,7 +284,7 @@ export async function consultarAuditoriaRegulacao(params = {}, geradoPor = null)
       return {
         cpf: u.cpf,
         nome: c?.nome || u.nome,
-        perfil: c?.role || null,
+        perfil: descreverPerfis(c),
         cargo: c?.cargo || null,
         total: u.total,
         porAcao: u.porAcao,

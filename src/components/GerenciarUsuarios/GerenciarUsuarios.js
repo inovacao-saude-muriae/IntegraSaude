@@ -13,7 +13,7 @@ export default function GerenciarUsuarios() {
   const [nomeCompleto, setNomeCompleto] = useState('');
   const [dataNascimento, setDataNascimento] = useState('');
   const [telefone, setTelefone] = useState('');
-  const [role, setRole] = useState('REGULACAO_COMUM');
+  const [cargo, setCargo] = useState('');
 
   const [pessoaExiste, setPessoaExiste] = useState(false);
   const [buscandoCpf, setBuscandoCpf] = useState(false);
@@ -23,9 +23,6 @@ export default function GerenciarUsuarios() {
   // Estado para listar usuários existentes
   const [usuarios, setUsuarios] = useState([]);
   const [carregandoUsuarios, setCarregandoUsuarios] = useState(false);
-  const [editandoUsuario, setEditandoUsuario] = useState(null);
-  const [novoRoleEdicao, setNovoRoleEdicao] = useState('');
-  const [salvandoEdicao, setSalvandoEdicao] = useState(false);
   // CPF do usuário logado (a UI apenas reflete; o backend é a autoridade da autoproteção)
   const [meuCpf, setMeuCpf] = useState(null);
   
@@ -34,49 +31,9 @@ export default function GerenciarUsuarios() {
   
   // Estado para busca e filtros (#8)
   const [buscaUsuario, setBuscaUsuario] = useState('');
-  const [filtroRole, setFiltroRole] = useState('');
+  const [filtroModulo, setFiltroModulo] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('');
 
-  // Mapeia os perfis exatamente como definidos no Enum 'Role' do Prisma
-  const obterNomePerfil = (perfilRole) => {
-    switch (perfilRole) {
-      case 'GESTOR':
-        return 'Gestor Geral do Sistema';
-      
-      // REGULAÇÃO
-      case 'REGULACAO_ADMIN':
-        return 'Administrador da Regulação';
-      case 'REGULACAO_COMUM':
-        return 'Operador da Regulação';
-      
-      // CÂMARA TÉCNICA
-      case 'FARMACIA_ADMIN':
-        return 'Farmácia Judicial';
-      case 'PROCESSO_ADMIN':
-        return 'Processos Judiciais';
-      
-      // JUNTA REGULADORA
-      case 'JUNTA_ADMIN':
-        return 'Administrador da Junta Reguladora';
-      case 'JUNTA_CAEE':
-        return 'Operador do CAEE';
-      case 'JUNTA_EDUCACAO':
-        return 'Operador da APAE';
-      case 'JUNTA_SAUDE':
-        return 'Operador do Ambulatório';
-      case 'JUNTA_ASSISTENCIA':
-        return 'Operador do Centro de Especialidades';
-      
-      // CCZ
-      case 'CCZ_ADMIN':
-        return 'Administrador do CCZ';
-      case 'CCZ_COMUM':
-        return 'Operador do CCZ';
-      
-      default:
-        return 'Operador do Sistema';
-    }
-  };
 
   // Busca automática ao digitar os 11 dígitos do CPF
   const handleCpfChange = async (e) => {
@@ -97,9 +54,10 @@ export default function GerenciarUsuarios() {
           setPessoaExiste(true);
           setNomeCompleto(dataUser.usuario.nome || '');
           setTelefone('');
+        setCargo('');
           setMensagem({
             tipo: 'alerta',
-            texto: `Este CPF já está cadastrado como usuário: ${dataUser.usuario.nome} (${dataUser.usuario.role})`,
+            texto: `Este CPF já está cadastrado como usuário: ${dataUser.usuario.nome}`,
           });
           setBuscandoCpf(false);
           return;
@@ -115,7 +73,7 @@ export default function GerenciarUsuarios() {
           setTelefone(data.pessoa.telefone || '');
           setMensagem({
             tipo: 'sucesso',
-            texto: 'Pessoa encontrada no sistema! Defina o perfil abaixo para criar acesso.',
+            texto: 'Pessoa encontrada no sistema. Conclua o cadastro; os acessos são definidos na aba "Acessos por módulo".',
           });
         } else {
           setPessoaExiste(false);
@@ -157,7 +115,6 @@ export default function GerenciarUsuarios() {
     setSalvando(true);
     setMensagem({ tipo: '', texto: '' });
 
-    const cargoFormatado = obterNomePerfil(role);
 
     try {
       const res = await fetch('/api/gerenciamento/usuarios', {
@@ -168,8 +125,7 @@ export default function GerenciarUsuarios() {
           nomeCompleto,
           dataNascimento,
           telefone,
-          role,
-          cargo: cargoFormatado,
+          cargo: cargo || null,
           // Senha padrão será definida no backend
         }),
       });
@@ -179,14 +135,15 @@ export default function GerenciarUsuarios() {
       if (res.ok) {
         setMensagem({
           tipo: 'sucesso',
-          texto: `Usuário cadastrado com sucesso como "${cargoFormatado}"! Senha padrão: Integr@123`,
+          texto:
+            'Usuário cadastrado com sucesso! Senha padrão: Integr@123. ' +
+            'Defina agora os acessos dele na aba "Acessos por módulo".',
         });
         // Limpar formulário
         setCpf('');
         setNomeCompleto('');
         setDataNascimento('');
         setTelefone('');
-        setRole('REGULACAO_COMUM');
         setPessoaExiste(false);
         // Recarregar lista e fechar formulário
         carregarUsuarios();
@@ -240,8 +197,8 @@ export default function GerenciarUsuarios() {
       if (!nomeMatch && !cpfMatch && !usernameMatch) return false;
     }
     
-    // Filtro por perfil/role
-    if (filtroRole && user.role !== filtroRole) return false;
+    // Filtro por módulo (os perfis vêm dos vínculos, não de um perfil único)
+    if (filtroModulo && !(user.ativos || []).includes(filtroModulo)) return false;
     
     // Filtro por status
     if (filtroStatus === 'ativo' && !user.ativo) return false;
@@ -264,56 +221,7 @@ export default function GerenciarUsuarios() {
   // Reset página ao mudar filtros
   useEffect(() => {
     resetPage();
-  }, [buscaUsuario, filtroRole, filtroStatus, resetPage]);
-
-  const iniciarEdicao = (usuario) => {
-    setEditandoUsuario(usuario.cpf);
-    setNovoRoleEdicao(usuario.role);
-  };
-
-  const cancelarEdicao = () => {
-    setEditandoUsuario(null);
-    setNovoRoleEdicao('');
-  };
-
-  const salvarEdicaoRole = async (cpf) => {
-    const ok = await confirm({
-      title: 'Alterar nível de acesso',
-      message: 'Deseja confirmar a alteração do perfil deste usuário?',
-      confirmText: 'Confirmar',
-    });
-    if (!ok) return;
-
-    setSalvandoEdicao(true);
-    try {
-      const res = await fetch('/api/gerenciamento/usuarios/alterar-role', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cpf,
-          novoRole: novoRoleEdicao,
-          novoCargo: obterNomePerfil(novoRoleEdicao),
-        }),
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        setMensagem({
-          tipo: 'sucesso',
-          texto: 'Nível de acesso alterado com sucesso!',
-        });
-        setEditandoUsuario(null);
-        carregarUsuarios(); // Recarrega a lista
-      } else {
-        setMensagem({ tipo: 'erro', texto: data.error || 'Erro ao alterar perfil.' });
-      }
-    } catch (error) {
-      setMensagem({ tipo: 'erro', texto: 'Erro de conexão com o servidor.' });
-    } finally {
-      setSalvandoEdicao(false);
-    }
-  };
+  }, [buscaUsuario, filtroModulo, filtroStatus, resetPage]);
 
   const desativarUsuario = async (cpf, nome) => {
     const ok = await confirm({
@@ -499,46 +407,21 @@ export default function GerenciarUsuarios() {
           </div>
         </div>
 
-        {/* PERFIL / PERMISSÃO DE ACESSO */}
+        {/* CARGO (identificação) — os acessos são definidos por módulo */}
         <div className={`${styles.inputGroup} ${styles.roleInputGroup}`}>
-          <label className={styles.label}>Perfil / Módulo de Acesso:</label>
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            className={styles.select}
-          >
-            {/* GESTOR GERAL */}
-            <option value="GESTOR">GESTOR</option>
-            
-            {/* REGULAÇÃO */}
-            <optgroup label="REGULAÇÃO DE EXAMES">
-              <option value="REGULACAO_ADMIN">Administrador</option>
-              <option value="REGULACAO_COMUM">Operador</option>
-            </optgroup>
-
-            {/* CÂMARA TÉCNICA */}
-            <optgroup label="CÂMARA TÉCNICA">
-              <option value="FARMACIA_ADMIN">Farmácia Judicial</option>
-              <option value="PROCESSO_ADMIN">Processos Judiciais</option>
-            </optgroup>
-
-            {/* JUNTA REGULADORA */}
-            <optgroup label="JUNTA REGULADORA">
-              <option value="JUNTA_ADMIN">Administrador</option>
-              <option value="JUNTA_CAEE">CAEE</option>
-              <option value="JUNTA_EDUCACAO">APAE</option>
-              <option value="JUNTA_SAUDE">Ambulatório</option>
-              <option value="JUNTA_ASSISTENCIA">Centro de Especialidades</option>
-            </optgroup>
-
-            {/* CCZ */}
-            <optgroup label="CCZ">
-              <option value="CCZ_ADMIN">Administrador</option>
-              <option value="CCZ_COMUM">Operador</option>
-            </optgroup>
-          </select>
+          <label className={styles.label}>Cargo:</label>
+          <input
+            type="text"
+            value={cargo}
+            onChange={(e) => setCargo(e.target.value)}
+            placeholder="Ex.: Operador da Regulação"
+            className={styles.input}
+            autoComplete="off"
+          />
           <span className={styles.roleSubtext}>
-            Cargo exibido no sistema: <strong>{obterNomePerfil(role)}</strong>
+            O cargo é só a identificação do servidor. <strong>Quem define o que a pessoa
+            pode fazer é a aba &quot;Acessos por módulo&quot;</strong> — perfil, serviços e
+            permissões, módulo por módulo.
           </span>
         </div>
 
@@ -591,32 +474,18 @@ export default function GerenciarUsuarios() {
             />
           </div>
           
-          <select 
-            value={filtroRole} 
-            onChange={(e) => setFiltroRole(e.target.value)}
+          <select
+            value={filtroModulo}
+            onChange={(e) => setFiltroModulo(e.target.value)}
             className={styles.filterSelect}
           >
-            <option value="">Todos os perfis</option>
-            <option value="GESTOR">GESTOR</option>
-            <optgroup label="REGULAÇÃO">
-              <option value="REGULACAO_ADMIN">Administrador</option>
-              <option value="REGULACAO_COMUM">Operador</option>
-            </optgroup>
-            <optgroup label="CÂMARA TÉCNICA">
-              <option value="FARMACIA_ADMIN">Farmácia Judicial</option>
-              <option value="PROCESSO_ADMIN">Processos Judiciais</option>
-            </optgroup>
-            <optgroup label="JUNTA REGULADORA">
-              <option value="JUNTA_ADMIN">Administrador</option>
-              <option value="JUNTA_CAEE">CAEE</option>
-              <option value="JUNTA_EDUCACAO">APAE</option>
-              <option value="JUNTA_SAUDE">Ambulatório</option>
-              <option value="JUNTA_ASSISTENCIA">Centro de Especialidades</option>
-            </optgroup>
-            <optgroup label="CCZ">
-              <option value="CCZ_ADMIN">Administrador</option>
-              <option value="CCZ_COMUM">Operador</option>
-            </optgroup>
+            <option value="">Todos os módulos</option>
+            <option value="GESTAO">Gestão Geral</option>
+            <option value="REGULACAO">Regulação de Exames</option>
+            <option value="FARMACIA">Farmácia Judicial</option>
+            <option value="PROCESSOS">Processos</option>
+            <option value="JUNTA">Junta Reguladora</option>
+            <option value="CCZ">CCZ</option>
           </select>
           
           <select 
@@ -658,39 +527,16 @@ export default function GerenciarUsuarios() {
                     </td>
                     <td>{user.cpf}</td>
                     <td>
-                      {editandoUsuario === user.cpf ? (
-                        <select
-                          value={novoRoleEdicao}
-                          onChange={(e) => setNovoRoleEdicao(e.target.value)}
-                          className={styles.selectInline}
-                        >
-                          <option value="GESTOR">GESTOR</option>
-                          <optgroup label="REGULAÇÃO">
-                            <option value="REGULACAO_ADMIN">Administrador</option>
-                            <option value="REGULACAO_COMUM">Operador</option>
-                          </optgroup>
-                          <optgroup label="CÂMARA TÉCNICA">
-                            <option value="FARMACIA_ADMIN">Farmácia Judicial</option>
-                            <option value="PROCESSO_ADMIN">Processos Judiciais</option>
-                          </optgroup>
-                          <optgroup label="JUNTA REGULADORA">
-                            <option value="JUNTA_ADMIN">Administrador</option>
-                            <option value="JUNTA_CAEE">CAEE</option>
-                            <option value="JUNTA_EDUCACAO">APAE</option>
-                            <option value="JUNTA_SAUDE">Ambulatório</option>
-                            <option value="JUNTA_ASSISTENCIA">Centro de Especialidades</option>
-                          </optgroup>
-                          <optgroup label="CCZ">
-                            <option value="CCZ_ADMIN">Administrador</option>
-                            <option value="CCZ_COMUM">Operador</option>
-                          </optgroup>
-                        </select>
-                      ) : (
-                        <div>
-                          <div className={styles.roleLabel}>{user.role}</div>
-                          <div className={styles.cargoLabel}>{user.cargo}</div>
+                      <div>
+                        <div className={styles.roleLabel}>
+                          {(user.modulos || []).length === 0
+                            ? 'Sem módulos'
+                            : (user.modulos || [])
+                                .map((m) => `${m.nome}: ${m.perfil}`)
+                                .join(' · ')}
                         </div>
-                      )}
+                        <div className={styles.cargoLabel}>{user.cargo}</div>
+                      </div>
                     </td>
                     <td>
                       <span className={user.ativo ? styles.statusAtivo : styles.statusInativo}>
@@ -699,44 +545,23 @@ export default function GerenciarUsuarios() {
                     </td>
                     <td>
                       <div className={styles.actionButtons}>
-                        {editandoUsuario === user.cpf ? (
-                          <>
-                            <button
-                              onClick={() => salvarEdicaoRole(user.cpf)}
-                              className={styles.btnSave}
-                              disabled={salvandoEdicao}
-                            >
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <polyline points="20 6 9 17 4 12"/>
-                              </svg>
-                              Salvar
-                            </button>
-                            <button
-                              onClick={cancelarEdicao}
-                              className={styles.btnCancel}
-                              disabled={salvandoEdicao}
-                            >
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <line x1="18" y1="6" x2="6" y2="18"/>
-                                <line x1="6" y1="6" x2="18" y2="18"/>
-                              </svg>
-                              Cancelar
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => iniciarEdicao(user)}
-                              className={styles.btnEdit}
-                              disabled={!user.ativo || user.cpf === meuCpf}
-                              title={user.cpf === meuCpf ? 'Você não pode alterar o seu próprio perfil' : 'Alterar nível de acesso'}
-                            >
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                              </svg>
-                              Editar
-                            </button>
+                        <button
+                          onClick={() =>
+                            window.dispatchEvent(
+                              new CustomEvent('integra:abrir-acessos', {
+                                detail: { cpf: user.cpf },
+                              }),
+                            )
+                          }
+                          className={styles.btnEdit}
+                          title="Configurar perfil, serviços e permissões deste usuário"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                          </svg>
+                          Acessos
+                        </button>
                             {user.ativo ? (
                               <button
                                 onClick={() => desativarUsuario(user.cpf, user.nome)}
@@ -763,8 +588,6 @@ export default function GerenciarUsuarios() {
                                 Reativar
                               </button>
                             )}
-                          </>
-                        )}
                       </div>
                     </td>
                   </tr>

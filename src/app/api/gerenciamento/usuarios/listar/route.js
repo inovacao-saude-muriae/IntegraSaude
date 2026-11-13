@@ -1,17 +1,16 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireGestor } from '@/lib/auth';
+import { requirePermissaoGestao } from '@/lib/auth';
 
 export async function GET() {
   try {
-    await requireGestor();
+    await requirePermissaoGestao("usuarios", "visualizar");
     const usuarios = await prisma.user.findMany({
       select: {
         cpf: true,
         username: true,
         nome: true,
         cargo: true,
-        role: true,
         ativo: true,
         createdAt: true,
         ultimoAcesso: true,

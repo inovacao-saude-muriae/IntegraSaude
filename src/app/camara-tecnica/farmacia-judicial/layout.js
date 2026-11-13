@@ -1,7 +1,7 @@
 import {
   carregarContextoAcesso,
   usuarioTemAcessoModulo,
-  usuarioEhGestor,
+  usuarioTemPermissao,
   usuarioEhAdminModulo,
   MODULOS,
 } from "@/lib/permissions";
@@ -25,7 +25,7 @@ export default async function FarmaciaJudicialLayout({ children }) {
   // requireAcessoPessoas, que não cobre FARMACIA — gatear por FARMACIA
   // afrouxaria a visibilidade.
   const podeGerenciarPessoas =
-    (await usuarioEhGestor(ctx.user)) ||
+    (await usuarioTemPermissao(ctx.user, MODULOS.GESTAO, "pessoas", "editar")) ||
     (await usuarioEhAdminModulo(ctx.user, MODULOS.REGULACAO)) ||
     (await usuarioEhAdminModulo(ctx.user, MODULOS.JUNTA));
 

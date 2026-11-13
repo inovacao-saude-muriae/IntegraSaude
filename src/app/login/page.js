@@ -12,17 +12,22 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const getDestinationByRole = (role) => {
-    switch (role) {
-      case 'ADMIN':
-      case 'GESTOR':        return '/';
-      case 'ADMIN_FARMACIA':
-      case 'OPERADOR_FARMACIA': return '/camara-tecnica/farmacia-judicial?tab=DASHBOARD';
-      case 'ADMIN_PROCESSO':    return '/camara-tecnica/processos';
-      case 'OPERADOR_JUNTA':
-      case 'ADMIN_JUNTA':       return '/junta-reguladora?tab=CADASTRO';
-      default:                  return '/regulacao';
-    }
+  // O destino é decidido pelos VÍNCULOS que o login devolve, não por um perfil
+  // único: quem tem mais de um módulo escolhe na tela inicial (/), que lista
+  // exatamente os módulos autorizados. Quem tem um só cai direto nele.
+  const DESTINO_POR_MODULO = {
+    REGULACAO: '/regulacao?tab=DASHBOARD',
+    FARMACIA: '/camara-tecnica/farmacia-judicial?tab=DASHBOARD',
+    PROCESSOS: '/camara-tecnica/processos',
+    JUNTA: '/junta-reguladora?tab=DASHBOARD',
+    CCZ: '/ccz?tab=DASHBOARD',
+  };
+
+  const getDestino = (modulos) => {
+    const lista = Array.isArray(modulos) ? modulos : [];
+    const operacionais = lista.filter((m) => DESTINO_POR_MODULO[m]);
+    if (operacionais.length === 1) return DESTINO_POR_MODULO[operacionais[0]];
+    return '/';
   };
 
   const handleSubmit = async (e) => {
@@ -35,7 +40,7 @@ export default function LoginPage() {
       const cpf = formData.get('cpf')?.replace(/\D/g, '');
       if (typeof window !== 'undefined' && cpf) localStorage.setItem('user_cpf', cpf);
       router.refresh();
-      router.push(getDestinationByRole(res.role));
+      router.push(getDestino(res.modulos));
     } else {
       setMsg(res?.error || 'CPF ou senha incorretos.');
       setLoading(false);

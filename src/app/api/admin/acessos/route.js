@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { requireGestor } from "@/lib/auth";
+import { requirePermissaoGestao } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req) {
   try {
-    await requireGestor();
+    await requirePermissaoGestao("acessos", "visualizar");
 
     const { searchParams } = new URL(req.url);
     const userCpf = searchParams.get("userCpf");
@@ -54,12 +54,13 @@ export async function GET(req) {
           cpf: true,
           nome: true,
           cargo: true,
-          role: true,
           ultimoAcesso: true,
           acessos: {
             select: {
               modulo: true,
-              nivel: true,
+              perfil: true,
+              escopo: true,
+              ativo: true,
               createdAt: true,
             },
             orderBy: { createdAt: "desc" },
@@ -77,12 +78,13 @@ export async function GET(req) {
           cpf: true,
           nome: true,
           cargo: true,
-          role: true,
           ultimoAcesso: true,
           acessos: {
             select: {
               modulo: true,
-              nivel: true,
+              perfil: true,
+              escopo: true,
+              ativo: true,
               createdAt: true,
             },
             orderBy: { createdAt: "desc" },
@@ -99,11 +101,14 @@ export async function GET(req) {
       cpf: user.cpf,
       nome: user.nome,
       cargo: user.cargo,
-      role: user.role,
       ultimoAcesso: user.ultimoAcesso,
+      // Perfis vêm dos VÍNCULOS por módulo (um usuário pode ter perfis
+      // diferentes em módulos diferentes). `users.role` não existe mais.
       modulos: user.acessos.map((a) => ({
         modulo: a.modulo,
-        nivel: a.nivel,
+        perfil: a.perfil,
+        escopo: a.escopo,
+        ativo: a.ativo,
         dataVinculo: a.createdAt,
       })),
     }));

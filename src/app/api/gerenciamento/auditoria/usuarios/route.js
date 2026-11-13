@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { requireGestor } from "@/lib/auth";
+import { requirePermissaoGestao } from "@/lib/auth";
 import { buscarUsuarios } from "@/lib/auditoriaRelatorio";
 
 export async function GET(req) {
   try {
-    await requireGestor();
+    await requirePermissaoGestao("auditoria", "visualizar");
     const { searchParams } = new URL(req.url);
     const usuarios = await buscarUsuarios(searchParams.get("q"));
     return NextResponse.json({ usuarios });

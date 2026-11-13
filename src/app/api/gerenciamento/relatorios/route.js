@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireGestor } from "@/lib/auth";
+import { requirePermissaoGestao } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 // Relatórios Gerais: EXCLUSIVO do GESTOR (junto com Gerenciar Usuários).
@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
-    await requireGestor();
+    await requirePermissaoGestao("relatorios", "visualizar");
 
     const [
       pessoas,

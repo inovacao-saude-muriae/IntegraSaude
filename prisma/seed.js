@@ -36,8 +36,9 @@ async function main() {
   }
 
   // Já existe pelo menos um gestor ativo: não cria, não altera senha, não sobrescreve nada.
+  // "Gestor" = usuário com vínculo ativo no módulo GESTAO (users.role não existe mais).
   const gestoresAtivos = await prisma.user.count({
-    where: { role: "GESTOR", ativo: true },
+    where: { ativo: true, acessos: { some: { modulo: "GESTAO", ativo: true } } },
   });
   if (gestoresAtivos > 0) {
     console.log(
@@ -58,7 +59,7 @@ async function main() {
   // Colisão por username ou CPF com um usuário existente (que não é gestor ativo).
   const existentes = await prisma.user.findMany({
     where: { OR: [{ username: usernameAdmin }, { cpf: CPF_GESTOR_INICIAL }] },
-    select: { cpf: true, username: true, role: true, ativo: true },
+    select: { cpf: true, username: true, ativo: true },
   });
 
   // Recuperação: só reaproveita se for inequivocamente o gestor inicial (mesmo CPF E mesmo username).
@@ -80,7 +81,6 @@ async function main() {
     nome: nomeAdmin,
     senhaHash: senhaHashAdmin,
     cargo: "Administrador do Sistema",
-    role: "GESTOR",
     ativo: true,
     primeiroAcesso: true, // senha trocada obrigatoriamente no primeiro login
   };
@@ -102,7 +102,7 @@ async function main() {
     console.log(`🔑 Senha: ${senhaAdmin}`);
   }
   console.log("🔐 A senha deve ser trocada no primeiro acesso.");
-  console.log(`🎯 Permissão: ${adminUser.role} (Acesso Total)\n`);
+  console.log("🎯 Acessos: NENHUM. Defina na tela Gerenciamento > Usuários > Acessos por módulo.");
 
   console.log("🎉 Seed concluído com sucesso!");
 }

@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { registrarAuditoria } from '@/lib/audit';
 import { prisma } from '@/lib/prisma';
-import { requireGestor } from '@/lib/auth';
+import { requirePermissaoGestao } from '@/lib/auth';
 
 export async function PUT(request) {
   try {
-    const gestor = await requireGestor();
+    const gestor = await requirePermissaoGestao("usuarios", "editar");
     const { cpf } = await request.json();
 
     if (!cpf) {

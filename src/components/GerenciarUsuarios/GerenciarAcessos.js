@@ -70,7 +70,7 @@ function moduloDoBanco(v) {
   };
 }
 
-export default function GerenciarAcessos() {
+export default function GerenciarAcessos({ cpfInicial = null }) {
   const confirm = useConfirm();
   const notify = useNotify();
 
@@ -80,6 +80,7 @@ export default function GerenciarAcessos() {
   const [erro, setErro] = useState("");
 
   const [busca, setBusca] = useState("");
+  const [cpfBusca, setCpfBusca] = useState("");
   const [cpfSelecionado, setCpfSelecionado] = useState(null);
   const [detalhe, setDetalhe] = useState(null);
   const [modulos, setModulos] = useState({}); // modulo → estado da tela
@@ -137,6 +138,20 @@ export default function GerenciarAcessos() {
     },
     [],
   );
+
+  // Pedido vindo da aba "Contas" (evento `integra:abrir-acessos`): abre direto o
+  // usuário escolhido. A carga roda no callback do evento — não no corpo de um
+  // efeito — e o CPF também entra na busca do cabeçalho.
+  useEffect(() => {
+    function aoPedir(e) {
+      const cpf = e.detail?.cpf;
+      if (!cpf) return;
+      setCpfBusca(cpf);
+      carregarUsuario(cpf);
+    }
+    window.addEventListener("integra:abrir-acessos", aoPedir);
+    return () => window.removeEventListener("integra:abrir-acessos", aoPedir);
+  }, [carregarUsuario]);
 
   // ── Helpers de catálogo ─────────────────────────────────────────────────
   const modulosCatalogo = useMemo(() => catalogo?.modulos || [], [catalogo]);
@@ -349,8 +364,11 @@ export default function GerenciarAcessos() {
         <input
           className={styles.campo}
           placeholder="Buscar por nome ou CPF…"
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
+          value={busca || cpfBusca}
+          onChange={(e) => {
+            setBusca(e.target.value);
+            setCpfBusca("");
+          }}
         />
       </div>
 

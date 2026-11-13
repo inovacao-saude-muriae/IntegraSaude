@@ -99,7 +99,6 @@ export async function POST(request) {
 
     const novoToken = await new SignJWT({
       userId: user.cpf,
-      role: user.role,
       nome: user.nome,
       cargo: user.cargo,
       primeiroAcesso: false,

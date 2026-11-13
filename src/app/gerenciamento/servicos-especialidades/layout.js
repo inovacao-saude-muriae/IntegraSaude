@@ -1,6 +1,5 @@
 import {
   carregarContextoAcesso,
-  usuarioEhGestor,
   usuarioTemAcessoModulo,
   MODULOS,
 } from "@/lib/permissions";
@@ -12,8 +11,7 @@ export default async function ServicosEspecialidadesLayout({ children }) {
   const ctx = await carregarContextoAcesso();
   const permitido =
     ctx &&
-    ((await usuarioEhGestor(ctx.user)) ||
-      (await usuarioTemAcessoModulo(ctx.user, MODULOS.JUNTA)));
+    (await usuarioTemAcessoModulo(ctx.user, MODULOS.JUNTA));
 
   if (!permitido) {
     return <AcessoNegadoModulo modulo="Serviços e Especialidades" />;

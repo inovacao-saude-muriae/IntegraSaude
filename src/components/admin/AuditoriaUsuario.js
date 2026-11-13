@@ -199,7 +199,7 @@ export default function AuditoriaUsuario() {
             <strong>{dados.usuario.nome}</strong>
             <span>
               {dados.usuario.username ? `@${dados.usuario.username} · ` : ""}
-              CPF {dados.usuario.cpf} · {dados.usuario.role}
+              CPF {dados.usuario.cpf}
               {dados.usuario.cargo ? ` · ${dados.usuario.cargo}` : ""}
               {dados.usuario.ativo === false ? " · inativo" : ""}
             </span>

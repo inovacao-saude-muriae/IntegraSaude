@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireGestor } from '@/lib/auth';
+import { requirePermissaoGestao } from '@/lib/auth';
 
 export async function GET(request, { params }) {
   try {
-    await requireGestor();
+    await requirePermissaoGestao("usuarios", "visualizar");
     
     const { cpf: cpfParam } = await params;
     const cpf = cpfParam?.replace(/\D/g, '');
@@ -21,7 +21,6 @@ export async function GET(request, { params }) {
       select: {
         cpf: true,
         nome: true,
-        role: true,
         cargo: true,
         ativo: true,
         primeiroAcesso: true,

@@ -13,7 +13,6 @@ model User {
   nome                 String                @db.VarChar(150)
   senhaHash            String                @map("senha_hash") @db.VarChar(255)
   cargo                String?               @db.VarChar(100)
-  role                 Role                  @default(REGULACAO_COMUM)
   ativo                Boolean               @default(true)
   primeiroAcesso       Boolean               @default(true) @map("primeiro_acesso")
   ultimoAcesso         DateTime?             @map("ultimo_acesso") @db.Timestamptz(6)
@@ -447,28 +446,28 @@ model TermoInternacao {
 }
 
 model DenunciaCaoAgressivo {
-  id              String    @id(map: "zoonoses_denuncia_pkey") @db.VarChar(50)
-  dataDenuncia    DateTime? @default(now()) @db.Timestamptz(6)
-  cep             String?   @db.VarChar(10)
-  logradouro      String?   @db.VarChar(200)
-  numero          String?   @db.VarChar(20)
-  complemento     String?   @db.VarChar(100)
-  bairro          String?   @db.VarChar(100)
-  cidade          String?   @default("Muriaé") @db.VarChar(100)
-  uf              String?   @default("MG") @db.VarChar(2)
-  pontoReferencia String?   @map("ponto_referencia")
-  descricaoCao    String    @map("descricao_cao")
-  relato          String
-  animalId        String?   @map("animal_id") @db.VarChar(50)
-  causouRisco     String?   @default("Não") @map("causou_risco") @db.VarChar(10)
-  tipo            String    @default("AGRESSIVO") @map("tipo") @db.VarChar(20)
+  id                 String    @id(map: "zoonoses_denuncia_pkey") @db.VarChar(50)
+  dataDenuncia       DateTime? @default(now()) @db.Timestamptz(6)
+  cep                String?   @db.VarChar(10)
+  logradouro         String?   @db.VarChar(200)
+  numero             String?   @db.VarChar(20)
+  complemento        String?   @db.VarChar(100)
+  bairro             String?   @db.VarChar(100)
+  cidade             String?   @default("Muriaé") @db.VarChar(100)
+  uf                 String?   @default("MG") @db.VarChar(2)
+  pontoReferencia    String?   @map("ponto_referencia")
+  descricaoCao       String    @map("descricao_cao")
+  relato             String
+  animalId           String?   @map("animal_id") @db.VarChar(50)
+  causouRisco        String?   @default("Não") @map("causou_risco") @db.VarChar(10)
+  tipo               String    @default("AGRESSIVO") @map("tipo") @db.VarChar(20)
   // Arquivamento: a denúncia não é apagada — sai das listagens operacionais
   // e continua rastreável (histórico, investigação, relatórios).
-  situacao          String    @default("Ativa") @db.VarChar(20)
-  motivoArquivamento String?  @map("motivo_arquivamento")
-  arquivadaEm       DateTime? @map("arquivada_em") @db.Timestamptz(6)
-  arquivadaPor      String?   @map("arquivada_por") @db.VarChar(150)
-  animal          Animal?   @relation(fields: [animalId], references: [id])
+  situacao           String    @default("Ativa") @db.VarChar(20)
+  motivoArquivamento String?   @map("motivo_arquivamento")
+  arquivadaEm        DateTime? @map("arquivada_em") @db.Timestamptz(6)
+  arquivadaPor       String?   @map("arquivada_por") @db.VarChar(150)
+  animal             Animal?   @relation(fields: [animalId], references: [id])
 
   @@map("ccz_denuncias")
 }
@@ -612,21 +611,6 @@ model UserAcesso {
   @@index([userCpf], map: "idx_user_acesso_cpf")
   @@index([userCpf, modulo], map: "idx_user_acesso_cpf_modulo")
   @@map("user_acessos")
-}
-
-enum Role {
-  GESTOR
-  REGULACAO_ADMIN
-  REGULACAO_COMUM
-  FARMACIA_ADMIN
-  PROCESSO_ADMIN
-  JUNTA_ADMIN
-  JUNTA_CAEE
-  JUNTA_EDUCACAO
-  JUNTA_SAUDE
-  JUNTA_ASSISTENCIA
-  CCZ_ADMIN
-  CCZ_COMUM
 }
 
 enum ModuloAcesso {

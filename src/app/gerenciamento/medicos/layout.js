@@ -1,6 +1,5 @@
 import {
   carregarContextoAcesso,
-  usuarioEhGestor,
   usuarioEhAdminModulo,
   MODULOS,
 } from "@/lib/permissions";
@@ -11,8 +10,7 @@ export default async function MedicosLayout({ children }) {
   const ctx = await carregarContextoAcesso();
   const permitido =
     ctx &&
-    ((await usuarioEhGestor(ctx.user)) ||
-      (await usuarioEhAdminModulo(ctx.user, MODULOS.REGULACAO)));
+    (await usuarioEhAdminModulo(ctx.user, MODULOS.REGULACAO));
 
   if (!permitido) {
     return <AcessoNegadoModulo modulo="Médicos" />;

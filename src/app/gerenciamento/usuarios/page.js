@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import GerenciarUsuarios from '@/components/GerenciarUsuarios/GerenciarUsuarios';
 import GerenciarAcessos from '@/components/GerenciarUsuarios/GerenciarAcessos';
 import styles from '@/components/GerenciarUsuarios/GerenciarAcessos.module.css';
@@ -11,6 +11,18 @@ import styles from '@/components/GerenciarUsuarios/GerenciarAcessos.module.css';
 //  • "Contas" — cadastro de usuário e situação da conta.
 export default function AdminUsuariosPage() {
   const [aba, setAba] = useState('acessos');
+  // A aba "Contas" pede para abrir a configuração de um usuário específico:
+  // evento `integra:abrir-acessos` com { cpf }. A aba de acessos escuta.
+  const [cpfPedido, setCpfPedido] = useState(null);
+
+  useEffect(() => {
+    function aoAbrirAcessos(e) {
+      setCpfPedido(e.detail?.cpf || null);
+      setAba('acessos');
+    }
+    window.addEventListener('integra:abrir-acessos', aoAbrirAcessos);
+    return () => window.removeEventListener('integra:abrir-acessos', aoAbrirAcessos);
+  }, []);
 
   return (
     <div className={styles.pagina}>
@@ -35,7 +47,11 @@ export default function AdminUsuariosPage() {
         </button>
       </div>
 
-      {aba === 'acessos' ? <GerenciarAcessos /> : <GerenciarUsuarios />}
+      {aba === 'acessos' ? (
+        <GerenciarAcessos cpfInicial={cpfPedido} />
+      ) : (
+        <GerenciarUsuarios />
+      )}
     </div>
   );
 }

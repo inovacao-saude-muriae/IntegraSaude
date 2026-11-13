@@ -167,9 +167,11 @@ export async function loginAction(formData) {
     const secret = new TextEncoder().encode(process.env.JWT_SECRET);
     const expiresAt = new Date(Date.now() + SESSION_DURATION_MS); // 8 horas de sessão
     
+    // O JWT carrega IDENTIDADE e estado de conta — nunca perfil de acesso.
+    // Autorização é lida do banco a cada requisição (lib/permissions), então
+    // revogar um vínculo vale imediatamente, sem esperar o token expirar.
     const token = await new SignJWT({
       userId: user.cpf,
-      role: user.role,
       nome: user.nome,
       cargo: user.cargo,
       primeiroAcesso: user.primeiroAcesso,
@@ -208,7 +210,14 @@ export async function loginAction(formData) {
       ip,
     });
 
-    return { success: true, role: user.role };
+    // Módulos com vínculo ativo — a tela de login usa isto para escolher o
+    // destino, sem conhecer perfil nenhum.
+    const vinculos = await prisma.userAcesso.findMany({
+      where: { userCpf: user.cpf, ativo: true },
+      select: { modulo: true },
+    });
+
+    return { success: true, modulos: vinculos.map((v) => v.modulo) };
   } catch (error) {
     console.error("Erro na ação de login:", error);
     recordAttempt(ip, false);

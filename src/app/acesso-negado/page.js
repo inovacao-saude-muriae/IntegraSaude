@@ -6,26 +6,11 @@ export const metadata = {
   description: 'Você não tem permissão para acessar esta página',
 };
 
-// Mapeamento de cargos para nomes amigáveis
-const CARGO_LABELS = {
-  'GESTOR': 'Gestor Geral',
-  'REGULACAO_ADMIN': 'Administrador da Regulação',
-  'REGULACAO_COMUM': 'Usuário da Regulação',
-  'FARMACIA_ADMIN': 'Farmácia Judicial',
-  'PROCESSO_ADMIN': 'Processos Judiciais',
-  'JUNTA_ADMIN': 'Administrador da Junta Reguladora',
-  'JUNTA_CAEE': 'Usuário do CAEE',
-  'JUNTA_EDUCACAO': 'Usuário da Educação',
-  'JUNTA_SAUDE': 'Usuário da Saúde',
-  'JUNTA_ASSISTENCIA': 'Usuário da Assistência Social',
-  'CCZ_ADMIN': 'Administrador do CCZ',
-  'CCZ_COMUM': 'Operador do CCZ',
-};
-
 export default function AcessoNegado({ searchParams }) {
   const rota = searchParams?.rota || 'esta página';
-  const role = searchParams?.role || 'desconhecido';
-  const cargoLabel = CARGO_LABELS[role] || role;
+  // Não existe mais "perfil do usuário" (`users.role`): a autorização é por
+  // módulo. A página mostra só a rota pedida e como pedir revisão de acesso.
+  const modulo = searchParams?.modulo || null;
 
   return (
     <main className={styles.container}>
@@ -35,14 +20,16 @@ export default function AcessoNegado({ searchParams }) {
         <p className={styles.message}>
           Você não tem permissão para acessar: <strong>{rota}</strong>
         </p>
-        <div className={styles.info}>
-          <p className={styles.infoLabel}>Seu cargo atual:</p>
-          <p className={styles.infoValue}>{cargoLabel}</p>
-        </div>
+        {modulo && (
+          <div className={styles.info}>
+            <p className={styles.infoLabel}>Módulo:</p>
+            <p className={styles.infoValue}>{modulo}</p>
+          </div>
+        )}
         <p className={styles.submessage}>
-          Cada usuário tem acesso apenas aos módulos específicos do seu cargo.
-          Se você acredita que deveria ter acesso a esta área, entre em contato 
-          com o administrador do sistema para revisar suas permissões.
+          O acesso é concedido módulo por módulo, com perfil, serviços e
+          permissões definidos pela Gestão Geral. Se você acredita que deveria
+          ter acesso a esta área, peça a revisão das suas permissões.
         </p>
         <div className={styles.actions}>
           <Link href="/dashboard" className={styles.button}>

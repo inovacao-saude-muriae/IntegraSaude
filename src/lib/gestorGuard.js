@@ -1,63 +1,91 @@
-import { Role } from '@prisma/client';
+/**
+ * Autoproteção administrativa — SEM `users.role`.
+ *
+ * Antes esta guarda existia para proteger o perfil legado `GESTOR`
+ * (não desativar a si mesmo, não deixar o sistema sem gestor). Com a
+ * arquitetura definitiva a pergunta certa é outra: **não deixar o sistema sem
+ * ninguém capaz de administrar acessos**. Quem pode isso é quem tem a permissão
+ * `acessos:editar` do módulo GESTAO — a mesma que esta rota exige.
+ *
+ * Regras (lançam GestorGuardError e nada é escrito):
+ *  1. Ninguém desativa a si mesmo.
+ *  2. Nunca desativar o último administrador de acessos ativo.
+ */
+import { permissoesEfetivas } from "@/lib/permissoesCatalogo";
 
-// Roles válidas (enum Role do Prisma) - fonte única para validação de entrada.
-export const ROLES_VALIDAS = Object.values(Role);
-
-export const MSG_AUTO_DESATIVAR = 'Você não pode desativar a sua própria conta.';
-export const MSG_AUTO_ROLE = 'Você não pode alterar o seu próprio perfil de acesso.';
-export const MSG_ULTIMO_GESTOR =
-  'Não é possível: este é o último usuário Gestor ativo. Crie ou promova outro Gestor antes.';
+export const MSG_AUTO_DESATIVAR = "Você não pode desativar a sua própria conta.";
+export const MSG_ULTIMO_ADMIN =
+  "Não é possível: este é o último usuário ativo capaz de administrar acessos. " +
+  "Conceda essa permissão a outra pessoa antes.";
 
 // Erro de regra de negócio com status HTTP (409 recusa, 404 não encontrado).
 export class GestorGuardError extends Error {
   constructor(message, status = 409) {
     super(message);
-    this.name = 'GestorGuardError';
+    this.name = "GestorGuardError";
     this.status = status;
   }
 }
 
+// O vínculo GESTAO do usuário permite editar acessos?
+function adminDeAcessos(acessos) {
+  const doModulo = (acessos || []).filter(
+    (a) => a.modulo === "GESTAO" && a.ativo !== false,
+  );
+  return doModulo.some((a) =>
+    permissoesEfetivas(a.modulo, a.perfil, a.permissoes, a.removidas).includes(
+      "acessos:editar",
+    ),
+  );
+}
+
 /**
- * Autoproteção do Gestor. DEVE ser chamada DENTRO de `prisma.$transaction`
- * (recebe o `tx`) ANTES da escrita que altera `role` e/ou `ativo`, na mesma transação.
- *
- * Trava (SELECT ... FOR UPDATE) as linhas de todos os Gestores ativos, serializando
- * operações concorrentes: a segunda transação espera a primeira confirmar e então
- * reavalia (READ COMMITTED) apenas os gestores que continuam ativos. Assim dois
- * gestores rebaixando um ao outro nunca zeram o sistema.
- *
- * Regras (lançam GestorGuardError e nada é escrito):
- *  1. Ninguém desativa a si mesmo nem muda o próprio role para != GESTOR.
- *  2. Nunca desativar/rebaixar o último GESTOR ativo (mesmo por outro executor).
+ * DEVE ser chamada DENTRO de `prisma.$transaction` (recebe o `tx`), na mesma
+ * transação da escrita. Trava (`FOR UPDATE`) as linhas de `user_acessos` do
+ * módulo GESTAO para serializar operações concorrentes: a segunda transação
+ * espera a primeira confirmar e reavalia quem continua administrando.
  *
  * @param tx transação do Prisma
- * @param {{executorCpf: string, alvoCpf: string, novoRole?: string, desativar?: boolean,
+ * @param {{executorCpf: string, alvoCpf: string, desativar?: boolean,
  *          alvoObrigatorio?: boolean}} opts
- * @returns usuário alvo (estado atual, já sob trava) ou null se não existir e não obrigatório
+ * @returns usuário alvo (estado atual, já sob trava) ou null
  */
 export async function validarAlteracaoGestor(
   tx,
-  { executorCpf, alvoCpf, novoRole, desativar = false, alvoObrigatorio = true }
+  { executorCpf, alvoCpf, desativar = false, alvoObrigatorio = true },
 ) {
-  const gestoresAtivos = await tx.$queryRaw`
-    SELECT cpf FROM users WHERE role = 'GESTOR' AND ativo = true FOR UPDATE
+  // Trava dos vínculos administrativos (serializa desativações concorrentes).
+  const vinculos = await tx.$queryRaw`
+    SELECT a.id, a.user_cpf, a.perfil, a.permissoes, a.removidas, a.ativo, u.ativo AS user_ativo
+      FROM user_acessos a
+      JOIN users u ON u.cpf = a.user_cpf
+     WHERE a.modulo = 'GESTAO' AND a.ativo = true
+     FOR UPDATE OF a
   `;
 
   const alvo = await tx.user.findUnique({ where: { cpf: alvoCpf } });
   if (!alvo) {
-    if (alvoObrigatorio) throw new GestorGuardError('Usuário não encontrado', 404);
+    if (alvoObrigatorio) throw new GestorGuardError("Usuário não encontrado", 404);
     return null;
   }
 
-  const rebaixa = novoRole !== undefined && novoRole !== 'GESTOR';
-  const ehProprio = alvo.cpf === executorCpf;
+  if (alvo.cpf === executorCpf && desativar) {
+    throw new GestorGuardError(MSG_AUTO_DESATIVAR);
+  }
 
-  if (ehProprio && desativar) throw new GestorGuardError(MSG_AUTO_DESATIVAR);
-  if (ehProprio && rebaixa) throw new GestorGuardError(MSG_AUTO_ROLE);
+  // Quantos administradores de acessos continuariam ativos depois da operação?
+  const alvoAdmin = adminDeAcessos(
+    vinculos.filter((v) => v.user_cpf === alvoCpf),
+  );
+  const outrosAdmins = new Set(
+    vinculos
+      .filter((v) => v.user_cpf !== alvoCpf && v.user_ativo === true)
+      .filter((v) => adminDeAcessos([{ ...v, modulo: "GESTAO", ativo: v.ativo }]))
+      .map((v) => v.user_cpf),
+  );
 
-  const alvoEhGestorAtivo = alvo.role === 'GESTOR' && alvo.ativo === true;
-  if (alvoEhGestorAtivo && (desativar || rebaixa) && gestoresAtivos.length <= 1) {
-    throw new GestorGuardError(MSG_ULTIMO_GESTOR);
+  if (alvoAdmin && desativar && outrosAdmins.size === 0) {
+    throw new GestorGuardError(MSG_ULTIMO_ADMIN);
   }
 
   return alvo;

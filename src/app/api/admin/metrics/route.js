@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireAdminDeAlgumModulo } from "@/lib/auth";
-import { MODULOS, usuarioEhAdminModulo, usuarioEhGestor } from "@/lib/permissions";
+import {
+  MODULOS,
+  usuarioEhAdminModulo,
+  usuarioTemPermissao,
+} from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -31,18 +35,22 @@ function toNumber(value) {
 
 export async function GET() {
   try {
-    // Barreira de entrada: sessão válida + ADMIN de algum módulo (ou GESTOR).
+    // Barreira de entrada: sessão válida + ADMIN de algum módulo, OU quem tem
+    // permissão de painel da Gestão Geral.
     const user = await requireAdminDeAlgumModulo();
 
     // ── Escopo do usuário ────────────────────────────────────────────────
-    const ehGestor = await usuarioEhGestor(user);
+    // Cada bloco abre pela permissão do SEU módulo. Gestão Geral não abre nada
+    // por si: para ver o bloco de um módulo é preciso o vínculo daquele módulo
+    // (o gestor tem os 6 vínculos explícitos, então continua vendo tudo — mas
+    // porque os vínculos existem, não porque é gestor).
     const pode = {
-      regulacao: ehGestor || (await usuarioEhAdminModulo(user, MODULOS.REGULACAO)),
-      farmacia: ehGestor || (await usuarioEhAdminModulo(user, MODULOS.FARMACIA)),
-      junta: ehGestor || (await usuarioEhAdminModulo(user, MODULOS.JUNTA)),
-      ccz: ehGestor || (await usuarioEhAdminModulo(user, MODULOS.CCZ)),
-      processos: ehGestor || (await usuarioEhAdminModulo(user, MODULOS.PROCESSOS)),
-      usuarios: ehGestor,
+      regulacao: await usuarioEhAdminModulo(user, MODULOS.REGULACAO),
+      farmacia: await usuarioEhAdminModulo(user, MODULOS.FARMACIA),
+      junta: await usuarioEhAdminModulo(user, MODULOS.JUNTA),
+      ccz: await usuarioEhAdminModulo(user, MODULOS.CCZ),
+      processos: await usuarioEhAdminModulo(user, MODULOS.PROCESSOS),
+      usuarios: await usuarioTemPermissao(user, MODULOS.GESTAO, "painel", "visualizar"),
     };
 
     const agora = new Date();
@@ -130,9 +138,14 @@ export async function GET() {
       pode.ccz ? prisma.animal.count() : vazio,
       pode.ccz ? prisma.denunciaCaoAgressivo.count() : vazio,
 
-      // Usuários (só GESTOR)
+      // Usuários (permissão da Gestão Geral). A contagem é por MÓDULO × PERFIL
+      // dos vínculos — `users.role` deixou de existir.
       pode.usuarios
-        ? prisma.user.groupBy({ by: ["role"], _count: { _all: true } })
+        ? prisma.userAcesso.groupBy({
+            by: ["modulo", "perfil"],
+            where: { ativo: true },
+            _count: { _all: true },
+          })
         : vazio,
       pode.usuarios ? prisma.user.count({ where: { ativo: true } }) : vazio,
 
@@ -251,7 +264,11 @@ export async function GET() {
     let usuarios = null;
     if (pode.usuarios) {
       const porPerfil = (usuariosPorPerfil || [])
-        .map((row) => ({ role: row.role, total: toNumber(row._count._all) }))
+        .map((row) => ({
+          modulo: row.modulo,
+          perfil: row.perfil,
+          total: toNumber(row._count._all),
+        }))
         .sort((a, b) => b.total - a.total);
       const totalUsuarios = porPerfil.reduce((s, u) => s + u.total, 0);
       usuarios = {

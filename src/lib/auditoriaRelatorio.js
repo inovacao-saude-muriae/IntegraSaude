@@ -34,7 +34,6 @@ export async function buscarUsuarios(q) {
       nome: true,
       username: true,
       cargo: true,
-      role: true,
       ativo: true,
     },
     orderBy: { nome: "asc" },
@@ -165,7 +164,6 @@ export async function consultarAuditoriaUsuario({
       nome: true,
       username: true,
       cargo: true,
-      role: true,
       ativo: true,
     },
   });

@@ -88,14 +88,13 @@ export default function RelatorioAcessos() {
   };
 
   const exportarCSV = () => {
-    const headers = ["CPF", "Nome", "Cargo", "Role", "Último Acesso", "Módulos"];
+    const headers = ["CPF", "Nome", "Cargo", "Último Acesso", "Módulos e perfis"];
     const rows = acessos.map((a) => [
       a.cpf,
       a.nome,
       a.cargo || "-",
-      a.role,
       formatarDataHora(a.ultimoAcesso),
-      a.modulos.map((m) => `${m.modulo} (${m.nivel})`).join("; "),
+      a.modulos.map((m) => `${m.modulo} (${m.perfil})`).join("; "),
     ]);
 
     // Properly escape CSV cells (quotes become double-quotes)
@@ -222,7 +221,6 @@ export default function RelatorioAcessos() {
                   <th>CPF</th>
                   <th>Nome</th>
                   <th>Cargo</th>
-                  <th>Role</th>
                   <th>Último Acesso</th>
                   <th>Módulos</th>
                 </tr>
@@ -233,16 +231,13 @@ export default function RelatorioAcessos() {
                     <td>{acesso.cpf}</td>
                     <td className={styles.nomeCell}>{acesso.nome}</td>
                     <td>{acesso.cargo || "-"}</td>
-                    <td>
-                      <span className={styles.badge}>{acesso.role}</span>
-                    </td>
                     <td>{formatarDataHora(acesso.ultimoAcesso)}</td>
                     <td>
                       <div className={styles.modulosList}>
                         {acesso.modulos.length > 0 ? (
                           acesso.modulos.map((m, i) => (
                             <span key={i} className={styles.moduloBadge}>
-                              {m.modulo} <small>({m.nivel})</small>
+                              {m.modulo} <small>({m.perfil})</small>
                             </span>
                           ))
                         ) : (

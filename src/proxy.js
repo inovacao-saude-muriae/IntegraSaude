@@ -49,8 +49,10 @@ export async function proxy(request) {
     // Identidade propagada por headers (consumo opcional; a autorização NÃO
     // depende deles — ela acontece nos layouts/actions com acesso ao Prisma).
     const requestHeaders = new Headers(request.headers);
+    // Só identidade. Não existe mais `x-user-role`: o JWT não carrega perfil
+    // (users.role removido) e a autorização é decidida por vínculo de módulo
+    // nas guardas do servidor — nunca por header.
     requestHeaders.set("x-user-id", payload.userId);
-    requestHeaders.set("x-user-role", payload.role);
     requestHeaders.set("x-user-name", payload.nome || "Usuário");
 
     return NextResponse.next({ request: { headers: requestHeaders } });

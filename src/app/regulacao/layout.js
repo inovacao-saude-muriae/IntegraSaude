@@ -2,7 +2,6 @@ import {
   carregarContextoAcesso,
   usuarioTemAcessoModulo,
   usuarioEhAdminModulo,
-  usuarioEhGestor,
   usuarioTemPermissao,
   MODULOS,
 } from "@/lib/permissions";
@@ -40,14 +39,14 @@ export default async function RegulacaoLayout({ children }) {
   // de pessoas do Gerenciamento: GESTOR ∨ REGULACAO/ADMIN ∨ JUNTA/ADMIN
   // (ver gerenciamento/pessoas/layout.js e requireAcessoPessoas em lib/auth.js).
   const podeGerenciarPessoas =
-    (await usuarioEhGestor(ctx.user)) ||
+    (await usuarioTemPermissao(ctx.user, MODULOS.GESTAO, "pessoas", "editar")) ||
     (await usuarioEhAdminModulo(ctx.user, MODULOS.REGULACAO)) ||
     (await usuarioEhAdminModulo(ctx.user, MODULOS.JUNTA));
 
   // Aba "Auditoria de Alterações": GESTOR ∨ REGULACAO/ADMIN (regra revisada:
   // o admin da Regulação passou a ver a auditoria; antes era só Gestor).
   const podeVerAuditoria =
-    (await usuarioEhGestor(ctx.user)) ||
+    (await usuarioTemPermissao(ctx.user, MODULOS.GESTAO, "auditoria", "visualizar")) ||
     (await usuarioEhAdminModulo(ctx.user, MODULOS.REGULACAO));
 
   return (

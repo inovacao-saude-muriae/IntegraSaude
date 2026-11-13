@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { registrarAuditoria } from '@/lib/audit';
 import { prisma } from '@/lib/prisma';
-import { requireGestor } from '@/lib/auth';
+import { requirePermissaoGestao } from '@/lib/auth';
 import { GestorGuardError, validarAlteracaoGestor } from '@/lib/gestorGuard';
 
 export async function PUT(request) {
   try {
-    const gestor = await requireGestor();
+    const gestor = await requirePermissaoGestao("usuarios", "editar");
     const { cpf } = await request.json();
 
     if (!cpf) {
@@ -16,7 +16,8 @@ export async function PUT(request) {
       );
     }
 
-    // Guarda (autoproteção do Gestor) + desativação + limpeza de sessões na MESMA transação.
+    // Guarda (não deixar o sistema sem administrador de acessos) + desativação +
+    // limpeza de sessões na MESMA transação.
     const usuarioExistente = await prisma.$transaction(async (tx) => {
       const alvo = await validarAlteracaoGestor(tx, {
         executorCpf: gestor.cpf,

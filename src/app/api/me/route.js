@@ -16,9 +16,8 @@ import { MODULOS_CATALOGO, PERFIS_INFO } from "@/lib/permissoesCatalogo";
 //
 // A Sidebar e as telas NÃO recalculam nada: só consomem isto. Vínculo inativo,
 // perfil desconhecido ou escopo contraditório ficam de fora (fail-closed).
-// `role`/`isGestor` continuam sendo servidos apenas para compatibilidade com
-// componentes antigos — nada mais decide acesso por eles, e saem junto com os
-// 12 perfis legados.
+// `role` e `isGestor` NÃO existem mais aqui: `users.role` foi removido do banco
+// e a Gestão Geral é apenas o módulo GESTAO com suas permissões explícitas.
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function GET() {
@@ -50,23 +49,12 @@ export async function GET() {
           cargo: user.cargo || null,
           primeiroAcesso: user.primeiroAcesso ?? false,
 
-          // ── Contexto efetivo (fonte da UI) ──
+          // ── Contexto efetivo (fonte única da UI) ──
           modulos,
           permissoes: efetivo.permissoes,
-          // Atalho booleano para "pode ser concedido/acessado": Gestão Geral.
+          // "Tem o módulo Gestão Geral" — só para rótulo/identificação visual.
+          // NÃO é autorização: qualquer decisão usa `permissoes`/`modulos`.
           gestaoGeral: modulos.some((m) => m.modulo === MODULOS.GESTAO),
-
-          // ── Compatibilidade (sai com os perfis legados) ──
-          // role: valor legado, mantido só enquanto houver componente lendo.
-          role: user.role,
-          // isGestor: passou a significar "tem o vínculo de Gestão Geral" e
-          // NÃO libera módulo nenhum por si (a Sidebar checa `modulos`).
-          isGestor: modulos.some((m) => m.modulo === MODULOS.GESTAO),
-          acessos: (user.acessos || []).map((a) => ({
-            modulo: a.modulo,
-            nivel: a.nivel,
-            servicoJunta: a.servicoJunta,
-          })),
         },
       },
       { status: 200 },

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireGestor } from "@/lib/auth";
+import { requirePermissaoGestao } from "@/lib/auth";
 import {
   AcessoErro,
   listarAcessosUsuario,
@@ -22,7 +22,7 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(request, context) {
   try {
-    await requireGestor();
+    await requirePermissaoGestao("acessos", "visualizar");
     const { cpf } = await context.params;
     const dados = await listarAcessosUsuario(cpf);
     return NextResponse.json({ success: true, ...dados });
@@ -40,7 +40,8 @@ export async function GET(request, context) {
 
 export async function PUT(request, context) {
   try {
-    const executor = await requireGestor();
+    // PUT e DELETE GRAVAM a configuração: exigem permissão de escrita.
+    const executor = await requirePermissaoGestao("acessos", "editar");
     const { cpf } = await context.params;
 
     let corpo = {};
@@ -80,7 +81,8 @@ export async function PUT(request, context) {
 // DELETE → remove o vínculo de UM módulo (atalho da tela: "sem acesso").
 export async function DELETE(request, context) {
   try {
-    const executor = await requireGestor();
+    // PUT e DELETE GRAVAM a configuração: exigem permissão de escrita.
+    const executor = await requirePermissaoGestao("acessos", "editar");
     const { cpf } = await context.params;
     const { searchParams } = new URL(request.url);
     const modulo = searchParams.get("modulo");

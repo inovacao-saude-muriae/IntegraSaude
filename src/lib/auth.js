@@ -2,7 +2,6 @@ import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import {
   MODULOS,
-  usuarioEhGestor,
   usuarioTemAcessoModulo,
   usuarioEhAdminModulo,
   usuarioTemAcessoServicoJunta,
@@ -117,17 +116,27 @@ export async function requireAdminModulo(modulo) {
   return user;
 }
 
-export async function requireGestor() {
-  const user = await carregarUsuarioSessao();
-  if (!(await usuarioEhGestor(user))) {
-    await registrarAcessoNegado(user, {
-      recurso: "Gestor",
-      descricao: "Acesso negado: operação exclusiva do Gestor",
-    });
-    throw Object.assign(new Error("Acesso negado: requer Gestor."), { status: 403 });
-  }
-  return user;
+/**
+ * Guarda da administração de segurança (antigo `requireGestor`).
+ *
+ * NÃO é mais "tem a role GESTOR": exige uma PERMISSÃO do módulo GESTAO —
+ * exatamente como qualquer outro módulo. Assim, Gestão Geral deixa de ser
+ * privilégio implícito: um vínculo de Gestão Geral só abre o que o perfil e as
+ * permissões daquele vínculo permitem, e um vínculo removido fecha na hora.
+ *
+ * `funcionalidade` e `permissao` são do catálogo (`lib/permissoesCatalogo`).
+ * O nome antigo é mantido como apelido para não quebrar as chamadas existentes
+ * enquanto as rotas migram uma a uma — todas passam a exigir permissão.
+ */
+export async function requirePermissaoGestao(
+  funcionalidade = "acessos",
+  permissao = "editar",
+) {
+  return requirePermissao(MODULOS.GESTAO, funcionalidade, permissao);
 }
+
+/** @deprecated use requirePermissaoGestao(funcionalidade, permissao). */
+export const requireGestor = requirePermissaoGestao;
 
 // ── GUARDA POR FUNCIONALIDADE E PERMISSÃO (arquitetura definitiva) ─────────
 // Substitui as guardas por módulo/nível nas operações que precisam de controle
@@ -178,7 +187,12 @@ export async function requireAcessoServicoJunta(servicoJunta) {
 
 export async function requireAdminDeAlgumModulo() {
   const user = await carregarUsuarioSessao();
-  if (!(await usuarioEhAdminDeAlgumModulo(user))) {
+  // Entra quem é ADMINISTRADOR de algum módulo OU quem tem permissão de painel
+  // da Gestão Geral — a rota decide depois, bloco a bloco, pelo módulo dele.
+  const ok =
+    (await usuarioEhAdminDeAlgumModulo(user)) ||
+    (await usuarioTemPermissao(user, MODULOS.GESTAO, "painel", "visualizar"));
+  if (!ok) {
     await registrarAcessoNegado(user, {
       recurso: "AdminDeAlgumModulo",
       descricao: "Acesso negado: requer administrador de algum módulo",
@@ -193,8 +207,11 @@ export async function requireAdminDeAlgumModulo() {
 // escritas de Pessoa da Regulação).
 export async function requireAcessoPessoas() {
   const user = await carregarUsuarioSessao();
+  // Gestão Geral entra por permissão explícita do módulo GESTAO, não por
+  // "ser gestor": quem administra pessoas na Gestão Geral tem a funcionalidade
+  // `pessoas` do catálogo.
   const ok =
-    (await usuarioEhGestor(user)) ||
+    (await usuarioTemPermissao(user, MODULOS.GESTAO, "pessoas", "editar")) ||
     (await usuarioEhAdminModulo(user, MODULOS.REGULACAO)) ||
     (await usuarioEhAdminModulo(user, MODULOS.JUNTA));
   if (!ok) {

@@ -37,10 +37,12 @@ const formatarStatusFarmacia = (status) => {
   return st.charAt(0) + st.slice(1).toLowerCase();
 };
 
-// Página com abas: a aba de auditoria só aparece para GESTOR. Para os demais
-// perfis, renderiza apenas o relatório do paciente (comportamento original).
+// Página com abas: a aba de auditoria só aparece para quem tem a permissão
+// `auditoria:visualizar` da Gestão Geral. Para os demais, renderiza apenas o
+// relatório do paciente (comportamento original). A permissão vem de /api/me;
+// a rota da auditoria repete a checagem no servidor.
 export default function RelatoriosGeraisPage() {
-  const [ehGestor, setEhGestor] = useState(false);
+  const [podeAuditoria, setPodeAuditoria] = useState(false);
   const [aba, setAba] = useState("paciente");
 
   useEffect(() => {
@@ -48,7 +50,10 @@ export default function RelatoriosGeraisPage() {
     fetch("/api/me", { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : null))
       .then((dados) => {
-        if (!cancelado && dados?.user?.role === "GESTOR") setEhGestor(true);
+        const permissoes = dados?.user?.permissoes || [];
+        if (!cancelado && permissoes.includes("auditoria:visualizar")) {
+          setPodeAuditoria(true);
+        }
       })
       .catch(() => {});
     return () => {
@@ -56,7 +61,7 @@ export default function RelatoriosGeraisPage() {
     };
   }, []);
 
-  if (!ehGestor) return <RelatorioPacienteView />;
+  if (!podeAuditoria) return <RelatorioPacienteView />;
 
   return (
     <>
