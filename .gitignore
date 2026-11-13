@@ -71,3 +71,5 @@ test-*.js
 relatorios/
 .tmp-*
 *.tmp.*
+start.log
+*.log
