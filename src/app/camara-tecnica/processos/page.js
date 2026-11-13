@@ -1,11 +1,36 @@
-export default function ProcessosPage() {
+import {
+  carregarContextoAcesso,
+  usuarioTemPermissao,
+  MODULOS,
+} from "@/lib/permissions";
+import AcessoNegadoModulo from "@/components/AcessoNegadoModulo";
+import ProcessosJudiciaisPage from "./ProcessosJudiciaisPage";
+
+// Página de Processos Judiciais.
+//
+// O layout do módulo já exige o vínculo com PROCESSOS. Aqui a página calcula as
+// flags de AÇÃO a partir do catálogo (`processo_judicial:visualizar/criar/editar/
+// excluir`) e as entrega prontas ao componente — Client Components não importam
+// `lib/permissions`. Cada ação é revalidada no backend por `requirePermissao`.
+export default async function ProcessosPage() {
+  const ctx = await carregarContextoAcesso();
+
+  const podeVer =
+    ctx &&
+    (await usuarioTemPermissao(ctx.user, MODULOS.PROCESSOS, "processo_judicial", "visualizar"));
+  if (!podeVer) return <AcessoNegadoModulo modulo="Processos Judiciais" />;
+
+  const [podeCriar, podeEditar, podeExcluir] = await Promise.all([
+    usuarioTemPermissao(ctx.user, MODULOS.PROCESSOS, "processo_judicial", "criar"),
+    usuarioTemPermissao(ctx.user, MODULOS.PROCESSOS, "processo_judicial", "editar"),
+    usuarioTemPermissao(ctx.user, MODULOS.PROCESSOS, "processo_judicial", "excluir"),
+  ]);
+
   return (
-    <main style={{ padding: "2rem", color: "#0f172a" }}>
-      <h1 style={{ marginBottom: "0.75rem" }}>Processos - Câmara Técnica</h1>
-      <p style={{ margin: 0, color: "#475569" }}>
-        Módulo de processos em construção. Utilize a navegação de Farmácia
-        Judicial para acessar os módulos disponíveis no momento.
-      </p>
-    </main>
+    <ProcessosJudiciaisPage
+      podeCriar={podeCriar}
+      podeEditar={podeEditar}
+      podeExcluir={podeExcluir}
+    />
   );
 }

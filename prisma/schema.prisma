@@ -52,6 +52,7 @@ model Pessoa {
   ubsReferencia        Ubs?                      @relation(fields: [ubsReferenciaId], references: [id], map: "fk_pessoa_ubs_referencia")
   enderecos            Endereco[]
   pedidos              PedidoExame[]
+  processosJudiciais   ProcessoJudicial[]
   auditoriaUnificacaos AuditoriaUnificacao[]
 
   // EMPI: unificação de cadastros (ativo=false => absorvida em unificadoEmCpf)
@@ -88,20 +89,22 @@ model Endereco {
 }
 
 model TipoExame {
-  id            Int            @id @default(autoincrement())
-  nome          String         @db.VarChar(50)
-  procedimentos Procedimento[]
+  id             Int             @id @default(autoincrement())
+  nome           String          @db.VarChar(50)
+  procedimentos  Procedimento[]
+  especialidades Especialidade[]
 
   @@map("regula_tipo_exame")
 }
 
 model Procedimento {
-  id          Int           @id @default(autoincrement())
-  tipoExameId Int           @map("tipo_exame_id")
-  nome        String        @db.VarChar(150)
-  valor       Decimal       @db.Decimal(10, 2)
+  id          Int                @id @default(autoincrement())
+  tipoExameId Int                @map("tipo_exame_id")
+  nome        String             @db.VarChar(150)
+  valor       Decimal            @db.Decimal(10, 2)
   pedidos     PedidoExame[]
-  tipoExame   TipoExame     @relation(fields: [tipoExameId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_procedimentos_tipo_exames")
+  tipoExame   TipoExame          @relation(fields: [tipoExameId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_procedimentos_tipo_exames")
+  processos   ProcessoJudicial[]
 
   @@index([tipoExameId], map: "exame_id_idx")
   @@map("regula_procedimentos")
@@ -212,14 +215,18 @@ model Servico {
 }
 
 model Especialidade {
-  id        Int      @id @default(autoincrement())
-  servicoId Int      @map("servico_id")
-  nome      String   @db.VarChar(150)
-  ativo     Boolean  @default(true)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  servico   Servico  @relation(fields: [servicoId], references: [id], onDelete: Cascade, map: "fk_especialidade_servico")
+  id          Int                @id @default(autoincrement())
+  servicoId   Int                @map("servico_id")
+  tipoExameId Int?               @map("tipo_exame_id")
+  nome        String             @db.VarChar(150)
+  ativo       Boolean            @default(true)
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  servico     Servico            @relation(fields: [servicoId], references: [id], onDelete: Cascade, map: "fk_especialidade_servico")
+  processos   ProcessoJudicial[]
+  tipoExame   TipoExame?         @relation(fields: [tipoExameId], references: [id], onDelete: SetNull, onUpdate: Cascade, map: "fk_especialidade_tipo_exame")
 
   @@index([servicoId], map: "idx_especialidade_servico")
+  @@index([tipoExameId], map: "idx_especialidade_tipo_exame")
   @@map("junta_especialidades")
 }
 
@@ -574,6 +581,44 @@ model EsporotricoseRelatorio {
 
   @@index([visitaId], map: "idx_relatorio_visita")
   @@map("ccz_esporotricose_relatorios")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PROCESSOS JUDICIAIS (Câmara Técnica > Processos)
+// ─────────────────────────────────────────────────────────────────────────
+// A Pessoa continua sendo o cadastro único (EMPI): o processo APONTA para ela,
+// não guarda cópia de nome/CPF. Especialidade e Procedimento são os catálogos
+// que já existem no sistema (junta_especialidades / regula_procedimentos).
+//
+// Exclusão: NÃO há cascata. Documentos e movimentações são registros próprios
+// (ainda não implementados) e, quando existirem, bloqueiam a exclusão — a
+// checagem de dependências vive na server action, junto da auditoria.
+model ProcessoJudicial {
+  id                Int      @id @default(autoincrement())
+  pessoaCpf         String   @map("pessoa_cpf") @db.VarChar(11)
+  numeroProcesso    String   @map("numero_processo") @db.VarChar(100)
+  numeroPasta       String   @map("numero_pasta") @db.VarChar(50)
+  especialidadeId   Int?     @map("especialidade_id")
+  procedimentoId    Int?     @map("procedimento_id")
+  // Espelho dos nomes no momento do cadastro: o catálogo pode mudar/desativar
+  // um item e o processo precisa continuar legível na consulta e na auditoria.
+  especialidadeNome String?  @map("especialidade_nome") @db.VarChar(150)
+  procedimentoNome  String?  @map("procedimento_nome") @db.VarChar(150)
+  status            String   @default("ATIVO") @db.VarChar(20)
+  criadoPor         String?  @map("criado_por") @db.VarChar(11)
+  atualizadoPor     String?  @map("atualizado_por") @db.VarChar(11)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  pessoa        Pessoa         @relation(fields: [pessoaCpf], references: [cpf], onDelete: Restrict, onUpdate: Cascade, map: "fk_processo_pessoa")
+  especialidade Especialidade? @relation(fields: [especialidadeId], references: [id], onDelete: SetNull, onUpdate: Cascade, map: "fk_processo_especialidade")
+  procedimento  Procedimento?  @relation(fields: [procedimentoId], references: [id], onDelete: SetNull, onUpdate: Cascade, map: "fk_processo_procedimento")
+
+  @@unique([numeroProcesso], map: "uq_processo_numero")
+  @@index([pessoaCpf], map: "idx_processo_pessoa")
+  @@index([numeroPasta], map: "idx_processo_pasta")
+  @@index([createdAt], map: "idx_processo_data")
+  @@map("processos_judiciais")
 }
 
 model UserAcesso {

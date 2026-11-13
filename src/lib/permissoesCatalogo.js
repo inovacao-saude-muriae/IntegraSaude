@@ -169,6 +169,13 @@ export const MODULOS_CATALOGO = {
     funcionalidades: [
       { chave: 'novo_processo', nome: 'Novo Processo', permissoes: [C] },
       { chave: 'consulta', nome: 'Consulta de Processos', permissoes: [V, EXP] },
+      // Funcionalidade dos PROCESSOS JUDICIAIS (tabela processos_judiciais).
+      // Permissões independentes: quem cria não ganha editar nem excluir.
+      {
+        chave: 'processo_judicial',
+        nome: 'Processos Judiciais (consultar, editar, excluir)',
+        permissoes: [V, C, E, X],
+      },
       { chave: 'movimentacoes', nome: 'Movimentações', permissoes: [V, C, E] },
       { chave: 'documentos', nome: 'Documentos', permissoes: [V, C, X, EXP] },
       { chave: 'acompanhamento', nome: 'Acompanhamento e Relatórios', permissoes: [V, E, EXP] },
@@ -324,26 +331,35 @@ const PACOTES = {
     [PERFIS.ADMINISTRADOR]: {
       novo_processo: [C],
       consulta: [V, EXP],
+      // Exclusão definitiva de processo é permissão EXCEPCIONAL: fica com o
+      // Administrador do módulo, sempre com confirmação e checagem de vínculos.
+      processo_judicial: [V, C, E, X],
       movimentacoes: [V, C, E],
       documentos: [V, C, X, EXP],
       acompanhamento: [V, E, EXP],
     },
     [PERFIS.SUPERVISOR]: {
       consulta: [V, EXP],
+      // Supervisor edita, mas NÃO exclui.
+      processo_judicial: [V, C, E],
       movimentacoes: [V, C, E],
       documentos: [V, EXP],
       acompanhamento: [V, E, EXP],
     },
     [PERFIS.OPERADOR]: {
       consulta: [V],
+      // Operador cadastra e corrige; exclusão não é dele.
+      processo_judicial: [V, C, E],
       movimentacoes: [V, C, E],
       documentos: [V, C],
     },
     [PERFIS.CONSULTA]: {
       consulta: [V],
+      processo_judicial: [V],
     },
     [PERFIS.AUDITOR]: {
       consulta: [V, EXP],
+      processo_judicial: [V],
       acompanhamento: [V, EXP],
     },
   },

@@ -50,11 +50,23 @@ check("catálogo tem 3 escopos", (cat.escopos || []).length === 3, (cat.escopos|
 r = await get("/api/gerenciamento/permissoes/catalogo", tComum);
 check("catálogo 403 para REGULACAO_SUPERVISOR", r.status === 403, r.status);
 
+// Conta os usuários direto no banco: o número cresce quando novos usuários são
+// cadastrados, e o teste não deve depender de uma quantidade fixa.
+async function contarUsuarios() {
+  const r = await get("/api/gerenciamento/usuarios", tGestor);
+  const j = await r.json();
+  return (j.data || []).length;
+}
+
 // 3. Lista de usuários
 r = await get("/api/gerenciamento/usuarios", tGestor);
 const lista = await r.json();
 check("lista de usuários 200", r.status === 200, r.status);
-check("lista traz os 2 usuários", (lista.data || []).length === 2, (lista.data||[]).length);
+check(
+  "lista traz todos os usuários do banco",
+  (lista.data || []).length === (await contarUsuarios()),
+  (lista.data || []).length,
+);
 check("lista traz resumo por módulo", (lista.data?.[0]?.modulos || []).length > 0);
 r = await get("/api/gerenciamento/usuarios", tComum);
 check("lista 403 para quem não é GESTOR", r.status === 403, r.status);
