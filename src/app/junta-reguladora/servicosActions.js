@@ -1,6 +1,6 @@
 "use server";
 
-import { requireAcessoModulo } from "@/lib/auth";
+import { requireAcessoModulo, requirePermissao } from "@/lib/auth";
 import { MODULOS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { registrarAuditoria } from "@/lib/audit";
@@ -50,8 +50,10 @@ export async function getServicosData() {
       tipo: "ESPECIALIDADE",
       especialidadeId: e.id,
       nome: e.nome,
+      especialidadeAtivo: e.ativo !== false,
       servicoId: e.servicoId,
       servicoNome: e.servico?.nome || "—",
+      servicoAtivo: e.servico?.ativo !== false,
     }));
 
     // Linhas de serviços sem especialidade
@@ -62,8 +64,10 @@ export async function getServicosData() {
         tipo: "SERVICO",
         especialidadeId: null,
         nome: "",
+        especialidadeAtivo: null,
         servicoId: s.id,
         servicoNome: s.nome,
+        servicoAtivo: s.ativo !== false,
       }));
 
     const linhas = [...linhasEsp, ...linhasServicoSozinho].sort((a, b) => {
@@ -73,7 +77,7 @@ export async function getServicosData() {
     });
 
     return {
-      servicos: servicos.map((s) => ({ id: s.id, nome: s.nome })),
+      servicos: servicos.map((s) => ({ id: s.id, nome: s.nome, ativo: s.ativo !== false })),
       linhas,
     };
   } catch (error) {
@@ -160,6 +164,85 @@ export async function updateRegistro(linha, data) {
     return { success: true };
   } catch (error) {
     console.error("Erro ao atualizar registro:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+// ── INATIVAR / REATIVAR ──────────────────────────────────────────────────
+// Nunca exclui: o registro continua legível em agendamentos e atendimentos
+// já existentes. A permissão é NOMINAL (JUNTA/servicos:inativar), não herdada
+// por quem só cadastra ou edita.
+
+/** Inativa (ou reativa) um serviço da Junta. */
+export async function alterarSituacaoServico(id, { ativo } = {}) {
+  try {
+    const user = await requirePermissao(MODULOS.JUNTA, "servicos", "inativar");
+    const servicoId = Number(id);
+    if (!Number.isSafeInteger(servicoId) || servicoId <= 0) {
+      return { success: false, error: "Serviço inválido." };
+    }
+    if (typeof ativo !== "boolean") {
+      return { success: false, error: "Informe a situação desejada." };
+    }
+
+    const atual = await prisma.servico.findUnique({ where: { id: servicoId } });
+    if (!atual) return { success: false, error: "Serviço não encontrado." };
+    if (atual.ativo === ativo) return { success: true, semAlteracoes: true };
+
+    await prisma.servico.update({ where: { id: servicoId }, data: { ativo } });
+
+    await registrarAuditoria({
+      user,
+      acao: ativo ? "REATIVAR" : "DESATIVAR",
+      modulo: "JUNTA",
+      entidade: "Servico",
+      entidadeId: String(servicoId),
+      descricao: `Serviço '${atual.nome}' ${ativo ? "reativado" : "inativado"}`,
+      detalhes: { nome: atual.nome, ativo },
+    });
+
+    revalidatePath("/junta-reguladora");
+    revalidatePath("/gerenciamento/servicos-especialidades");
+    return { success: true };
+  } catch (error) {
+    console.error("Erro ao alterar situação do serviço:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/** Inativa (ou reativa) uma especialidade da Junta. */
+export async function alterarSituacaoEspecialidade(id, { ativo } = {}) {
+  try {
+    const user = await requirePermissao(MODULOS.JUNTA, "servicos", "inativar");
+    const espId = Number(id);
+    if (!Number.isSafeInteger(espId) || espId <= 0) {
+      return { success: false, error: "Especialidade inválida." };
+    }
+    if (typeof ativo !== "boolean") {
+      return { success: false, error: "Informe a situação desejada." };
+    }
+
+    const atual = await prisma.especialidade.findUnique({ where: { id: espId } });
+    if (!atual) return { success: false, error: "Especialidade não encontrada." };
+    if (atual.ativo === ativo) return { success: true, semAlteracoes: true };
+
+    await prisma.especialidade.update({ where: { id: espId }, data: { ativo } });
+
+    await registrarAuditoria({
+      user,
+      acao: ativo ? "REATIVAR" : "DESATIVAR",
+      modulo: "JUNTA",
+      entidade: "Especialidade",
+      entidadeId: String(espId),
+      descricao: `Especialidade '${atual.nome}' ${ativo ? "reativada" : "inativada"}`,
+      detalhes: { nome: atual.nome, servicoId: atual.servicoId, ativo },
+    });
+
+    revalidatePath("/junta-reguladora");
+    revalidatePath("/gerenciamento/servicos-especialidades");
+    return { success: true };
+  } catch (error) {
+    console.error("Erro ao alterar situação da especialidade:", error);
     return { success: false, error: error.message };
   }
 }

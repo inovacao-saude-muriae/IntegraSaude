@@ -8,13 +8,19 @@
 // Independente da Junta Reguladora: nada aqui lê ou grava
 // `junta_servicos`, `junta_especialidades` ou `regula_procedimentos`.
 //
-// Duas colunas: especialidades à esquerda (com contagem de procedimentos) e,
-// à direita, os procedimentos da especialidade selecionada. O cadastro de
-// procedimento permite vincular a VÁRIAS especialidades — o vínculo é N:N.
+// Layout PADRONIZADO com Serviços e Especialidades (Junta) e Procedimentos
+// (Regulação): busca, formulário e tabela única com situação e ações. A
+// especialidade em foco é escolhida pela primeira coluna da tabela; os
+// procedimentos listados são os dela, e o vínculo continua N:N (um
+// procedimento pode estar em várias especialidades).
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import "@/components/cadastros/cadastro.module.css";
 import { useConfirm } from "@/components/ConfirmDialog";
+import FiltroSituacao, { passaSituacao } from "@/components/cadastros/FiltroSituacao";
+import StatusRegistro from "@/components/cadastros/StatusRegistro";
+import AcoesSituacao from "@/components/cadastros/AcoesSituacao";
 import {
   alterarSituacaoEspecialidadeProcesso,
   alterarSituacaoProcedimentoProcesso,
@@ -45,7 +51,10 @@ export default function CatalogoProcessosPage({
 
   const [selecionadaId, setSelecionadaId] = useState(null);
   const [buscaEsp, setBuscaEsp] = useState("");
-  const [mostrarInativas, setMostrarInativas] = useState(false);
+  const [situacao, setSituacao] = useState("ativos");
+  const [buscaProc, setBuscaProc] = useState("");
+  const [situacaoProc, setSituacaoProc] = useState("ativos");
+  const [alternando, setAlternando] = useState("");
 
   // Modais
   const [modalEsp, setModalEsp] = useState(null); // { id?, nome }
@@ -70,9 +79,9 @@ export default function CatalogoProcessosPage({
   const especialidadesVisiveis = useMemo(() => {
     const termo = buscaEsp.trim().toLowerCase();
     return dados.especialidades
-      .filter((e) => (mostrarInativas ? true : e.ativo))
+      .filter((e) => passaSituacao(situacao, e.ativo !== false))
       .filter((e) => (termo ? e.nome.toLowerCase().includes(termo) : true));
-  }, [dados.especialidades, buscaEsp, mostrarInativas]);
+  }, [dados.especialidades, buscaEsp, situacao]);
 
   // A especialidade em foco é DERIVADA: se a escolhida continua na lista usa
   // ela; senão cai para a primeira visível. Sem setState dentro de efeito.
@@ -81,6 +90,14 @@ export default function CatalogoProcessosPage({
     if (escolhida) return escolhida;
     return especialidadesVisiveis[0] || null;
   }, [dados.especialidades, especialidadesVisiveis, selecionadaId]);
+
+  const procedimentosVisiveis = useMemo(() => {
+    if (!selecionada) return [];
+    const termo = buscaProc.trim().toLowerCase();
+    return (selecionada.procedimentos || [])
+      .filter((p) => passaSituacao(situacaoProc, p.ativo !== false))
+      .filter((p) => (termo ? p.nome.toLowerCase().includes(termo) : true));
+  }, [selecionada, buscaProc, situacaoProc]);
 
   function limparMensagens() {
     setErro("");
@@ -109,10 +126,11 @@ export default function CatalogoProcessosPage({
   }
 
   async function alternarEspecialidade(esp) {
-    const acao = esp.ativo ? "Inativar" : "Reativar";
+    const ativo = esp.ativo !== false;
+    const acao = ativo ? "Inativar" : "Reativar";
     const ok = await confirm({
       title: `${acao} especialidade`,
-      message: esp.ativo
+      message: ativo
         ? `Inativar "${esp.nome}"? Ela deixa de aparecer em novos cadastros de processo, ` +
           `mas continua visível nos processos que já a utilizam.`
         : `Reativar "${esp.nome}"? Ela volta a aparecer nos novos cadastros.`,
@@ -120,9 +138,11 @@ export default function CatalogoProcessosPage({
     });
     if (!ok) return;
     limparMensagens();
-    const res = await alterarSituacaoEspecialidadeProcesso(esp.id, { ativo: !esp.ativo });
+    setAlternando(`e-${esp.id}`);
+    const res = await alterarSituacaoEspecialidadeProcesso(esp.id, { ativo: !ativo });
+    setAlternando("");
     if (!res.success) return setErro(res.error);
-    setAviso(`Especialidade ${esp.ativo ? "inativada" : "reativada"}.`);
+    setAviso(`Especialidade ${ativo ? "inativada" : "reativada"}.`);
     await recarregar();
   }
 
@@ -149,10 +169,11 @@ export default function CatalogoProcessosPage({
   }
 
   async function alternarProcedimento(proc) {
-    const acao = proc.ativo ? "Inativar" : "Reativar";
+    const ativo = proc.ativo !== false;
+    const acao = ativo ? "Inativar" : "Reativar";
     const ok = await confirm({
       title: `${acao} procedimento`,
-      message: proc.ativo
+      message: ativo
         ? `Inativar "${proc.nome}"? Ele deixa de aparecer em novos cadastros, mas ` +
           `continua visível nos processos que já o utilizam.`
         : `Reativar "${proc.nome}"?`,
@@ -160,9 +181,11 @@ export default function CatalogoProcessosPage({
     });
     if (!ok) return;
     limparMensagens();
-    const res = await alterarSituacaoProcedimentoProcesso(proc.id, { ativo: !proc.ativo });
+    setAlternando(`p-${proc.id}`);
+    const res = await alterarSituacaoProcedimentoProcesso(proc.id, { ativo: !ativo });
+    setAlternando("");
     if (!res.success) return setErro(res.error);
-    setAviso(`Procedimento ${proc.ativo ? "inativado" : "reativado"}.`);
+    setAviso(`Procedimento ${ativo ? "inativado" : "reativado"}.`);
     await recarregar();
   }
 
@@ -221,79 +244,163 @@ export default function CatalogoProcessosPage({
         </div>
       )}
 
-      <div className={styles.grade}>
-        {/* ── Especialidades ─────────────────────────────────────────────── */}
-        <section className={styles.card}>
-          <div className={styles.cardTopo}>
-            <h2 className={styles.secaoTitulo}>Especialidades</h2>
-            {podeCriarEspecialidade && (
-              <button
-                type="button"
-                className={styles.botaoPrimario}
-                onClick={() => setModalEsp({ nome: "" })}
-              >
-                + Nova
-              </button>
-            )}
+      <div className="cadCard">
+        <div className="cadCardTitleRow">
+          <h3 className="cadCardTitle">Especialidades e Procedimentos</h3>
+          <span className="cadCardSubtitle">
+            Ex.: Cardiologia (especialidade) — Consulta Cardiológica (procedimento)
+          </span>
+        </div>
+
+        {/* BUSCA */}
+        <div className="cadBuscaBox">
+          <div className="cadCampo">
+            <label>Buscar especialidade</label>
+            <div className="cadBuscaRow">
+              <div className="cadBuscaWrapper">
+                <input
+                  type="text"
+                  className="cadBuscaInput"
+                  value={buscaEsp}
+                  placeholder="Digite o nome da especialidade..."
+                  onChange={(e) => setBuscaEsp(e.target.value)}
+                />
+              </div>
+              {podeCriarEspecialidade && (
+                <button
+                  type="button"
+                  className="cadBtnAdicionar"
+                  onClick={() => setModalEsp({ nome: "" })}
+                >
+                  + Adicionar especialidade
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* TABELA DE ESPECIALIDADES */}
+        <div className="cadTabelaTopo">
+          <div className="cadTabelaTopoLinha">
+            <h4 className="cadTabelaTitulo">Especialidades</h4>
+            <div className="cadFiltros">
+              <FiltroSituacao
+                id="filtro-situacao-especialidades"
+                valor={situacao}
+                onChange={setSituacao}
+              />
+            </div>
           </div>
 
-          <input
-            className={styles.campoBusca}
-            placeholder="Filtrar especialidades…"
-            value={buscaEsp}
-            onChange={(e) => setBuscaEsp(e.target.value)}
-          />
-          <label className={styles.check}>
-            <input
-              type="checkbox"
-              checked={mostrarInativas}
-              onChange={(e) => setMostrarInativas(e.target.checked)}
-            />
-            Mostrar inativas
-          </label>
+          <div className="cadTabelaWrapper">
+            <table className="cadTabela">
+              <thead>
+                <tr>
+                  <th>Especialidade</th>
+                  <th>Situação</th>
+                  <th className="cadDireita">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {carregando ? (
+                  <tr>
+                    <td colSpan={3} className="cadTabelaVazia">
+                      Carregando catálogo…
+                    </td>
+                  </tr>
+                ) : especialidadesVisiveis.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="cadTabelaVazia">
+                      Nenhuma especialidade encontrada. Use “+ Adicionar especialidade”.
+                    </td>
+                  </tr>
+                ) : (
+                  especialidadesVisiveis.map((e) => {
+                    const ativo = e.ativo !== false;
+                    const emFoco = selecionada?.id === e.id;
+                    return (
+                      <tr
+                        key={e.id}
+                        className={ativo ? "" : "cadLinhaInativa"}
+                        style={emFoco ? { background: "#eff6ff" } : undefined}
+                      >
+                        <td>
+                          <div className={styles.celulaEsp}>
+                            <button
+                              type="button"
+                              onClick={() => setSelecionadaId(e.id)}
+                              style={{
+                                background: "none",
+                                border: "none",
+                                padding: 0,
+                                font: "inherit",
+                                fontWeight: 600,
+                                color: emFoco ? "#1d4ed8" : "#0f172a",
+                                cursor: "pointer",
+                                textAlign: "left",
+                              }}
+                              title="Ver os procedimentos desta especialidade"
+                            >
+                              {e.nome}
+                            </button>
+                            {emFoco && (
+                              <span className={styles.tagInativo}>em foco</span>
+                            )}
+                            <span className={styles.tagUsos}>
+                              {e.procedimentos.length} procedimento(s) · {e.usos} processo(s)
+                            </span>
+                          </div>
+                        </td>
+                        <td>
+                          <StatusRegistro ativo={ativo} />
+                        </td>
+                        <td>
+                          <div className="cadAcoesLinha">
+                            {podeEditarEspecialidade && (
+                              <button
+                                type="button"
+                                className="cadBtnGhost"
+                                style={{ padding: "0.35rem 0.75rem", fontSize: "0.78rem" }}
+                                onClick={() => setModalEsp({ id: e.id, nome: e.nome })}
+                              >
+                                Editar
+                              </button>
+                            )}
+                            <AcoesSituacao
+                              ativo={ativo}
+                              podeInativar={podeInativarEspecialidade}
+                              ocupado={alternando === `e-${e.id}`}
+                              onAlternar={() => alternarEspecialidade(e)}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-          {carregando ? (
-            <p className={styles.vazio}>Carregando catálogo…</p>
-          ) : especialidadesVisiveis.length === 0 ? (
-            <p className={styles.vazio}>
-              Nenhuma especialidade cadastrada. Use “+ Nova” para começar.
-            </p>
-          ) : (
-            <ul className={styles.lista}>
-              {especialidadesVisiveis.map((e) => (
-                <li key={e.id}>
-                  <button
-                    type="button"
-                    className={
-                      e.id === selecionada?.id ? styles.itemSelecionado : styles.item
-                    }
-                    onClick={() => setSelecionadaId(e.id)}
-                  >
-                    <span className={styles.itemNome}>
-                      {e.nome}
-                      {!e.ativo && <span className={styles.tagInativo}>inativa</span>}
-                    </span>
-                    <span className={styles.itemSub}>
-                      {e.procedimentos.length} procedimento(s) · {e.usos} processo(s)
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        {/* ── Procedimentos da especialidade ─────────────────────────────── */}
-        <section className={styles.card}>
-          <div className={styles.cardTopo}>
-            <h2 className={styles.secaoTitulo}>
-              {selecionada ? `Procedimentos — ${selecionada.nome}` : "Procedimentos"}
-            </h2>
-            <div className={styles.acoesTopo}>
+        {/* PROCEDIMENTOS DA ESPECIALIDADE EM FOCO */}
+        <div className="cadTabelaTopo">
+          <div className="cadTabelaTopoLinha">
+            <h4 className="cadTabelaTitulo">
+              {selecionada
+                ? `Procedimentos — ${selecionada.nome}`
+                : "Procedimentos"}
+            </h4>
+            <div className="cadFiltros">
+              <FiltroSituacao
+                id="filtro-situacao-procedimentos-processos"
+                valor={situacaoProc}
+                onChange={setSituacaoProc}
+              />
               {selecionada && podeVincular && (
                 <button
                   type="button"
-                  className={styles.botaoSecundario}
+                  className="cadBtnGhost"
                   onClick={() =>
                     setModalVincular({
                       selecionados: selecionada.procedimentos.map((p) => p.id),
@@ -306,7 +413,7 @@ export default function CatalogoProcessosPage({
               {podeCriarProcedimento && (
                 <button
                   type="button"
-                  className={styles.botaoPrimario}
+                  className="cadBtnAdicionar"
                   onClick={() =>
                     setModalProc({
                       nome: "",
@@ -314,94 +421,83 @@ export default function CatalogoProcessosPage({
                     })
                   }
                 >
-                  + Novo
+                  + Adicionar procedimento
                 </button>
               )}
             </div>
           </div>
 
-          {!selecionada ? (
-            <p className={styles.vazio}>
-              Selecione uma especialidade à esquerda para ver seus procedimentos.
-            </p>
-          ) : selecionada.procedimentos.length === 0 ? (
-            <p className={styles.vazio}>
-              Nenhum procedimento vinculado. Use “Gerenciar vínculos” ou cadastre um
-              novo procedimento.
-            </p>
-          ) : (
-            <table className={styles.tabela}>
+          <div className="cadBuscaBox" style={{ padding: "0.85rem" }}>
+            <div className="cadBuscaWrapper">
+              <input
+                type="text"
+                className="cadBuscaInput"
+                value={buscaProc}
+                placeholder="Buscar procedimento nesta especialidade..."
+                onChange={(e) => setBuscaProc(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="cadTabelaWrapper">
+            <table className="cadTabela">
               <thead>
                 <tr>
                   <th>Procedimento</th>
                   <th>Situação</th>
-                  <th className={styles.colAcoes}>Ações</th>
+                  <th className="cadDireita">Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {selecionada.procedimentos.map((p) => (
-                  <tr key={p.id}>
-                    <td>{p.nome}</td>
-                    <td>
-                      <span className={p.ativo ? styles.statusAtivo : styles.statusInativo}>
-                        {p.ativo ? "Ativo" : "Inativo"}
-                      </span>
-                    </td>
-                    <td>
-                      <div className={styles.acoes}>
-                        {podeEditarProcedimento && (
-                          <button
-                            type="button"
-                            className={styles.botaoIcone}
-                            onClick={() => setModalProc({ id: p.id, nome: p.nome })}
-                          >
-                            ✎ Editar
-                          </button>
-                        )}
-                        {podeInativarProcedimento && (
-                          <button
-                            type="button"
-                            className={
-                              p.ativo ? styles.botaoIconeVermelho : styles.botaoIconeAzul
-                            }
-                            onClick={() => alternarProcedimento(p)}
-                          >
-                            {p.ativo ? "Inativar" : "Reativar"}
-                          </button>
-                        )}
-                      </div>
+                {!selecionada ? (
+                  <tr>
+                    <td colSpan={3} className="cadTabelaVazia">
+                      Selecione uma especialidade na tabela acima para ver seus
+                      procedimentos.
                     </td>
                   </tr>
-                ))}
+                ) : procedimentosVisiveis.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="cadTabelaVazia">
+                      Nenhum procedimento para os filtros selecionados. Use “Gerenciar
+                      vínculos” ou “+ Adicionar procedimento”.
+                    </td>
+                  </tr>
+                ) : (
+                  procedimentosVisiveis.map((p) => {
+                    const ativo = p.ativo !== false;
+                    return (
+                      <tr key={p.id} className={ativo ? "" : "cadLinhaInativa"}>
+                        <td><strong>{p.nome}</strong></td>
+                        <td><StatusRegistro ativo={ativo} /></td>
+                        <td>
+                          <div className="cadAcoesLinha">
+                            {podeEditarProcedimento && (
+                              <button
+                                type="button"
+                                className="cadBtnGhost"
+                                style={{ padding: "0.35rem 0.75rem", fontSize: "0.78rem" }}
+                                onClick={() => setModalProc({ id: p.id, nome: p.nome })}
+                              >
+                                Editar
+                              </button>
+                            )}
+                            <AcoesSituacao
+                              ativo={ativo}
+                              podeInativar={podeInativarProcedimento}
+                              ocupado={alternando === `p-${p.id}`}
+                              onAlternar={() => alternarProcedimento(p)}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
-          )}
-
-          {selecionada && (
-            <div className={styles.rodapeCard}>
-              {podeEditarEspecialidade && (
-                <button
-                  type="button"
-                  className={styles.botaoSecundario}
-                  onClick={() => setModalEsp({ id: selecionada.id, nome: selecionada.nome })}
-                >
-                  ✎ Editar especialidade
-                </button>
-              )}
-              {podeInativarEspecialidade && (
-                <button
-                  type="button"
-                  className={
-                    selecionada.ativo ? styles.botaoPerigo : styles.botaoSecundario
-                  }
-                  onClick={() => alternarEspecialidade(selecionada)}
-                >
-                  {selecionada.ativo ? "Inativar especialidade" : "Reativar especialidade"}
-                </button>
-              )}
-            </div>
-          )}
-        </section>
+          </div>
+        </div>
       </div>
 
       {/* ── Modal especialidade ────────────────────────────────────────────── */}
@@ -432,12 +528,12 @@ export default function CatalogoProcessosPage({
               <div className={styles.acoesForm}>
                 <button
                   type="button"
-                  className={styles.botaoSecundario}
+                  className="cadBtnGhost"
                   onClick={() => setModalEsp(null)}
                 >
                   Cancelar
                 </button>
-                <button type="submit" className={styles.botaoPrimario} disabled={salvando}>
+                <button type="submit" className="cadBtnPrimario" disabled={salvando}>
                   {salvando ? "Salvando…" : "Salvar"}
                 </button>
               </div>
@@ -509,12 +605,12 @@ export default function CatalogoProcessosPage({
               <div className={styles.acoesForm}>
                 <button
                   type="button"
-                  className={styles.botaoSecundario}
+                  className="cadBtnGhost"
                   onClick={() => setModalProc(null)}
                 >
                   Cancelar
                 </button>
-                <button type="submit" className={styles.botaoPrimario} disabled={salvando}>
+                <button type="submit" className="cadBtnPrimario" disabled={salvando}>
                   {salvando ? "Salvando…" : "Salvar"}
                 </button>
               </div>
@@ -543,7 +639,8 @@ export default function CatalogoProcessosPage({
               <div className={styles.caixaSelecao}>
                 {todosProcedimentos.length === 0 && (
                   <p className={styles.dica}>
-                    Nenhum procedimento no catálogo. Cadastre um em “+ Novo”.
+                    Nenhum procedimento no catálogo. Cadastre um em “+ Adicionar
+                    procedimento”.
                   </p>
                 )}
                 {todosProcedimentos.map((p) => (
@@ -568,12 +665,12 @@ export default function CatalogoProcessosPage({
               <div className={styles.acoesForm}>
                 <button
                   type="button"
-                  className={styles.botaoSecundario}
+                  className="cadBtnGhost"
                   onClick={() => setModalVincular(null)}
                 >
                   Cancelar
                 </button>
-                <button type="submit" className={styles.botaoPrimario} disabled={salvando}>
+                <button type="submit" className="cadBtnPrimario" disabled={salvando}>
                   {salvando ? "Salvando…" : "Salvar vínculos"}
                 </button>
               </div>

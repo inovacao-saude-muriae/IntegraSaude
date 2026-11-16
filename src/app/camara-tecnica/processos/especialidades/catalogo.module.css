@@ -420,3 +420,17 @@
   gap: 0.5rem;
   margin-top: 0.5rem;
 }
+
+/* ── Linha de especialidade na tabela (nome + ações) ────────────────────── */
+.celulaEsp {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.tagUsos {
+  font-size: 0.72rem;
+  color: #64748b;
+  white-space: nowrap;
+}

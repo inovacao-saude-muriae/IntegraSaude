@@ -1,11 +1,20 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import styles from "./CadastroServicos.module.css";
+import { useState, useRef, useEffect, useMemo } from "react";
+import "@/components/cadastros/cadastro.module.css";
 import ModalConfirmacaoExclusao from "@/app/regulacao/Modals/ModalConfirmacaoExclusao";
 import { useConfirm, useNotify } from "@/components/ConfirmDialog";
 import BotaoEditar from "@/components/BotaoEditar";
-import { createRegistro, updateRegistro, deleteRegistro } from "./servicosActions";
+import FiltroSituacao, { passaSituacao } from "@/components/cadastros/FiltroSituacao";
+import StatusRegistro from "@/components/cadastros/StatusRegistro";
+import AcoesSituacao from "@/components/cadastros/AcoesSituacao";
+import {
+  createRegistro,
+  updateRegistro,
+  deleteRegistro,
+  alterarSituacaoServico,
+  alterarSituacaoEspecialidade,
+} from "./servicosActions";
 
 const FORM_VAZIO = {
   linha: null, // linha em edição (com especialidadeId / servicoId)
@@ -18,7 +27,11 @@ const FORM_VAZIO = {
   isFormActive: false,
 };
 
-export default function CadastroServicos({ data = { servicos: [], linhas: [] }, reloadData = () => {} }) {
+export default function CadastroServicos({
+  data = { servicos: [], linhas: [] },
+  reloadData = () => {},
+  podeInativar = false,
+}) {
   const confirm = useConfirm();
   const notify = useNotify();
 
@@ -26,6 +39,8 @@ export default function CadastroServicos({ data = { servicos: [], linhas: [] }, 
   const [form, setForm] = useState(FORM_VAZIO);
   const [dropAberto, setDropAberto] = useState(false);
   const [filterServicoId, setFilterServicoId] = useState("");
+  const [situacao, setSituacao] = useState("ativos");
+  const [alternando, setAlternando] = useState(""); // chave do registro em mudança
 
   const dropRef = useRef(null);
 
@@ -154,9 +169,68 @@ export default function CadastroServicos({ data = { servicos: [], linhas: [] }, 
     }
   };
 
-  const linhasTabela = (data.linhas || []).filter((l) =>
-    filterServicoId ? String(l.servicoId) === String(filterServicoId) : true
-  );
+  // ── Inativar / Reativar ──────────────────────────────────────────────────
+  async function alternarServico(linha) {
+    const ativo = linha.servicoAtivo !== false;
+    const acao = ativo ? "Inativar" : "Reativar";
+    const ok = await confirm({
+      title: `${acao} serviço`,
+      message: ativo
+        ? `Inativar o serviço "${linha.servicoNome}"? Ele deixa de aparecer em novos ` +
+          `cadastros e as especialidades dele também ficam indisponíveis. Os ` +
+          `agendamentos e atendimentos já registrados continuam intactos.`
+        : `Reativar o serviço "${linha.servicoNome}"?`,
+      confirmText: acao,
+    });
+    if (!ok) return;
+    setAlternando(`s-${linha.servicoId}`);
+    const res = await alterarSituacaoServico(linha.servicoId, { ativo: !ativo });
+    setAlternando("");
+    if (!res.success) return notify({ tipo: "erro", title: "Erro", message: res.error });
+    await notify({
+      tipo: "sucesso",
+      title: `Serviço ${ativo ? "inativado" : "reativado"}`,
+      message: `"${linha.servicoNome}" ${ativo ? "inativado" : "reativado"} com sucesso!`,
+    });
+    reloadData();
+  }
+
+  async function alternarEspecialidade(linha) {
+    const ativo = linha.especialidadeAtivo !== false;
+    const acao = ativo ? "Inativar" : "Reativar";
+    const ok = await confirm({
+      title: `${acao} especialidade`,
+      message: ativo
+        ? `Inativar a especialidade "${linha.nome}"? Ela deixa de aparecer em novos ` +
+          `cadastros, mas continua visível nos registros que já a utilizam.`
+        : `Reativar a especialidade "${linha.nome}"?`,
+      confirmText: acao,
+    });
+    if (!ok) return;
+    setAlternando(`e-${linha.especialidadeId}`);
+    const res = await alterarSituacaoEspecialidade(linha.especialidadeId, { ativo: !ativo });
+    setAlternando("");
+    if (!res.success) return notify({ tipo: "erro", title: "Erro", message: res.error });
+    await notify({
+      tipo: "sucesso",
+      title: `Especialidade ${ativo ? "inativada" : "reativada"}`,
+      message: `"${linha.nome}" ${ativo ? "inativada" : "reativada"} com sucesso!`,
+    });
+    reloadData();
+  }
+
+  const linhasTabela = (data.linhas || []).filter((l) => {
+        if (filterServicoId && String(l.servicoId) !== String(filterServicoId)) return false;
+        // Situação combinada: serviço e especialidade precisam passar no filtro.
+        // Linha sem especialidade é avaliada pela situação do serviço.
+        if (!passaSituacao(situacao, l.servicoAtivo !== false)) return false;
+        if (l.especialidadeId && !passaSituacao(situacao, l.especialidadeAtivo !== false)) {
+          return false;
+        }
+        return true;
+      });
+
+  const servicosDisponiveis = (data.servicos || []).filter((s) => s.ativo !== false);
 
   return (
     <>
@@ -169,21 +243,21 @@ export default function CadastroServicos({ data = { servicos: [], linhas: [] }, 
         onCancel={() => setDeleteConfig(null)}
       />
 
-      <div className={styles.card}>
-        <div className={styles.cardTitleRow}>
-          <h3 className={styles.cardTitle}>Serviços e Especialidades</h3>
-          <span className={styles.cardSubtitle}>Ex.: Ambulatório (serviço) — Fonoaudiologia (especialidade)</span>
+      <div className="cadCard">
+        <div className="cadCardTitleRow">
+          <h3 className="cadCardTitle">Serviços e Especialidades</h3>
+          <span className="cadCardSubtitle">Ex.: Ambulatório (serviço) — Fonoaudiologia (especialidade)</span>
         </div>
 
         {/* BUSCA */}
-        <div className={styles.searchSectionContainer}>
-          <div className={styles.fieldGroup}>
+        <div className="cadBuscaBox">
+          <div className="cadCampo">
             <label>Buscar no Banco (Serviço ou Especialidade)</label>
-            <div className={styles.searchActionRow}>
-              <div className={styles.selectSearchWrapper} ref={dropRef}>
+            <div className="cadBuscaRow">
+              <div className="cadBuscaWrapper" ref={dropRef}>
                 <input
                   type="text"
-                  className={styles.selectLikeInput}
+                  className="cadBuscaInput"
                   value={form.search || ""}
                   placeholder="Selecionar ou digitar para buscar..."
                   onChange={(e) => {
@@ -192,18 +266,19 @@ export default function CadastroServicos({ data = { servicos: [], linhas: [] }, 
                   }}
                   onFocus={() => setDropAberto(true)}
                 />
-                <span className={styles.selectArrow} onClick={() => setDropAberto(!dropAberto)}>
+                <span className="cadBuscaSeta" onClick={() => setDropAberto(!dropAberto)}>
                   {dropAberto ? "▲" : "▼"}
                 </span>
 
                 {dropAberto && (
-                  <div className={styles.tableDropdownMenu}>
-                    <div className={styles.tableContainerScroll}>
-                      <table className={styles.procTableDropdown}>
+                  <div className="cadDropdown">
+                    <div className="cadDropdownScroll">
+                      <table className="cadDropdownTabela">
                         <thead>
                           <tr>
                             <th>Serviço</th>
                             <th>Especialidade</th>
+                            <th>Situação</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -215,15 +290,24 @@ export default function CadastroServicos({ data = { servicos: [], linhas: [] }, 
                                   ev.preventDefault();
                                   carregarParaEdicao(l);
                                 }}
-                                className={form.linha?.id === l.id ? styles.selectedRow : ""}
+                                className={form.linha?.id === l.id ? "cadLinhaSelecionada" : ""}
                               >
-                                <td className={styles.boldName}>{l.servicoNome}</td>
+                                <td><strong>{l.servicoNome}</strong></td>
                                 <td>{l.nome || "—"}</td>
+                                <td>
+                                  <StatusRegistro
+                                    ativo={
+                                      l.especialidadeId
+                                        ? l.especialidadeAtivo !== false
+                                        : l.servicoAtivo !== false
+                                    }
+                                  />
+                                </td>
                               </tr>
                             ))
                           ) : (
                             <tr>
-                              <td colSpan="2" className={styles.noDataTd}>
+                              <td colSpan="3" className="cadSemDados">
                                 Nenhum registro encontrado.
                               </td>
                             </tr>
@@ -237,7 +321,7 @@ export default function CadastroServicos({ data = { servicos: [], linhas: [] }, 
 
               <button
                 type="button"
-                className={styles.btnAdicionar}
+                className="cadBtnAdicionar"
                 onClick={() => setForm({ ...FORM_VAZIO, isFormActive: true })}
               >
                 + Adicionar novo
@@ -247,13 +331,13 @@ export default function CadastroServicos({ data = { servicos: [], linhas: [] }, 
         </div>
 
         {/* FORMULÁRIO */}
-        <form onSubmit={submit} className={styles.patientFormContainer}>
-          <div className={styles.formSection}>
-            <div className={styles.formSectionHeader}>
+        <form onSubmit={submit} className="cadForm">
+          <div className="cadFormSecao">
+            <div className="cadFormSecaoTopo">
               <h4>Informações do Registro</h4>
             </div>
-            <div className={styles.formGridStrict}>
-              <div className={`${styles.fieldGroup} ${styles.colServico}`}>
+            <div className="cadGrade">
+              <div className="cadCampo cadCol6">
                 <label>Serviço *</label>
                 <select
                   value={form.servicoId}
@@ -271,15 +355,20 @@ export default function CadastroServicos({ data = { servicos: [], linhas: [] }, 
                   required
                 >
                   <option value="">-- Selecione o Serviço --</option>
-                  {(data.servicos || []).map((s) => (
+                  {servicosDisponiveis.map((s) => (
                     <option key={s.id} value={s.id}>{s.nome}</option>
                   ))}
                   <option value="__novo__">+ Novo serviço...</option>
                 </select>
+                {form.isFormActive && servicosDisponiveis.length === 0 && (
+                  <p className="cadCampoDica">
+                    Nenhum serviço ativo. Use “+ Novo serviço…” para cadastrar.
+                  </p>
+                )}
               </div>
 
               {usandoNovoServico && (
-                <div className={`${styles.fieldGroup} ${styles.colNovoServico}`}>
+                <div className="cadCampo cadCol6">
                   <label>Nome do Novo Serviço *</label>
                   <input
                     type="text"
@@ -292,7 +381,7 @@ export default function CadastroServicos({ data = { servicos: [], linhas: [] }, 
                 </div>
               )}
 
-              <div className={`${styles.fieldGroup} ${styles.colEspName}`}>
+              <div className="cadCampo cadCol6">
                 <label>Especialidade (opcional)</label>
                 <select
                   value={form.especialidadeSel}
@@ -301,14 +390,17 @@ export default function CadastroServicos({ data = { servicos: [], linhas: [] }, 
                 >
                   <option value="">-- Nenhuma / Selecione --</option>
                   {especialidadesDoServico.map((esp) => (
-                    <option key={esp.especialidadeId} value={esp.especialidadeId}>{esp.nome}</option>
+                    <option key={esp.especialidadeId} value={esp.especialidadeId}>
+                      {esp.nome}
+                      {esp.especialidadeAtivo === false ? " (inativa)" : ""}
+                    </option>
                   ))}
                   <option value="__novo__">+ Nova especialidade...</option>
                 </select>
               </div>
 
               {usandoNovaEsp && (
-                <div className={`${styles.fieldGroup} ${styles.colNovaEsp}`}>
+                <div className="cadCampo cadCol6">
                   <label>Nome da Nova Especialidade *</label>
                   <input
                     type="text"
@@ -323,19 +415,19 @@ export default function CadastroServicos({ data = { servicos: [], linhas: [] }, 
             </div>
           </div>
 
-          <div className={styles.formActions}>
+          <div className="cadFormAcoes">
             {form.isEditing && !form.isFormActive && (
               <BotaoEditar onClick={habilitarEdicao} />
             )}
             {form.isFormActive && (
               <>
-                <button type="button" className={styles.btnGhost} onClick={resetForm}>
+                <button type="button" className="cadBtnGhost" onClick={resetForm}>
                   Cancelar
                 </button>
                 {form.isEditing && (
                   <button
                     type="button"
-                    className={styles.btnDanger}
+                    className="cadBtnPerigo"
                     onClick={() =>
                       setDeleteConfig({
                         tipo: form.linha?.especialidadeId ? "ESPECIALIDADE" : "SERVICO",
@@ -362,7 +454,7 @@ export default function CadastroServicos({ data = { servicos: [], linhas: [] }, 
                     Excluir
                   </button>
                 )}
-                <button type="submit" className={styles.primaryBtn}>
+                <button type="submit" className="cadBtnPrimario">
                   {form.isEditing ? "Atualizar" : "Salvar"}
                 </button>
               </>
@@ -371,43 +463,78 @@ export default function CadastroServicos({ data = { servicos: [], linhas: [] }, 
         </form>
 
         {/* TABELA ÚNICA */}
-        <div className={styles.tableFilterContainer}>
-          <div className={styles.tableHeaderFilterRow}>
-            <h4 className={styles.tableSectionTitle}>Cadastros</h4>
-            <div className={styles.filterGroup}>
-              <label>Filtrar por Serviço:</label>
-              <select
-                value={filterServicoId}
-                onChange={(e) => setFilterServicoId(e.target.value)}
-                className={styles.filterSelect}
-              >
-                <option value="">-- Todos os Serviços --</option>
-                {(data.servicos || []).map((s) => (
-                  <option key={s.id} value={s.id}>{s.nome}</option>
-                ))}
-              </select>
+        <div className="cadTabelaTopo">
+          <div className="cadTabelaTopoLinha">
+            <h4 className="cadTabelaTitulo">Cadastros</h4>
+            <div className="cadFiltros">
+              <FiltroSituacao id="filtro-situacao-servicos" valor={situacao} onChange={setSituacao} />
+              <div className="cadFiltroSituacao">
+                <label>Filtrar por Serviço:</label>
+                <select
+                  value={filterServicoId}
+                  onChange={(e) => setFilterServicoId(e.target.value)}
+                  className="cadFiltroSelect"
+                >
+                  <option value="">-- Todos os Serviços --</option>
+                  {(data.servicos || []).map((s) => (
+                    <option key={s.id} value={s.id}>{s.nome}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
-          <div className={styles.tableWrapper}>
-            <table className={styles.table}>
+          <div className="cadTabelaWrapper">
+            <table className="cadTabela">
               <thead>
                 <tr>
                   <th>Serviço</th>
                   <th>Especialidade</th>
+                  <th>Situação</th>
+                  <th className="cadDireita">Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {linhasTabela.map((l) => (
-                  <tr key={l.id}>
-                    <td><strong>{l.servicoNome}</strong></td>
-                    <td>{l.nome || "—"}</td>
-                  </tr>
-                ))}
+                {linhasTabela.map((l) => {
+                  const temEspecialidade = Boolean(l.especialidadeId);
+                  const ativo = temEspecialidade
+                    ? l.especialidadeAtivo !== false
+                    : l.servicoAtivo !== false;
+                  return (
+                    <tr key={l.id} className={ativo ? "" : "cadLinhaInativa"}>
+                      <td><strong>{l.servicoNome}</strong></td>
+                      <td>{l.nome || "—"}</td>
+                      <td><StatusRegistro ativo={ativo} /></td>
+                      <td>
+                        <div className="cadAcoesLinha">
+                          {temEspecialidade ? (
+                            <AcoesSituacao
+                              ativo={ativo}
+                              podeInativar={podeInativar}
+                              ocupado={alternando === `e-${l.especialidadeId}`}
+                              onAlternar={() => alternarEspecialidade(l)}
+                              rotuloInativar="Inativar especialidade"
+                              rotuloReativar="Reativar especialidade"
+                            />
+                          ) : (
+                            <AcoesSituacao
+                              ativo={ativo}
+                              podeInativar={podeInativar}
+                              ocupado={alternando === `s-${l.servicoId}`}
+                              onAlternar={() => alternarServico(l)}
+                              rotuloInativar="Inativar serviço"
+                              rotuloReativar="Reativar serviço"
+                            />
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
                 {linhasTabela.length === 0 && (
                   <tr>
-                    <td colSpan={2} className={styles.emptyTableTd}>
-                      Nenhum registro encontrado para o serviço selecionado.
+                    <td colSpan={4} className="cadTabelaVazia">
+                      Nenhum registro encontrado para os filtros selecionados.
                     </td>
                   </tr>
                 )}

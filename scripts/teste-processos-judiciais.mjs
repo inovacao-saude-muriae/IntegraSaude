@@ -15,6 +15,7 @@
 import fs from "node:fs";
 import { Client } from "pg";
 import { SignJWT } from "jose";
+import bcrypt from "bcryptjs";
 
 const BASE = process.env.BASE_URL || "http://localhost:3000";
 const env = {};
@@ -138,12 +139,37 @@ async function chamarAction(cpf, nome, args, opcoes = {}) {
   }
 }
 
+
+// ── Usuários de fixture criados pela própria suíte ────────────────────────
+// O banco é só de desenvolvimento e não garante contas fixas. Em vez de
+// depender de CPFs que podem não existir, a suíte cria as que precisa.
+async function garantirUsuario(cpf, nome, acessos = []) {
+  await db.query("DELETE FROM user_sessions WHERE user_id=$1", [cpf]);
+  await db.query("DELETE FROM user_acessos WHERE user_cpf=$1", [cpf]);
+  await db.query("DELETE FROM users WHERE cpf=$1", [cpf]);
+  const h = await bcrypt.hash("Fixture@2026", 10);
+  await db.query(
+    `INSERT INTO users (cpf,nome,senha_hash,ativo,primeiro_acesso,updated_at)
+     VALUES ($1,$2,$3,true,false,now())`,
+    [cpf, nome, h],
+  );
+  for (const a of acessos) {
+    await db.query(
+      `INSERT INTO user_acessos (user_cpf,modulo,perfil,nivel,escopo,servicos,permissoes,removidas,ativo)
+       VALUES ($1,$2,$3,'ADMIN','TODOS','{}','{}','{}',true)`,
+      [cpf, a.modulo, a.perfil],
+    );
+  }
+}
+
 async function main() {
   await db.connect();
+  const GESTOR = "91000000966"; // fixture: PROCESSOS ADMINISTRADOR
+  const JEFINNY = "91000000967"; // fixture: REGULACAO SUPERVISOR — sem PROCESSOS
+  await garantirUsuario(GESTOR, "TESTE Gestor Processos", [{ modulo: "PROCESSOS", perfil: "ADMINISTRADOR" }]);
+  await garantirUsuario(JEFINNY, "TESTE Supervisor Regulação", [{ modulo: "REGULACAO", perfil: "SUPERVISOR" }]);
   console.log("\nPreparando dados de teste…");
   // Usuários de teste: gestor (ADMINISTRADOR em todos) e Jefinny (só REGULACAO).
-  const GESTOR = "00000000000";
-  const JEFINNY = "12912453674";
 
   // Uma pessoa para vincular (a primeira ativa com CPF válido).
   const pessoa = (await db.query(

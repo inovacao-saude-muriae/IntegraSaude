@@ -12,6 +12,7 @@ const PermissoesRegulacaoContext = createContext({
   podeGerenciarPessoas: false,
   podeVerAuditoria: false,
   podeExcluirPedido: false,
+  podeInativarProcedimentos: false,
 });
 
 export function RegulacaoPermProvider({
@@ -20,6 +21,7 @@ export function RegulacaoPermProvider({
   podeGerenciarPessoas = false,
   podeVerAuditoria = false,
   podeExcluirPedido = false,
+  podeInativarProcedimentos = false,
   children,
 }) {
   return (
@@ -30,6 +32,7 @@ export function RegulacaoPermProvider({
         podeGerenciarPessoas,
         podeVerAuditoria,
         podeExcluirPedido,
+        podeInativarProcedimentos,
       }}
     >
       {children}

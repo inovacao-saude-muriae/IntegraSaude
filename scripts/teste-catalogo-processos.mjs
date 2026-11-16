@@ -25,8 +25,12 @@ for (const l of fs.readFileSync(".env.local", "utf8").split(/\r?\n/)) {
 const db = new Client({ connectionString: env.DATABASE_URL });
 const segredo = new TextEncoder().encode(env.JWT_SECRET);
 
+// A rota é a PÁGINA que monta o componente (a antiga /camara-tecnica/...
+// agora só redireciona). O manifest de server actions registra as ações sob a
+// página onde o componente é usado — se a rota não for a certa, o Next
+// responde 409 "Server Action unavailable".
 const CAT = {
-  rota: "/camara-tecnica/processos/especialidades",
+  rota: "/gerenciamento/especialidades-procedimentos",
   arquivo: "camara-tecnica/processos/especialidades/actions",
 };
 const PROC = { rota: "/camara-tecnica/processos", arquivo: "camara-tecnica/processos/actions" };
@@ -119,10 +123,51 @@ async function chamar(cpf, nome, args, { rota, arquivo }) {
 const cat = (cpf, nome, args) => chamar(cpf, nome, args, CAT);
 const proc = (cpf, nome, args) => chamar(cpf, nome, args, PROC);
 
+
+// ── Usuários de fixture criados pela própria suíte ───────────────────────
+// O banco é só de desenvolvimento e não tem contas fixas garantidas (a última
+// limpeza deixou apenas o Administrador). Em vez de depender de CPFs que podem
+// não existir, a suíte cria as contas de que precisa.
+const { Client: PgClient } = await import("pg");
+const { SignJWT: SigJWT } = await import("jose");
+const { default: bcryptjs } = await import("bcryptjs");
+const envLocal = {};
+for (const l of fs.readFileSync(".env.local", "utf8").split(/\r?\n/)) {
+  const m = l.match(/^([A-Za-z_]+)="?([^"]*)"?$/);
+  if (m) envLocal[m[1]] = m[2];
+}
+const dbFix = new PgClient({ connectionString: envLocal.DATABASE_URL });
+await dbFix.connect();
+const segredoFix = new TextEncoder().encode(envLocal.JWT_SECRET);
+
+async function garantirUsuario(cpf, nome, acessos = []) {
+  await dbFix.query("DELETE FROM user_sessions WHERE user_id=$1", [cpf]);
+  await dbFix.query("DELETE FROM user_acessos WHERE user_cpf=$1", [cpf]);
+  await dbFix.query("DELETE FROM users WHERE cpf=$1", [cpf]);
+  const h = await bcryptjs.hash("Fixture@2026", 10);
+  await dbFix.query(
+    `INSERT INTO users (cpf,nome,senha_hash,ativo,primeiro_acesso,updated_at)
+     VALUES ($1,$2,$3,true,false,now())`,
+    [cpf, nome, h],
+  );
+  for (const a of acessos) {
+    await dbFix.query(
+      `INSERT INTO user_acessos (user_cpf,modulo,perfil,nivel,escopo,servicos,permissoes,removidas,ativo)
+       VALUES ($1,$2,$3,'ADMIN','TODOS','{}','{}','{}',true)`,
+      [cpf, a.modulo, a.perfil],
+    );
+  }
+}
+
 async function main() {
   await db.connect();
-  const GESTOR = "00000000000";
-  const JEFINNY = "12912453674"; // REGULACAO/SUPERVISOR — sem PROCESSOS
+  const GESTOR = "91000000961"; // fixture: Gestão Geral
+  const JEFINNY = "91000000962"; // fixture: REGULACAO/SUPERVISOR — sem PROCESSOS
+  await garantirUsuario(GESTOR, "TESTE Gestor Catálogo", [
+    { modulo: "GESTAO", perfil: "ADMINISTRADOR" },
+    { modulo: "PROCESSOS", perfil: "ADMINISTRADOR" },
+  ]);
+  await garantirUsuario(JEFINNY, "TESTE Supervisor Regulação", [{ modulo: "REGULACAO", perfil: "SUPERVISOR" }]);
 
   console.log("\nPreparando…");
   await db.query("DELETE FROM processos_judiciais WHERE numero_processo LIKE 'TSTCAT-%'");

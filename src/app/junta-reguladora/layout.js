@@ -31,6 +31,15 @@ export default async function JuntaReguladoraLayout({ children }) {
 
   const ehAdminJunta = await usuarioEhAdminModulo(ctx.user, MODULOS.JUNTA);
 
+  // Inativar/reativar serviços e especialidades é permissão NOMINAL
+  // (JUNTA/servicos:inativar), não herdada por quem só cadastra ou edita.
+  const podeInativarServicos = await usuarioTemPermissao(
+    ctx.user,
+    MODULOS.JUNTA,
+    "servicos",
+    "inativar",
+  );
+
   // Aba "Pacientes" dentro da Junta replica EXATAMENTE a regra do cadastro de
   // pessoas do Gerenciamento/Regulação/Farmácia: GESTOR ∨ REGULACAO/ADMIN ∨
   // JUNTA/ADMIN (mesma expressão de requireAcessoPessoas em lib/auth.js e dos
@@ -46,6 +55,7 @@ export default async function JuntaReguladoraLayout({ children }) {
       subServicosPermitidos={subServicosPermitidos}
       ehAdminJunta={ehAdminJunta}
       podeGerenciarPessoas={podeGerenciarPessoas}
+      podeInativarServicos={podeInativarServicos}
     >
       {children}
     </JuntaPermProvider>

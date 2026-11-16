@@ -69,7 +69,9 @@ async function main() {
   await db.connect();
 
   const GESTOR = "00000000000";
-  const JEFINNY = "12912453674"; // REGULACAO/SUPERVISOR
+  // Usuário de fixture criado pela própria suíte (o banco é só de
+  // desenvolvimento e não tem contas fixas garantidas): REGULACAO/SUPERVISOR.
+  const JEFINNY = "91000000991";
 
   console.log("\n1. Sem sessão");
   for (const rota of ["/regulacao", "/ccz", "/camara-tecnica/processos", "/gerenciamento/usuarios"]) {

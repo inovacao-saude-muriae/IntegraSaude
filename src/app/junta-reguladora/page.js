@@ -35,7 +35,8 @@ function JuntaReguladoraPageContent() {
   const searchParams = useSearchParams();
   const notify = useNotify();
 
-  const { subServicosPermitidos, ehAdminJunta } = usePermissoesJunta();
+  const { subServicosPermitidos, ehAdminJunta, podeInativarServicos } =
+    usePermissoesJunta();
 
   const activeTab = searchParams.get("tab") || "CADASTRO";
   const activeSubTab = searchParams.get("subTab") || "CAEE";
@@ -206,7 +207,9 @@ function JuntaReguladoraPageContent() {
         </>
       )}
 
-      {activeTab === "SERVICOS_ESPECIALIDADES" && <ServicosEspecialidadesTab />}
+      {activeTab === "SERVICOS_ESPECIALIDADES" && (
+        <ServicosEspecialidadesTab podeInativar={podeInativarServicos} />
+      )}
 
       {activeTab === "RELATORIO" && (
         <ProntuarioRelatorio

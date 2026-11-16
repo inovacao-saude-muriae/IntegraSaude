@@ -19,6 +19,7 @@
 import fs from "node:fs";
 import { Client } from "pg";
 import { SignJWT } from "jose";
+import bcrypt from "bcryptjs";
 
 const BASE = process.env.BASE_URL || "http://localhost:3000";
 const env = {};
@@ -123,11 +124,37 @@ async function pagina(rota, cpf, { seguir = false } = {}) {
   return { status: r.status, corpo, local: r.headers.get("location") || "" };
 }
 
+
+// ── Usuários de fixture criados pela própria suíte ────────────────────────
+// O banco é só de desenvolvimento e não garante contas fixas. Em vez de
+// depender de CPFs que podem não existir, a suíte cria as que precisa.
+async function garantirUsuario(cpf, nome, acessos = []) {
+  await db.query("DELETE FROM user_sessions WHERE user_id=$1", [cpf]);
+  await db.query("DELETE FROM user_acessos WHERE user_cpf=$1", [cpf]);
+  await db.query("DELETE FROM users WHERE cpf=$1", [cpf]);
+  const h = await bcrypt.hash("Fixture@2026", 10);
+  await db.query(
+    `INSERT INTO users (cpf,nome,senha_hash,ativo,primeiro_acesso,updated_at)
+     VALUES ($1,$2,$3,true,false,now())`,
+    [cpf, nome, h],
+  );
+  for (const a of acessos) {
+    await db.query(
+      `INSERT INTO user_acessos (user_cpf,modulo,perfil,nivel,escopo,servicos,permissoes,removidas,ativo)
+       VALUES ($1,$2,$3,'ADMIN','TODOS','{}','{}','{}',true)`,
+      [cpf, a.modulo, a.perfil],
+    );
+  }
+}
+
 async function main() {
   await db.connect();
-  const GESTOR = "00000000000"; // PROCESSOS ADMINISTRADOR (catálogo completo)
-  const JEFINNY = "12912453674"; // REGULACAO SUPERVISOR — sem PROCESSOS
-  const CCZ = "12345678912";
+  const GESTOR = "91000000963"; // fixture: PROCESSOS ADMINISTRADOR (catálogo completo)
+  const JEFINNY = "91000000964"; // fixture: REGULACAO SUPERVISOR — sem PROCESSOS
+  const CCZ = "91000000965"; // fixture: CCZ
+  await garantirUsuario(GESTOR, "TESTE Gestor Processos", [{ modulo: "PROCESSOS", perfil: "ADMINISTRADOR" }]);
+  await garantirUsuario(JEFINNY, "TESTE Supervisor Regulação", [{ modulo: "REGULACAO", perfil: "SUPERVISOR" }]);
+  await garantirUsuario(CCZ, "TESTE CCZ", [{ modulo: "CCZ", perfil: "ADMINISTRADOR" }]);
 
   console.log("\nPreparando…");
   await db.query("DELETE FROM processos_judiciais WHERE numero_processo LIKE 'TSTSB-%'");

@@ -1,0 +1,533 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   PADRÃO VISUAL ÚNICO DOS CADASTROS
+   Usado por: Junta Reguladora → Serviços e Especialidades,
+              Regulação → Procedimentos,
+              Câmara Técnica → Processos → Especialidades e Procedimentos.
+   As classes são globais (prefixo "cad") para que os três cadastros fiquem
+   idênticos sem importar CSS module em componentes compartilhados.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.cadCard {
+  background-color: #ffffff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  margin-bottom: 1.5rem;
+}
+
+.cadCardTitleRow {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+}
+
+.cadCardTitle {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.cadCardSubtitle {
+  font-size: 0.83rem;
+  color: #64748b;
+}
+
+/* ── Busca ──────────────────────────────────────────────────────────────── */
+.cadBuscaBox {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.cadBuscaRow {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.cadBuscaWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.cadBuscaInput {
+  width: 100%;
+  padding: 0.65rem 2rem 0.65rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #1e293b;
+  background-color: #ffffff;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.cadBuscaInput:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+}
+
+.cadBuscaSeta {
+  position: absolute;
+  right: 0.85rem;
+  font-size: 0.75rem;
+  color: #64748b;
+  cursor: pointer;
+  user-select: none;
+}
+
+.cadDropdown {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  right: 0;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  padding: 0.5rem;
+  z-index: 100;
+}
+
+.cadDropdownScroll {
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid #f1f5f9;
+  border-radius: 6px;
+}
+
+.cadDropdownTabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.825rem;
+  text-align: left;
+}
+
+.cadDropdownTabela thead {
+  position: sticky;
+  top: 0;
+  background-color: #f8fafc;
+  z-index: 10;
+}
+
+.cadDropdownTabela th {
+  padding: 0.6rem 0.75rem;
+  color: #475569;
+  font-weight: 700;
+  border-bottom: 2px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.cadDropdownTabela td {
+  padding: 0.6rem 0.75rem;
+  color: #334155;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cadDropdownTabela tbody tr:hover {
+  background-color: #2563eb;
+}
+
+.cadDropdownTabela tbody tr:hover td {
+  color: #ffffff;
+}
+
+.cadLinhaSelecionada {
+  background-color: #eff6ff;
+}
+
+.cadSemDados {
+  text-align: center;
+  padding: 1.5rem !important;
+  color: #94a3b8;
+  cursor: default !important;
+}
+
+.cadDropdownTabela tbody tr:hover .cadSemDados {
+  background-color: transparent !important;
+  color: #94a3b8 !important;
+}
+
+/* ── Formulário ─────────────────────────────────────────────────────────── */
+.cadForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.cadFormSecao {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1.25rem;
+}
+
+.cadFormSecaoTopo {
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.cadFormSecaoTopo h4 {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #334155;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  margin: 0;
+}
+
+.cadGrade {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 1rem;
+}
+
+.cadCampo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.cadCampo label {
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.cadCampo input,
+.cadCampo select {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #1e293b;
+  outline: none;
+  background-color: #ffffff;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.cadCampo input:focus,
+.cadCampo select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+}
+
+.cadCampo input:disabled,
+.cadCampo select:disabled {
+  background-color: #f8fafc;
+  color: #94a3b8;
+  border-color: #e2e8f0;
+  cursor: not-allowed;
+}
+
+.cadCampoDica {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.cadCol12 { grid-column: span 12; }
+.cadCol6 { grid-column: span 6; }
+.cadCol4 { grid-column: span 4; }
+
+.cadFormAcoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* ── Botões ─────────────────────────────────────────────────────────────── */
+.cadBtnPrimario {
+  background-color: #2563eb;
+  color: #ffffff;
+  border: none;
+  padding: 0.65rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.cadBtnPrimario:hover { background-color: #1d4ed8; }
+.cadBtnPrimario:disabled { background-color: #93b4f7; cursor: not-allowed; }
+
+.cadBtnAdicionar {
+  background-color: #059669;
+  color: #ffffff;
+  border: none;
+  padding: 0.6rem 1.1rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.2s ease;
+}
+
+.cadBtnAdicionar:hover { background-color: #047857; }
+
+.cadBtnGhost {
+  background-color: transparent;
+  color: #475569;
+  border: 1px solid #cbd5e0;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.cadBtnGhost:hover { background-color: #f1f5f9; }
+
+.cadBtnPerigo {
+  background-color: #dc2626;
+  color: #ffffff;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.cadBtnPerigo:hover { background-color: #b91c1c; }
+
+/* Inativar / Reativar — pequenos, dentro da tabela */
+.cadBtnInativar,
+.cadBtnReativar {
+  border: 1px solid transparent;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.cadBtnInativar {
+  background-color: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.cadBtnInativar:hover { background-color: #fee2e2; }
+
+.cadBtnReativar {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.cadBtnReativar:hover { background-color: #dbeafe; }
+
+.cadBtnInativar:disabled,
+.cadBtnReativar:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ── Filtros e tabela ───────────────────────────────────────────────────── */
+.cadTabelaTopo {
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.cadTabelaTopoLinha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.cadTabelaTitulo {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+
+.cadFiltros {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.cadFiltroSituacao {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cadFiltroSituacao label {
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.cadFiltroSelect {
+  padding: 0.5rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: #1e293b;
+  background-color: #ffffff;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  min-width: 160px;
+}
+
+.cadFiltroSelect:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+}
+
+.cadTabelaWrapper {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  background-color: #ffffff;
+}
+
+.cadTabela {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.cadTabela th {
+  background-color: #f8fafc;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.85rem 1.25rem;
+  border-bottom: 2px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.cadTabela td {
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+  vertical-align: middle;
+}
+
+.cadTabela td strong {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.cadTabela tbody tr:hover td { background-color: #f8fafc; }
+
+.cadTabela .cadDireita { text-align: right; }
+
+.cadTabelaVazia {
+  text-align: center;
+  color: #94a3b8;
+  padding: 2rem !important;
+  font-style: italic;
+}
+
+.cadLinhaInativa td { color: #94a3b8; }
+.cadLinhaInativa td strong { color: #64748b; }
+
+/* ── Etiquetas de situação ──────────────────────────────────────────────── */
+.cadStatusAtivo,
+.cadStatusInativo {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.cadStatusAtivo {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.cadStatusInativo {
+  background-color: #f1f5f9;
+  color: #64748b;
+}
+
+.cadAcoesLinha {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+/* ── Avisos ─────────────────────────────────────────────────────────────── */
+.cadAvisoSucesso,
+.cadAvisoErro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.cadAvisoSucesso {
+  background-color: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.cadAvisoErro {
+  background-color: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.cadAvisoSucesso button,
+.cadAvisoErro button {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  color: inherit;
+  padding: 0;
+}
+
+@media (max-width: 700px) {
+  .cadGrade { display: flex; flex-direction: column; }
+  .cadTabelaTopoLinha { flex-direction: column; align-items: stretch; }
+  .cadFiltroSelect { width: 100%; min-width: 0; }
+  .cadBuscaRow { flex-direction: column; align-items: stretch; }
+  .cadAcoesLinha { justify-content: flex-start; }
+}

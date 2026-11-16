@@ -35,8 +35,34 @@ const check = (nome, cond, extra = "") => {
   else { fail++; console.log(`  FALHA ${nome} ${extra}`); }
 };
 
-const tGestor = await sessao("00000000000");
-const tComum = await sessao("12912453674");
+
+// ── Contas de fixture criadas pela própria suíte ──────────────────────────
+// O banco é só de desenvolvimento e não garante contas fixas. Em vez de
+// depender de CPFs que podem não existir, a suíte cria as que precisa.
+async function garantirUsuario(cpf, nome, acessos = []) {
+  await prisma.$executeRawUnsafe("DELETE FROM user_sessions WHERE user_id=$1", cpf);
+  await prisma.$executeRawUnsafe("DELETE FROM user_acessos WHERE user_cpf=$1", cpf);
+  await prisma.$executeRawUnsafe("DELETE FROM users WHERE cpf=$1", cpf);
+  const bcrypt = (await import("bcryptjs")).default;
+  const h = await bcrypt.hash("Fixture@2026", 10);
+  await prisma.$executeRawUnsafe(
+    `INSERT INTO users (cpf,nome,senha_hash,ativo,primeiro_acesso,updated_at)
+     VALUES ($1,$2,$3,true,false,now())`, cpf, nome, h);
+  for (const a of acessos) {
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO user_acessos (user_cpf,modulo,perfil,nivel,escopo,servicos,permissoes,removidas,ativo)
+       VALUES ($1,$2,$3,'ADMIN','TODOS','{}','{}','{}',true)`, cpf, a.modulo, a.perfil);
+  }
+}
+const GESTOR_FIX = "91000000968";
+const COMUM_FIX = "91000000969";
+await garantirUsuario(GESTOR_FIX, "TESTE Gestor Acessos", [
+  { modulo: "GESTAO", perfil: "ADMINISTRADOR" },
+  { modulo: "REGULACAO", perfil: "ADMINISTRADOR" },
+]);
+await garantirUsuario(COMUM_FIX, "TESTE Usuário Comum", [{ modulo: "REGULACAO", perfil: "OPERADOR" }]);
+const tGestor = await sessao(GESTOR_FIX);
+const tComum = await sessao(COMUM_FIX);
 
 // 1. Catálogo
 let r = await get("/api/gerenciamento/permissoes/catalogo", tGestor);
@@ -72,7 +98,7 @@ r = await get("/api/gerenciamento/usuarios", tComum);
 check("lista 403 para quem não é GESTOR", r.status === 403, r.status);
 
 // 4. Acessos de um usuário
-r = await get("/api/gerenciamento/usuarios/12912453674/acessos", tGestor);
+r = await get(`/api/gerenciamento/usuarios/${COMUM_FIX}/acessos`, tGestor);
 const det = await r.json();
 check("acessos 200", r.status === 200, r.status);
 check("vínculo traz perfil/escopo/servicos", !!det.vinculos?.[0]?.perfil && !!det.vinculos?.[0]?.escopo);
@@ -84,22 +110,22 @@ const put = (cpf, body, t) => fetch(`${base}/api/gerenciamento/usuarios/${cpf}/a
 });
 
 // 5. ESPECIFICOS sem serviço → 400
-r = await put("12912453674", { vinculos: [{ modulo: "REGULACAO", perfil: "OPERADOR", escopo: "ESPECIFICOS", servicos: [], permissoes: [], removidas: [] }] }, tGestor);
+r = await put(COMUM_FIX, { vinculos: [{ modulo: "REGULACAO", perfil: "OPERADOR", escopo: "ESPECIFICOS", servicos: [], permissoes: [], removidas: [] }] }, tGestor);
 check("ESPECIFICOS vazio recusado (400)", r.status === 400, r.status + " " + (await r.text()).slice(0, 120));
 
 // 6. NENHUM com permissão operacional no pacote → 400
-r = await put("12912453674", { vinculos: [{ modulo: "REGULACAO", perfil: "OPERADOR", escopo: "NENHUM", servicos: [], permissoes: [], removidas: [] }] }, tGestor);
+r = await put(COMUM_FIX, { vinculos: [{ modulo: "REGULACAO", perfil: "OPERADOR", escopo: "NENHUM", servicos: [], permissoes: [], removidas: [] }] }, tGestor);
 check("NENHUM com permissão operacional recusado (400)", r.status === 400, r.status);
 // 6b. NENHUM sem nenhuma permissão operacional → aceito
-r = await put("12912453674", { vinculos: [{ modulo: "REGULACAO", perfil: "CONSULTA", escopo: "NENHUM", servicos: [], permissoes: [], removidas: [] }] }, tGestor);
+r = await put(COMUM_FIX, { vinculos: [{ modulo: "REGULACAO", perfil: "CONSULTA", escopo: "NENHUM", servicos: [], permissoes: [], removidas: [] }] }, tGestor);
 check("NENHUM sem permissão operacional aceito (200)", r.status === 200, r.status);
 
 // 7. Autoelevação: gestor tentando conceder o que não tem
-r = await put("00000000000", { vinculos: [{ modulo: "REGULACAO", perfil: "ADMINISTRADOR", escopo: "TODOS", servicos: [], permissoes: ["funcionalidade_inventada:excluir"], removidas: [] }] }, tGestor);
+r = await put(GESTOR_FIX, { vinculos: [{ modulo: "REGULACAO", perfil: "ADMINISTRADOR", escopo: "TODOS", servicos: [], permissoes: ["funcionalidade_inventada:excluir"], removidas: [] }] }, tGestor);
 check("permissão fora do catálogo recusada (400)", r.status === 400, r.status);
 
 // 8. Salvar configuração válida e conferir estado relido
-r = await put("12912453674", { vinculos: [{ modulo: "REGULACAO", perfil: "OPERADOR", escopo: "TODOS", servicos: [], permissoes: [], removidas: ["financeiro:editar"] }] }, tGestor);
+r = await put(COMUM_FIX, { vinculos: [{ modulo: "REGULACAO", perfil: "OPERADOR", escopo: "TODOS", servicos: [], permissoes: [], removidas: ["financeiro:editar"] }] }, tGestor);
 const salvo = await r.json();
 check("PUT válido 200", r.status === 200, r.status + " " + JSON.stringify(salvo).slice(0,150));
 const v = (salvo.vinculos || [])[0];
@@ -118,7 +144,7 @@ check("/api/me reflete o novo perfil", modReg?.perfis?.includes("OPERADOR"), JSO
 check("/api/me não tem financeiro:editar", !permsMod.includes("financeiro:editar"), JSON.stringify(permsMod).slice(0, 80));
 
 // 10. Restaurar estado original
-r = await put("12912453674", { vinculos: [{ modulo: "REGULACAO", perfil: "SUPERVISOR", escopo: "TODOS", servicos: [], permissoes: [], removidas: [] }] }, tGestor);
+r = await put(COMUM_FIX, { vinculos: [{ modulo: "REGULACAO", perfil: "SUPERVISOR", escopo: "TODOS", servicos: [], permissoes: [], removidas: [] }] }, tGestor);
 check("restauração 200", r.status === 200, r.status);
 r = await get("/api/me", tComum);
 const me2 = await r.json();

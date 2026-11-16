@@ -16,16 +16,42 @@ const base = "http://localhost:3000";
 const get = (p, t) => fetch(base + p, { headers: { cookie: `session_token=${t}` } });
 let ok = 0, fail = 0;
 const check = (n, c, e = "") => { if (c) { ok++; console.log(`  OK   ${n}`); } else { fail++; console.log(`  FALHA ${n} ${e}`); } };
-const tG = await sessao("00000000000");
-const tC = await sessao("12912453674");
+
+// ── Contas de fixture criadas pela própria suíte ──────────────────────────
+// O banco é só de desenvolvimento e não garante contas fixas. Em vez de
+// depender de CPFs que podem não existir, a suíte cria as que precisa.
+async function garantirUsuario(cpf, nome, acessos = []) {
+  await prisma.$executeRawUnsafe("DELETE FROM user_sessions WHERE user_id=$1", cpf);
+  await prisma.$executeRawUnsafe("DELETE FROM user_acessos WHERE user_cpf=$1", cpf);
+  await prisma.$executeRawUnsafe("DELETE FROM users WHERE cpf=$1", cpf);
+  const bcrypt = (await import("bcryptjs")).default;
+  const h = await bcrypt.hash("Fixture@2026", 10);
+  await prisma.$executeRawUnsafe(
+    `INSERT INTO users (cpf,nome,senha_hash,ativo,primeiro_acesso,updated_at)
+     VALUES ($1,$2,$3,true,false,now())`, cpf, nome, h);
+  for (const a of acessos) {
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO user_acessos (user_cpf,modulo,perfil,nivel,escopo,servicos,permissoes,removidas,ativo)
+       VALUES ($1,$2,$3,'ADMIN','TODOS','{}','{}','{}',true)`, cpf, a.modulo, a.perfil);
+  }
+}
+const GESTOR_FIX = "91000000968";
+const COMUM_FIX = "91000000969";
+await garantirUsuario(GESTOR_FIX, "TESTE Gestor Acessos", [
+  { modulo: "GESTAO", perfil: "ADMINISTRADOR" },
+  { modulo: "CCZ", perfil: "ADMINISTRADOR" },
+]);
+await garantirUsuario(COMUM_FIX, "TESTE Usuário Comum", [{ modulo: "REGULACAO", perfil: "OPERADOR" }]);
+const tG = await sessao(GESTOR_FIX);
+const tC = await sessao(COMUM_FIX);
 const put = (cpf, body, t) => fetch(`${base}/api/gerenciamento/usuarios/${cpf}/acessos`, { method: "PUT", headers: { "Content-Type": "application/json", cookie: `session_token=${t}` }, body: JSON.stringify(body) });
 
 // 1. Não-GESTOR não grava acessos
-let r = await put("12912453674", { vinculos: [] }, tC);
+let r = await put(COMUM_FIX, { vinculos: [] }, tC);
 check("não-GESTOR não grava acessos (403)", r.status === 403, r.status);
 
 // 2. Autoelevação: gestor não concede a si um módulo que não possui perfil acima do seu poder
-r = await put("00000000000", { vinculos: [{ modulo: "REGULACAO", perfil: "ADMINISTRADOR", escopo: "TODOS", servicos: [], permissoes: ["financeiro:excluir"], removidas: [] }] }, tG);
+r = await put(GESTOR_FIX, { vinculos: [{ modulo: "REGULACAO", perfil: "ADMINISTRADOR", escopo: "TODOS", servicos: [], permissoes: ["financeiro:excluir"], removidas: [] }] }, tG);
 check("autoelevação bloqueada (400)", r.status === 400, r.status + " " + (await r.text()).slice(0, 140));
 
 // 3. Regulação: cancelar pedido exige motivo
@@ -45,7 +71,7 @@ r = await fetch(`${base}/api/ccz/denuncias/1`, { method: "DELETE", headers: { co
 check("CCZ excluir denúncia negado sem permissão (403)", r.status === 403, r.status);
 
 // 7. Token com assinatura inválida
-const falso = await new SignJWT({ userId: "00000000000" }).setProtectedHeader({ alg: "HS256" })
+const falso = await new SignJWT({ userId: GESTOR_FIX }).setProtectedHeader({ alg: "HS256" })
   .setIssuedAt().setExpirationTime("2h").sign(new TextEncoder().encode("x".repeat(48)));
 r = await get("/api/me", falso);
 check("token com assinatura inválida 401", r.status === 401, r.status);

@@ -25,6 +25,11 @@ export default async function RegulacaoLayout({ children }) {
   const podeEditarFinanceiro = await usuarioTemPermissao(
     ctx.user, MODULOS.REGULACAO, "financeiro", "editar",
   );
+  // Inativar/reativar procedimentos é permissão NOMINAL
+  // (REGULACAO/procedimentos:inativar), não herdada por quem só cadastra/edita.
+  const podeInativarProcedimentos = await usuarioTemPermissao(
+    ctx.user, MODULOS.REGULACAO, "procedimentos", "inativar",
+  );
   const podeGerenciarCatalogo =
     (await usuarioTemPermissao(ctx.user, MODULOS.REGULACAO, "procedimentos", "editar")) ||
     (await usuarioTemPermissao(ctx.user, MODULOS.REGULACAO, "medicos", "editar")) ||
@@ -56,6 +61,7 @@ export default async function RegulacaoLayout({ children }) {
       podeGerenciarPessoas={podeGerenciarPessoas}
       podeVerAuditoria={podeVerAuditoria}
       podeExcluirPedido={podeExcluirPedido}
+      podeInativarProcedimentos={podeInativarProcedimentos}
     >
       {children}
     </RegulacaoPermProvider>

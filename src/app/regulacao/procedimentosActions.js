@@ -1,6 +1,6 @@
 "use server";
 
-import { requireAdminModulo, requireAcessoModulo } from "@/lib/auth";
+import { requireAdminModulo, requireAcessoModulo, requirePermissao } from "@/lib/auth";
 import { MODULOS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { registrarAuditoria } from "@/lib/audit";
@@ -54,6 +54,7 @@ export async function getProcedimentosData() {
       procedimentoId: p.id,
       nome: p.nome,
       valor: Number(p.valor),
+      ativo: p.ativo !== false,
       tipoExameId: p.tipoExameId,
       tipoExameNome: p.tipoExame?.nome || "—",
     }));
@@ -66,6 +67,7 @@ export async function getProcedimentosData() {
         procedimentoId: null,
         nome: "",
         valor: null,
+        ativo: true, // o tipo de exame em si não tem situação própria
         tipoExameId: t.id,
         tipoExameNome: t.nome,
       }));
@@ -161,6 +163,45 @@ export async function updateRegistro(linha, data) {
     return { success: true };
   } catch (error) {
     console.error("Erro ao atualizar registro:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+// ── INATIVAR / REATIVAR ──────────────────────────────────────────────────
+// Procedimento inativo deixa de ser oferecido em novos pedidos de exame, mas
+// continua legível nos pedidos já criados. Nada é apagado. Permissão NOMINAL
+// (REGULACAO/procedimentos:inativar), validada aqui — não só na tela.
+export async function alterarSituacaoProcedimento(id, { ativo } = {}) {
+  try {
+    const user = await requirePermissao(MODULOS.REGULACAO, "procedimentos", "inativar");
+    const procId = Number(id);
+    if (!Number.isSafeInteger(procId) || procId <= 0) {
+      return { success: false, error: "Procedimento inválido." };
+    }
+    if (typeof ativo !== "boolean") {
+      return { success: false, error: "Informe a situação desejada." };
+    }
+
+    const atual = await prisma.procedimento.findUnique({ where: { id: procId } });
+    if (!atual) return { success: false, error: "Procedimento não encontrado." };
+    if (atual.ativo === ativo) return { success: true, semAlteracoes: true };
+
+    await prisma.procedimento.update({ where: { id: procId }, data: { ativo } });
+
+    await registrarAuditoria({
+      user,
+      acao: ativo ? "REATIVAR" : "DESATIVAR",
+      modulo: "REGULACAO",
+      entidade: "Procedimento",
+      entidadeId: String(procId),
+      descricao: `Procedimento '${atual.nome}' ${ativo ? "reativado" : "inativado"}`,
+      detalhes: { nome: atual.nome, tipoExameId: atual.tipoExameId, ativo },
+    });
+
+    revalidatePath("/regulacao");
+    return { success: true };
+  } catch (error) {
+    console.error("Erro ao alterar situação do procedimento:", error);
     return { success: false, error: error.message };
   }
 }

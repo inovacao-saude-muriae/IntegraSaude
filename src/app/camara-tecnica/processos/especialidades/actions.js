@@ -288,7 +288,7 @@ export async function alterarSituacaoEspecialidadeProcesso(id, { ativo } = {}) {
 
     await registrarAuditoria({
       user,
-      acao: ativo ? "REATIVAR" : "INATIVAR",
+      acao: ativo ? "REATIVAR" : "DESATIVAR",
       modulo: MODULO_AUDITORIA,
       entidade: "ProcessoEspecialidade",
       entidadeId: String(espId),
@@ -443,7 +443,7 @@ export async function alterarSituacaoProcedimentoProcesso(id, { ativo } = {}) {
 
     await registrarAuditoria({
       user,
-      acao: ativo ? "REATIVAR" : "INATIVAR",
+      acao: ativo ? "REATIVAR" : "DESATIVAR",
       modulo: MODULO_AUDITORIA,
       entidade: "ProcessoProcedimento",
       entidadeId: String(procId),

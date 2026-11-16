@@ -101,10 +101,12 @@ model Procedimento {
   tipoExameId Int           @map("tipo_exame_id")
   nome        String        @db.VarChar(150)
   valor       Decimal       @db.Decimal(10, 2)
+  ativo       Boolean       @default(true)
   pedidos     PedidoExame[]
   tipoExame   TipoExame     @relation(fields: [tipoExameId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_procedimentos_tipo_exames")
 
   @@index([tipoExameId], map: "exame_id_idx")
+  @@index([ativo], map: "idx_regula_procedimentos_ativo")
   @@map("regula_procedimentos")
 }
 

@@ -1,11 +1,19 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import styles from "./CadastroProcedimentos.module.css";
+import "@/components/cadastros/cadastro.module.css";
 import ModalConfirmacaoExclusao from "@/app/regulacao/Modals/ModalConfirmacaoExclusao";
 import { useConfirm, useNotify } from "@/components/ConfirmDialog";
 import BotaoEditar from "@/components/BotaoEditar";
-import { createRegistro, updateRegistro, deleteRegistro } from "./procedimentosActions";
+import FiltroSituacao, { passaSituacao } from "@/components/cadastros/FiltroSituacao";
+import StatusRegistro from "@/components/cadastros/StatusRegistro";
+import AcoesSituacao from "@/components/cadastros/AcoesSituacao";
+import {
+  createRegistro,
+  updateRegistro,
+  deleteRegistro,
+  alterarSituacaoProcedimento,
+} from "./procedimentosActions";
 
 const FORM_VAZIO = {
   linha: null, // linha em edição (com procedimentoId / tipoExameId)
@@ -19,7 +27,11 @@ const FORM_VAZIO = {
   isFormActive: false,
 };
 
-export default function CadastroProcedimentos({ data = { tiposExame: [], linhas: [] }, reloadData = () => {} }) {
+export default function CadastroProcedimentos({
+  data = { tiposExame: [], linhas: [] },
+  reloadData = () => {},
+  podeInativar = false,
+}) {
   const confirm = useConfirm();
   const notify = useNotify();
 
@@ -27,6 +39,8 @@ export default function CadastroProcedimentos({ data = { tiposExame: [], linhas:
   const [form, setForm] = useState(FORM_VAZIO);
   const [dropAberto, setDropAberto] = useState(false);
   const [filterTipoExameId, setFilterTipoExameId] = useState("");
+  const [situacao, setSituacao] = useState("ativos");
+  const [alternando, setAlternando] = useState(null);
 
   const dropRef = useRef(null);
 
@@ -163,9 +177,38 @@ export default function CadastroProcedimentos({ data = { tiposExame: [], linhas:
     }
   };
 
-  const linhasTabela = (data.linhas || []).filter((l) =>
-    filterTipoExameId ? String(l.tipoExameId) === String(filterTipoExameId) : true
-  );
+  // ── Inativar / Reativar ──────────────────────────────────────────────────
+  async function alternarProcedimento(linha) {
+    const ativo = linha.ativo !== false;
+    const acao = ativo ? "Inativar" : "Reativar";
+    const ok = await confirm({
+      title: `${acao} procedimento`,
+      message: ativo
+        ? `Inativar "${linha.nome}"? Ele deixa de ser oferecido em novos pedidos de ` +
+          `exame, mas continua visível nos pedidos que já o utilizam.`
+        : `Reativar "${linha.nome}"? Ele volta a ser oferecido nos novos pedidos.`,
+      confirmText: acao,
+    });
+    if (!ok) return;
+
+    setAlternando(linha.procedimentoId);
+    const res = await alterarSituacaoProcedimento(linha.procedimentoId, { ativo: !ativo });
+    setAlternando(null);
+    if (!res.success) return notify({ tipo: "erro", title: "Erro", message: res.error });
+    await notify({
+      tipo: "sucesso",
+      title: `Procedimento ${ativo ? "inativado" : "reativado"}`,
+      message: `"${linha.nome}" ${ativo ? "inativado" : "reativado"} com sucesso!`,
+    });
+    reloadData();
+  }
+
+  const linhasTabela = (data.linhas || []).filter((l) => {
+    if (filterTipoExameId && String(l.tipoExameId) !== String(filterTipoExameId)) {
+      return false;
+    }
+    return passaSituacao(situacao, l.ativo !== false);
+  });
 
   const temProcedimentoSelecionado = usandoNovoProc || Boolean(form.procedimentoNome.trim());
 
@@ -180,21 +223,21 @@ export default function CadastroProcedimentos({ data = { tiposExame: [], linhas:
         onCancel={() => setDeleteConfig(null)}
       />
 
-      <div className={styles.card}>
-        <div className={styles.cardTitleRow}>
-          <h3 className={styles.cardTitle}>Exames e Procedimentos</h3>
-          <span className={styles.cardSubtitle}>Ex.: Imagem (exame) — Ultrassonografia (procedimento)</span>
+      <div className="cadCard">
+        <div className="cadCardTitleRow">
+          <h3 className="cadCardTitle">Exames e Procedimentos</h3>
+          <span className="cadCardSubtitle">Ex.: Imagem (exame) — Ultrassonografia (procedimento)</span>
         </div>
 
         {/* BUSCA */}
-        <div className={styles.searchSectionContainer}>
-          <div className={styles.fieldGroup}>
+        <div className="cadBuscaBox">
+          <div className="cadCampo">
             <label>Buscar no Banco (Exame ou Procedimento)</label>
-            <div className={styles.searchActionRow}>
-              <div className={styles.selectSearchWrapper} ref={dropRef}>
+            <div className="cadBuscaRow">
+              <div className="cadBuscaWrapper" ref={dropRef}>
                 <input
                   type="text"
-                  className={styles.selectLikeInput}
+                  className="cadBuscaInput"
                   value={form.search || ""}
                   placeholder="Selecionar ou digitar para buscar..."
                   onChange={(e) => {
@@ -203,19 +246,20 @@ export default function CadastroProcedimentos({ data = { tiposExame: [], linhas:
                   }}
                   onFocus={() => setDropAberto(true)}
                 />
-                <span className={styles.selectArrow} onClick={() => setDropAberto(!dropAberto)}>
+                <span className="cadBuscaSeta" onClick={() => setDropAberto(!dropAberto)}>
                   {dropAberto ? "▲" : "▼"}
                 </span>
 
                 {dropAberto && (
-                  <div className={styles.tableDropdownMenu}>
-                    <div className={styles.tableContainerScroll}>
-                      <table className={styles.procTableDropdown}>
+                  <div className="cadDropdown">
+                    <div className="cadDropdownScroll">
+                      <table className="cadDropdownTabela">
                         <thead>
                           <tr>
                             <th>Tipo de Exame</th>
                             <th>Procedimento</th>
                             <th style={{ textAlign: "right" }}>Valor</th>
+                            <th>Situação</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -227,18 +271,19 @@ export default function CadastroProcedimentos({ data = { tiposExame: [], linhas:
                                   ev.preventDefault();
                                   carregarParaEdicao(l);
                                 }}
-                                className={form.linha?.id === l.id ? styles.selectedRow : ""}
+                                className={form.linha?.id === l.id ? "cadLinhaSelecionada" : ""}
                               >
-                                <td className={styles.boldName}>{l.tipoExameNome}</td>
+                                <td><strong>{l.tipoExameNome}</strong></td>
                                 <td>{l.nome || "—"}</td>
                                 <td style={{ textAlign: "right" }}>
                                   {l.valor != null ? `R$ ${Number(l.valor).toFixed(2)}` : "—"}
                                 </td>
+                                <td><StatusRegistro ativo={l.ativo !== false} /></td>
                               </tr>
                             ))
                           ) : (
                             <tr>
-                              <td colSpan="3" className={styles.noDataTd}>
+                              <td colSpan="4" className="cadSemDados">
                                 Nenhum registro encontrado.
                               </td>
                             </tr>
@@ -252,7 +297,7 @@ export default function CadastroProcedimentos({ data = { tiposExame: [], linhas:
 
               <button
                 type="button"
-                className={styles.btnAdicionar}
+                className="cadBtnAdicionar"
                 onClick={() => setForm({ ...FORM_VAZIO, isFormActive: true })}
               >
                 + Adicionar novo
@@ -262,13 +307,13 @@ export default function CadastroProcedimentos({ data = { tiposExame: [], linhas:
         </div>
 
         {/* FORMULÁRIO */}
-        <form onSubmit={submit} className={styles.patientFormContainer}>
-          <div className={styles.formSection}>
-            <div className={styles.formSectionHeader}>
+        <form onSubmit={submit} className="cadForm">
+          <div className="cadFormSecao">
+            <div className="cadFormSecaoTopo">
               <h4>Informações do Registro</h4>
             </div>
-            <div className={styles.formGridStrict}>
-              <div className={`${styles.fieldGroup} ${styles.colTipoExame}`}>
+            <div className="cadGrade">
+              <div className="cadCampo cadCol6">
                 <label>Tipo de Exame *</label>
                 <select
                   value={form.tipoExameId}
@@ -295,7 +340,7 @@ export default function CadastroProcedimentos({ data = { tiposExame: [], linhas:
               </div>
 
               {usandoNovoTipo && (
-                <div className={`${styles.fieldGroup} ${styles.colNovoTipo}`}>
+                <div className="cadCampo cadCol6">
                   <label>Nome do Novo Tipo de Exame *</label>
                   <input
                     type="text"
@@ -308,7 +353,7 @@ export default function CadastroProcedimentos({ data = { tiposExame: [], linhas:
                 </div>
               )}
 
-              <div className={`${styles.fieldGroup} ${styles.colProcName}`}>
+              <div className="cadCampo cadCol6">
                 <label>Procedimento (opcional)</label>
                 <select
                   value={form.procedimentoSel}
@@ -317,14 +362,17 @@ export default function CadastroProcedimentos({ data = { tiposExame: [], linhas:
                 >
                   <option value="">-- Nenhum / Selecione --</option>
                   {procedimentosDoTipo.map((p) => (
-                    <option key={p.procedimentoId} value={p.procedimentoId}>{p.nome}</option>
+                    <option key={p.procedimentoId} value={p.procedimentoId}>
+                      {p.nome}
+                      {p.ativo === false ? " (inativo)" : ""}
+                    </option>
                   ))}
                   <option value="__novo__">+ Novo procedimento...</option>
                 </select>
               </div>
 
               {usandoNovoProc && (
-                <div className={`${styles.fieldGroup} ${styles.colNovoProc}`}>
+                <div className="cadCampo cadCol6">
                   <label>Nome do Novo Procedimento *</label>
                   <input
                     type="text"
@@ -337,7 +385,7 @@ export default function CadastroProcedimentos({ data = { tiposExame: [], linhas:
                 </div>
               )}
 
-              <div className={`${styles.fieldGroup} ${styles.colValor}`}>
+              <div className="cadCampo cadCol4">
                 <label>Valor (R$)</label>
                 <input
                   type="number"
@@ -352,19 +400,19 @@ export default function CadastroProcedimentos({ data = { tiposExame: [], linhas:
             </div>
           </div>
 
-          <div className={styles.formActions}>
+          <div className="cadFormAcoes">
             {form.isEditing && !form.isFormActive && (
               <BotaoEditar onClick={habilitarEdicao} />
             )}
             {form.isFormActive && (
               <>
-                <button type="button" className={styles.btnGhost} onClick={resetForm}>
+                <button type="button" className="cadBtnGhost" onClick={resetForm}>
                   Cancelar
                 </button>
                 {form.isEditing && (
                   <button
                     type="button"
-                    className={styles.btnDanger}
+                    className="cadBtnPerigo"
                     onClick={() =>
                       setDeleteConfig({
                         tipo: form.linha?.procedimentoId ? "PROCEDIMENTO" : "SERVICO",
@@ -391,7 +439,7 @@ export default function CadastroProcedimentos({ data = { tiposExame: [], linhas:
                     Excluir
                   </button>
                 )}
-                <button type="submit" className={styles.primaryBtn}>
+                <button type="submit" className="cadBtnPrimario">
                   {form.isEditing ? "Atualizar" : "Salvar"}
                 </button>
               </>
@@ -400,47 +448,70 @@ export default function CadastroProcedimentos({ data = { tiposExame: [], linhas:
         </form>
 
         {/* TABELA ÚNICA */}
-        <div className={styles.tableFilterContainer}>
-          <div className={styles.tableHeaderFilterRow}>
-            <h4 className={styles.tableSectionTitle}>Cadastros</h4>
-            <div className={styles.filterGroup}>
-              <label>Filtrar por Tipo de Exame:</label>
-              <select
-                value={filterTipoExameId}
-                onChange={(e) => setFilterTipoExameId(e.target.value)}
-                className={styles.filterSelect}
-              >
-                <option value="">-- Todos os Tipos de Exames --</option>
-                {(data.tiposExame || []).map((t) => (
-                  <option key={t.id} value={t.id}>{t.nome}</option>
-                ))}
-              </select>
+        <div className="cadTabelaTopo">
+          <div className="cadTabelaTopoLinha">
+            <h4 className="cadTabelaTitulo">Cadastros</h4>
+            <div className="cadFiltros">
+              <FiltroSituacao id="filtro-situacao-procedimentos" valor={situacao} onChange={setSituacao} />
+              <div className="cadFiltroSituacao">
+                <label>Filtrar por Tipo de Exame:</label>
+                <select
+                  value={filterTipoExameId}
+                  onChange={(e) => setFilterTipoExameId(e.target.value)}
+                  className="cadFiltroSelect"
+                >
+                  <option value="">-- Todos os Tipos de Exames --</option>
+                  {(data.tiposExame || []).map((t) => (
+                    <option key={t.id} value={t.id}>{t.nome}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
-          <div className={styles.tableWrapper}>
-            <table className={styles.table}>
+          <div className="cadTabelaWrapper">
+            <table className="cadTabela">
               <thead>
                 <tr>
                   <th>Tipo de Exame</th>
                   <th>Procedimento</th>
-                  <th className={styles.alignRight}>Valor (R$)</th>
+                  <th className="cadDireita">Valor (R$)</th>
+                  <th>Situação</th>
+                  <th className="cadDireita">Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {linhasTabela.map((l) => (
-                  <tr key={l.id}>
-                    <td><strong>{l.tipoExameNome}</strong></td>
-                    <td>{l.nome || "—"}</td>
-                    <td className={styles.alignRight}>
-                      {l.valor != null ? `R$ ${Number(l.valor).toFixed(2)}` : "—"}
-                    </td>
-                  </tr>
-                ))}
+                {linhasTabela.map((l) => {
+                  const ativo = l.ativo !== false;
+                  return (
+                    <tr key={l.id} className={ativo ? "" : "cadLinhaInativa"}>
+                      <td><strong>{l.tipoExameNome}</strong></td>
+                      <td>{l.nome || "—"}</td>
+                      <td className="cadDireita">
+                        {l.valor != null ? `R$ ${Number(l.valor).toFixed(2)}` : "—"}
+                      </td>
+                      <td><StatusRegistro ativo={ativo} /></td>
+                      <td>
+                        <div className="cadAcoesLinha">
+                          {l.procedimentoId ? (
+                            <AcoesSituacao
+                              ativo={ativo}
+                              podeInativar={podeInativar}
+                              ocupado={alternando === l.procedimentoId}
+                              onAlternar={() => alternarProcedimento(l)}
+                            />
+                          ) : (
+                            <span className="cadCampoDica">—</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
                 {linhasTabela.length === 0 && (
                   <tr>
-                    <td colSpan={3} className={styles.emptyTableTd}>
-                      Nenhum registro encontrado para o tipo selecionado.
+                    <td colSpan={5} className="cadTabelaVazia">
+                      Nenhum registro encontrado para os filtros selecionados.
                     </td>
                   </tr>
                 )}

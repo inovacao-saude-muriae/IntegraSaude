@@ -42,8 +42,12 @@ function RegulacaoPageContent() {
   // Flag injetada pelo servidor (layout.js) — mesma regra do cadastro de
   // pessoas do Gerenciamento (GESTOR ∨ REGULACAO/ADMIN ∨ JUNTA/ADMIN),
   // fail-closed.
-  const { podeGerenciarPessoas, podeVerAuditoria, podeExcluirPedido } =
-    usePermissoesRegulacao();
+  const {
+    podeGerenciarPessoas,
+    podeVerAuditoria,
+    podeExcluirPedido,
+    podeInativarProcedimentos,
+  } = usePermissoesRegulacao();
 
   const activeTab = searchParams.get("tab") || "DASHBOARD";
 
@@ -297,7 +301,9 @@ function RegulacaoPageContent() {
         </div>
       )}
 
-      {activeTab === "PROCEDIMENTOS" && <ProcedimentosTab />}
+      {activeTab === "PROCEDIMENTOS" && (
+        <ProcedimentosTab podeInativar={podeInativarProcedimentos} />
+      )}
 
       {activeTab === "PACIENTES" &&
         (podeGerenciarPessoas ? (

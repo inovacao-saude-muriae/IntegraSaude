@@ -5,7 +5,9 @@ import { getServicosData } from "./servicosActions";
 import CadastroServicos from "./CadastroServicos";
 import styles from "@/app/gerenciamento/GerenciamentoCadastro.module.css";
 
-export default function ServicosEspecialidadesTab() {
+// `podeInativar` vem do servidor (layout da rota, via podeExecutar). A tela
+// nunca decide sozinha: só mostra o botão; o backend valida de novo.
+export default function ServicosEspecialidadesTab({ podeInativar = false }) {
   const [data, setData] = useState({ servicos: [], linhas: [] });
 
   // Mantido com useCallback para ser passado ao componente filho sem re-renders desnecessários
@@ -36,7 +38,11 @@ export default function ServicosEspecialidadesTab() {
     <div className={styles.container}>
       <h2 className={styles.cardTitle}>Serviços e Especialidades</h2>
 
-      <CadastroServicos data={data} reloadData={reloadData} />
+      <CadastroServicos
+        data={data}
+        reloadData={reloadData}
+        podeInativar={podeInativar}
+      />
     </div>
   );
 }
