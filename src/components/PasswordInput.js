@@ -7,8 +7,8 @@ import styles from './PasswordInput.module.css';
 /**
  * Campo de senha com mostrar/ocultar — o padrão do IntegraSaúde.
  *
- * - começa oculto (`type="password"`);
- * - o ícone de olho revela (`type="text"`) e vira olho riscado;
+ * - começa oculto (`type="password"`) com o ícone de olho riscado (`EyeOff`);
+ * - clicar revela (`type="text"`) e o ícone vira olho aberto (`Eye`);
  * - clicar no ícone NÃO envia o formulário (`type="button"`) e não mexe no
  *   valor digitado nem nas validações do campo;
  * - o ícone fica dentro do campo, à direita e centralizado na vertical, e
@@ -84,10 +84,13 @@ export default function PasswordInput({
         tabIndex={0}
         disabled={disabled}
       >
+        {/* O ícone representa o ESTADO do campo: oculto → olho riscado
+            (EyeOff); visível → olho aberto (Eye). O rótulo/tooltip continua
+            descrevendo a AÇÃO do clique ("Mostrar senha" / "Ocultar senha"). */}
         {visivel ? (
-          <EyeOff size={18} strokeWidth={2} aria-hidden="true" />
+          <Eye size={19} strokeWidth={2} aria-hidden="true" />
         ) : (
-          <Eye size={18} strokeWidth={2} aria-hidden="true" />
+          <EyeOff size={19} strokeWidth={2} aria-hidden="true" />
         )}
       </button>
     </div>
