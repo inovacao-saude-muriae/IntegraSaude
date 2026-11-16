@@ -12,7 +12,10 @@ import { gerarSenhaTemporaria } from "@/lib/senhaTemporaria";
 //        tela de gerenciamento).
 // POST → cria conta nova. O acesso inicial vem da própria tela (vínculos por
 //        módulo), nunca de um perfil único: `users.role` foi removido do banco.
-//        A conta nasce SEM vínculos e a tela de acessos define tudo.
+//        Os vínculos podem vir JUNTO no corpo (`vinculos`): nesse caso a conta e
+//        os acessos são gravados na mesma operação — se a gravação dos acessos
+//        falhar, a conta é desfeita e a resposta é de erro (nada de sucesso
+//        falso). Sem `vinculos`, a conta nasce sem acessos configurados.
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function GET() {
@@ -69,7 +72,7 @@ export async function GET() {
   }
 }
 
-// Cria a conta (sem vínculos) ou atualiza nome/cargo de uma existente.
+// Cria a conta (com ou sem vínculos) ou atualiza nome/cargo de uma existente.
 // Os acessos são gravados depois, pela rota /[cpf]/acessos — assim cada passo
 // tem uma responsabilidade e a tela mostra o que foi persistido.
 export async function POST(request) {
@@ -119,6 +122,14 @@ export async function POST(request) {
       return NextResponse.json({ success: true, usuario: user, criado: false });
     }
 
+    // Vínculos opcionais, enviados junto com o cadastro. São validados ANTES de
+    // criar a conta (catálogo, escopo, poder de concessão): erro aqui não deixa
+    // conta órfã no banco.
+    const vinculos = Array.isArray(corpo.vinculos) ? corpo.vinculos : [];
+    if (vinculos.length > 0) {
+      await validarVinculosParaCadastro({ vinculos, executor: gestor });
+    }
+
     // Criação: senha temporária INDIVIDUAL e aleatória, do gerador único do
     // sistema (`lib/senhaTemporaria`, o mesmo do "Resetar senha"). Só o hash é
     // gravado; a senha em texto volta UMA vez nesta resposta, para o
@@ -133,10 +144,34 @@ export async function POST(request) {
         senhaHash,
         ativo: true,
         primeiroAcesso: true,
-        // Rótulo de compatibilidade até a remoção dos perfis legados.
       },
       select: { cpf: true, nome: true, cargo: true },
     });
+
+    // Gravação dos vínculos na sequência. Se falhar, a conta é desfeita para
+    // não existir usuário pela metade — e a resposta é de erro.
+    let resultadoAcessos = null;
+    if (vinculos.length > 0) {
+      try {
+        resultadoAcessos = await salvarAcessosUsuario({
+          cpf: cpfLimpo,
+          vinculos,
+          executor: gestor,
+          motivo: "Cadastro de usuário com acessos",
+        });
+      } catch (erroAcessos) {
+        await prisma.user.delete({ where: { cpf: cpfLimpo } }).catch(() => {});
+        const status = erroAcessos instanceof AcessoErro ? erroAcessos.status : 500;
+        const texto =
+          erroAcessos instanceof AcessoErro
+            ? erroAcessos.message
+            : "Não foi possível gravar os acessos. A conta não foi criada.";
+        if (!(erroAcessos instanceof AcessoErro)) {
+          console.error("Erro ao gravar acessos no cadastro:", erroAcessos);
+        }
+        return NextResponse.json({ error: texto }, { status });
+      }
+    }
 
     await registrarAuditoria({
       user: gestor,
@@ -146,7 +181,12 @@ export async function POST(request) {
       entidadeId: cpfLimpo,
       descricao: `Usuário '${user.nome}' criado`,
       // Nunca a senha nem o hash: só o fato de que a credencial foi definida.
-      detalhes: { cargo: user.cargo, primeiroAcesso: true, senhaTemporaria: "gerada" },
+      detalhes: {
+        cargo: user.cargo,
+        primeiroAcesso: true,
+        senhaTemporaria: "gerada",
+        modulos: vinculos.map((v) => v.modulo),
+      },
     });
 
     return NextResponse.json(
@@ -156,8 +196,10 @@ export async function POST(request) {
         criado: true,
         // Exibida uma única vez, na confirmação do cadastro.
         senhaTemporaria,
-        // Resposta com credencial nunca pode ser cacheada.
         primeiroAcesso: true,
+        // Quantos módulos ficaram realmente gravados (relido do banco).
+        totalModulos: (resultadoAcessos?.vinculos || []).length,
+        vinculos: resultadoAcessos?.vinculos || [],
       },
       { status: 201, headers: { "Cache-Control": "no-store, max-age=0" } },
     );
@@ -170,6 +212,23 @@ export async function POST(request) {
     }
     console.error("Erro ao cadastrar usuário:", error);
     return NextResponse.json({ error: "Erro ao salvar usuário." }, { status: 500 });
+  }
+}
+
+// Valida os vínculos enviados no cadastro ANTES de criar a conta, com as
+// mesmas regras da gravação (catálogo, escopo, poder de concessão).
+async function validarVinculosParaCadastro({ vinculos, executor }) {
+  const { validarVinculo, exigirPoderDeConcessao } = await import("@/lib/acessoService");
+  const { obterContextoEfetivo } = await import("@/lib/permissions");
+  const efetivoExecutor = await obterContextoEfetivo({ cpf: executor.cpf });
+  const vistos = new Set();
+  for (const bruto of vinculos) {
+    const v = validarVinculo(bruto);
+    if (vistos.has(v.modulo)) {
+      throw new AcessoErro(`Módulo repetido na configuração: ${v.modulo}.`);
+    }
+    vistos.add(v.modulo);
+    exigirPoderDeConcessao(efetivoExecutor, v);
   }
 }
 

@@ -519,3 +519,86 @@
   color: #667085;
   font-size: 13px;
 }
+
+/* ── Colunas da área de trabalho ──────────────────────────────────────── */
+.coluna { display: grid; gap: 18px; align-content: start; }
+
+/* ── Painel amplo (modal) da ação "Acessos" ───────────────────────────── */
+.painelFundo {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: rgba(10, 38, 57, 0.55);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 28px 20px 40px;
+  overflow-y: auto;
+}
+.painel {
+  width: min(1180px, 100%);
+  background: #f7f9fc;
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(10, 38, 57, 0.35);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: calc(100vh - 68px);
+}
+.painelTopo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+  background: radial-gradient(ellipse at 100% 80%, #154758, transparent 65%), #0a2639;
+  color: #fff;
+}
+.painelTitulo { font-size: 18px; font-weight: 700; margin: 0; color: #fff; }
+.painelSub { font-size: 12.5px; color: #c8dbe4; margin-top: 4px; }
+.painelResumo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+.painelMedalha {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #eaf4f8;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.painelSemModulo {
+  font-size: 11.5px;
+  font-style: italic;
+  color: #ffd9a8;
+}
+.painelFechar {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.painelFechar:hover { background: rgba(255, 255, 255, 0.2); }
+.painelCorpo {
+  padding: 18px 22px 24px;
+  overflow-y: auto;
+  max-height: calc(100vh - 170px);
+}
+@media (max-width: 700px) {
+  .painelFundo { padding: 0; }
+  .painel { border-radius: 0; min-height: 100vh; }
+  .painelCorpo { max-height: none; }
+  .identGrid { grid-template-columns: minmax(0, 1fr); }
+}

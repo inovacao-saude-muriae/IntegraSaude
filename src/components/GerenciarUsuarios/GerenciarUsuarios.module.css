@@ -912,3 +912,208 @@
     justify-content: center;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ÁREA ÚNICA — etapas do cadastro, tabela com módulos e situação
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Etapas do cadastro */
+.etapas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.etapa {
+  font-size: 12px;
+  font-weight: 600;
+  color: #667085;
+  background: #eef2f7;
+  border: 1px solid #e3e8ef;
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+.etapaAtual {
+  color: #0d4f9e;
+  background: #eaf2fd;
+  border-color: #b9d4f7;
+}
+
+.acoesEtapa {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.btnSecundario {
+  appearance: none;
+  border: 1px solid #d5dce6;
+  background: #fff;
+  color: #1f2a37;
+  padding: 11px 18px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btnSecundario:hover { background: #f5f8fc; }
+.btnSecundario:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.avisoOpcional {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f3f8ff;
+  border: 1px solid #cfe1f8;
+  color: #12376b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Coluna de módulos e perfis */
+.modulosCell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 340px;
+}
+.moduloTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #eef4fb;
+  color: #12376b;
+  border: 1px solid #d7e6f7;
+}
+.moduloTag strong {
+  font-weight: 700;
+  color: #0d4f9e;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.badgeSemAcesso {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #fff8e6;
+  color: #6d4c00;
+  border: 1px dashed #e5c46b;
+}
+
+/* Situação: ativa/inativa + pendência de senha */
+.situacaoCell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-start;
+}
+.statusPendente {
+  font-size: 11px;
+  font-weight: 600;
+  color: #7a5600;
+  background: #fff8e6;
+  border: 1px solid #f0dca8;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.cpfCell { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cargoCell { color: #475467; font-size: 13px; }
+
+/* Etapa 2 do cadastro: respiro em volta do editor de acessos */
+.etapaAcessos {
+  padding: 1.25rem 2rem 0;
+}
+
+/* Botões das etapas: secundário e primário na mesma linha, alinhados à direita */
+.acoesEtapa .submitButton {
+  width: auto;
+  min-width: 220px;
+  margin-top: 0;
+}
+
+@media (max-width: 700px) {
+  .etapaAcessos {
+    padding: 1rem 1rem 0;
+  }
+  .acoesEtapa {
+    flex-direction: column-reverse;
+  }
+  .acoesEtapa .submitButton,
+  .acoesEtapa .btnSecundario {
+    width: 100%;
+  }
+}
+
+/* ── Telas estreitas: a tabela de 6 colunas não cabe em 390 px ─────────────
+   Cada linha vira um cartão empilhado, com rótulo ao lado de cada valor. */
+@media (max-width: 700px) {
+  .tableContainer {
+    border: none;
+    box-shadow: none;
+    background: transparent;
+    overflow-x: visible;
+  }
+  .table,
+  .table tbody,
+  .table tr,
+  .table td {
+    display: block;
+    width: 100%;
+  }
+  .table thead {
+    display: none;
+  }
+  .table tr {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    padding: 12px 14px;
+    margin-bottom: 12px;
+  }
+  .table td {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0 !important;
+    border: none !important;
+    text-align: right;
+  }
+  .table td::before {
+    content: attr(data-rotulo);
+    flex: 0 0 42%;
+    text-align: left;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #667085;
+    padding-top: 2px;
+  }
+  .modulosCell {
+    max-width: 100%;
+    justify-content: flex-end;
+  }
+  .situacaoCell {
+    align-items: flex-end;
+  }
+  .actionButtons {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+  .actionButtons button {
+    width: 100%;
+    justify-content: center;
+  }
+}

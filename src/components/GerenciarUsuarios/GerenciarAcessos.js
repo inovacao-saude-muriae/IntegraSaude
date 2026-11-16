@@ -5,13 +5,12 @@ import styles from "./GerenciarAcessos.module.css";
 import { useConfirm, useNotify } from "@/components/ConfirmDialog";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// GERENCIAMENTO DE USUÁRIOS E ACESSOS — configuração individual por módulo
-// ─────────────────────────────────────────────────────────────────────────
-// Três áreas na tela:
-//   1. Identificação do usuário (dados da conta e situação);
-//   2. Módulos (cartões: tem acesso? qual perfil?);
-//   3. Configuração do módulo selecionado (perfil, escopo/serviços,
-//      funcionalidades × permissões) + resumo consolidado.
+// CONFIGURAÇÃO DE ACESSOS — componente único, reutilizado em dois lugares:
+//   • cadastro de usuário (2ª etapa, com `modo="cadastro"`): monta o estado,
+//     não salva nada — o cadastro envia os vínculos junto com a conta;
+//   • ação "Acessos" da lista (modo padrão): carrega do banco e salva.
+//
+// Três áreas: identificação · módulos · configuração do módulo + resumo.
 //
 // A regra de autorização NÃO está aqui: o cliente só monta a intenção, e o
 // backend (lib/acessoService) valida contra o catálogo central e devolve o que
@@ -38,14 +37,14 @@ function formataData(valor) {
   }
 }
 
-function formataCpf(cpf) {
+export function formataCpf(cpf) {
   const d = String(cpf || "").replace(/\D/g, "");
   if (d.length !== 11) return cpf || "—";
   return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
 }
 
 // Estado inicial de um módulo sem vínculo.
-function moduloVazio(modulo) {
+export function moduloVazio(modulo) {
   return {
     modulo,
     ativo: false,
@@ -58,7 +57,7 @@ function moduloVazio(modulo) {
 }
 
 // Converte o vínculo vindo do banco para o estado da tela.
-function moduloDoBanco(v) {
+export function moduloDoBanco(v) {
   return {
     modulo: v.modulo,
     ativo: v.ativo !== false,
@@ -70,40 +69,86 @@ function moduloDoBanco(v) {
   };
 }
 
-export default function GerenciarAcessos({ cpfInicial = null }) {
+// Lista de vínculos a partir do estado da tela — o formato que o backend aceita.
+// Só entram módulos ligados: desligar o interruptor remove o vínculo.
+export function vinculosDoEstado(modulos) {
+  return Object.values(modulos)
+    .filter((m) => m.ativo)
+    .map((m) => ({
+      modulo: m.modulo,
+      perfil: m.perfil,
+      escopo: m.escopo,
+      servicos: m.escopo === VAZIO_ESCOPO.ESPECIFICOS ? m.servicos : [],
+      permissoes: m.concedidas,
+      removidas: m.removidas,
+      ativo: true,
+    }));
+}
+
+/**
+ * @param {object} props
+ * @param {string|null} props.cpf        usuário a configurar (null no cadastro)
+ * @param {"edicao"|"cadastro"} props.modo
+ * @param {object|null} props.catalogo   catálogo já carregado (opcional)
+ * @param {Array} props.usuarios         lista lateral (opcional — omitida no cadastro)
+ * @param {boolean} props.mostrarLista
+ * @param {object|null} props.conta      dados da conta em cadastro (nome, cargo, cpf)
+ * @param {Function} props.onSalvo       chamado com o resultado relido do banco
+ * @param {Function} props.onEstado      chamado com { vinculos, totalModulos } a cada mudança
+ * @param {Function} props.onVoltar      botão "Voltar" do modo cadastro
+ * @param {string} props.rotuloSalvar
+ */
+export default function GerenciarAcessos({
+  cpf: cpfFixo = null,
+  modo = "edicao",
+  catalogo: catalogoProp = null,
+  usuarios: usuariosProp = null,
+  mostrarLista = true,
+  conta = null,
+  onSalvo = null,
+  onEstado = null,
+  onVoltar = null,
+  rotuloSalvar = "Salvar acessos",
+  rotuloVoltar = "Voltar",
+}) {
   const confirm = useConfirm();
   const notify = useNotify();
+  const somenteLeitura = modo === "cadastro";
 
-  const [catalogo, setCatalogo] = useState(null);
-  const [usuarios, setUsuarios] = useState([]);
-  const [carregando, setCarregando] = useState(true);
+  const [catalogo, setCatalogo] = useState(catalogoProp);
+  const [usuarios, setUsuarios] = useState(usuariosProp || []);
+  const [carregando, setCarregando] = useState(!catalogoProp || (!somenteLeitura && !cpfFixo));
   const [erro, setErro] = useState("");
 
   const [busca, setBusca] = useState("");
-  const [cpfBusca, setCpfBusca] = useState("");
-  const [cpfSelecionado, setCpfSelecionado] = useState(null);
+  const [cpfSelecionado, setCpfSelecionado] = useState(cpfFixo);
   const [detalhe, setDetalhe] = useState(null);
   const [modulos, setModulos] = useState({}); // modulo → estado da tela
   const [moduloAberto, setModuloAberto] = useState(null);
   const [salvando, setSalvando] = useState(false);
   const [mensagem, setMensagem] = useState(null);
 
-  // ── Carregamento inicial ────────────────────────────────────────────────
+  // ── Carregamento do catálogo (e da lista, quando a tela é a de edição) ──
   useEffect(() => {
     let vivo = true;
     (async () => {
       try {
-        const [resCat, resUsu] = await Promise.all([
-          fetch("/api/gerenciamento/permissoes/catalogo", { cache: "no-store" }),
-          fetch("/api/gerenciamento/usuarios", { cache: "no-store" }),
-        ]);
-        const cat = await resCat.json();
-        const usu = await resUsu.json();
-        if (!vivo) return;
-        if (!resCat.ok) throw new Error(cat.error || "Erro ao carregar o catálogo.");
-        if (!resUsu.ok) throw new Error(usu.error || "Erro ao carregar os usuários.");
-        setCatalogo(cat);
-        setUsuarios(usu.data || []);
+        if (!catalogoProp) {
+          const resCat = await fetch("/api/gerenciamento/permissoes/catalogo", {
+            cache: "no-store",
+          });
+          const cat = await resCat.json();
+          if (!vivo) return;
+          if (!resCat.ok) throw new Error(cat.error || "Erro ao carregar o catálogo.");
+          setCatalogo(cat);
+        }
+        if (!somenteLeitura && mostrarLista && !usuariosProp) {
+          const resUsu = await fetch("/api/gerenciamento/usuarios", { cache: "no-store" });
+          const usu = await resUsu.json();
+          if (!vivo) return;
+          if (!resUsu.ok) throw new Error(usu.error || "Erro ao carregar os usuários.");
+          setUsuarios(usu.data || []);
+        }
       } catch (e) {
         if (vivo) setErro(e.message);
       } finally {
@@ -113,45 +158,40 @@ export default function GerenciarAcessos({ cpfInicial = null }) {
     return () => {
       vivo = false;
     };
-  }, []);
+  }, [catalogoProp, mostrarLista, somenteLeitura, usuariosProp]);
 
   // ── Selecionar usuário: lê a configuração do BANCO ──────────────────────
-  const carregarUsuario = useCallback(
-    async (cpf) => {
-      setMensagem(null);
-      setErro("");
-      try {
-        const res = await fetch(`/api/gerenciamento/usuarios/${cpf}/acessos`, {
-          cache: "no-store",
-        });
-        const dados = await res.json();
-        if (!res.ok) throw new Error(dados.error || "Erro ao carregar o usuário.");
-        setCpfSelecionado(cpf);
-        setDetalhe(dados);
-        const mapa = {};
-        for (const v of dados.vinculos || []) mapa[v.modulo] = moduloDoBanco(v);
-        setModulos(mapa);
-        setModuloAberto((atual) => atual || dados.vinculos?.[0]?.modulo || null);
-      } catch (e) {
-        setErro(e.message);
-      }
-    },
-    [],
-  );
-
-  // Pedido vindo da aba "Contas" (evento `integra:abrir-acessos`): abre direto o
-  // usuário escolhido. A carga roda no callback do evento — não no corpo de um
-  // efeito — e o CPF também entra na busca do cabeçalho.
-  useEffect(() => {
-    function aoPedir(e) {
-      const cpf = e.detail?.cpf;
-      if (!cpf) return;
-      setCpfBusca(cpf);
-      carregarUsuario(cpf);
+  const carregarUsuario = useCallback(async (cpf) => {
+    if (!cpf) return;
+    setMensagem(null);
+    setErro("");
+    try {
+      const res = await fetch(`/api/gerenciamento/usuarios/${cpf}/acessos`, {
+        cache: "no-store",
+      });
+      const dados = await res.json();
+      if (!res.ok) throw new Error(dados.error || "Erro ao carregar o usuário.");
+      setCpfSelecionado(cpf);
+      setDetalhe(dados);
+      const mapa = {};
+      for (const v of dados.vinculos || []) mapa[v.modulo] = moduloDoBanco(v);
+      setModulos(mapa);
+      setModuloAberto((atual) => atual || dados.vinculos?.[0]?.modulo || null);
+    } catch (e) {
+      setErro(e.message);
     }
-    window.addEventListener("integra:abrir-acessos", aoPedir);
-    return () => window.removeEventListener("integra:abrir-acessos", aoPedir);
-  }, [carregarUsuario]);
+  }, []);
+
+  // Usuário fixo (ação "Acessos" da lista): carrega os vínculos do banco.
+  // A chamada é assíncrona — o setState acontece na resposta, não no corpo
+  // do efeito.
+  useEffect(() => {
+    if (!cpfFixo || somenteLeitura) return;
+    const t = setTimeout(() => {
+      carregarUsuario(cpfFixo);
+    }, 0);
+    return () => clearTimeout(t);
+  }, [cpfFixo, somenteLeitura, carregarUsuario]);
 
   // ── Helpers de catálogo ─────────────────────────────────────────────────
   const modulosCatalogo = useMemo(() => catalogo?.modulos || [], [catalogo]);
@@ -215,6 +255,15 @@ export default function GerenciarAcessos({ cpfInicial = null }) {
     setMensagem(null);
   };
 
+  // Restaura o pacote padrão do perfil (descarta concessões e retiradas).
+  const restaurarPadrao = (chave) => {
+    setModulos((prev) => {
+      const atual = prev[chave] || moduloVazio(chave);
+      return { ...prev, [chave]: { ...atual, concedidas: [], removidas: [] } };
+    });
+    setMensagem(null);
+  };
+
   const alternarServico = (chave, servico) => {
     const atual = estadoDoModulo(chave);
     const tem = atual.servicos.includes(servico);
@@ -246,34 +295,28 @@ export default function GerenciarAcessos({ cpfInicial = null }) {
     atualizarModulo(chave, { concedidas, removidas });
   };
 
-  // ── Salvar ──────────────────────────────────────────────────────────────
-  const salvar = async () => {
-    if (!cpfSelecionado) return;
+  // Avisa o cadastro (2ª etapa) a cada mudança, para ele enviar os vínculos.
+  useEffect(() => {
+    if (!onEstado) return;
+    const lista = vinculosDoEstado(modulos);
+    onEstado({ vinculos: lista, totalModulos: lista.length });
+    // onEstado é recriado pelo pai a cada render: fora das dependências.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modulos]);
 
-    const lista = Object.values(modulos)
-      .filter((m) => m.ativo)
-      .map((m) => ({
-        modulo: m.modulo,
-        perfil: m.perfil,
-        escopo: m.escopo,
-        servicos: m.escopo === VAZIO_ESCOPO.ESPECIFICOS ? m.servicos : [],
-        permissoes: m.concedidas,
-        removidas: m.removidas,
-        ativo: true,
-      }));
+  // ── Salvar (somente no modo edição) ─────────────────────────────────────
+  const salvar = async () => {
+    if (somenteLeitura || !cpfSelecionado) return;
+
+    const lista = vinculosDoEstado(modulos);
 
     // Checagem local (o backend repete): ESPECIFICOS sem serviço não passa.
     const semServico = lista.filter(
       (v) => v.escopo === VAZIO_ESCOPO.ESPECIFICOS && v.servicos.length === 0,
     );
     if (semServico.length > 0) {
-      const nomes = semServico
-        .map((v) => catDoModulo(v.modulo)?.nome || v.modulo)
-        .join(", ");
-      setMensagem({
-        tipo: "erro",
-        texto: `Escolha ao menos um serviço em: ${nomes}.`,
-      });
+      const nomes = semServico.map((v) => catDoModulo(v.modulo)?.nome || v.modulo).join(", ");
+      setMensagem({ tipo: "erro", texto: `Escolha ao menos um serviço em: ${nomes}.` });
       return;
     }
 
@@ -309,29 +352,8 @@ export default function GerenciarAcessos({ cpfInicial = null }) {
       for (const v of dados.vinculos || []) mapa[v.modulo] = moduloDoBanco(v);
       setModulos(mapa);
       setMensagem({ tipo: "ok", texto: "Acessos salvos e confirmados no banco." });
-      // Atualiza o resumo da lista lateral.
-      setUsuarios((prev) =>
-        prev.map((u) =>
-          u.cpf === cpfSelecionado
-            ? {
-                ...u,
-                modulos: (dados.vinculos || []).map((v) => ({
-                  modulo: v.modulo,
-                  nome: catDoModulo(v.modulo)?.nome || v.modulo,
-                  perfil: v.perfil,
-                  escopo: v.escopo,
-                  servicos: v.servicos,
-                  ativo: v.ativo,
-                  totalEfetivas: v.efetivas?.length || 0,
-                })),
-                ativos: (dados.vinculos || [])
-                  .filter((v) => v.ativo !== false)
-                  .map((v) => v.modulo),
-              }
-            : u,
-          ),
-      );
       await notify({ tipo: "sucesso", message: "Acessos salvos com sucesso." });
+      if (onSalvo) onSalvo(dados);
     } catch (e) {
       setMensagem({ tipo: "erro", texto: e.message });
     } finally {
@@ -339,7 +361,7 @@ export default function GerenciarAcessos({ cpfInicial = null }) {
     }
   };
 
-  // ── Filtro da lista ─────────────────────────────────────────────────────
+  // ── Filtro da lista lateral ─────────────────────────────────────────────
   const usuariosFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     if (!termo) return usuarios;
@@ -353,112 +375,134 @@ export default function GerenciarAcessos({ cpfInicial = null }) {
   const moduloCorrente = moduloAberto ? estadoDoModulo(moduloAberto) : null;
   const catCorrente = moduloAberto ? catDoModulo(moduloAberto) : null;
 
-  if (carregando) return <div className={styles.carregando}>Carregando usuários e permissões…</div>;
+  // Identificação: no cadastro, a conta ainda não existe — vem por prop.
+  const identificacao = somenteLeitura
+    ? {
+        cpf: conta?.cpf || "",
+        nome: conta?.nome || "",
+        cargo: conta?.cargo || "",
+        ativo: true,
+        primeiroAcesso: true,
+        ultimoAcesso: null,
+        createdAt: null,
+      }
+    : detalhe?.usuario || null;
+
+  if (carregando) return <div className={styles.carregando}>Carregando permissões…</div>;
 
   return (
     <div className={styles.pagina}>
       {erro && <div className={styles.erroBox}>{erro}</div>}
 
-      {/* ── Lista de usuários ─────────────────────────────────────────── */}
-      <div className={styles.barra}>
-        <input
-          className={styles.campo}
-          placeholder="Buscar por nome ou CPF…"
-          value={busca || cpfBusca}
-          onChange={(e) => {
-            setBusca(e.target.value);
-            setCpfBusca("");
-          }}
-        />
-      </div>
+      {/* ── Lista lateral (só na tela de edição sem usuário fixo) ─────── */}
+      {mostrarLista && !cpfFixo && !somenteLeitura && (
+        <>
+          <div className={styles.barra}>
+            <input
+              className={styles.campo}
+              placeholder="Buscar por nome ou CPF…"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+            />
+          </div>
 
-      <div className={styles.lista}>
-        {usuariosFiltrados.length === 0 && (
-          <div className={styles.vazio}>Nenhum usuário encontrado.</div>
-        )}
-        {usuariosFiltrados.map((u) => {
-          const selecionado = u.cpf === cpfSelecionado;
-          return (
-            <div
-              key={u.cpf}
-              role="button"
-              tabIndex={0}
-              className={`${styles.linhaUsuario} ${selecionado ? styles.linhaSelecionada : ""}`}
-              onClick={() => carregarUsuario(u.cpf)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") carregarUsuario(u.cpf);
-              }}
-            >
-              <div>
-                <div className={styles.nomeUsuario}>{u.nome}</div>
-                <div className={styles.metaUsuario}>
-                  {formataCpf(u.cpf)} · {u.cargo || "sem cargo"} ·{" "}
-                  {u.ativo ? "ativo" : "inativo"}
-                  {u.ultimoAcesso ? ` · último acesso ${formataData(u.ultimoAcesso)}` : ""}
+          <div className={styles.lista}>
+            {usuariosFiltrados.length === 0 && (
+              <div className={styles.vazio}>Nenhum usuário encontrado.</div>
+            )}
+            {usuariosFiltrados.map((u) => {
+              const selecionado = u.cpf === cpfSelecionado;
+              return (
+                <div
+                  key={u.cpf}
+                  role="button"
+                  tabIndex={0}
+                  className={`${styles.linhaUsuario} ${selecionado ? styles.linhaSelecionada : ""}`}
+                  onClick={() => carregarUsuario(u.cpf)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") carregarUsuario(u.cpf);
+                  }}
+                >
+                  <div>
+                    <div className={styles.nomeUsuario}>{u.nome}</div>
+                    <div className={styles.metaUsuario}>
+                      {formataCpf(u.cpf)} · {u.cargo || "sem cargo"} ·{" "}
+                      {u.ativo ? "ativo" : "inativo"}
+                      {u.ultimoAcesso ? ` · último acesso ${formataData(u.ultimoAcesso)}` : ""}
+                    </div>
+                    <div className={styles.medalhas}>
+                      {(u.modulos || []).length === 0 && (
+                        <span className={styles.semAcesso}>Nenhum módulo liberado</span>
+                      )}
+                      {(u.modulos || []).map((m) => (
+                        <span
+                          key={m.modulo}
+                          className={`${styles.medalha} ${
+                            m.ativo === false ? styles.medalhaInativa : ""
+                          }`}
+                        >
+                          {m.nome} · {m.perfil}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <span className={styles.seta}>{selecionado ? "▾" : "›"}</span>
                 </div>
-                <div className={styles.medalhas}>
-                  {(u.modulos || []).length === 0 && (
-                    <span className={styles.semAcesso}>Nenhum módulo liberado</span>
-                  )}
-                  {(u.modulos || []).map((m) => (
-                    <span
-                      key={m.modulo}
-                      className={`${styles.medalha} ${m.ativo === false ? styles.medalhaInativa : ""}`}
-                    >
-                      {m.nome} · {m.perfil}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              <span className={styles.seta}>{selecionado ? "▾" : "›"}</span>
-            </div>
-          );
-        })}
-      </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {/* ── Áreas 1, 2 e 3 ────────────────────────────────────────────── */}
-      {detalhe && (
+      {identificacao && (
         <div className={styles.areaTrabalho}>
           {/* Coluna esquerda: identificação + módulos */}
-          <div style={{ display: "grid", gap: 18 }}>
+          <div className={styles.coluna}>
             {/* Área 1 */}
             <section className={styles.cartao}>
               <h3 className={styles.cartaoTitulo}>1 · Identificação</h3>
-              <div className={styles.identCpf}>{formataCpf(detalhe.usuario.cpf)}</div>
-              <div className={styles.identNome}>{detalhe.usuario.nome}</div>
+              <div className={styles.identCpf}>{formataCpf(identificacao.cpf)}</div>
+              <div className={styles.identNome}>{identificacao.nome}</div>
               <div className={styles.identGrid}>
                 <div>
                   <div className={styles.identRotulo}>Situação da conta</div>
                   <div>
                     <span
-                      className={detalhe.usuario.ativo ? styles.statusAtivo : styles.statusInativo}
+                      className={
+                        identificacao.ativo ? styles.statusAtivo : styles.statusInativo
+                      }
                     >
-                      {detalhe.usuario.ativo ? "Ativa" : "Inativa"}
+                      {identificacao.ativo ? "Ativa" : "Inativa"}
                     </span>
                   </div>
                 </div>
                 <div>
                   <div className={styles.identRotulo}>Cargo</div>
-                  <div className={styles.identValor}>{detalhe.usuario.cargo || "—"}</div>
+                  <div className={styles.identValor}>{identificacao.cargo || "—"}</div>
                 </div>
                 <div>
                   <div className={styles.identRotulo}>Primeiro acesso</div>
                   <div className={styles.identValor}>
-                    {detalhe.usuario.primeiroAcesso ? "Pendente (senha padrão)" : "Concluído"}
+                    {identificacao.primeiroAcesso ? "Pendente (senha padrão)" : "Concluído"}
                   </div>
                 </div>
                 <div>
                   <div className={styles.identRotulo}>Último acesso</div>
-                  <div className={styles.identValor}>{formataData(detalhe.usuario.ultimoAcesso)}</div>
+                  <div className={styles.identValor}>
+                    {formataData(identificacao.ultimoAcesso)}
+                  </div>
                 </div>
                 <div>
                   <div className={styles.identRotulo}>Conta criada em</div>
-                  <div className={styles.identValor}>{formataData(detalhe.usuario.createdAt)}</div>
+                  <div className={styles.identValor}>
+                    {formataData(identificacao.createdAt)}
+                  </div>
                 </div>
                 <div>
                   <div className={styles.identRotulo}>Módulos com acesso</div>
                   <div className={styles.identValor}>
-                    {(detalhe.vinculos || []).filter((v) => v.ativo !== false).length} de{" "}
+                    {Object.values(modulos).filter((m) => m.ativo).length} de{" "}
                     {modulosCatalogo.length}
                   </div>
                 </div>
@@ -524,11 +568,17 @@ export default function GerenciarAcessos({ cpfInicial = null }) {
                   );
                 })}
               </div>
+              {Object.values(modulos).filter((m) => m.ativo).length === 0 && (
+                <div className={styles.dica}>
+                  Nenhum módulo ligado: o usuário será salvo <strong>sem acessos
+                  configurados</strong> e não terá permissão operacional nenhuma.
+                </div>
+              )}
             </section>
           </div>
 
           {/* Coluna direita: configuração + resumo */}
-          <div style={{ display: "grid", gap: 18 }}>
+          <div className={styles.coluna}>
             {/* Área 3 */}
             <section className={styles.cartao}>
               <h3 className={styles.cartaoTitulo}>3 · Configuração do módulo</h3>
@@ -546,6 +596,18 @@ export default function GerenciarAcessos({ cpfInicial = null }) {
                           : "Sem acesso. Ligue o interruptor em Módulos para liberar."}
                       </div>
                     </div>
+                    <button
+                      type="button"
+                      className={styles.botao}
+                      onClick={() => restaurarPadrao(moduloAberto)}
+                      disabled={
+                        moduloCorrente.concedidas.length === 0 &&
+                        moduloCorrente.removidas.length === 0
+                      }
+                      title="Volta ao pacote padrão do perfil, descartando concessões e retiradas"
+                    >
+                      Restaurar padrão do perfil
+                    </button>
                   </div>
 
                   {/* Perfil */}
@@ -567,9 +629,9 @@ export default function GerenciarAcessos({ cpfInicial = null }) {
                       ))}
                     </div>
                     <div className={styles.dica}>
-                      O perfil carrega {pacoteDoPerfil(moduloAberto, moduloCorrente.perfil).length}{" "}
-                      permissões do pacote padrão. Personalizações abaixo substituem apenas o que
-                      você alterar.
+                      O perfil carrega{" "}
+                      {pacoteDoPerfil(moduloAberto, moduloCorrente.perfil).length} permissões do
+                      pacote padrão. Personalizações abaixo substituem apenas o que você alterar.
                     </div>
                   </div>
 
@@ -609,7 +671,9 @@ export default function GerenciarAcessos({ cpfInicial = null }) {
                                 key={s}
                                 type="button"
                                 className={`${styles.servico} ${
-                                  moduloCorrente.servicos.includes(s) ? styles.servicoMarcado : ""
+                                  moduloCorrente.servicos.includes(s)
+                                    ? styles.servicoMarcado
+                                    : ""
                                 }`}
                                 onClick={() => alternarServico(moduloAberto, s)}
                               >
@@ -650,8 +714,9 @@ export default function GerenciarAcessos({ cpfInicial = null }) {
                     <div className={styles.funcionalidades}>
                       {catCorrente.funcionalidades.map((f) => {
                         const pacote = pacoteDoPerfil(moduloAberto, moduloCorrente.perfil);
+                        const efetivas = efetivasDoModulo(moduloCorrente);
                         const resumo = f.permissoes.filter((p) =>
-                          efetivasDoModulo(moduloCorrente).includes(`${f.chave}:${p.chave}`),
+                          efetivas.includes(`${f.chave}:${p.chave}`),
                         ).length;
                         return (
                           <div key={f.chave} className={styles.funcionalidade}>
@@ -703,14 +768,13 @@ export default function GerenciarAcessos({ cpfInicial = null }) {
                     </div>
                   </div>
 
-                  {moduloCorrente.ativo &&
-                    moduloCorrente.escopo === VAZIO_ESCOPO.NENHUM && (
-                      <div className={styles.avisoBox}>
-                        Escopo <strong>Nenhum serviço</strong>: o vínculo existe, mas não alcança
-                        nenhum serviço do módulo. Só as permissões de leitura de painel continuam
-                        fazendo sentido.
-                      </div>
-                    )}
+                  {moduloCorrente.ativo && moduloCorrente.escopo === VAZIO_ESCOPO.NENHUM && (
+                    <div className={styles.avisoBox}>
+                      Escopo <strong>Nenhum serviço</strong>: o vínculo existe, mas não alcança
+                      nenhum serviço do módulo. Só as permissões de leitura de painel continuam
+                      fazendo sentido.
+                    </div>
+                  )}
                 </div>
               )}
             </section>
@@ -757,22 +821,31 @@ export default function GerenciarAcessos({ cpfInicial = null }) {
             )}
 
             <div className={styles.rodape}>
-              <button
-                type="button"
-                className={styles.botao}
-                onClick={() => carregarUsuario(cpfSelecionado)}
-                disabled={salvando}
-              >
-                Descartar alterações
-              </button>
-              <button
-                type="button"
-                className={`${styles.botao} ${styles.botaoPrimario}`}
-                onClick={salvar}
-                disabled={salvando}
-              >
-                {salvando ? "Salvando…" : "Salvar acessos"}
-              </button>
+              {onVoltar && (
+                <button type="button" className={styles.botao} onClick={onVoltar}>
+                  {rotuloVoltar}
+                </button>
+              )}
+              {!somenteLeitura && (
+                <button
+                  type="button"
+                  className={styles.botao}
+                  onClick={() => carregarUsuario(cpfSelecionado)}
+                  disabled={salvando}
+                >
+                  Descartar alterações
+                </button>
+              )}
+              {!somenteLeitura && (
+                <button
+                  type="button"
+                  className={`${styles.botao} ${styles.botaoPrimario}`}
+                  onClick={salvar}
+                  disabled={salvando}
+                >
+                  {salvando ? "Salvando…" : rotuloSalvar}
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -496,3 +496,41 @@
     grid-template-columns: repeat(3, 1fr);
   }
 }
+
+/* Sem acessos configurados: aviso claro, diferente de conta inativa */
+.semModulos {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 20px 22px;
+  border-radius: 16px;
+  background: #fff8e6;
+  border: 1px solid #f0dca8;
+  color: #6d4c00;
+  max-width: 760px;
+  margin: 0 auto 26px;
+}
+.semModulosIcone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #f0dca8;
+  color: #a5761b;
+  flex: 0 0 auto;
+}
+.semModulosTitulo {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #5a3f00;
+}
+.semModulosTexto {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #6d4c00;
+}
