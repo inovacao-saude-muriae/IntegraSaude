@@ -101,6 +101,10 @@ export const PERMISSOES = {
   // separadas da exclusão definitiva: não apagam nada e preservam histórico.
   INATIVAR: 'inativar',
   REATIVAR: 'reativar',
+  // Redefinição de senha: gera nova senha temporária, revoga as sessões e
+  // obriga a troca no próximo login. É permissão PRÓPRIA — não é herdada por
+  // administrador de módulo (Regulação, Câmara Técnica, Junta, CCZ).
+  RESETAR_SENHA: 'resetar_senha',
 };
 
 // Nome legível de cada permissão (para a tela e para os relatórios).
@@ -117,6 +121,7 @@ export const PERMISSOES_INFO = {
   [PERMISSOES.GERENCIAR]: 'Gerenciar',
   [PERMISSOES.INATIVAR]: 'Inativar',
   [PERMISSOES.REATIVAR]: 'Reativar',
+  [PERMISSOES.RESETAR_SENHA]: 'Resetar senha',
 };
 
 const V = PERMISSOES.VISUALIZAR;
@@ -245,7 +250,11 @@ export const MODULOS_CATALOGO = {
     funcionalidades: [
       { chave: 'painel', nome: 'Painel Gerencial', permissoes: [V] },
       { chave: 'indicadores', nome: 'Indicadores Consolidados', permissoes: [V, EXP] },
-      { chave: 'usuarios', nome: 'Usuários', permissoes: [V, C, E, G] },
+      {
+        chave: 'usuarios',
+        nome: 'Usuários',
+        permissoes: [V, C, E, G, PERMISSOES.RESETAR_SENHA],
+      },
       { chave: 'pessoas', nome: 'Cadastro de Pessoas', permissoes: [V, C, E] },
       { chave: 'acessos', nome: 'Perfis e Acessos', permissoes: [V, C, E, G] },
       { chave: 'relatorios', nome: 'Relatórios Gerais', permissoes: [V, EXP] },
@@ -505,7 +514,7 @@ const PACOTES = {
     [PERFIS.ADMINISTRADOR]: {
       painel: [V],
       indicadores: [V, EXP],
-      usuarios: [V, C, E, G],
+      usuarios: [V, C, E, G, PERMISSOES.RESETAR_SENHA],
       acessos: [V, C, E, G],
       // Cadastro central: exclusão DEFINITIVA, inativação e reativação são
       // permissões próprias da Gestão Geral — nunca herdadas de administrador

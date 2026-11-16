@@ -19,6 +19,10 @@ export default function GerenciarUsuarios() {
   const [buscandoCpf, setBuscandoCpf] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [mensagem, setMensagem] = useState({ tipo: '', texto: '' });
+  // Redefinição de senha: CPF em processamento (trava duplo clique) e o
+  // resultado a entregar ao administrador (senha temporária aparece UMA vez).
+  const [redefinindo, setRedefinindo] = useState(null);
+  const [senhaRedefinida, setSenhaRedefinida] = useState(null);
 
   // Estado para listar usuários existentes
   const [usuarios, setUsuarios] = useState([]);
@@ -255,6 +259,58 @@ export default function GerenciarUsuarios() {
     }
   };
 
+  const redefinirSenha = async (cpf, nome) => {
+    const ok = await confirm({
+      title: 'Resetar senha',
+      message:
+        `Resetar a senha de ${nome}?\n\n` +
+        'Uma senha temporária será gerada, as sessões abertas desse usuário ' +
+        'serão encerradas e ele terá de criar uma nova senha no próximo acesso. ' +
+        'Perfis, módulos, serviços e permissões NÃO são alterados.',
+      confirmText: 'Resetar senha',
+      variant: 'danger',
+    });
+    if (!ok) return;
+
+    setRedefinindo(cpf);
+    setMensagem({ tipo: '', texto: '' });
+    setSenhaRedefinida(null);
+
+    try {
+      const res = await fetch('/api/gerenciamento/usuarios/redefinir-senha', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cpf }),
+      });
+
+      // A resposta pode não ser JSON (proxy/erro de servidor): trata os dois.
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok && data.success && data.senhaTemporaria) {
+        setSenhaRedefinida({
+          nome: data.usuario?.nome || nome,
+          cpf,
+          senha: data.senhaTemporaria,
+          sessoesRevogadas: data.sessoesRevogadas ?? 0,
+        });
+        setMensagem({
+          tipo: 'sucesso',
+          texto: `Senha de ${nome} redefinida. Entregue a senha temporária ao usuário.`,
+        });
+        carregarUsuarios();
+      } else {
+        setMensagem({
+          tipo: 'erro',
+          texto: data.error || 'Não foi possível redefinir a senha.',
+        });
+      }
+    } catch {
+      setMensagem({ tipo: 'erro', texto: 'Erro de conexão com o servidor.' });
+    } finally {
+      setRedefinindo(null);
+    }
+  };
+
   const reativarUsuario = async (cpf, nome) => {
     const ok = await confirm({
       title: 'Reativar usuário',
@@ -317,6 +373,41 @@ export default function GerenciarUsuarios() {
       {mensagem.texto && (
         <div className={`${styles.message} ${styles[mensagem.tipo]}`}>
           {mensagem.texto}
+        </div>
+      )}
+
+      {senhaRedefinida && (
+        <div className={styles.senhaCard} role="status">
+          <h3>Senha temporária de {senhaRedefinida.nome}</h3>
+          <p>
+            Esta senha aparece <strong>uma única vez</strong>. Entregue ao usuário
+            por um canal seguro: no próximo acesso ele será obrigado a criar uma
+            nova senha. {senhaRedefinida.sessoesRevogadas} sessão(ões) anterior(es)
+            {' '}foram encerradas. Perfis, módulos e permissões não foram alterados.
+          </p>
+          <div className={styles.senhaValor}>
+            <code>{senhaRedefinida.senha}</code>
+            <div className={styles.senhaAcoes}>
+              <button
+                type="button"
+                className={styles.btnCopiar}
+                onClick={() => {
+                  if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                    navigator.clipboard.writeText(senhaRedefinida.senha).catch(() => {});
+                  }
+                }}
+              >
+                Copiar
+              </button>
+              <button
+                type="button"
+                className={styles.btnFecharSenha}
+                onClick={() => setSenhaRedefinida(null)}
+              >
+                Já anotei, fechar
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -562,6 +653,28 @@ export default function GerenciarUsuarios() {
                           </svg>
                           Acessos
                         </button>
+                            <button
+                              onClick={() => redefinirSenha(user.cpf, user.nome)}
+                              className={styles.btnReset}
+                              disabled={!user.ativo || redefinindo === user.cpf}
+                              title={
+                                user.ativo
+                                  ? 'Gerar senha temporária e exigir troca no próximo acesso'
+                                  : 'Reative a conta antes de redefinir a senha'
+                              }
+                            >
+                              {redefinindo === user.cpf ? (
+                                <span className={styles.spinner} aria-hidden="true" />
+                              ) : (
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M21 2v6h-6"/>
+                                  <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
+                                  <path d="M3 22v-6h6"/>
+                                  <path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+                                </svg>
+                              )}
+                              {redefinindo === user.cpf ? 'Redefinindo...' : 'Resetar senha'}
+                            </button>
                             {user.ativo ? (
                               <button
                                 onClick={() => desativarUsuario(user.cpf, user.nome)}
