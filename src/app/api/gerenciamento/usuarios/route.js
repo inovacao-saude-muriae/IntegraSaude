@@ -3,6 +3,7 @@ import { requirePermissaoGestao } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { detalharPermissoes, MODULOS_CATALOGO, PERFIS } from "@/lib/permissoesCatalogo";
 import { AcessoErro, salvarAcessosUsuario } from "@/lib/acessoService";
+import { gerarSenhaTemporaria } from "@/lib/senhaTemporaria";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // /api/gerenciamento/usuarios
@@ -118,9 +119,12 @@ export async function POST(request) {
       return NextResponse.json({ success: true, usuario: user, criado: false });
     }
 
-    // Criação: senha inicial padrão, troca obrigatória no primeiro acesso.
-    const SENHA_PADRAO = "Integr@123";
-    const senhaHash = await bcrypt.hash(SENHA_PADRAO, 10);
+    // Criação: senha temporária INDIVIDUAL e aleatória, do gerador único do
+    // sistema (`lib/senhaTemporaria`, o mesmo do "Resetar senha"). Só o hash é
+    // gravado; a senha em texto volta UMA vez nesta resposta, para o
+    // administrador entregar ao usuário. Não há senha padrão compartilhada.
+    const senhaTemporaria = gerarSenhaTemporaria();
+    const senhaHash = await bcrypt.hash(senhaTemporaria, 10);
     const user = await prisma.user.create({
       data: {
         cpf: cpfLimpo,
@@ -141,10 +145,22 @@ export async function POST(request) {
       entidade: "Usuario",
       entidadeId: cpfLimpo,
       descricao: `Usuário '${user.nome}' criado`,
-      detalhes: { cargo: user.cargo, primeiroAcesso: true },
+      // Nunca a senha nem o hash: só o fato de que a credencial foi definida.
+      detalhes: { cargo: user.cargo, primeiroAcesso: true, senhaTemporaria: "gerada" },
     });
 
-    return NextResponse.json({ success: true, usuario: user, criado: true }, { status: 201 });
+    return NextResponse.json(
+      {
+        success: true,
+        usuario: user,
+        criado: true,
+        // Exibida uma única vez, na confirmação do cadastro.
+        senhaTemporaria,
+        // Resposta com credencial nunca pode ser cacheada.
+        primeiroAcesso: true,
+      },
+      { status: 201, headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
   } catch (error) {
     if (error instanceof AcessoErro) {
       return NextResponse.json({ error: error.message }, { status: error.status });

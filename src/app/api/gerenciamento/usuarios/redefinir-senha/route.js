@@ -5,12 +5,14 @@ import { prisma } from "@/lib/prisma";
 import { requirePermissaoGestao } from "@/lib/auth";
 import { GestorGuardError, validarAlteracaoGestor } from "@/lib/gestorGuard";
 import { MODULOS, PERMISSOES } from "@/lib/permissoesCatalogo";
+import { gerarSenhaTemporaria } from "@/lib/senhaTemporaria";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // /api/gerenciamento/usuarios/redefinir-senha
 // ─────────────────────────────────────────────────────────────────────────
-// Gera uma senha temporária ALEATÓRIA (nunca fixa, nunca compartilhada), grava
-// só o hash, marca `users.primeiro_acesso = true` e revoga TODAS as sessões do
+// Usa o gerador ÚNICO de senha temporária (`lib/senhaTemporaria`, o mesmo do
+// cadastro de conta): senha aleatória, nunca fixa nem compartilhada. Grava só o
+// hash, marca `users.primeiro_acesso = true` e revoga TODAS as sessões do
 // usuário — tudo na MESMA transação.
 //
 // O que esta rota NÃO faz: não toca em `user_acessos` (perfis, módulos,
@@ -21,46 +23,6 @@ import { MODULOS, PERMISSOES } from "@/lib/permissoesCatalogo";
 // A senha temporária é devolvida UMA vez, na resposta, para o administrador
 // entregar ao usuário. Ela nunca vai para auditoria, log ou banco em texto.
 // ═══════════════════════════════════════════════════════════════════════════
-
-// Sem caracteres ambíguos (0/O, 1/l/I) para não errar ao digitar/repassar.
-const ALFABETO = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
-const ESPECIAIS = "!@#$%&*";
-
-/**
- * Senha temporária com 14 caracteres, atendendo à política já usada na troca
- * de senha (8+, maiúscula, minúscula, número, especial) e sempre com pelo
- * menos dois dígitos e dois símbolos. `crypto.getRandomValues` é a fonte.
- */
-export function gerarSenhaTemporaria(tamanho = 14) {
-  const bytes = new Uint8Array(tamanho);
-  crypto.getRandomValues(bytes);
-  const corpo = [];
-  for (let i = 0; i < tamanho - 3; i += 1) {
-    corpo.push(ALFABETO[bytes[i] % ALFABETO.length]);
-  }
-
-  const extra = new Uint8Array(8);
-  crypto.getRandomValues(extra);
-  const escolha = (arr, i) => arr[extra[i] % arr.length];
-
-  const partes = [
-    escolha("ABCDEFGHJKLMNPQRSTUVWXYZ", 0), // maiúscula
-    escolha("abcdefghijkmnopqrstuvwxyz", 1), // minúscula
-    escolha("23456789", 2), // número
-    escolha("23456789", 3), // segundo número
-    escolha(ESPECIAIS, 4), // especial
-    ...corpo,
-  ];
-
-  // Embaralha (Fisher-Yates) para o prefixo não ficar previsível.
-  const ordem = new Uint8Array(partes.length);
-  crypto.getRandomValues(ordem);
-  for (let i = partes.length - 1; i > 0; i -= 1) {
-    const j = ordem[i] % (i + 1);
-    [partes[i], partes[j]] = [partes[j], partes[i]];
-  }
-  return partes.join("");
-}
 
 export async function PUT(request) {
   let gestor;
@@ -149,6 +111,9 @@ export async function PUT(request) {
       senhaTemporaria,
       sessoesRevogadas: resultado.revogadas,
       usuario: { cpf: resultado.alvo.cpf, nome: resultado.alvo.nome },
+    }, {
+      // Resposta com credencial nunca pode ser cacheada.
+      headers: { "Cache-Control": "no-store, max-age=0" },
     });
   } catch (error) {
     if (error instanceof GestorGuardError) {

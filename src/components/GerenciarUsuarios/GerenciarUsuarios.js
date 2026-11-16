@@ -22,7 +22,9 @@ export default function GerenciarUsuarios() {
   // Redefinição de senha: CPF em processamento (trava duplo clique) e o
   // resultado a entregar ao administrador (senha temporária aparece UMA vez).
   const [redefinindo, setRedefinindo] = useState(null);
-  const [senhaRedefinida, setSenhaRedefinida] = useState(null);
+  // Credencial gerada (cadastro OU reset), exibida uma única vez no cartão.
+  // Nunca é guardada em localStorage/sessionStorage: só em memória.
+  const [credencial, setCredencial] = useState(null);
 
   // Estado para listar usuários existentes
   const [usuarios, setUsuarios] = useState([]);
@@ -137,11 +139,19 @@ export default function GerenciarUsuarios() {
       const data = await res.json();
 
       if (res.ok) {
+        // A senha só é exibida quando o backend confirma a criação.
+        setCredencial({
+          origem: 'cadastro',
+          nome: data.usuario?.nome || nomeCompleto,
+          login: data.usuario?.cpf || cpf,
+          senha: data.senhaTemporaria || null,
+          sessoesRevogadas: null,
+        });
         setMensagem({
           tipo: 'sucesso',
           texto:
-            'Usuário cadastrado com sucesso! Senha padrão: Integr@123. ' +
-            'Defina agora os acessos dele na aba "Acessos por módulo".',
+            'Usuário cadastrado com sucesso! Entregue a senha temporária e ' +
+            'defina os acessos dele na aba "Acessos por módulo".',
         });
         // Limpar formulário
         setCpf('');
@@ -259,6 +269,27 @@ export default function GerenciarUsuarios() {
     }
   };
 
+  // Copia para a área de transferência e avisa o administrador. Nunca grava a
+  // senha em localStorage/sessionStorage.
+  const copiar = async (texto, aviso) => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(texto);
+        setMensagem({ tipo: 'sucesso', texto: aviso });
+      } else {
+        setMensagem({
+          tipo: 'erro',
+          texto: 'Não foi possível copiar. Selecione o texto e copie manualmente.',
+        });
+      }
+    } catch {
+      setMensagem({
+        tipo: 'erro',
+        texto: 'Não foi possível copiar. Selecione o texto e copie manualmente.',
+      });
+    }
+  };
+
   const redefinirSenha = async (cpf, nome) => {
     const ok = await confirm({
       title: 'Resetar senha',
@@ -274,7 +305,7 @@ export default function GerenciarUsuarios() {
 
     setRedefinindo(cpf);
     setMensagem({ tipo: '', texto: '' });
-    setSenhaRedefinida(null);
+    setCredencial(null);
 
     try {
       const res = await fetch('/api/gerenciamento/usuarios/redefinir-senha', {
@@ -287,9 +318,10 @@ export default function GerenciarUsuarios() {
       const data = await res.json().catch(() => ({}));
 
       if (res.ok && data.success && data.senhaTemporaria) {
-        setSenhaRedefinida({
+        setCredencial({
+          origem: 'reset',
           nome: data.usuario?.nome || nome,
-          cpf,
+          login: cpf,
           senha: data.senhaTemporaria,
           sessoesRevogadas: data.sessoesRevogadas ?? 0,
         });
@@ -376,35 +408,67 @@ export default function GerenciarUsuarios() {
         </div>
       )}
 
-      {senhaRedefinida && (
-        <div className={styles.senhaCard} role="status">
-          <h3>Senha temporária de {senhaRedefinida.nome}</h3>
+      {credencial && (
+        <div className={styles.senhaCard} role="dialog" aria-modal="false" aria-labelledby="titulo-cred">
+          <h3 id="titulo-cred">
+            {credencial.origem === 'cadastro'
+              ? `Conta criada — senha temporária de ${credencial.nome}`
+              : `Senha temporária de ${credencial.nome}`}
+          </h3>
           <p>
-            Esta senha aparece <strong>uma única vez</strong>. Entregue ao usuário
-            por um canal seguro: no próximo acesso ele será obrigado a criar uma
-            nova senha. {senhaRedefinida.sessoesRevogadas} sessão(ões) anterior(es)
-            {' '}foram encerradas. Perfis, módulos e permissões não foram alterados.
+            Esta senha aparece <strong>uma única vez</strong> e não pode ser
+            recuperada depois. Entregue ao usuário por um canal seguro: no
+            próximo acesso ele será obrigado a criar uma nova senha.
+            {credencial.origem === 'reset' && (
+              <> {credencial.sessoesRevogadas} sessão(ões) anterior(es) foram
+              encerradas.</>
+            )}
+            {' '}Perfis, módulos e permissões não foram alterados.
           </p>
+          <dl className={styles.credenciais}>
+            <div>
+              <dt>Usuário</dt>
+              <dd>{credencial.nome}</dd>
+            </div>
+            <div>
+              <dt>Login</dt>
+              <dd>
+                <code>{credencial.login}</code>
+              </dd>
+            </div>
+          </dl>
           <div className={styles.senhaValor}>
-            <code>{senhaRedefinida.senha}</code>
+            <code>{credencial.senha}</code>
             <div className={styles.senhaAcoes}>
               <button
                 type="button"
                 className={styles.btnCopiar}
-                onClick={() => {
-                  if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                    navigator.clipboard.writeText(senhaRedefinida.senha).catch(() => {});
-                  }
-                }}
+                onClick={() => copiar(
+                  credencial.senha,
+                  'Senha copiada. Ela não será exibida novamente.',
+                )}
               >
-                Copiar
+                Copiar senha
+              </button>
+              <button
+                type="button"
+                className={styles.btnCopiar}
+                onClick={() => copiar(
+                  `IntegraSaúde\nUsuário: ${credencial.login}\nSenha temporária: ${credencial.senha}\n\nNo primeiro acesso será necessário criar uma nova senha.`,
+                  'Credenciais copiadas.',
+                )}
+              >
+                Copiar credenciais
               </button>
               <button
                 type="button"
                 className={styles.btnFecharSenha}
-                onClick={() => setSenhaRedefinida(null)}
+                onClick={() => {
+                  setCredencial(null);
+                  setMensagem({ tipo: '', texto: '' });
+                }}
               >
-                Já anotei, fechar
+                Concluir
               </button>
             </div>
           </div>
@@ -516,13 +580,17 @@ export default function GerenciarUsuarios() {
           </span>
         </div>
 
-        {/* NOTA SOBRE SENHA PADRÃO */}
+        {/* NOTA SOBRE A SENHA TEMPORÁRIA */}
         <div className={styles.infoBox}>
           <p className={styles.infoText}>
-            ℹ️ <strong>Senha Padrão:</strong> Todos os novos usuários receberão a senha <strong>Integr@123</strong>
+            🔐 <strong>Senha temporária individual:</strong> ao concluir o cadastro, o
+            sistema gera uma senha aleatória só para este usuário e a mostra uma
+            única vez, para você entregar a ele.
           </p>
           <p className={styles.infoSubtext}>
-            O usuário será solicitado a trocar a senha no primeiro acesso ao sistema.
+            A senha não é recuperável depois. Se for perdida, use
+            &quot;Resetar senha&quot;. No primeiro acesso o usuário será obrigado a
+            criar uma nova senha.
           </p>
         </div>
 

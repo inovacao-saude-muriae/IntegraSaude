@@ -37,7 +37,10 @@ for (const l of fs.readFileSync(".env.local", "utf8").split(/\r?\n/)) {
 const db = new Client({ connectionString: env.DATABASE_URL });
 const segredo = new TextEncoder().encode(env.JWT_SECRET);
 
-const SENHA_INICIAL = "Integr@123";
+// Senha inicial da fixture: NÃO é uma credencial do sistema (o cadastro passou
+// a gerar senha temporária aleatória em 16/11). Serve só para exercitar o
+// caminho "senha atual" da troca obrigatória.
+const SENHA_INICIAL = "Fixture@2026";
 const SENHA_NOVA = "NovaSenh@2026";
 
 let ok = 0;

@@ -813,7 +813,37 @@
 
 .senhaAcoes {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+/* Identificação do usuário no cartão de credencial. */
+.credenciais {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2rem;
+  margin: 0 0 0.9rem;
+}
+
+.credenciais dt {
+  margin-bottom: 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #92400e;
+}
+
+.credenciais dd {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #78350f;
+}
+
+.credenciais code {
+  font-weight: 700;
+  letter-spacing: 0.03em;
 }
 
 .btnCopiar,
