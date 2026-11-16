@@ -218,7 +218,9 @@
    posicionado pelo .inputWrap, então o wrapper cresce para ocupar o espaço). */
 .inputWrapPwd {
   flex: 1 1 auto;
+  width: 100%;
   min-width: 0;
+  display: block;
 }
 
 

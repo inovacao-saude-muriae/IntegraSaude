@@ -49,6 +49,7 @@ export default function PasswordInput({
   onFocus,
   onBlur,
   autoFocus = false,
+  style,
   ...rest
 }) {
   const [visivel, setVisivel] = useState(false);
@@ -70,6 +71,8 @@ export default function PasswordInput({
         onBlur={onBlur}
         autoFocus={autoFocus}
         className={`${className} ${styles.inputComOlho}`.trim()}
+        style={style}
+
       />
       <button
         type="button"
