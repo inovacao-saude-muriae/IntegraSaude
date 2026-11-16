@@ -4,6 +4,51 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './TrocarSenha.module.css';
 
+// Botão de mostrar/ocultar um campo de senha. Fica dentro do campo (à direita),
+// com rótulo acessível e sem tirar o foco do input.
+function BotaoVerSenha({ visivel, onAlternar, campo }) {
+  return (
+    <button
+      type="button"
+      className={styles.verSenha}
+      onClick={onAlternar}
+      aria-label={visivel ? 'Ocultar senha' : 'Mostrar senha'}
+      aria-pressed={visivel}
+      title={visivel ? 'Ocultar senha' : 'Mostrar senha'}
+      tabIndex={0}
+    >
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        {visivel ? (
+          <>
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+            <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+            <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+            <line x1="1" y1="1" x2="23" y2="23" />
+          </>
+        ) : (
+          <>
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+            <circle cx="12" cy="12" r="3" />
+          </>
+        )}
+      </svg>
+      <span className={styles.verSenhaTexto}>
+        {visivel ? 'Ocultar' : 'Mostrar'}
+      </span>
+    </button>
+  );
+}
+
 // Função para validar força da senha
 function validarSenhaForte(senha) {
   const erros = [];
@@ -43,6 +88,14 @@ export default function TrocarSenhaPage() {
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState(false);
   const [mostrarRequisitos, setMostrarRequisitos] = useState(false);
+  // Mostrar/ocultar senha: um controle por campo, independentes entre si.
+  const [verSenha, setVerSenha] = useState({
+    atual: false,
+    nova: false,
+    confirmar: false,
+  });
+  const alternarVerSenha = (campo) =>
+    setVerSenha((atual) => ({ ...atual, [campo]: !atual[campo] }));
 
   // Verificação de requisitos em tempo real
   const requisitos = {
@@ -145,31 +198,51 @@ export default function TrocarSenhaPage() {
 
         <form onSubmit={handleSubmit} className={styles.form}>
           <div className={styles.inputGroup}>
-            <label className={styles.label}>Senha Atual</label>
-            <input
-              type="password"
-              value={senhaAtual}
-              onChange={(e) => setSenhaAtual(e.target.value)}
-              required
-              className={styles.input}
-              placeholder="Digite sua senha atual"
-              autoComplete="current-password"
-            />
+            <label className={styles.label} htmlFor="senhaAtual">
+              Senha Atual
+            </label>
+            <div className={styles.campoComOlho}>
+              <input
+                id="senhaAtual"
+                type={verSenha.atual ? 'text' : 'password'}
+                value={senhaAtual}
+                onChange={(e) => setSenhaAtual(e.target.value)}
+                required
+                className={styles.input}
+                placeholder="Digite sua senha atual"
+                autoComplete="current-password"
+              />
+              <BotaoVerSenha
+                campo="atual"
+                visivel={verSenha.atual}
+                onAlternar={() => alternarVerSenha('atual')}
+              />
+            </div>
           </div>
 
           <div className={styles.inputGroup}>
-            <label className={styles.label}>Nova Senha</label>
-            <input
-              type="password"
-              value={novaSenha}
-              onChange={(e) => setNovaSenha(e.target.value)}
-              onFocus={() => setMostrarRequisitos(true)}
-              required
-              minLength={8}
-              className={styles.input}
-              placeholder="Digite sua nova senha"
-              autoComplete="new-password"
-            />
+            <label className={styles.label} htmlFor="novaSenha">
+              Nova Senha
+            </label>
+            <div className={styles.campoComOlho}>
+              <input
+                id="novaSenha"
+                type={verSenha.nova ? 'text' : 'password'}
+                value={novaSenha}
+                onChange={(e) => setNovaSenha(e.target.value)}
+                onFocus={() => setMostrarRequisitos(true)}
+                required
+                minLength={8}
+                className={styles.input}
+                placeholder="Digite sua nova senha"
+                autoComplete="new-password"
+              />
+              <BotaoVerSenha
+                campo="nova"
+                visivel={verSenha.nova}
+                onAlternar={() => alternarVerSenha('nova')}
+              />
+            </div>
             
             {mostrarRequisitos && novaSenha && (
               <div className={styles.requisitos}>
@@ -196,17 +269,27 @@ export default function TrocarSenhaPage() {
           </div>
 
           <div className={styles.inputGroup}>
-            <label className={styles.label}>Confirmar Nova Senha</label>
-            <input
-              type="password"
-              value={confirmarSenha}
-              onChange={(e) => setConfirmarSenha(e.target.value)}
-              required
-              minLength={8}
-              className={styles.input}
-              placeholder="Digite novamente a nova senha"
-              autoComplete="new-password"
-            />
+            <label className={styles.label} htmlFor="confirmarSenha">
+              Confirmar Nova Senha
+            </label>
+            <div className={styles.campoComOlho}>
+              <input
+                id="confirmarSenha"
+                type={verSenha.confirmar ? 'text' : 'password'}
+                value={confirmarSenha}
+                onChange={(e) => setConfirmarSenha(e.target.value)}
+                required
+                minLength={8}
+                className={styles.input}
+                placeholder="Digite novamente a nova senha"
+                autoComplete="new-password"
+              />
+              <BotaoVerSenha
+                campo="confirmar"
+                visivel={verSenha.confirmar}
+                onAlternar={() => alternarVerSenha('confirmar')}
+              />
+            </div>
           </div>
 
           <button
