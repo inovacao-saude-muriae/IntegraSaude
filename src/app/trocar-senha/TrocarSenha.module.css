@@ -3,8 +3,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Mesmo degradê da Sidebar (#09665F → #0C514F). */
-  background: linear-gradient(135deg, #09665F 0%, #0C514F 100%);
+  /* Mesmo fundo da Sidebar: azul-petróleo escuro (#0a2639) com o brilho
+     radial no canto inferior direito, exatamente como em Sidebar.module.css. */
+  background:
+    radial-gradient(ellipse at 100% 80%, #154758, transparent 65%),
+    #0a2639;
   padding: 2rem 1rem;
 }
 
@@ -136,7 +139,7 @@
 
 .submitButton {
   padding: 0.875rem 1.5rem;
-  background: linear-gradient(135deg, #09665F 0%, #0C514F 100%);
+  background: #09665F;
   color: #ffffff;
   font-size: 1rem;
   font-weight: 600;
