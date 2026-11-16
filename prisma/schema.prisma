@@ -200,6 +200,10 @@ model PlanejamentoCidade {
   @@map("regula_planejamento_cidade")
 }
 
+// Fonte oficial dos serviços da Junta Reguladora (Gerenciamento → Serviços e
+// Especialidades). É daqui que a configuração de acessos carrega as opções de
+// escopo: cadastrar um serviço aqui o torna disponível automaticamente, sem
+// alteração de código. O vínculo fica em user_acessos.servicos pelo `id`.
 model Servico {
   id             Int                    @id @default(autoincrement())
   nome           String                 @unique @db.VarChar(150)
@@ -695,6 +699,11 @@ model UserAcesso {
   //   TODOS       → todos os serviços do módulo (servicos deve ficar vazio)
   //   ESPECIFICOS → somente os de `servicos` (não pode ficar vazio)
   //   NENHUM      → nenhum serviço (servicos deve ficar vazio)
+  //
+  // `servicos` guarda o ID do serviço no catálogo do módulo (hoje:
+  // junta_servicos.id), como texto — identificador estável, que sobrevive a
+  // renomear ou inativar o serviço. Nome nunca é usado como referência de
+  // autorização. Módulos sem escopo por serviço mantêm a lista vazia.
   escopo        EscopoServico @default(TODOS)
   servicos      String[]      @default([])
   // permissoes: CONCESSÕES ADICIONAIS fora do pacote do perfil, no formato

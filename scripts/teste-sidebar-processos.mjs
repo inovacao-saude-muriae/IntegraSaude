@@ -171,11 +171,14 @@ async function main() {
   );
   check(
     "itens Novo Processo, Realizar Bloqueio e Dashboard",
-    /nestedItems: \[[\s\S]{0,600}name: "Novo Processo"[\s\S]{0,300}name: "Realizar Bloqueio"[\s\S]{0,300}name: "Dashboard"/.test(sidebar),
+    /nestedItems: \[[\s\S]{0,1200}name: "Novo Processo"[\s\S]{0,500}name: "Realizar Bloqueio"[\s\S]{0,500}name: "Dashboard"/.test(sidebar),
   );
+  // Regra nova (pedido do usuário): a rota ativa NÃO abre grupo nenhum — só
+  // destaca o item. A expansão vem exclusivamente do clique no cabeçalho.
   check(
-    "grupo abre sozinho quando a rota ativa pertence a ele",
-    /rotaPertenceAoItem\(pathname, item\)/.test(sidebar) && /const estaAberto = \(item\)/.test(sidebar),
+    "grupo NÃO abre sozinho pela rota ativa (expansão só por clique)",
+    !/rotaPertenceAoItem/.test(sidebar) &&
+      sidebar.includes("Boolean(searchTerm) || Boolean(openGroup[item.path])"),
   );
   check(
     "fechar de propósito é respeitado (gruposFechados)",

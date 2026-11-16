@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { getProcedimentosData } from "./procedimentosActions";
 import CadastroProcedimentos from "./CadastroProcedimentos";
-import styles from "@/app/gerenciamento/GerenciamentoCadastro.module.css";
+import "@/components/cadastros/padraoCadastro.css";
 
 export default function ProcedimentosTab({ podeInativar = false }) {
   const [data, setData] = useState({ tiposExame: [], linhas: [] });
@@ -33,11 +33,18 @@ export default function ProcedimentosTab({ podeInativar = false }) {
   }, []);
 
   return (
-    <div className={styles.container}>
-      <header className={styles.header}>
-        <h1>Exames e Procedimentos</h1>
-        <p>Cadastro dos tipos de exame (ex.: Imagem) e seus procedimentos (ex.: Ultrassonografia).</p>
-      </header>
+    <div className="cadCadastro">
+      {/* Cabeçalho no mesmo padrão de "Serviços e Especialidades" e
+          "Especialidades e Procedimentos" (padraoCadastro.css). */}
+      <div className="cadPaginaCabecalho">
+        <div>
+          <h1 className="cadPaginaTitulo">Exames e Procedimentos</h1>
+          <p className="cadPaginaSubtitulo">
+            Cadastro dos tipos de exame (ex.: Imagem) e seus procedimentos
+            (ex.: Ultrassonografia).
+          </p>
+        </div>
+      </div>
 
       <CadastroProcedimentos
         data={data}

@@ -71,7 +71,21 @@ async function main() {
   const GESTOR = "00000000000";
   // Usuário de fixture criado pela própria suíte (o banco é só de
   // desenvolvimento e não tem contas fixas garantidas): REGULACAO/SUPERVISOR.
-  const JEFINNY = "91000000991";
+  // Cada suíte usa o SEU cpf e apaga no fim — por isso um cpf próprio aqui.
+  const JEFINNY = "91000000998";
+  await db.query("DELETE FROM user_sessions WHERE user_id=$1", [JEFINNY]);
+  await db.query("DELETE FROM user_acessos WHERE user_cpf=$1", [JEFINNY]);
+  await db.query("DELETE FROM users WHERE cpf=$1", [JEFINNY]);
+  await db.query(
+    `INSERT INTO users (cpf,nome,senha_hash,ativo,primeiro_acesso,updated_at)
+     VALUES ($1,'TESTE Supervisor Regulação Proxy','x',true,false,now())`,
+    [JEFINNY],
+  );
+  await db.query(
+    `INSERT INTO user_acessos (user_cpf,modulo,perfil,nivel,escopo,servicos,permissoes,removidas,ativo)
+     VALUES ($1,'REGULACAO','SUPERVISOR','ADMIN','TODOS','{}','{}','{}',true)`,
+    [JEFINNY],
+  );
 
   console.log("\n1. Sem sessão");
   for (const rota of ["/regulacao", "/ccz", "/camara-tecnica/processos", "/gerenciamento/usuarios"]) {
@@ -151,6 +165,8 @@ async function main() {
   );
 
   await db.query("DELETE FROM user_sessions WHERE token = ANY($1)", [[jef, gest]]);
+  await db.query("DELETE FROM user_acessos WHERE user_cpf=$1", [JEFINNY]);
+  await db.query("DELETE FROM users WHERE cpf=$1", [JEFINNY]);
   await db.end();
 
   console.log(`\nRESULTADO: ${ok} passaram, ${falhou} falharam`);

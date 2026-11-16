@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requirePermissaoGestao } from "@/lib/auth";
+import { servicosDoCatalogo } from "@/lib/acessoService";
 import {
   MODULOS_CATALOGO,
   PERFIS,
@@ -24,10 +25,30 @@ export async function GET() {
   try {
     await requirePermissaoGestao("acessos", "visualizar");
 
+    // Serviços por módulo: vêm do BANCO (junta_servicos), não do código.
+    // `servicos` = existentes (inclui inativos, para o vínculo antigo seguir
+    // identificável); `ativos` = os que podem receber atribuição nova.
+    const catalogoServicos = {};
+    for (const m of Object.values(MODULOS_CATALOGO)) {
+      if (!m.escopoServico) continue;
+      const { porId, ativos } = await servicosDoCatalogo(m.chave);
+      catalogoServicos[m.chave] = {
+        servicos: [...porId.values()].map((s) => ({
+          id: String(s.id),
+          nome: s.nome,
+          ativo: s.ativo,
+        })),
+        ativos: ativos.map((v) => String(v)),
+      };
+    }
+
     const modulos = Object.values(MODULOS_CATALOGO).map((m) => ({
       chave: m.chave,
       nome: m.nome,
-      escopoServico: m.escopoServico ? Object.values(m.escopoServico) : null,
+      // `escopoServico` continua dizendo SE o módulo tem escopo por serviço;
+      // a lista concreta vem de `servicosDoModulo`.
+      escopoServico: m.escopoServico ? Object.keys(m.escopoServico) : null,
+      servicosDoModulo: catalogoServicos[m.chave] || null,
       administracao: !!m.administracao,
       funcionalidades: m.funcionalidades.map((f) => ({
         chave: f.chave,

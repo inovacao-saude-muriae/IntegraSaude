@@ -71,18 +71,28 @@ export function moduloDoBanco(v) {
 
 // Lista de vínculos a partir do estado da tela — o formato que o backend aceita.
 // Só entram módulos ligados: desligar o interruptor remove o vínculo.
-export function vinculosDoEstado(modulos) {
+//
+// `modulosComEscopo` = chaves dos módulos que realmente são organizados por
+// serviço (hoje só a Junta). Nos demais o escopo não é exibido nem editado, e
+// vai como TODOS — a coluna continua existindo no banco, mas não concede nada
+// a mais: um módulo sem serviços não é recortado por serviço.
+export function vinculosDoEstado(modulos, modulosComEscopo = null) {
+  const comEscopo = modulosComEscopo ? new Set(modulosComEscopo) : null;
   return Object.values(modulos)
     .filter((m) => m.ativo)
-    .map((m) => ({
-      modulo: m.modulo,
-      perfil: m.perfil,
-      escopo: m.escopo,
-      servicos: m.escopo === VAZIO_ESCOPO.ESPECIFICOS ? m.servicos : [],
-      permissoes: m.concedidas,
-      removidas: m.removidas,
-      ativo: true,
-    }));
+    .map((m) => {
+      const usaEscopo = comEscopo ? comEscopo.has(m.modulo) : true;
+      const escopo = usaEscopo ? m.escopo : VAZIO_ESCOPO.TODOS;
+      return {
+        modulo: m.modulo,
+        perfil: m.perfil,
+        escopo,
+        servicos: escopo === VAZIO_ESCOPO.ESPECIFICOS ? m.servicos : [],
+        permissoes: m.concedidas,
+        removidas: m.removidas,
+        ativo: true,
+      };
+    });
 }
 
 /**
@@ -124,6 +134,10 @@ export default function GerenciarAcessos({
   const [cpfSelecionado, setCpfSelecionado] = useState(cpfFixo);
   const [detalhe, setDetalhe] = useState(null);
   const [modulos, setModulos] = useState({}); // modulo → estado da tela
+  // Ids de serviço já vinculados a ESTE usuário (vindos do banco). Serviço
+  // inativo que já estava vinculado permanece marcado; serviço inativo novo
+  // não pode ser atribuído.
+  const [servicosOriginais, setServicosOriginais] = useState([]);
   const [moduloAberto, setModuloAberto] = useState(null);
   const [salvando, setSalvando] = useState(false);
   const [mensagem, setMensagem] = useState(null);
@@ -176,6 +190,14 @@ export default function GerenciarAcessos({
       const mapa = {};
       for (const v of dados.vinculos || []) mapa[v.modulo] = moduloDoBanco(v);
       setModulos(mapa);
+      // Ids de serviço que JÁ estavam vinculados: serviço inativo continua
+      // marcado (o vínculo não é quebrado pela inativação), mas não pode ser
+      // acrescentado a outro usuário.
+      const originais = new Set();
+      for (const v of dados.vinculos || []) {
+        for (const id of v.servicos || []) originais.add(String(id));
+      }
+      setServicosOriginais([...originais]);
       setModuloAberto((atual) => atual || dados.vinculos?.[0]?.modulo || null);
     } catch (e) {
       setErro(e.message);
@@ -201,6 +223,34 @@ export default function GerenciarAcessos({
   const catDoModulo = useCallback(
     (chave) => modulosCatalogo.find((m) => m.chave === chave) || null,
     [modulosCatalogo],
+  );
+
+  // O módulo é organizado por serviço? Só a Junta Reguladora é hoje: os demais
+  // não têm restrição por serviço, então o escopo fica OCULTO na tela e é
+  // gravado internamente como TODOS (que ali não restringe nada, porque o
+  // módulo não tem serviços).
+  const temEscopoPorServico = useCallback(
+    (chave) => !!catDoModulo(chave)?.servicosDoModulo,
+    [catDoModulo],
+  );
+
+  // Serviços cadastrados do módulo (vindos de junta_servicos pelo catálogo).
+  // `servicosDoModulo.servicos` inclui INATIVOS — para o vínculo antigo seguir
+  // identificável — e `ativos` é o que pode receber atribuição nova.
+  const servicosDoModulo = useCallback(
+    (chave) => catDoModulo(chave)?.servicosDoModulo || null,
+    [catDoModulo],
+  );
+
+  // Nomes dos serviços marcados — a tela nunca mostra o id cru.
+  const nomesServicosDoEstado = useCallback(
+    (moduloCatalogo, estado) => {
+      const lista = moduloCatalogo?.servicosDoModulo?.servicos || [];
+      const nomes = (estado.servicos || [])
+        .map((id) => lista.find((s) => s.id === String(id))?.nome || `serviço ${id}`);
+      return nomes.join(", ");
+    },
+    [],
   );
 
   const estadoDoModulo = useCallback(
@@ -264,7 +314,8 @@ export default function GerenciarAcessos({
     setMensagem(null);
   };
 
-  const alternarServico = (chave, servico) => {
+  const alternarServico = (chave, servicoId) => {
+    const servico = String(servicoId);
     const atual = estadoDoModulo(chave);
     const tem = atual.servicos.includes(servico);
     atualizarModulo(chave, {
@@ -298,17 +349,23 @@ export default function GerenciarAcessos({
   // Avisa o cadastro (2ª etapa) a cada mudança, para ele enviar os vínculos.
   useEffect(() => {
     if (!onEstado) return;
-    const lista = vinculosDoEstado(modulos);
+    const lista = vinculosDoEstado(
+      modulos,
+      modulosCatalogo.filter((m) => m.servicosDoModulo).map((m) => m.chave),
+    );
     onEstado({ vinculos: lista, totalModulos: lista.length });
     // onEstado é recriado pelo pai a cada render: fora das dependências.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modulos]);
+  }, [modulos, modulosCatalogo]);
 
   // ── Salvar (somente no modo edição) ─────────────────────────────────────
   const salvar = async () => {
     if (somenteLeitura || !cpfSelecionado) return;
 
-    const lista = vinculosDoEstado(modulos);
+    const lista = vinculosDoEstado(
+      modulos,
+      modulosCatalogo.filter((m) => m.servicosDoModulo).map((m) => m.chave),
+    );
 
     // Checagem local (o backend repete): ESPECIFICOS sem serviço não passa.
     const semServico = lista.filter(
@@ -635,7 +692,11 @@ export default function GerenciarAcessos({
                     </div>
                   </div>
 
-                  {/* Escopo e serviços */}
+                  {/* Escopo e serviços — SÓ em módulo organizado por serviço
+                      (hoje: Junta Reguladora). Nos demais o escopo não tem
+                      efeito operacional e não é exibido; é gravado como TODOS
+                      (ver vinculosDoEstado). */}
+                  {temEscopoPorServico(moduloAberto) && (
                   <div className={styles.bloco}>
                     <h4 className={styles.blocoTitulo}>Escopo de acesso</h4>
                     <div className={styles.escopos}>
@@ -664,27 +725,43 @@ export default function GerenciarAcessos({
 
                     {moduloCorrente.escopo === VAZIO_ESCOPO.ESPECIFICOS && (
                       <>
-                        {catCorrente.escopoServico?.length ? (
+                        {servicosDoModulo(moduloAberto)?.servicos?.length ? (
                           <div className={styles.servicos}>
-                            {catCorrente.escopoServico.map((s) => (
-                              <button
-                                key={s}
-                                type="button"
-                                className={`${styles.servico} ${
-                                  moduloCorrente.servicos.includes(s)
-                                    ? styles.servicoMarcado
-                                    : ""
-                                }`}
-                                onClick={() => alternarServico(moduloAberto, s)}
-                              >
-                                {moduloCorrente.servicos.includes(s) ? "✓ " : ""}
-                                {s}
-                              </button>
-                            ))}
+                            {servicosDoModulo(moduloAberto).servicos.map((s) => {
+                              const marcado = moduloCorrente.servicos.includes(s.id);
+                              // Inativo: só continua marcado se o vínculo já
+                              // existia. Nunca recebe atribuição nova.
+                              const bloqueado =
+                                !s.ativo &&
+                                !servicosOriginais.includes(s.id);
+                              return (
+                                <button
+                                  key={s.id}
+                                  type="button"
+                                  disabled={bloqueado}
+                                  title={
+                                    bloqueado
+                                      ? "Serviço inativo: reative em Serviços e Especialidades para atribuí-lo."
+                                      : s.nome
+                                  }
+                                  className={`${styles.servico} ${
+                                    marcado ? styles.servicoMarcado : ""
+                                  } ${bloqueado ? styles.servicoInativo : ""}`}
+                                  onClick={() => alternarServico(moduloAberto, s.id)}
+                                >
+                                  {marcado ? "✓ " : ""}
+                                  {s.nome}
+                                  {!s.ativo && (
+                                    <span className={styles.servicoTag}>inativo</span>
+                                  )}
+                                </button>
+                              );
+                            })}
                           </div>
                         ) : (
                           <div className={styles.aviso}>
-                            Este módulo não é organizado por serviço.
+                            Nenhum serviço cadastrado ainda. Cadastre em Gerenciamento →
+                            Serviços e Especialidades e ele aparece aqui automaticamente.
                           </div>
                         )}
                         {moduloCorrente.servicos.length === 0 && (
@@ -695,6 +772,7 @@ export default function GerenciarAcessos({
                       </>
                     )}
                   </div>
+                  )}
 
                   {/* Funcionalidades × permissões */}
                   <div className={styles.bloco}>
@@ -797,13 +875,21 @@ export default function GerenciarAcessos({
                     <div key={m.chave} className={styles.resumoLinha}>
                       <span className={styles.resumoModulo}>{m.nome}</span>
                       <span className={styles.resumoDetalhe}>
-                        {estado.perfil} ·{" "}
-                        {estado.escopo === VAZIO_ESCOPO.TODOS
-                          ? "todos os serviços"
-                          : estado.escopo === VAZIO_ESCOPO.ESPECIFICOS
-                            ? estado.servicos.join(", ") || "nenhum serviço escolhido"
-                            : "nenhum serviço"}{" "}
-                        · {efetivasDoModulo(estado).length} permissões
+                        {estado.perfil}
+                        {/* O recorte por serviço só é mostrado onde ele existe
+                            de fato (Junta); nos demais não há o que informar. */}
+                        {m.servicosDoModulo ? (
+                          <>
+                            {" · "}
+                            {estado.escopo === VAZIO_ESCOPO.TODOS
+                              ? "todos os serviços"
+                              : estado.escopo === VAZIO_ESCOPO.ESPECIFICOS
+                                ? nomesServicosDoEstado(m, estado) || "nenhum serviço escolhido"
+                                : "nenhum serviço"}
+                          </>
+                        ) : null}
+                        {" · "}
+                        {efetivasDoModulo(estado).length} permissões
                       </span>
                     </div>
                   );

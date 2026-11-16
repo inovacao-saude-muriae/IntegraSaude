@@ -46,8 +46,17 @@ function JuntaReguladoraPageContent() {
     MAPA_SERVICOS[activeSubTab.toUpperCase()] || activeSubTab;
 
   const subTabAtivo = activeSubTab.toUpperCase();
+  // O serviço liberado vem do SERVIDOR por NOME (o layout resolve cada serviço
+  // cadastrado pelo id do vínculo). Antes comparava com códigos fixos de subTab
+  // ("CAEE", "APAE"...), o que quebrava para serviço cadastrado novo ou
+  // renomeado.
   const servicoLiberado =
-    ehAdminJunta || subServicosPermitidos.includes(subTabAtivo);
+    ehAdminJunta ||
+    subServicosPermitidos.includes(servicoNomeFormatado) ||
+    // Compatibilidade: código de subTab legado que corresponda a um serviço.
+    subServicosPermitidos.some(
+      (n) => n.toUpperCase() === subTabAtivo,
+    );
 
   const [pacientesServico, setPacientesServico] = useState([]);
   const [prontuarioData, setProntuarioData] = useState(null);

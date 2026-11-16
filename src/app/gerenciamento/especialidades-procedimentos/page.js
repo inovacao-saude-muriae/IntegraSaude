@@ -1,4 +1,4 @@
-import Link from "next/link";
+import "@/components/cadastros/padraoCadastro.css";
 import {
   carregarContextoAcesso,
   usuarioTemPermissao,
@@ -52,27 +52,21 @@ export default async function EspecialidadesProcedimentosGerenciamentoPage() {
 
   return (
     <>
-      <div
-        style={{
-          padding: "0.75rem 1.5rem 0",
-          fontSize: "0.8rem",
-          color: "#64748b",
-        }}
-      >
-        <Link href="/admin/gerenciamento" style={{ color: "#1d4ed8", fontWeight: 600 }}>
-          Gerenciamento
-        </Link>{" "}
-        › Especialidades e Procedimentos — cadastro da área Processos (Câmara Técnica).
+      {/* Container da tela no MESMO padrão das outras duas telas de cadastro do
+          Gerenciamento (padraoCadastro.css → .cadCadastro). O container fica
+          aqui, e não dentro do catálogo, para a página ter um único bloco com o
+          mesmo respiro de "Exames e Procedimentos" e "Serviços e Especialidades". */}
+      <div className="cadCadastro">
+        <CatalogoProcessosPage
+          podeCriarEspecialidade={podeCriarEspecialidade}
+          podeEditarEspecialidade={podeEditarEspecialidade}
+          podeInativarEspecialidade={podeInativarEspecialidade}
+          podeCriarProcedimento={podeCriarProcedimento}
+          podeEditarProcedimento={podeEditarProcedimento}
+          podeInativarProcedimento={podeInativarProcedimento}
+          podeVincular={podeVincular}
+        />
       </div>
-      <CatalogoProcessosPage
-        podeCriarEspecialidade={podeCriarEspecialidade}
-        podeEditarEspecialidade={podeEditarEspecialidade}
-        podeInativarEspecialidade={podeInativarEspecialidade}
-        podeCriarProcedimento={podeCriarProcedimento}
-        podeEditarProcedimento={podeEditarProcedimento}
-        podeInativarProcedimento={podeInativarProcedimento}
-        podeVincular={podeVincular}
-      />
     </>
   );
 }

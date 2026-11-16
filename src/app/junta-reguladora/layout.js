@@ -3,9 +3,9 @@ import {
   usuarioTemAcessoServicoJunta,
   usuarioEhAdminModulo,
   usuarioTemPermissao,
-  SUBTAB_PARA_SERVICO_JUNTA,
   MODULOS,
 } from "@/lib/permissions";
+import { prisma } from "@/lib/prisma";
 import AcessoNegadoModulo from "@/components/AcessoNegadoModulo";
 import { JuntaPermProvider } from "./PermissoesJuntaContext";
 import { contextoDeLayoutOuLogin } from "@/lib/guardaLayout";
@@ -22,10 +22,19 @@ export default async function JuntaReguladoraLayout({ children }) {
     return <AcessoNegadoModulo modulo="Junta Reguladora" />;
   }
 
+  // Recorte por serviço: a lista vem do CADASTRO (junta_servicos), não de um
+  // mapa fixo. Cada serviço é identificado pelo id — renomear não muda nada e
+  // um serviço recém-cadastrado entra automaticamente na verificação.
+  const servicosCadastrados = await prisma.servico.findMany({
+    select: { id: true, nome: true },
+    orderBy: { nome: "asc" },
+  });
   const subServicosPermitidos = [];
-  for (const [subTab, enumServ] of Object.entries(SUBTAB_PARA_SERVICO_JUNTA)) {
-    if (await usuarioTemAcessoServicoJunta(ctx.user, enumServ)) {
-      subServicosPermitidos.push(subTab);
+  const servicosPermitidos = [];
+  for (const s of servicosCadastrados) {
+    if (await usuarioTemAcessoServicoJunta(ctx.user, String(s.id))) {
+      subServicosPermitidos.push(s.nome);
+      servicosPermitidos.push({ id: s.id, nome: s.nome });
     }
   }
 
@@ -53,6 +62,7 @@ export default async function JuntaReguladoraLayout({ children }) {
   return (
     <JuntaPermProvider
       subServicosPermitidos={subServicosPermitidos}
+      servicosPermitidos={servicosPermitidos}
       ehAdminJunta={ehAdminJunta}
       podeGerenciarPessoas={podeGerenciarPessoas}
       podeInativarServicos={podeInativarServicos}

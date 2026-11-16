@@ -384,6 +384,32 @@
   background: #eaf2fd;
   color: #0d4f9e;
 }
+/* Serviço inativo: continua visível (o vínculo antigo precisa ser
+   identificável), mas não recebe atribuição nova. */
+.servicoInativo {
+  cursor: not-allowed;
+  opacity: 0.72;
+  border-style: dashed;
+  background: #f8fafc;
+  color: #667085;
+}
+.servicoInativo.servicoMarcado {
+  border-color: #b45309;
+  background: #fff7ed;
+  color: #92400e;
+  opacity: 1;
+}
+.servicoTag {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
 .aviso {
   margin-top: 8px;
   font-size: 12px;

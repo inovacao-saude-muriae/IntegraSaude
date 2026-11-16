@@ -7,7 +7,6 @@ import {
   usuarioTemAcessoServicoJunta,
   usuarioEhAdminDeAlgumModulo,
   usuarioTemPermissao,
-  servicoJuntaDoNome,
 } from "@/lib/permissions";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -316,22 +315,48 @@ export async function requireAcessoPessoas() {
   return user;
 }
 
-// LEITURA por serviço da Junta: nome mapeado → exige o sub-serviço; nome não
-// mapeado (serviço não controlado) → exige só acesso ao módulo JUNTA (leituras
-// não criam dados).
+// ── Serviço da Junta: por ID do cadastro (junta_servicos) ───────────────────
+// O vínculo de acesso guarda o id do serviço. Nome é só exibição: o serviço é
+// resolvido no banco ANTES de decidir, então renomear não muda a autorização.
+
+/** Resolve {id, nome, ativo} do serviço da Junta pelo nome exibido. */
+export async function resolverServicoJuntaPorNome(servicoNome) {
+  const nome = String(servicoNome || "").trim();
+  if (!nome) return null;
+  return prisma.servico.findFirst({
+    where: { nome: { equals: nome, mode: "insensitive" } },
+    select: { id: true, nome: true, ativo: true },
+  });
+}
+
+// LEITURA por serviço da Junta: serviço cadastrado → exige o id dele no
+// vínculo; serviço não cadastrado → exige só acesso ao módulo JUNTA (leituras
+// não criam dados e não podem depender de serviço inexistente).
 export async function requireLeituraServicoJuntaPorNome(servicoNome) {
-  const enumServ = servicoJuntaDoNome(servicoNome);
-  if (enumServ) return requireAcessoServicoJunta(enumServ);
+  const servico = await resolverServicoJuntaPorNome(servicoNome);
+  if (servico) return requireAcessoServicoJunta(String(servico.id));
   return requireAcessoModulo(MODULOS.JUNTA);
 }
 
-// ESCRITA por serviço da Junta: nome mapeado → exige o sub-serviço; nome não
-// mapeado → exige requireAdminModulo(JUNTA): OPERADOR nunca cria/grava em
+// ESCRITA por serviço da Junta: serviço cadastrado → exige o id dele E que
+// esteja ATIVO (serviço inativado não recebe operação nova); serviço não
+// cadastrado → exige requireAdminModulo(JUNTA): OPERADOR nunca cria/grava em
 // serviço não controlado on-the-fly.
 export async function requireEscritaServicoJuntaPorNome(servicoNome) {
-  const enumServ = servicoJuntaDoNome(servicoNome);
-  if (enumServ) return requireAcessoServicoJunta(enumServ);
-  return requireAdminModulo(MODULOS.JUNTA);
+  const servico = await resolverServicoJuntaPorNome(servicoNome);
+  if (!servico) return requireAdminModulo(MODULOS.JUNTA);
+  const user = await requireAcessoServicoJunta(String(servico.id));
+  if (!servico.ativo) {
+    await registrarAcessoNegado(user, {
+      recurso: `Junta:${servico.id}`,
+      descricao: `Operação recusada: o serviço ${servico.nome} está inativo.`,
+    });
+    throw Object.assign(
+      new Error(`O serviço ${servico.nome} está inativo e não aceita novas operações.`),
+      { status: 409 },
+    );
+  }
+  return user;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

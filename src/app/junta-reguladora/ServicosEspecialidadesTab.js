@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { getServicosData } from "./servicosActions";
 import CadastroServicos from "./CadastroServicos";
-import styles from "@/app/gerenciamento/GerenciamentoCadastro.module.css";
+import "@/components/cadastros/padraoCadastro.css";
 
 // `podeInativar` vem do servidor (layout da rota, via podeExecutar). A tela
 // nunca decide sozinha: só mostra o botão; o backend valida de novo.
@@ -35,8 +35,19 @@ export default function ServicosEspecialidadesTab({ podeInativar = false }) {
   }, []);
 
   return (
-    <div className={styles.container}>
-      <h2 className={styles.cardTitle}>Serviços e Especialidades</h2>
+    <div className="cadCadastro">
+      {/* Cabeçalho no mesmo padrão de "Exames e Procedimentos" e
+          "Especialidades e Procedimentos" (padraoCadastro.css). */}
+      <div className="cadPaginaCabecalho">
+        <div>
+          <h1 className="cadPaginaTitulo">Serviços e Especialidades</h1>
+          <p className="cadPaginaSubtitulo">
+            Serviços da Junta Reguladora e as especialidades de cada um. Os
+            serviços cadastrados aqui são a fonte oficial das opções de escopo
+            de acesso dos usuários.
+          </p>
+        </div>
+      </div>
 
       <CadastroServicos
         data={data}

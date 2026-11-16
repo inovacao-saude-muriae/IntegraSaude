@@ -4,6 +4,7 @@ import {
   MODULOS_CATALOGO,
   PERFIS,
   ESCOPOS,
+  moduloTemEscopoPorServico,
   permissoesPadrao,
   validarConfiguracao,
 } from "@/lib/permissoesCatalogo";
@@ -56,11 +57,56 @@ function montarVinculo(entrada) {
   };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// SERVIÇOS DO MÓDULO — vêm do catálogo do banco, não do código
+// ─────────────────────────────────────────────────────────────────────────
+// Hoje só a Junta Reguladora tem escopo por serviço, e a fonte oficial é
+// `junta_servicos` (Gerenciamento → Serviços e Especialidades). Cadastrar um
+// serviço lá o torna disponível na configuração de acessos sem mexer em código.
+// O vínculo guarda o `id` do serviço: renomear não rompe o acesso.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Serviços existentes no catálogo do módulo.
+ * @returns {Promise<{todos: string[], ativos: string[], porId: Map<string,{id:number,nome:string,ativo:boolean}>}>}
+ */
+export async function servicosDoCatalogo(modulo) {
+  const cat = MODULOS_CATALOGO[modulo];
+  if (!cat?.escopoServico) return { todos: [], ativos: [], porId: new Map() };
+
+  if (modulo === "JUNTA") {
+    const linhas = await prisma.servico.findMany({
+      select: { id: true, nome: true, ativo: true },
+      orderBy: { nome: "asc" },
+    });
+    const porId = new Map(linhas.map((s) => [String(s.id), s]));
+    return {
+      todos: linhas.map((s) => String(s.id)),
+      ativos: linhas.filter((s) => s.ativo).map((s) => String(s.id)),
+      porId,
+    };
+  }
+
+  // Módulo com escopo por serviço que ainda não tem tabela própria.
+  return { todos: [], ativos: [], porId: new Map() };
+}
+
+/** Nomes dos serviços vinculados, para a auditoria e para a tela. */
+export function nomearServicos(servicos, porId) {
+  return (servicos || [])
+    .map((id) => porId?.get?.(String(id))?.nome || `serviço ${id}`)
+    .join(", ");
+}
+
 /**
  * Valida e normaliza UMA configuração de módulo.
  * Devolve a entrada pronta para gravar ou lança AcessoErro.
+ *
+ * `opcoes.servicosJaVinculados` permite manter vínculo com serviço que ficou
+ * INATIVO: a inativação não quebra o acesso existente, mas impede atribuição
+ * nova. Sem ele (cadastro novo), só serviço ativo é aceito.
  */
-export function validarVinculo(entrada) {
+export function validarVinculo(entrada, opcoes = {}) {
   if (!entrada || typeof entrada !== "object") {
     throw new AcessoErro("Configuração de módulo ausente.");
   }
@@ -70,17 +116,29 @@ export function validarVinculo(entrada) {
 
   const perfil = String(entrada.perfil || "");
   const escopo = String(entrada.escopo || "");
-  const servicos = Array.isArray(entrada.servicos) ? [...new Set(entrada.servicos)] : [];
+  // Ids de serviço normalizados como texto (a coluna é text[]).
+  const servicos = Array.isArray(entrada.servicos)
+    ? [...new Set(entrada.servicos.map((s) => String(s)))]
+    : [];
   const permissoes = Array.isArray(entrada.permissoes) ? [...new Set(entrada.permissoes)] : [];
   const removidas = Array.isArray(entrada.removidas) ? [...new Set(entrada.removidas)] : [];
+
+  // Módulo sem escopo por serviço: a escolha de escopo não é exibida e não tem
+  // efeito. Normaliza para TODOS ANTES de validar, para a interface não ser
+  // obrigada a mandar um campo que o usuário nem vê.
+  const escopoNormalizado = moduloTemEscopoPorServico(modulo) ? escopo : ESCOPOS.TODOS;
+  if (!moduloTemEscopoPorServico(modulo)) servicos.length = 0;
 
   const { ok, erros } = validarConfiguracao({
     modulo,
     perfil,
-    escopo,
+    escopo: escopoNormalizado,
     servicos,
     permissoes,
     removidas,
+    servicosValidos: opcoes.servicosValidos,
+    servicosAtivosValidos: opcoes.servicosAtivosValidos,
+    servicosJaVinculados: opcoes.servicosJaVinculados,
   });
   if (!ok) {
     throw new AcessoErro(`Configuração inválida em ${cat.nome}: ${erros.join(" ")}`);
@@ -89,8 +147,8 @@ export function validarVinculo(entrada) {
   return {
     modulo,
     perfil,
-    escopo,
-    servicos: escopo === ESCOPOS.ESPECIFICOS ? servicos : [],
+    escopo: escopoNormalizado,
+    servicos: escopoNormalizado === ESCOPOS.ESPECIFICOS ? servicos : [],
     permissoes,
     removidas,
     ativo: entrada.ativo !== false,
@@ -157,7 +215,31 @@ export async function salvarAcessosUsuario({ cpf, vinculos, executor, motivo }) 
   if (!usuario) throw new AcessoErro("Usuário não encontrado.", 404);
 
   // 1. Valida cada módulo enviado.
-  const desejados = (vinculos || []).map(validarVinculo);
+  //    Os serviços válidos vêm do catálogo do BANCO (junta_servicos): id
+  //    inexistente é recusado e serviço inativo não recebe atribuição nova —
+  //    exceto se o vínculo já existia com ele (inativação não quebra acesso).
+  const anterioresParaValidar = await prisma.userAcesso.findMany({
+    where: { userCpf: cpfLimpo },
+    select: { modulo: true, servicos: true },
+  });
+  const jaVinculadosPorModulo = new Map();
+  for (const a of anterioresParaValidar) {
+    const atual = jaVinculadosPorModulo.get(a.modulo) || new Set();
+    for (const id of a.servicos || []) atual.add(String(id));
+    jaVinculadosPorModulo.set(a.modulo, atual);
+  }
+  const desejados = [];
+  for (const bruto of vinculos || []) {
+    const moduloDoBruto = String(bruto?.modulo || "");
+    const catalogo = await servicosDoCatalogo(moduloDoBruto);
+    desejados.push(
+      validarVinculo(bruto, {
+        servicosValidos: catalogo.todos,
+        servicosAtivosValidos: catalogo.ativos,
+        servicosJaVinculados: [...(jaVinculadosPorModulo.get(moduloDoBruto) || [])],
+      }),
+    );
+  }
   const modulosVistos = new Set();
   for (const v of desejados) {
     if (modulosVistos.has(v.modulo)) {
@@ -192,6 +274,8 @@ export async function salvarAcessosUsuario({ cpf, vinculos, executor, motivo }) 
   }
 
   // 4. Estado anterior, para a auditoria dizer o que mudou.
+  //    (Mesma leitura já usada na validação dos serviços — não repete a query
+  //    só para os campos extras que a auditoria precisa.)
   const anteriores = await prisma.userAcesso.findMany({
     where: { userCpf: cpfLimpo },
     select: {
@@ -208,13 +292,22 @@ export async function salvarAcessosUsuario({ cpf, vinculos, executor, motivo }) 
   });
   const mapaAnterior = new Map(anteriores.map((a) => [a.modulo, a]));
 
+  // A auditoria registra o NOME do serviço (legível), não o id cru; o id
+  // continua sendo a referência de autorização gravada em user_acessos.
+  const nomesServicos = new Map();
+  for (const modulo of new Set(desejados.map((v) => v.modulo))) {
+    const { porId } = await servicosDoCatalogo(modulo);
+    nomesServicos.set(modulo, porId);
+  }
   const resumo = (v) =>
     v
-      ? `${v.perfil} · ${v.escopo}${v.servicos?.length ? ` (${v.servicos.join(",")})` : ""}${
-          v.ativo === false ? " · INATIVO" : ""
-        }${v.permissoes?.length ? ` · +${v.permissoes.length}` : ""}${
-          v.removidas?.length ? ` · −${v.removidas.length}` : ""
-        }`
+      ? `${v.perfil} · ${v.escopo}${
+          v.servicos?.length
+            ? ` (${nomearServicos(v.servicos, nomesServicos.get(v.modulo))})`
+            : ""
+        }${v.ativo === false ? " · INATIVO" : ""}${
+          v.permissoes?.length ? ` · +${v.permissoes.length}` : ""
+        }${v.removidas?.length ? ` · −${v.removidas.length}` : ""}`
       : "(sem vínculo)";
 
   // Módulos que continuam existindo depois da gravação (para a auditoria de

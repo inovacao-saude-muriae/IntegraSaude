@@ -294,7 +294,7 @@ const menuSections = [
             visivelSe: "REGULACAO_ADMIN",
           },
           {
-            name: "Procedimentos",
+            name: "Exames e Procedimentos",
             path: "/regulacao?tab=PROCEDIMENTOS",
             tab: "PROCEDIMENTOS",
             visivelSe: "REGULACAO",
@@ -674,27 +674,29 @@ function MenuContent({ isOpen, onClose }) {
   return <MenuRender menuSections={menuAtual} isOpen={isOpen} onClose={onClose} />;
 }
 
-// A rota ativa pertence a este grupo da Sidebar?
-// Compara o pathname com o caminho do próprio grupo e com o de cada item
-// (leaf e nested). Só apresentação: não decide autorização.
-function rotaPertenceAoItem(pathname, item) {
-  const base = (caminho) => String(caminho || "").split("?")[0].split("#")[0];
-  const atual = base(pathname);
-  if (!atual) return false;
+// Chave do sessionStorage com os grupos abertos.
+const CHAVE_GRUPOS = "integra:sidebar:grupos-abertos";
 
-  const candidatos = [item.path];
-  for (const sub of item.subItems || []) {
-    if (sub.path) candidatos.push(sub.path);
-    for (const nested of sub.nestedItems || []) {
-      if (nested.path) candidatos.push(nested.path);
-    }
+function lerEstadoSalvo() {
+  if (typeof window === "undefined") return {};
+  try {
+    const bruto = window.sessionStorage.getItem(CHAVE_GRUPOS);
+    const dados = bruto ? JSON.parse(bruto) : {};
+    return dados && typeof dados === "object" ? dados : {};
+  } catch {
+    return {};
   }
+}
 
-  return candidatos.some((caminho) => {
-    const alvo = base(caminho);
-    if (!alvo) return false;
-    return atual === alvo || atual.startsWith(`${alvo}/`);
-  });
+// Grava o estado de expansão. Silencioso: storage indisponível não pode
+// quebrar a navegação.
+function salvarEstado(estado) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(CHAVE_GRUPOS, JSON.stringify(estado));
+  } catch {
+    /* modo privado / quota: a Sidebar funciona sem persistir */
+  }
 }
 
 function MenuRender({ menuSections, isOpen, onClose }) {
@@ -706,9 +708,15 @@ function MenuRender({ menuSections, isOpen, onClose }) {
   const currentSubTab = searchParams.get("subTab") || "";
 
   const [compact, setCompact] = useState(false);
-  const [openGroup, setOpenGroup] = useState({});
-  // Grupos FECHADOS manualmente pelo usuário (a rota ativa reabre sozinha;
-  // fechar de propósito continua fechado até navegar para dentro do grupo).
+  // Estado de expansão PERSISTIDO: a Sidebar desmonta ao trocar de rota entre
+  // árvores diferentes (ex.: /regulacao → /gerenciamento/*), e um estado local
+  // voltaria ao inicial. Guardado por aba (sessionStorage) ele sobrevive à
+  // navegação e ao F5, e continua sendo só do usuário: nada aqui depende da
+  // rota ativa.
+  const [openGroup, setOpenGroup] = useState(() => lerEstadoSalvo());
+  // Grupos FECHADOS manualmente pelo usuário. Mantido para compatibilidade do
+  // toggle (o estado autoritativo é `openGroup`): a rota ativa NÃO reabre nem
+  // fecha grupo nenhum.
   const [gruposFechados, setGruposFechados] = useState({});
   const [openNested, setOpenNested] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
@@ -752,13 +760,26 @@ function MenuRender({ menuSections, isOpen, onClose }) {
     return `${item.path}?tab=${primeiro.tab}`;
   };
 
-  // Um grupo está aberto quando o usuário o abriu OU quando a rota ativa
-  // pertence a ele (entrar por link direto/refresh mantém o grupo expandido).
-  // Derivado do pathname — sem setState em effect.
+  // ☝ ESTADO DE EXPANSÃO = AÇÃO DO USUÁRIO, E SÓ ELA.
+  // Antes, um grupo também abria sozinho quando a rota atual pertencia a ele
+  // (a antiga função que comparava a rota com o grupo). Isso fazia um item do
+  // Gerenciamento — como
+  // "Procedimentos" (/regulacao?tab=PROCEDIMENTOS) — abrir o módulo Regulação
+  // de Exames, e o mesmo acontecia com Tutores→CCZ, Serviços e Especialidades
+  // →Junta, Especialidades e Procedimentos→Câmara Técnica.
+  // A rota ativa agora serve EXCLUSIVAMENTE para destacar o item: ela não
+  // abre, não fecha e não altera o estado dos grupos.
+  //
+  // Abrir e recolher acontecem em toggleGroup/toggleNested. O estado vive em
+  // openGroup / openNested e sobrevive à navegação: o componente não é
+  // remontado entre páginas, então os grupos abertos continuam abertos.
   const estaAberto = (item) =>
-    Boolean(searchTerm) ||
-    (!gruposFechados[item.path] &&
-      (Boolean(openGroup[item.path]) || rotaPertenceAoItem(pathname, item)));
+    Boolean(searchTerm) || Boolean(openGroup[item.path]);
+
+  // Persiste sempre que o usuário abre/fecha um grupo.
+  useEffect(() => {
+    salvarEstado(openGroup);
+  }, [openGroup]);
 
   const toggleGroup = (item) => {
     const path = item.path;

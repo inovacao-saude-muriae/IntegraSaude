@@ -218,12 +218,21 @@ export async function POST(request) {
 // Valida os vínculos enviados no cadastro ANTES de criar a conta, com as
 // mesmas regras da gravação (catálogo, escopo, poder de concessão).
 async function validarVinculosParaCadastro({ vinculos, executor }) {
-  const { validarVinculo, exigirPoderDeConcessao } = await import("@/lib/acessoService");
+  const { validarVinculo, exigirPoderDeConcessao, servicosDoCatalogo } = await import(
+    "@/lib/acessoService"
+  );
   const { obterContextoEfetivo } = await import("@/lib/permissions");
   const efetivoExecutor = await obterContextoEfetivo({ cpf: executor.cpf });
   const vistos = new Set();
   for (const bruto of vinculos) {
-    const v = validarVinculo(bruto);
+    // Serviços válidos vêm do catálogo do banco (junta_servicos). No cadastro
+    // não existe vínculo anterior: só serviço ATIVO pode ser atribuído.
+    const catalogoServicos = await servicosDoCatalogo(String(bruto?.modulo || ""));
+    const v = validarVinculo(bruto, {
+      servicosValidos: catalogoServicos.todos,
+      servicosAtivosValidos: catalogoServicos.ativos,
+      servicosJaVinculados: [],
+    });
     if (vistos.has(v.modulo)) {
       throw new AcessoErro(`Módulo repetido na configuração: ${v.modulo}.`);
     }

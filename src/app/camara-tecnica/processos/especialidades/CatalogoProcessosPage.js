@@ -216,11 +216,13 @@ export default function CatalogoProcessosPage({
   );
 
   return (
-    <div className={`${styles.container} cadCadastro`}>
-      <div className={styles.cabecalho}>
+    <div className="cadCadastro">
+      {/* Cabeçalho e avisos no MESMO padrão de "Exames e Procedimentos" e
+          "Serviços e Especialidades" (padraoCadastro.css). */}
+      <div className="cadPaginaCabecalho">
         <div>
-          <h1 className={styles.titulo}>Especialidades e Procedimentos</h1>
-          <p className={styles.subtitulo}>
+          <h1 className="cadPaginaTitulo">Especialidades e Procedimentos</h1>
+          <p className="cadPaginaSubtitulo">
             Catálogo próprio da área Processos (Câmara Técnica). Não compartilha
             cadastros com a Junta Reguladora.
           </p>
@@ -228,17 +230,27 @@ export default function CatalogoProcessosPage({
       </div>
 
       {aviso && (
-        <div className={styles.avisoSucesso} role="status">
+        <div className="cadAviso cadAvisoSucesso" role="status">
           {aviso}
-          <button type="button" onClick={() => setAviso("")} aria-label="Fechar">
+          <button
+            type="button"
+            className="cadAvisoFechar"
+            onClick={() => setAviso("")}
+            aria-label="Fechar"
+          >
             ×
           </button>
         </div>
       )}
       {erro && (
-        <div className={styles.avisoErro} role="alert">
+        <div className="cadAviso cadAvisoErro" role="alert">
           {erro}
-          <button type="button" onClick={() => setErro("")} aria-label="Fechar">
+          <button
+            type="button"
+            className="cadAvisoFechar"
+            onClick={() => setErro("")}
+            aria-label="Fechar"
+          >
             ×
           </button>
         </div>

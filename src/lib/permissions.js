@@ -5,6 +5,7 @@ import { carregarSessao } from "@/lib/auth";
 import {
   permissoesEfetivas,
   permissoesPadrao,
+  moduloTemEscopoPorServico,
   PERFIS as PERFIS_CATALOGO,
 } from "@/lib/permissoesCatalogo";
 
@@ -29,12 +30,10 @@ export const MODULOS = {
 
 export const NIVEIS = { ADMIN: "ADMIN", OPERADOR: "OPERADOR" };
 
-export const SERVICOS_JUNTA = {
-  CAEE: "CAEE",
-  APAE: "APAE",
-  AMBULATORIO: "AMBULATORIO",
-  ESPECIALIDADES: "ESPECIALIDADES",
-};
+// Serviços da Junta NÃO são uma lista fixa: são registros de `junta_servicos`,
+// referenciados pelo `id` em `user_acessos.servicos`. Este objeto existe apenas
+// como marcador histórico e não deve ser usado para autorizar nem para montar
+// opções de tela — ver `servicosDoCatalogo` em lib/acessoService.
 
 // ── 2. Carregamento dos vínculos (consulta ao banco, memoizada por render) ──
 
@@ -136,6 +135,11 @@ function perfilPadraoDoModulo(modulo) {
  * Escopo ausente/desconhecido → false.
  */
 function escopoAlcancaServico(vinculo, servico) {
+  // Escopo só restringe módulo organizado por serviço. Nos demais o vínculo
+  // alcança o módulo por inteiro, qualquer que seja o valor gravado — a coluna
+  // continua no banco, mas não é exibida nem usada.
+  if (vinculo?.modulo && !moduloTemEscopoPorServico(vinculo.modulo)) return true;
+
   const escopo = vinculo.escopo;
   const servicos = Array.isArray(vinculo.servicos) ? vinculo.servicos : [];
 
@@ -143,7 +147,9 @@ function escopoAlcancaServico(vinculo, servico) {
   if (escopo === "ESPECIFICOS") {
     if (servicos.length === 0) return false; // configuração contraditória
     if (!servico) return true; // pergunta sobre o módulo, não sobre o serviço
-    return servicos.includes(servico);
+    // Ids de serviço são texto no banco: compara como texto dos dois lados.
+    const alvo = String(servico);
+    return servicos.some((s) => String(s) === alvo);
   }
   if (escopo === "NENHUM") return false;
   return false; // escopo inválido/ausente: nega
@@ -234,10 +240,20 @@ export async function usuarioEhAdminModulo(userOuCpf, modulo) {
   return ehAdminModuloPuro(ctx, modulo);
 }
 
-// O vínculo da Junta alcança `servicoJunta` (escopo TODOS ou o serviço listado).
-export async function usuarioTemAcessoServicoJunta(userOuCpf, servicoJunta) {
+// O vínculo da Junta alcança o serviço `servicoId` (id em junta_servicos)?
+// Escopo TODOS alcança qualquer serviço; ESPECIFICOS só os listados; NENHUM
+// nenhum. Aceita id numérico ou o código do sub-serviço (legado) — a
+// comparação é sempre por texto.
+export async function usuarioTemAcessoServicoJunta(userOuCpf, servicoId) {
   const ctx = await resolverContexto(userOuCpf);
-  return temAcessoServicoJuntaPuro(ctx, servicoJunta);
+  return temAcessoServicoJuntaPuro(ctx, normalizarServicoId(servicoId));
+}
+
+// Id do serviço como texto (a coluna user_acessos.servicos é text[]).
+export function normalizarServicoId(valor) {
+  if (valor === null || valor === undefined) return null;
+  const texto = String(valor).trim();
+  return texto === "" ? null : texto;
 }
 
 // Existe vínculo ativo ADMINISTRADOR em qualquer módulo.
@@ -258,24 +274,18 @@ export const _puras = {
   escopoAlcancaServico,
 };
 
-// ── 6. Pontes Servico (banco) ↔ ServicoJunta (enum) ─────────────────────────
+// ── 6. Serviços da Junta: por ID do cadastro (não por nome nem por enum) ────
+//
+// A fonte oficial dos serviços da Junta é a tabela `junta_servicos`
+// (Gerenciamento → Serviços e Especialidades). O vínculo de acesso guarda o
+// `id` do serviço em `user_acessos.servicos`, como texto. Consequências:
+//   • cadastrar um serviço o torna atribuível sem alteração de código;
+//   • renomear o serviço não rompe o vínculo (o id não muda);
+//   • inativar o serviço mantém o vínculo e bloqueia atribuição nova.
+// Não há mais mapa fixo de nomes: nada aqui depende de "CAEE" ou "APAE".
 
-// Converte o código de subTab da UI da Junta para o enum ServicoJunta.
-// Só os 4 sub-serviços controlados têm entrada; os demais retornam null
-// (= não controlado por sub-serviço nesta etapa).
-export const SUBTAB_PARA_SERVICO_JUNTA = {
-  CAEE: SERVICOS_JUNTA.CAEE,
-  APAE: SERVICOS_JUNTA.APAE,
-  AMBULATORIO: SERVICOS_JUNTA.AMBULATORIO,
-  ESPECIALIDADES: SERVICOS_JUNTA.ESPECIALIDADES,
-};
-
-export function servicoJuntaDoSubTab(subTab) {
-  return SUBTAB_PARA_SERVICO_JUNTA[String(subTab || "").toUpperCase()] || null;
-}
-
-// Normaliza para lookup robusto a acento/caixa:
-// "Ambulatório" -> "ambulatorio", "  CAEE " -> "caee".
+// Normaliza para comparação robusta a acento/caixa. Usado só para EXIBIR e
+// para casar nomes de serviço vindos de telas antigas — nunca para autorizar.
 export function normalizarNomeServico(nome) {
   return String(nome || "")
     .normalize("NFD")
@@ -283,28 +293,6 @@ export function normalizarNomeServico(nome) {
     .trim()
     .toLowerCase();
 }
-
-// Mapa nome-de-serviço (sem acento, lower) -> enum. Cobre os nomes que o
-// MAPA_SERVICOS da página da Junta produz para os 4 controlados.
-const NOME_SERVICO_PARA_ENUM = {
-  caee: SERVICOS_JUNTA.CAEE,
-  apae: SERVICOS_JUNTA.APAE,
-  ambulatorio: SERVICOS_JUNTA.AMBULATORIO,
-  "centro de especialidades": SERVICOS_JUNTA.ESPECIALIDADES,
-};
-
-export function servicoJuntaDoNome(nome) {
-  return NOME_SERVICO_PARA_ENUM[normalizarNomeServico(nome)] || null;
-}
-
-// Mapa inverso enum -> nome canônico de MAPA_SERVICOS (para filtrar queries
-// por `Servico.nome` a partir dos vínculos do usuário).
-export const SERVICO_JUNTA_PARA_NOME = {
-  [SERVICOS_JUNTA.CAEE]: "CAEE",
-  [SERVICOS_JUNTA.APAE]: "APAE",
-  [SERVICOS_JUNTA.AMBULATORIO]: "Ambulatório",
-  [SERVICOS_JUNTA.ESPECIALIDADES]: "Centro de Especialidades",
-};
 
 // ── 7. Decisão por funcionalidade e permissão (arquitetura definitiva) ──────
 //

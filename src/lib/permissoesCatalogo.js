@@ -28,15 +28,16 @@ export const MODULOS = {
 };
 
 // ── 2. Serviços por módulo (subdivisão operacional) ─────────────────────────
-// A Junta usa o enum ServicoJunta. A Câmara Técnica tem dois serviços com
-// operações e dados próprios (Farmácia Judicial e Processos), modelados como
-// módulos distintos — por isso FARMACIA e PROCESSOS aparecem aqui sem
-// sub-serviço: a separação já existe no enum.
+// `escopoServico` diz apenas SE o módulo é organizado por serviço — a LISTA de
+// serviços da Junta não vive aqui: são dados, cadastrados em Gerenciamento →
+// Serviços e Especialidades (tabela junta_servicos). Cadastrar um serviço o
+// torna disponível na configuração de acessos sem alteração de código.
+//
+// A Câmara Técnica tem dois serviços com operações e dados próprios (Farmácia
+// Judicial e Processos), modelados como módulos distintos — por isso FARMACIA
+// e PROCESSOS aparecem sem escopo por serviço: a separação já existe no enum.
 export const SERVICOS_JUNTA = {
-  CAEE: 'CAEE',
-  APAE: 'APAE',
-  AMBULATORIO: 'AMBULATORIO',
-  ESPECIALIDADES: 'ESPECIALIDADES',
+  CATALOGO: 'CATALOGO', // origem dinâmica: junta_servicos
 };
 
 export const SERVICOS = {
@@ -646,6 +647,24 @@ export const ESCOPOS = Object.freeze({
 });
 
 /** Observação do escopo, para a interface não inventar texto. */
+/**
+ * O módulo tem escopo por serviço? Só ele mostra e usa a escolha de escopo.
+ * Hoje: Junta Reguladora. Nos demais o escopo gravado é sempre TODOS.
+ */
+export function moduloTemEscopoPorServico(modulo) {
+  return !!MODULOS_CATALOGO[modulo]?.escopoServico;
+}
+
+/**
+ * Escopo efetivo de um módulo: o escolhido quando o módulo é organizado por
+ * serviço; TODOS caso contrário (escopo não tem efeito onde não há serviços).
+ * Centralizado aqui para a tela e o backend não divergirem.
+ */
+export function escopoEfetivo(modulo, escopo) {
+  if (!moduloTemEscopoPorServico(modulo)) return ESCOPOS.TODOS;
+  return ESCOPOS[escopo] ? escopo : ESCOPOS.TODOS;
+}
+
 export const ESCOPOS_INFO = {
   TODOS: {
     nome: "Todos os serviços",
@@ -678,6 +697,17 @@ export function validarConfiguracao({
   funcionalidades,
   permissoes,
   removidas,
+  // Serviços que EXISTEM no catálogo do módulo (para a Junta: junta_servicos).
+  // Vem do banco porque o catálogo de serviços é dado, não código. Ausente em
+  // módulo sem escopo por serviço. Em módulo COM escopo por serviço, ausente =
+  // nenhum serviço válido → qualquer id é recusado (fail-closed).
+  servicosValidos,
+  // Ids que JÁ estavam vinculados a este registro. Serviço inativo continua
+  // aceito aqui (o vínculo existente não é quebrado por inativação), mas não
+  // pode ser usado para NOVA atribuição.
+  servicosJaVinculados,
+  // Ids dos serviços ATIVOS no catálogo. Só eles recebem atribuição nova.
+  servicosAtivosValidos,
 }) {
   const erros = [];
   const cat = MODULOS_CATALOGO[modulo];
@@ -690,7 +720,8 @@ export function validarConfiguracao({
   if (!ESCOPOS[escopo]) {
     erros.push(`Escopo inválido: ${escopo || "(não informado)"}. Use TODOS, ESPECIFICOS ou NENHUM.`);
   } else {
-    if (escopo !== ESCOPOS.TODOS && listaServicos.length > 0) {
+    // A lista só existe no escopo ESPECIFICOS; nos demais tem de ficar vazia.
+    if (escopo === ESCOPOS.NENHUM && listaServicos.length > 0) {
       erros.push(`O escopo ${ESCOPOS_INFO[escopo].nome} não pode listar serviços.`);
     }
     if (escopo === ESCOPOS.ESPECIFICOS && listaServicos.length === 0) {
@@ -712,13 +743,42 @@ export function validarConfiguracao({
   }
 
   // ── Serviços válidos para o módulo ──────────────────────────────────────
-  const servicosValidos = cat.escopoServico ? Object.values(cat.escopoServico) : [];
-  if (listaServicos.length > 0 && servicosValidos.length === 0) {
+  // O catálogo declara SE o módulo tem escopo por serviço; a lista concreta
+  // vem do banco (`servicosValidos`). Nunca de nomes fixos no código.
+  const temEscopoPorServico = !!cat.escopoServico;
+  if (listaServicos.length > 0 && !temEscopoPorServico) {
     erros.push(`${cat.nome} não é organizado por serviço: a lista deve ficar vazia.`);
   }
-  for (const s of listaServicos) {
-    if (!servicosValidos.includes(s)) {
-      erros.push(`Serviço inválido para ${cat.nome}: ${s}`);
+  if (temEscopoPorServico) {
+    const existentes = new Set(
+      (Array.isArray(servicosValidos) ? servicosValidos : []).map((v) => String(v)),
+    );
+    const jaVinculados = new Set(
+      (Array.isArray(servicosJaVinculados) ? servicosJaVinculados : []).map((v) => String(v)),
+    );
+    // Só serviço ATIVO recebe atribuição nova. Lista ausente = nenhum ativo.
+    const ativos = new Set(
+      (Array.isArray(servicosAtivosValidos) ? servicosAtivosValidos : []).map((v) => String(v)),
+    );
+    for (const bruto of listaServicos) {
+      const s = String(bruto);
+      if (!/^\d+$/.test(s)) {
+        erros.push(
+          `Serviço inválido para ${cat.nome}: "${s}". Informe o identificador de um serviço cadastrado.`,
+        );
+        continue;
+      }
+      if (!existentes.has(s)) {
+        erros.push(`Serviço inexistente em ${cat.nome}: ${s}.`);
+        continue;
+      }
+      // Inativo: mantém o vínculo que já existe, recusa atribuição nova.
+      if (!ativos.has(s) && !jaVinculados.has(s)) {
+        erros.push(
+          `O serviço ${s} está inativo em ${cat.nome} e não pode receber novos acessos. ` +
+            "Reative-o em Serviços e Especialidades para atribuí-lo.",
+        );
+      }
     }
   }
 

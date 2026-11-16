@@ -14,7 +14,6 @@ import {
   MODULOS,
   NIVEIS,
   usuarioEhAdminModulo,
-  SERVICO_JUNTA_PARA_NOME,
 } from '@/lib/permissions';
 
 // Helper para converter BigInt e Objetos Date sem erro de serialização no Next.js
@@ -487,29 +486,30 @@ export async function getEspecialidadesPorServico(servicoNome) {
     let where = {};
 
     if (!ehAdminOuGestor) {
-      // OPERADOR: restringe aos sub-serviços efetivamente vinculados, para não
+      // OPERADOR: restringe aos serviços efetivamente vinculados, para não
       // vazar especialidades de serviços fora do vínculo (Finding 3).
-      const nomesPermitidos = (user.acessos || [])
-        .filter(
-          (a) =>
-            a.modulo === MODULOS.JUNTA &&
-            a.nivel === NIVEIS.OPERADOR &&
-            a.servicoJunta,
-        )
-        .map((a) => SERVICO_JUNTA_PARA_NOME[a.servicoJunta])
-        .filter(Boolean);
+      // O vínculo guarda o ID do serviço (user_acessos.servicos) — comparação
+      // direta, sem depender do nome cadastrado.
+      const idsPermitidos = [];
+      for (const a of user.acessos || []) {
+        if (a.modulo !== MODULOS.JUNTA) continue;
+        if (a.ativo === false) continue;
+        if (a.escopo === "TODOS") {
+          // Escopo amplo: todos os serviços cadastrados.
+          const todos = await prisma.servico.findMany({ select: { id: true } });
+          idsPermitidos.push(...todos.map((s) => s.id));
+          break;
+        }
+        for (const id of a.servicos || []) {
+          const numero = Number(id);
+          if (Number.isInteger(numero)) idsPermitidos.push(numero);
+        }
+      }
 
-      // Sem nenhum sub-serviço vinculado → retorna vazio.
-      if (nomesPermitidos.length === 0) return [];
-
-      const servicosPermitidos = await prisma.servico.findMany({
-        where: { nome: { in: nomesPermitidos, mode: 'insensitive' } },
-        select: { id: true },
-      });
-      const idsPermitidos = servicosPermitidos.map((s) => s.id);
+      // Sem nenhum serviço vinculado → retorna vazio.
       if (idsPermitidos.length === 0) return [];
 
-      where = { servicoId: { in: idsPermitidos } };
+      where = { servicoId: { in: [...new Set(idsPermitidos)] } };
     }
 
     const especialidades = await prisma.especialidade.findMany({

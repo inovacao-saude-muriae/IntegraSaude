@@ -533,3 +533,102 @@
 .cadBuscaRow { flex-direction: column; align-items: stretch; }
 .cadAcoesLinha { justify-content: flex-start; }
 }
+
+/* ── Cabeçalho e avisos das telas de cadastro ─────────────────────────────
+   Um único padrão para "Exames e Procedimentos", "Serviços e Especialidades"
+   e "Especialidades e Procedimentos": título de página, subtítulo e faixas de
+   aviso. Antes cada tela trazia o seu (ou não trazia), e as três ficavam
+   diferentes. */
+.cadPaginaCabecalho {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.cadPaginaTitulo {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.cadPaginaSubtitulo {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: #64748b;
+  max-width: 70ch;
+}
+
+.cadAviso {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 0.75rem;
+}
+
+.cadAvisoSucesso {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.cadAvisoErro {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.cadAvisoFechar {
+  background: transparent;
+  border: none;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  color: inherit;
+  padding: 0;
+}
+
+@media (max-width: 768px) {
+  .cadPaginaTitulo { font-size: 1.25rem; }
+  .cadPaginaCabecalho { align-items: flex-start; }
+}
+
+
+/* Raiz de conteúdo das telas de cadastro do Gerenciamento.
+   NÃO aplica padding: o respiro é do layout (Regulação e Junta já aplicam
+   1.5rem no container da página; a área de conteúdo do Gerenciamento aplica
+   o dela). Um padding aqui somaria ao do layout e deixaria a tela mais
+   estreita que as vizinhas. Aqui só empilha os blocos com o mesmo respiro
+   vertical. Medido nas três telas em 1440 e 390px. */
+.cadConteudoPagina {
+  width: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  box-sizing: border-box;
+}
+
+/* Respiro da PÁGINA de cadastro. O <main> do layout global aplica
+   `padding: 0.75rem 1rem`; estas telas precisam de 1.5rem nas laterais, como o
+   resto do sistema. Aplicado na raiz da página (e não num container interno),
+   para as três telas ficarem idênticas — a área de conteúdo do Gerenciamento
+   não tem respiro próprio, então a regra vale igual nos três casos. */
+.cadCadastro {
+  padding: 0;
+  width: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  box-sizing: border-box;
+}

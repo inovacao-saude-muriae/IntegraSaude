@@ -110,13 +110,29 @@ const put = (cpf, body, t) => fetch(`${base}/api/gerenciamento/usuarios/${cpf}/a
 });
 
 // 5. ESPECIFICOS sem serviço → 400
-r = await put(COMUM_FIX, { vinculos: [{ modulo: "REGULACAO", perfil: "OPERADOR", escopo: "ESPECIFICOS", servicos: [], permissoes: [], removidas: [] }] }, tGestor);
+//    Escopo por serviço existe SÓ na Junta Reguladora. Em Regulação a escolha
+//    não é exibida e é normalizada para TODOS no backend — por isso o caso de
+//    ESPECIFICOS vazio é testado no módulo que realmente tem escopo.
+r = await put(COMUM_FIX, { vinculos: [{ modulo: "JUNTA", perfil: "OPERADOR", escopo: "ESPECIFICOS", servicos: [], permissoes: [], removidas: [] }] }, tGestor);
 check("ESPECIFICOS vazio recusado (400)", r.status === 400, r.status + " " + (await r.text()).slice(0, 120));
+// 5b. O mesmo corpo em REGULACAO é aceito e o escopo é gravado como TODOS.
+r = await put(COMUM_FIX, { vinculos: [{ modulo: "REGULACAO", perfil: "OPERADOR", escopo: "ESPECIFICOS", servicos: [], permissoes: [], removidas: [] }] }, tGestor);
+const detReg = r.status === 200 ? await r.json() : {};
+const vinReg = detReg.vinculos?.find((v) => v.modulo === "REGULACAO");
+check(
+  "REGULACAO ignora escopo e grava TODOS",
+  r.status === 200 && vinReg?.escopo === "TODOS" && (vinReg?.servicos || []).length === 0,
+  r.status + " " + JSON.stringify(vinReg?.escopo),
+);
 
 // 6. NENHUM com permissão operacional no pacote → 400
-r = await put(COMUM_FIX, { vinculos: [{ modulo: "REGULACAO", perfil: "OPERADOR", escopo: "NENHUM", servicos: [], permissoes: [], removidas: [] }] }, tGestor);
+//    (Junta é o módulo com escopo; lá NENHUM não convive com permissão
+//    operacional do módulo.)
+r = await put(COMUM_FIX, { vinculos: [{ modulo: "JUNTA", perfil: "OPERADOR", escopo: "NENHUM", servicos: [], permissoes: [], removidas: [] }] }, tGestor);
 check("NENHUM com permissão operacional recusado (400)", r.status === 400, r.status);
 // 6b. NENHUM sem nenhuma permissão operacional → aceito
+//     O gestor de teste não administra a Junta, então o vínculo da Junta é
+//     preservado e o caso é testado em REGULACAO, onde o escopo é ignorado.
 r = await put(COMUM_FIX, { vinculos: [{ modulo: "REGULACAO", perfil: "CONSULTA", escopo: "NENHUM", servicos: [], permissoes: [], removidas: [] }] }, tGestor);
 check("NENHUM sem permissão operacional aceito (200)", r.status === 200, r.status);
 
