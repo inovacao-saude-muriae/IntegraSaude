@@ -133,30 +133,7 @@
   color: #94a3b8;
 }
 
-.toggleButton {
-  position: absolute;
-  right: 0.75rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.5rem;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  color: #64748b;
-  border-radius: 6px;
-  transition: all 0.2s ease;
-}
 
-.toggleButton:hover {
-  color: #334155;
-  background: #f1f5f9;
-}
-
-.toggleButton:focus-visible {
-  outline: 2px solid #2563eb;
-  outline-offset: 2px;
-}
 
 .input:focus {
   outline: none;

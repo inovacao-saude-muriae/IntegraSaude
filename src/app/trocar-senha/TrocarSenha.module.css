@@ -71,54 +71,7 @@
   gap: 0.5rem;
 }
 
-/* Campo com o botão de mostrar/ocultar à direita */
-.campoComOlho {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
 
-.campoComOlho .input {
-  width: 100%;
-  /* espaço para o botão, para o texto não passar por baixo dele */
-  padding-right: 7.5rem;
-}
-
-.verSenha {
-  position: absolute;
-  right: 0.5rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.35rem 0.5rem;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: #09665F;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-.verSenha:hover {
-  background: rgba(9, 102, 95, 0.08);
-}
-
-.verSenha:focus-visible {
-  outline: 2px solid #09665F;
-  outline-offset: 2px;
-}
-
-.verSenhaTexto {
-  line-height: 1;
-}
-
-.label {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #334155;
-}
 
 .input {
   padding: 0.75rem 1rem;

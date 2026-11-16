@@ -27,6 +27,7 @@
     "jose": "^6.2.10",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
+    "lucide-react": "^1.73.0",
     "next": "^16.4.6",
     "pg": "^8.23.0",
     "prisma": "^7.9.1",

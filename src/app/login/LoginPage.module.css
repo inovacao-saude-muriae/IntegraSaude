@@ -214,33 +214,13 @@
   padding-right: 46px;
 }
 
-.togglePwd {
-  position: absolute;
-  right: 0;
-  width: 46px;
-  height: 46px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  color: #9ca3af;
-  border-radius: 0 10px 10px 0;
-  transition: color 0.15s;
+/* Wrapper do PasswordInput dentro da linha do campo (o ícone de cadeado é
+   posicionado pelo .inputWrap, então o wrapper cresce para ocupar o espaço). */
+.inputWrapPwd {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
-.togglePwd svg {
-  width: 19px;
-  height: 19px;
-}
-
-.togglePwd:hover,
-.togglePwd:focus-visible {
-  color: #09665F;
-  outline: 2px solid #09665F;
-  outline-offset: 2px;
-}
 
 /* Botão */
 .submitBtn {

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import PasswordInput from '@/components/PasswordInput';
 import styles from './ModalTrocarSenha.module.css';
 
 // Função para validar força da senha
@@ -42,9 +43,6 @@ export default function ModalTrocarSenha({ onSucesso }) {
   const [mostrarRequisitos, setMostrarRequisitos] = useState(false);
   
   // Estados para mostrar/ocultar senhas
-  const [mostrarSenhaAtual, setMostrarSenhaAtual] = useState(false);
-  const [mostrarNovaSenha, setMostrarNovaSenha] = useState(false);
-  const [mostrarConfirmarSenha, setMostrarConfirmarSenha] = useState(false);
 
   // Verificação de requisitos em tempo real
   const requisitos = {
@@ -148,75 +146,33 @@ export default function ModalTrocarSenha({ onSucesso }) {
 
         <form onSubmit={handleSubmit} className={styles.form}>
           <div className={styles.inputGroup}>
-            <label className={styles.label}>Senha Atual</label>
-            <div className={styles.inputWrapper}>
-              <input
-                type={mostrarSenhaAtual ? 'text' : 'password'}
-                value={senhaAtual}
-                onChange={(e) => setSenhaAtual(e.target.value)}
-                required
-                className={styles.input}
-                placeholder="Digite sua senha atual"
-                autoComplete="current-password"
-                autoFocus
-              />
-              <button
-                type="button"
-                onClick={() => setMostrarSenhaAtual(!mostrarSenhaAtual)}
-                className={styles.toggleButton}
-                aria-label={mostrarSenhaAtual ? 'Ocultar senha' : 'Mostrar senha'}
-              >
-                {mostrarSenhaAtual ? (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                  </svg>
-                ) : (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c6.5 0 10 8 10 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                    <path d="M6.61 6.61A18.5 18.5 0 0 0 2 12s3.5 8 10 8a9.12 9.12 0 0 0 5.39-1.61"/>
-                    <line x1="2" y1="2" x2="22" y2="22"/>
-                  </svg>
-                )}
-              </button>
-            </div>
+            <label className={styles.label} htmlFor="modalSenhaAtual">Senha Atual</label>
+            <PasswordInput
+              id="modalSenhaAtual"
+              value={senhaAtual}
+              onChange={(e) => setSenhaAtual(e.target.value)}
+              required
+              className={styles.input}
+              placeholder="Digite sua senha atual"
+              autoComplete="current-password"
+              autoFocus
+            />
           </div>
 
           <div className={styles.inputGroup}>
-            <label className={styles.label}>Nova Senha</label>
-            <div className={styles.inputWrapper}>
-              <input
-                type={mostrarNovaSenha ? 'text' : 'password'}
-                value={novaSenha}
-                onChange={(e) => setNovaSenha(e.target.value)}
-                onFocus={() => setMostrarRequisitos(true)}
-                required
-                minLength={8}
-                className={styles.input}
-                placeholder="Digite sua nova senha"
-                autoComplete="new-password"
-              />
-              <button
-                type="button"
-                onClick={() => setMostrarNovaSenha(!mostrarNovaSenha)}
-                className={styles.toggleButton}
-                aria-label={mostrarNovaSenha ? 'Ocultar senha' : 'Mostrar senha'}
-              >
-                {mostrarNovaSenha ? (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                  </svg>
-                ) : (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c6.5 0 10 8 10 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                    <path d="M6.61 6.61A18.5 18.5 0 0 0 2 12s3.5 8 10 8a9.12 9.12 0 0 0 5.39-1.61"/>
-                    <line x1="2" y1="2" x2="22" y2="22"/>
-                  </svg>
-                )}
-              </button>
-            </div>
-            
+            <label className={styles.label} htmlFor="modalNovaSenha">Nova Senha</label>
+            <PasswordInput
+              id="modalNovaSenha"
+              value={novaSenha}
+              onChange={(e) => setNovaSenha(e.target.value)}
+              onFocus={() => setMostrarRequisitos(true)}
+              required
+              minLength={8}
+              className={styles.input}
+              placeholder="Digite sua nova senha"
+              autoComplete="new-password"
+            />
+
             {mostrarRequisitos && novaSenha && (
               <div className={styles.requisitos}>
                 <p className={styles.requisitosTitle}>Requisitos:</p>
@@ -242,38 +198,17 @@ export default function ModalTrocarSenha({ onSucesso }) {
           </div>
 
           <div className={styles.inputGroup}>
-            <label className={styles.label}>Confirmar Nova Senha</label>
-            <div className={styles.inputWrapper}>
-              <input
-                type={mostrarConfirmarSenha ? 'text' : 'password'}
-                value={confirmarSenha}
-                onChange={(e) => setConfirmarSenha(e.target.value)}
-                required
-                minLength={8}
-                className={styles.input}
-                placeholder="Digite novamente a nova senha"
-                autoComplete="new-password"
-              />
-              <button
-                type="button"
-                onClick={() => setMostrarConfirmarSenha(!mostrarConfirmarSenha)}
-                className={styles.toggleButton}
-                aria-label={mostrarConfirmarSenha ? 'Ocultar senha' : 'Mostrar senha'}
-              >
-                {mostrarConfirmarSenha ? (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                  </svg>
-                ) : (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c6.5 0 10 8 10 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                    <path d="M6.61 6.61A18.5 18.5 0 0 0 2 12s3.5 8 10 8a9.12 9.12 0 0 0 5.39-1.61"/>
-                    <line x1="2" y1="2" x2="22" y2="22"/>
-                  </svg>
-                )}
-              </button>
-            </div>
+            <label className={styles.label} htmlFor="modalConfirmarSenha">Confirmar Nova Senha</label>
+            <PasswordInput
+              id="modalConfirmarSenha"
+              value={confirmarSenha}
+              onChange={(e) => setConfirmarSenha(e.target.value)}
+              required
+              minLength={8}
+              className={styles.input}
+              placeholder="Digite novamente a nova senha"
+              autoComplete="new-password"
+            />
           </div>
 
           <button
