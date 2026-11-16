@@ -49,8 +49,13 @@
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.04);
 
   /* Dimensões Layout */
-  --sidebar-width-collapsed: 68px;
-  --sidebar-width-expanded: 270px;
+  /* ── Largura da Sidebar: FONTE ÚNICA ──────────────────────────────────────
+     Sidebar, Header, área de conteúdo e qualquer elemento preso à lateral
+     usam APENAS estas variáveis. Mudar a largura = mudar aqui. */
+  --sidebar-width: 300px;              /* expandida, desktop */
+  --sidebar-collapsed-width: 76px;     /* recolhida (modo compacto) */
+  --sidebar-width-expanded: var(--sidebar-width);   /* compatibilidade */
+  --sidebar-width-collapsed: var(--sidebar-collapsed-width);
   --header-height: 60px; /* ATUALIZADO: Agora alinhado aos 60px do Header */
 }
 
@@ -100,9 +105,12 @@ table {
   border-collapse: collapse;
 }
 
-/* Em telas pequenas, tabelas têm largura mínima para forçar scroll */
+/* Em telas pequenas, tabelas têm largura mínima para forçar scroll.
+   As tabelas de CATÁLOGO (.cadTabela) já vivem dentro de um wrapper com
+   overflow-x e crescem por conteúdo — dar 600px a elas estourava a largura
+   da página (rolagem horizontal indevida). */
 @media (max-width: 768px) {
-  table {
+  table:not(.cadTabela) {
     min-width: 600px; /* Força scroll horizontal em mobile */
   }
   

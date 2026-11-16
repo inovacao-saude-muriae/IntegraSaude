@@ -1,10 +1,12 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   PADRÃO VISUAL ÚNICO DOS CADASTROS
-   Usado por: Junta Reguladora → Serviços e Especialidades,
-              Regulação → Procedimentos,
-              Câmara Técnica → Processos → Especialidades e Procedimentos.
-   As classes são globais (prefixo "cad") para que os três cadastros fiquem
-   idênticos sem importar CSS module em componentes compartilhados.
+   PADRÃO VISUAL ÚNICO DOS CADASTROS — classes GLOBAIS (prefixo "cad")
+   Junta → Serviços e Especialidades | Regulação → Procedimentos |
+   Processos → Especialidades e Procedimentos
+
+   Por que um .css puro e não .module.css: um CSS Module HASHEIA as classes
+   (.cadCard → .ILk0LG_cadCard), e o JSX usa className="cadCard" — as regras
+   nunca casavam. Arquivo .css importado no cliente é injetado globalmente,
+   então as classes valem como escritas.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .cadCard {
@@ -525,9 +527,9 @@
 }
 
 @media (max-width: 700px) {
-  .cadGrade { display: flex; flex-direction: column; }
-  .cadTabelaTopoLinha { flex-direction: column; align-items: stretch; }
-  .cadFiltroSelect { width: 100%; min-width: 0; }
-  .cadBuscaRow { flex-direction: column; align-items: stretch; }
-  .cadAcoesLinha { justify-content: flex-start; }
+.cadGrade { display: flex; flex-direction: column; }
+.cadTabelaTopoLinha { flex-direction: column; align-items: stretch; }
+.cadFiltroSelect { width: 100%; min-width: 0; }
+.cadBuscaRow { flex-direction: column; align-items: stretch; }
+.cadAcoesLinha { justify-content: flex-start; }
 }

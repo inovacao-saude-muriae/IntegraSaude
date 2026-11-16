@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
-import "@/components/cadastros/cadastro.module.css";
+import "@/components/cadastros/padraoCadastro.css";
 import ModalConfirmacaoExclusao from "@/app/regulacao/Modals/ModalConfirmacaoExclusao";
 import { useConfirm, useNotify } from "@/components/ConfirmDialog";
 import BotaoEditar from "@/components/BotaoEditar";
@@ -243,6 +243,7 @@ export default function CadastroServicos({
         onCancel={() => setDeleteConfig(null)}
       />
 
+      <div className="cadCadastro">
       <div className="cadCard">
         <div className="cadCardTitleRow">
           <h3 className="cadCardTitle">Serviços e Especialidades</h3>
@@ -542,6 +543,7 @@ export default function CadastroServicos({
             </table>
           </div>
         </div>
+      </div>
       </div>
     </>
   );

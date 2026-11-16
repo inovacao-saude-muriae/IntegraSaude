@@ -16,7 +16,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import "@/components/cadastros/cadastro.module.css";
+import "@/components/cadastros/padraoCadastro.css";
 import { useConfirm } from "@/components/ConfirmDialog";
 import FiltroSituacao, { passaSituacao } from "@/components/cadastros/FiltroSituacao";
 import StatusRegistro from "@/components/cadastros/StatusRegistro";
@@ -216,7 +216,7 @@ export default function CatalogoProcessosPage({
   );
 
   return (
-    <div className={styles.container}>
+    <div className={`${styles.container} cadCadastro`}>
       <div className={styles.cabecalho}>
         <div>
           <h1 className={styles.titulo}>Especialidades e Procedimentos</h1>
