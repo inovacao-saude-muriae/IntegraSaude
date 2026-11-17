@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import "@/components/cadastros/padraoCadastro.css";
 import ModalConfirmacaoExclusao from "@/app/regulacao/Modals/ModalConfirmacaoExclusao";
 import { useConfirm, useNotify } from "@/components/ConfirmDialog";
@@ -23,7 +23,6 @@ const FORM_VAZIO = {
   servicoNome: "", // usado quando servicoId === "__novo__"
   especialidadeSel: "", // valor do dropdown de especialidade ("", "__novo__" ou id)
   especialidadeNome: "", // nome da especialidade (nova ou existente em edição)
-  search: "",
   isEditing: false,
   isFormActive: false,
 };
@@ -38,22 +37,9 @@ export default function CadastroServicos({
 
   const [deleteConfig, setDeleteConfig] = useState(null);
   const [form, setForm] = useState(FORM_VAZIO);
-  const [dropAberto, setDropAberto] = useState(false);
   const [filterServicoId, setFilterServicoId] = useState("");
   const [situacao, setSituacao] = useState("ativos");
   const [alternando, setAlternando] = useState(""); // chave do registro em mudança
-
-  const dropRef = useRef(null);
-
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (dropRef.current && !dropRef.current.contains(e.target)) {
-        setDropAberto(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   const resetForm = () => setForm(FORM_VAZIO);
 
@@ -64,23 +50,12 @@ export default function CadastroServicos({
       servicoNome: "",
       especialidadeSel: linha.especialidadeId ? String(linha.especialidadeId) : "",
       especialidadeNome: linha.nome || "",
-      search: linha.nome || linha.servicoNome,
       isEditing: true,
       isFormActive: false,
     });
-    setDropAberto(false);
   };
 
   const habilitarEdicao = () => setForm((prev) => ({ ...prev, isFormActive: true }));
-
-  const termo = (form.search || "").toLowerCase().trim();
-  const linhasFiltradas = (data.linhas || []).filter((l) => {
-    if (!termo) return true;
-    return (
-      (l.nome || "").toLowerCase().includes(termo) ||
-      (l.servicoNome || "").toLowerCase().includes(termo)
-    );
-  });
 
   const usandoNovoServico = form.servicoId === "__novo__";
   const usandoNovaEsp = form.especialidadeSel === "__novo__";
@@ -260,87 +235,15 @@ export default function CadastroServicos({
           <span className="cadCardSubtitle">Ex.: Ambulatório (serviço) — Fonoaudiologia (especialidade)</span>
         </div>
 
-        {/* BUSCA */}
-        <div className="cadBuscaBox">
-          <div className="cadCampo">
-            <label>Buscar no Banco (Serviço ou Especialidade)</label>
-            <div className="cadBuscaRow">
-              <div className="cadBuscaWrapper" ref={dropRef}>
-                <input
-                  type="text"
-                  className="cadBuscaInput"
-                  value={form.search || ""}
-                  placeholder="Selecionar ou digitar para buscar..."
-                  onChange={(e) => {
-                    setForm((prev) => ({ ...prev, search: e.target.value }));
-                    setDropAberto(true);
-                  }}
-                  onFocus={() => setDropAberto(true)}
-                />
-                <span className="cadBuscaSeta" onClick={() => setDropAberto(!dropAberto)}>
-                  {dropAberto ? "▲" : "▼"}
-                </span>
-
-                {dropAberto && (
-                  <div className="cadDropdown">
-                    <div className="cadDropdownScroll">
-                      <table className="cadDropdownTabela">
-                        <thead>
-                          <tr>
-                            <th>Serviço</th>
-                            <th>Especialidade</th>
-                            <th>Situação</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {linhasFiltradas.length > 0 ? (
-                            linhasFiltradas.map((l) => (
-                              <tr
-                                key={l.id}
-                                onMouseDown={(ev) => {
-                                  ev.preventDefault();
-                                  carregarParaEdicao(l);
-                                }}
-                                className={form.linha?.id === l.id ? "cadLinhaSelecionada" : ""}
-                              >
-                                <td><strong>{l.servicoNome}</strong></td>
-                                <td>{l.nome || "—"}</td>
-                                <td>
-                                  <StatusRegistro
-                                    ativo={
-                                      l.especialidadeId
-                                        ? l.especialidadeAtivo !== false
-                                        : l.servicoAtivo !== false
-                                    }
-                                    paiInativo={l.servicoAtivo === false}
-                                    nomePai="Serviço"
-                                  />
-                                </td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr>
-                              <td colSpan="3" className="cadSemDados">
-                                Nenhum registro encontrado.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <button
-                type="button"
-                className="cadBtnAdicionar"
-                onClick={() => setForm({ ...FORM_VAZIO, isFormActive: true })}
-              >
-                + Adicionar novo
-              </button>
-            </div>
-          </div>
+        {/* AÇÃO PRINCIPAL — cadastro de um novo registro */}
+        <div className="cadBarraAcoes">
+          <button
+            type="button"
+            className="cadBtnAdicionar"
+            onClick={() => setForm({ ...FORM_VAZIO, isFormActive: true })}
+          >
+            Adicionar novo
+          </button>
         </div>
 
         {/* FORMULÁRIO */}
@@ -514,8 +417,15 @@ export default function CadastroServicos({
                 </tr>
               </thead>
               <tbody>
-                {linhasTabela.map((l) => {
+                {linhasTabela.map((l, i) => {
                   const temEspecialidade = Boolean(l.especialidadeId);
+                  // Hierarquia visual: o serviço abre o grupo e as
+                  // especialidades dele aparecem recuadas logo abaixo.
+                  const servicoAnterior = linhasTabela[i - 1];
+                  const abreGrupo =
+                    !temEspecialidade &&
+                    (!servicoAnterior ||
+                      String(servicoAnterior.servicoId) !== String(l.servicoId));
                   // A linha do serviço (categoria) mostra a própria situação; a
                   // da especialidade combina com a do serviço.
                   const situacaoLinha = temEspecialidade
@@ -524,21 +434,40 @@ export default function CadastroServicos({
                   return (
                     <tr
                       key={l.id}
-                      className={
+                      className={[
+                        temEspecialidade ? "cadLinhaSubordinada" : "cadLinhaCategoria",
+                        abreGrupo ? "cadGrupoInicio" : "",
                         situacaoLinha.motivo === "categoria"
                           ? "cadLinhaIndisponivel"
                           : situacaoLinha.operacional
                             ? ""
-                            : "cadLinhaInativa"
-                      }
+                            : temEspecialidade
+                              ? "cadLinhaInativa"
+                              : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
                     >
                       <td>
-                        <strong>{l.servicoNome}</strong>
-                        {!temEspecialidade && (
-                          <span className="cadMarcaCategoria">categoria</span>
+                        {temEspecialidade ? (
+                          <span className="cadSubordinadoNome">{l.servicoNome}</span>
+                        ) : (
+                          <>
+                            <strong className="cadCategoriaNome">{l.servicoNome}</strong>
+                            <span className="cadMarcaCategoria">categoria</span>
+                          </>
                         )}
                       </td>
-                      <td>{l.nome || "—"}</td>
+                      <td>
+                        {temEspecialidade ? (
+                          <>
+                            <span className="cadConector" aria-hidden="true">└</span>
+                            {l.nome}
+                          </>
+                        ) : (
+                          <span className="cadVazio">—</span>
+                        )}
+                      </td>
                       <td>
                         <StatusRegistro
                           ativo={situacaoLinha.individualAtivo}

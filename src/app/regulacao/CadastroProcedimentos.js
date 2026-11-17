@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import "@/components/cadastros/padraoCadastro.css";
 import ModalConfirmacaoExclusao from "@/app/regulacao/Modals/ModalConfirmacaoExclusao";
 import { useConfirm, useNotify } from "@/components/ConfirmDialog";
@@ -24,7 +24,6 @@ const FORM_VAZIO = {
   procedimentoSel: "", // valor do dropdown de procedimento ("", "__novo__" ou id)
   procedimentoNome: "", // nome do procedimento (novo ou existente em edição)
   valor: "",
-  search: "",
   isEditing: false,
   isFormActive: false,
 };
@@ -39,22 +38,9 @@ export default function CadastroProcedimentos({
 
   const [deleteConfig, setDeleteConfig] = useState(null);
   const [form, setForm] = useState(FORM_VAZIO);
-  const [dropAberto, setDropAberto] = useState(false);
   const [filterTipoExameId, setFilterTipoExameId] = useState("");
   const [situacao, setSituacao] = useState("ativos");
   const [alternando, setAlternando] = useState(null);
-
-  const dropRef = useRef(null);
-
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (dropRef.current && !dropRef.current.contains(e.target)) {
-        setDropAberto(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   const resetForm = () => setForm(FORM_VAZIO);
 
@@ -66,23 +52,12 @@ export default function CadastroProcedimentos({
       procedimentoSel: linha.procedimentoId ? String(linha.procedimentoId) : "",
       procedimentoNome: linha.nome || "",
       valor: linha.valor != null ? String(linha.valor) : "",
-      search: linha.nome || linha.tipoExameNome,
       isEditing: true,
       isFormActive: false,
     });
-    setDropAberto(false);
   };
 
   const habilitarEdicao = () => setForm((prev) => ({ ...prev, isFormActive: true }));
-
-  const termo = (form.search || "").toLowerCase().trim();
-  const linhasFiltradas = (data.linhas || []).filter((l) => {
-    if (!termo) return true;
-    return (
-      (l.nome || "").toLowerCase().includes(termo) ||
-      (l.tipoExameNome || "").toLowerCase().includes(termo)
-    );
-  });
 
   const usandoNovoTipo = form.tipoExameId === "__novo__";
   const usandoNovoProc = form.procedimentoSel === "__novo__";
@@ -277,87 +252,15 @@ export default function CadastroProcedimentos({
           <span className="cadCardSubtitle">Ex.: Imagem (exame) — Ultrassonografia (procedimento)</span>
         </div>
 
-        {/* BUSCA */}
-        <div className="cadBuscaBox">
-          <div className="cadCampo">
-            <label>Buscar no Banco (Exame ou Procedimento)</label>
-            <div className="cadBuscaRow">
-              <div className="cadBuscaWrapper" ref={dropRef}>
-                <input
-                  type="text"
-                  className="cadBuscaInput"
-                  value={form.search || ""}
-                  placeholder="Selecionar ou digitar para buscar..."
-                  onChange={(e) => {
-                    setForm((prev) => ({ ...prev, search: e.target.value }));
-                    setDropAberto(true);
-                  }}
-                  onFocus={() => setDropAberto(true)}
-                />
-                <span className="cadBuscaSeta" onClick={() => setDropAberto(!dropAberto)}>
-                  {dropAberto ? "▲" : "▼"}
-                </span>
-
-                {dropAberto && (
-                  <div className="cadDropdown">
-                    <div className="cadDropdownScroll">
-                      <table className="cadDropdownTabela">
-                        <thead>
-                          <tr>
-                            <th>Tipo de Exame</th>
-                            <th>Procedimento</th>
-                            <th style={{ textAlign: "right" }}>Valor</th>
-                            <th>Situação</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {linhasFiltradas.length > 0 ? (
-                            linhasFiltradas.map((l) => (
-                              <tr
-                                key={l.id}
-                                onMouseDown={(ev) => {
-                                  ev.preventDefault();
-                                  carregarParaEdicao(l);
-                                }}
-                                className={form.linha?.id === l.id ? "cadLinhaSelecionada" : ""}
-                              >
-                                <td><strong>{l.tipoExameNome}</strong></td>
-                                <td>{l.nome || "—"}</td>
-                                <td style={{ textAlign: "right" }}>
-                                  {l.valor != null ? `R$ ${Number(l.valor).toFixed(2)}` : "—"}
-                                </td>
-                                <td>
-                                  <StatusRegistro
-                                    ativo={l.ativo !== false}
-                                    paiInativo={l.tipoExameAtivo === false}
-                                    nomePai="Tipo de exame"
-                                  />
-                                </td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr>
-                              <td colSpan="4" className="cadSemDados">
-                                Nenhum registro encontrado.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <button
-                type="button"
-                className="cadBtnAdicionar"
-                onClick={() => setForm({ ...FORM_VAZIO, isFormActive: true })}
-              >
-                + Adicionar novo
-              </button>
-            </div>
-          </div>
+        {/* AÇÃO PRINCIPAL — cadastro de um novo registro */}
+        <div className="cadBarraAcoes">
+          <button
+            type="button"
+            className="cadBtnAdicionar"
+            onClick={() => setForm({ ...FORM_VAZIO, isFormActive: true })}
+          >
+            Adicionar novo
+          </button>
         </div>
 
         {/* FORMULÁRIO */}
@@ -551,10 +454,17 @@ export default function CadastroProcedimentos({
                 </tr>
               </thead>
               <tbody>
-                {linhasTabela.map((l) => {
+                {linhasTabela.map((l, i) => {
                   // A linha da categoria (TIPO_EXAME) mostra a própria situação;
                   // as demais combinam o procedimento com o tipo de exame.
                   const ehCategoria = l.tipo === "TIPO_EXAME";
+                  // Hierarquia visual: cada categoria abre um grupo e os
+                  // procedimentos dela aparecem recuados logo abaixo.
+                  const categoriaAnterior = linhasTabela[i - 1];
+                  const abreGrupo =
+                    ehCategoria &&
+                    (!categoriaAnterior ||
+                      String(categoriaAnterior.tipoExameId) !== String(l.tipoExameId));
                   const situacaoLinha = situacaoRegistro({
                     ativo: ehCategoria ? l.tipoExameAtivo : l.ativo,
                     paiAtivo: ehCategoria ? true : l.tipoExameAtivo,
@@ -562,21 +472,40 @@ export default function CadastroProcedimentos({
                   return (
                     <tr
                       key={l.id}
-                      className={
+                      className={[
+                        ehCategoria ? "cadLinhaCategoria" : "cadLinhaSubordinada",
+                        abreGrupo ? "cadGrupoInicio" : "",
                         situacaoLinha.motivo === "categoria"
                           ? "cadLinhaIndisponivel"
                           : situacaoLinha.operacional
                             ? ""
-                            : "cadLinhaInativa"
-                      }
+                            : ehCategoria
+                              ? ""
+                              : "cadLinhaInativa",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
                     >
                       <td>
-                        <strong>{l.tipoExameNome}</strong>
-                        {l.tipo === "TIPO_EXAME" && (
-                          <span className="cadMarcaCategoria">categoria</span>
+                        {ehCategoria ? (
+                          <>
+                            <strong className="cadCategoriaNome">{l.tipoExameNome}</strong>
+                            <span className="cadMarcaCategoria">categoria</span>
+                          </>
+                        ) : (
+                          <span className="cadSubordinadoNome">{l.tipoExameNome}</span>
                         )}
                       </td>
-                      <td>{l.nome || "—"}</td>
+                      <td>
+                        {ehCategoria ? (
+                          <span className="cadVazio">—</span>
+                        ) : (
+                          <>
+                            <span className="cadConector" aria-hidden="true">└</span>
+                            {l.nome}
+                          </>
+                        )}
+                      </td>
                       <td className="cadDireita">
                         {l.valor != null ? `R$ ${Number(l.valor).toFixed(2)}` : "—"}
                       </td>

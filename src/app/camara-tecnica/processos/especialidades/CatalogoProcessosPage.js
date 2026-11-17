@@ -17,7 +17,7 @@
 // `processos_especialidade_procedimento`.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import "@/components/cadastros/padraoCadastro.css";
 import { useConfirm, useNotify } from "@/components/ConfirmDialog";
 import BotaoEditar from "@/components/BotaoEditar";
@@ -38,7 +38,6 @@ const FORM_VAZIO = {
   especialidadeNome: "", // usado quando especialidadeId === "__novo__"
   procedimentoSel: "", // "" | "__novo__" | id do procedimento
   procedimentoNome: "", // nome do procedimento (novo ou existente)
-  search: "",
   isEditing: false,
   isFormActive: false,
 };
@@ -61,22 +60,9 @@ export default function CatalogoProcessosPage({
     linhas: [],
   });
   const [form, setForm] = useState(FORM_VAZIO);
-  const [dropAberto, setDropAberto] = useState(false);
   const [filterEspecialidadeId, setFilterEspecialidadeId] = useState("");
   const [situacao, setSituacao] = useState("ativos");
   const [alternando, setAlternando] = useState(null);
-
-  const dropRef = useRef(null);
-
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (dropRef.current && !dropRef.current.contains(e.target)) {
-        setDropAberto(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   const reloadData = useCallback(async () => {
     const res = await getCatalogoProcessosData();
@@ -109,25 +95,14 @@ export default function CatalogoProcessosPage({
       especialidadeNome: "",
       procedimentoSel: linha.procedimentoId ? String(linha.procedimentoId) : "",
       procedimentoNome: linha.procedimentoNome || "",
-      search: linha.procedimentoNome || linha.especialidadeNome,
       isEditing: true,
       isFormActive: false,
     });
-    setDropAberto(false);
   };
 
   const habilitarEdicao = () => setForm((prev) => ({ ...prev, isFormActive: true }));
 
   // ── Busca no banco ───────────────────────────────────────────────────────
-  const termo = (form.search || "").toLowerCase().trim();
-  const linhasFiltradas = (data.linhas || []).filter((l) => {
-    if (!termo) return true;
-    return (
-      (l.procedimentoNome || "").toLowerCase().includes(termo) ||
-      (l.especialidadeNome || "").toLowerCase().includes(termo)
-    );
-  });
-
   const usandoNovaEsp = form.especialidadeId === "__novo__";
   const usandoNovoProc = form.procedimentoSel === "__novo__";
 
@@ -345,89 +320,15 @@ export default function CatalogoProcessosPage({
           </span>
         </div>
 
-        {/* BUSCA */}
-        <div className="cadBuscaBox">
-          <div className="cadCampo">
-            <label>Buscar no Banco (Especialidade ou Procedimento)</label>
-            <div className="cadBuscaRow">
-              <div className="cadBuscaWrapper" ref={dropRef}>
-                <input
-                  type="text"
-                  className="cadBuscaInput"
-                  value={form.search || ""}
-                  placeholder="Selecionar ou digitar para buscar..."
-                  onChange={(e) => {
-                    setForm((prev) => ({ ...prev, search: e.target.value }));
-                    setDropAberto(true);
-                  }}
-                  onFocus={() => setDropAberto(true)}
-                />
-                <span className="cadBuscaSeta" onClick={() => setDropAberto(!dropAberto)}>
-                  {dropAberto ? "▲" : "▼"}
-                </span>
-
-                {dropAberto && (
-                  <div className="cadDropdown">
-                    <div className="cadDropdownScroll">
-                      <table className="cadDropdownTabela">
-                        <thead>
-                          <tr>
-                            <th>Especialidade</th>
-                            <th>Procedimento</th>
-                            <th>Situação</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {linhasFiltradas.length > 0 ? (
-                            linhasFiltradas.map((l) => (
-                              <tr
-                                key={l.id}
-                                onMouseDown={(ev) => {
-                                  ev.preventDefault();
-                                  carregarParaEdicao(l);
-                                }}
-                                className={form.linha?.id === l.id ? "cadLinhaSelecionada" : ""}
-                              >
-                                <td>
-                                  <strong>{l.especialidadeNome}</strong>
-                                </td>
-                                <td>{l.procedimentoNome || "—"}</td>
-                                <td>
-                                  <StatusRegistro
-                                    ativo={
-                                      l.procedimentoId
-                                        ? l.procedimentoAtivo !== false
-                                        : l.especialidadeAtivo !== false
-                                    }
-                                    paiInativo={l.especialidadeAtivo === false}
-                                    nomePai="Especialidade"
-                                  />
-                                </td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr>
-                              <td colSpan="3" className="cadSemDados">
-                                Nenhum registro encontrado.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <button
-                type="button"
-                className="cadBtnAdicionar"
-                onClick={() => setForm({ ...FORM_VAZIO, isFormActive: true })}
-              >
-                + Adicionar novo
-              </button>
-            </div>
-          </div>
+        {/* AÇÃO PRINCIPAL — cadastro de um novo registro */}
+        <div className="cadBarraAcoes">
+          <button
+            type="button"
+            className="cadBtnAdicionar"
+            onClick={() => setForm({ ...FORM_VAZIO, isFormActive: true })}
+          >
+            Adicionar novo
+          </button>
         </div>
 
         {/* FORMULÁRIO */}
@@ -578,8 +479,16 @@ export default function CatalogoProcessosPage({
                 </tr>
               </thead>
               <tbody>
-                {linhasTabela.map((l) => {
+                {linhasTabela.map((l, i) => {
                   const temProcedimento = Boolean(l.procedimentoId);
+                  // Hierarquia visual: a especialidade abre o grupo e os
+                  // procedimentos dela aparecem recuados logo abaixo.
+                  const especialidadeAnterior = linhasTabela[i - 1];
+                  const abreGrupo =
+                    !temProcedimento &&
+                    (!especialidadeAnterior ||
+                      String(especialidadeAnterior.especialidadeId) !==
+                        String(l.especialidadeId));
                   // A linha da especialidade (categoria) mostra a própria
                   // situação; a do vínculo combina procedimento com especialidade.
                   const situacaoLinha = temProcedimento
@@ -591,21 +500,40 @@ export default function CatalogoProcessosPage({
                   return (
                     <tr
                       key={l.id}
-                      className={
+                      className={[
+                        temProcedimento ? "cadLinhaSubordinada" : "cadLinhaCategoria",
+                        abreGrupo ? "cadGrupoInicio" : "",
                         situacaoLinha.motivo === "categoria"
                           ? "cadLinhaIndisponivel"
                           : situacaoLinha.operacional
                             ? ""
-                            : "cadLinhaInativa"
-                      }
+                            : temProcedimento
+                              ? "cadLinhaInativa"
+                              : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
                     >
                       <td>
-                        <strong>{l.especialidadeNome}</strong>
-                        {!temProcedimento && (
-                          <span className="cadMarcaCategoria">categoria</span>
+                        {temProcedimento ? (
+                          <span className="cadSubordinadoNome">{l.especialidadeNome}</span>
+                        ) : (
+                          <>
+                            <strong className="cadCategoriaNome">{l.especialidadeNome}</strong>
+                            <span className="cadMarcaCategoria">categoria</span>
+                          </>
                         )}
                       </td>
-                      <td>{l.procedimentoNome || "—"}</td>
+                      <td>
+                        {temProcedimento ? (
+                          <>
+                            <span className="cadConector" aria-hidden="true">└</span>
+                            {l.procedimentoNome}
+                          </>
+                        ) : (
+                          <span className="cadVazio">—</span>
+                        )}
+                      </td>
                       <td>
                         <StatusRegistro
                           ativo={situacaoLinha.individualAtivo}

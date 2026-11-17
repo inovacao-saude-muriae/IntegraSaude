@@ -289,6 +289,68 @@
 
 .cadBtnAdicionar:hover { background-color: #047857; }
 
+/* Barra do topo do card: apenas a ação principal de cadastro. */
+.cadBarraAcoes {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+
+/* ── Hierarquia da listagem ─────────────────────────────────────────────────
+   A categoria superior abre o grupo (linha destacada) e os registros
+   subordinados aparecem logo abaixo, recuados e com um conector, para que a
+   relação entre eles fique evidente. */
+.cadLinhaCategoria td {
+  background-color: #f1f5f9;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 0.7rem;
+  padding-bottom: 0.7rem;
+}
+
+.cadLinhaCategoria:hover td { background-color: #e8eef5; }
+
+.cadCategoriaNome {
+  color: #0f172a;
+  font-size: 0.9rem;
+}
+
+.cadLinhaSubordinada td:first-child {
+  padding-left: 1.9rem;
+  position: relative;
+}
+
+/* Fio vertical do grupo, ligando a categoria aos subordinados. */
+.cadLinhaSubordinada td:first-child::before {
+  content: "";
+  position: absolute;
+  left: 1.05rem;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background-color: #cbd5e1;
+}
+
+.cadLinhaSubordinada:last-child td:first-child::before {
+  bottom: 50%;
+}
+
+.cadConector {
+  display: inline-block;
+  margin-right: 0.45rem;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.cadSubordinadoNome {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+/* Espaçamento extra entre grupos diferentes. */
+.cadGrupoInicio td { border-top: 2px solid #e2e8f0; }
+
+.cadVazio { color: #cbd5e1; }
+
 .cadBtnGhost {
   background-color: transparent;
   color: #475569;
