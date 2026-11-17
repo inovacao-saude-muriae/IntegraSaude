@@ -47,14 +47,15 @@ export async function getProcedimentosData() {
       }),
     ]);
 
-    const tiposComProc = new Set(procedimentos.map((p) => p.tipoExameId));
     const tipoAtivoPorId = new Map(tiposExame.map((t) => [t.id, t.ativo !== false]));
 
-    // Procedimentos: a disponibilidade operacional é o próprio `ativo`. O tipo de
-    // exame é agrupamento do cadastro, não uma categoria com situação própria.
+    // Procedimentos: a disponibilidade é a combinação do próprio `ativo` com a
+    // situação do Tipo de Exame (categoria superior). O `ativo` do procedimento
+    // nunca é alterado pela inativação do tipo, então reativar o tipo devolve a
+    // cada procedimento o estado que ele tinha.
     const linhasProc = procedimentos.map((p) => {
       const tipoExameAtivo = tipoAtivoPorId.get(p.tipoExameId) !== false;
-      const situacao = situacaoRegistro({ ativo: p.ativo, paiAtivo: true });
+      const situacao = situacaoRegistro({ ativo: p.ativo, paiAtivo: tipoExameAtivo });
       return {
         id: p.id,
         tipo: "PROCEDIMENTO",
@@ -70,9 +71,10 @@ export async function getProcedimentosData() {
       };
     });
 
-    // Tipo de exame sem nenhum procedimento aparece como uma linha própria.
-    const linhasTipoSozinho = tiposExame
-      .filter((t) => !tiposComProc.has(t.id))
+    // Todo tipo de exame tem sua PRÓPRIA linha (a categoria), mesmo quando tem
+    // procedimentos: é nela que fica a ação de inativar/reativar a categoria.
+    // A linha com `nome` vazio é a da categoria; as demais são os procedimentos.
+    const linhasCategoria = tiposExame
       .map((t) => {
         const tipoExameAtivo = t.ativo !== false;
         return {
@@ -91,9 +93,14 @@ export async function getProcedimentosData() {
         };
       });
 
-    const linhas = [...linhasProc, ...linhasTipoSozinho].sort((a, b) => {
+    // Ordem: por Tipo de Exame e, dentro do tipo, a linha da categoria primeiro
+    // e os procedimentos em seguida — a hierarquia fica visível na listagem.
+    const ehCategoria = (l) => (l.tipo === "TIPO_EXAME" ? 0 : 1);
+    const linhas = [...linhasCategoria, ...linhasProc].sort((a, b) => {
       const cmp = a.tipoExameNome.localeCompare(b.tipoExameNome, "pt-BR");
       if (cmp !== 0) return cmp;
+      const nivel = ehCategoria(a) - ehCategoria(b);
+      if (nivel !== 0) return nivel;
       return (a.nome || "").localeCompare(b.nome || "", "pt-BR");
     });
 
@@ -186,6 +193,58 @@ export async function updateRegistro(linha, data) {
     return { success: true };
   } catch (error) {
     console.error("Erro ao atualizar registro:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Inativa/reativa o TIPO DE EXAME (categoria superior da Regulação).
+ *
+ * Não toca no `ativo` dos procedimentos: eles apenas ficam operacionalmente
+ * indisponíveis enquanto o tipo estiver inativo. Reativar o tipo devolve cada
+ * procedimento ao estado que ele tinha — inclusive os que já estavam inativos
+ * individualmente.
+ */
+export async function alterarSituacaoTipoExame(id, { ativo } = {}) {
+  try {
+    const user = await requirePermissao(MODULOS.REGULACAO, "procedimentos", "inativar");
+    const tipoId = Number(id);
+    if (!Number.isSafeInteger(tipoId) || tipoId <= 0) {
+      return { success: false, error: "Tipo de exame inválido." };
+    }
+    if (typeof ativo !== "boolean") {
+      return { success: false, error: "Informe a situação desejada." };
+    }
+
+    const atual = await prisma.tipoExame.findUnique({ where: { id: tipoId } });
+    if (!atual) return { success: false, error: "Tipo de exame não encontrado." };
+    if ((atual.ativo !== false) === ativo) return { success: true, semAlteracoes: true };
+
+    await prisma.tipoExame.update({ where: { id: tipoId }, data: { ativo } });
+
+    const subordinados = await prisma.procedimento.count({
+      where: { tipoExameId: tipoId },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: ativo ? "REATIVAR" : "DESATIVAR",
+      modulo: "REGULACAO",
+      entidade: "TipoExame",
+      entidadeId: String(tipoId),
+      descricao: `Tipo de exame '${atual.nome}' ${ativo ? "reativado" : "inativado"}`,
+      detalhes: {
+        nome: atual.nome,
+        ativo,
+        // A inativação da categoria não muda a situação individual dos filhos.
+        procedimentosAfetados: subordinados,
+      },
+    });
+
+    revalidatePath("/regulacao");
+    return { success: true, subordinados };
+  } catch (error) {
+    console.error("Erro ao alterar situação do tipo de exame:", error);
     return { success: false, error: error.message };
   }
 }

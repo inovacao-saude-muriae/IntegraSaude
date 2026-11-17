@@ -91,8 +91,13 @@ model Endereco {
 model TipoExame {
   id            Int            @id @default(autoincrement())
   nome          String         @db.VarChar(50)
+  // Situação do tipo de exame (categoria superior). Inativar o tipo não altera
+  // o `ativo` dos procedimentos: eles ficam indisponíveis enquanto o tipo
+  // estiver inativo e voltam ao estado anterior quando ele é reativado.
+  ativo         Boolean        @default(true)
   procedimentos Procedimento[]
 
+  @@index([ativo], map: "idx_regula_tipo_exame_ativo")
   @@map("regula_tipo_exame")
 }
 

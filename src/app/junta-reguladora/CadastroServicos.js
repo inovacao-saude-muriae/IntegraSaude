@@ -561,6 +561,8 @@ export default function CadastroServicos({
                               podeInativar={podeInativar}
                               ocupado={alternando === `s-${l.servicoId}`}
                               onAlternar={() => alternarServico(l)}
+                              rotuloInativar="Inativar serviço"
+                              rotuloReativar="Reativar serviço"
                             />
                           )}
                         </div>

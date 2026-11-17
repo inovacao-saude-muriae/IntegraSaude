@@ -628,6 +628,8 @@ export default function CatalogoProcessosPage({
                               podeInativar={podeInativarEspecialidade}
                               ocupado={alternando === `e-${l.especialidadeId}`}
                               onAlternar={() => alternarEspecialidade(l)}
+                              rotuloInativar="Inativar especialidade"
+                              rotuloReativar="Reativar especialidade"
                             />
                           )}
                         </div>

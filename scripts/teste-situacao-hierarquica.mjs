@@ -1,12 +1,12 @@
 /**
  * Inativação/reativação HIERÁRQUICA nos três cadastros.
  *
+ *   Regulação → Tipo de Exame      → Procedimento
  *   Junta     → Serviço            → Especialidade
  *   Processos → Especialidade      → Procedimento (N:N)
  *
- * Na Regulação o cadastro é de UM nível (Procedimento): a hierarquia de
- * categoria não se aplica — o Tipo de Exame não é uma categoria com situação
- * própria. Ali valida-se a disponibilidade operacional do próprio registro.
+ * Em todos os três, CADA linha da listagem tem seu próprio botão: a linha da
+ * categoria e a linha de cada registro subordinado.
  *
  * Valida, no backend e na tela, que:
  *  - inativar a categoria deixa os subordinados indisponíveis SEM mudar o
@@ -17,7 +17,9 @@
  *  - no N:N, a inativação de uma categoria não afeta a disponibilidade do
  *    procedimento pela outra categoria ativa;
  *  - registros históricos e vínculos são preservados;
- *  - o catálogo usado pelo cadastro do módulo só oferece registro disponível.
+ *  - o catálogo usado pelo cadastro do módulo só oferece registro disponível;
+ *  - cada linha da listagem (categoria e subordinado) tem seu próprio botão,
+ *    clicável de forma independente, no navegador real.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -178,7 +180,7 @@ await limpar();
 
 try {
   // ═══════════════════════════════════════════════════════════════════════
-  console.log("\n1. REGULAÇÃO — cadastro de um nível (Procedimento)\n");
+  console.log("\n1. REGULAÇÃO — Tipo de Exame (categoria) × Procedimento\n");
 
   const tipoA = (
     await db.query(
@@ -220,38 +222,52 @@ try {
     [procA2, { ativo: false }],
     REG,
   );
-  check("inativa um procedimento", inativaIndividual.success === true, JSON.stringify(inativaIndividual).slice(0, 140));
+  check("inativa um procedimento individualmente", inativaIndividual.success === true, JSON.stringify(inativaIndividual).slice(0, 140));
 
   let dados = await chamar(tokenFixture, "getProcedimentosData", [], REG);
   const linhaDe = (d, id) => (d.linhas || []).find((l) => l.procedimentoId === id);
+  const categoriaDe = (d, tipoId) =>
+    (d.linhas || []).find((l) => l.tipo === "TIPO_EXAME" && l.tipoExameId === tipoId);
+  check("o tipo de exame tem linha própria (categoria)", Boolean(categoriaDe(dados, tipoA)));
   check("procedimento inativo: disponivel=false", linhaDe(dados, procA2)?.disponivel === false);
-  check("procedimento ativo: disponivel=true", linhaDe(dados, procA1)?.disponivel === true);
-  check("inativar um procedimento não afeta o irmão", linhaDe(dados, procA1)?.ativo === true);
-  check(
-    "a Regulação não tem categoria com situação própria (só procedimentos)",
-    (dados.linhas || []).every((l) => l.tipo === "PROCEDIMENTO"),
-    JSON.stringify((dados.linhas || []).map((l) => l.tipo)),
+  check("procedimento irmão ativo: disponivel=true", linhaDe(dados, procA1)?.disponivel === true);
+
+  const inativaCategoria = await chamar(
+    tokenFixture,
+    "alterarSituacaoTipoExame",
+    [tipoA, { ativo: false }],
+    REG,
   );
+  check("inativa o tipo de exame (categoria)", inativaCategoria.success === true, JSON.stringify(inativaCategoria).slice(0, 160));
+  check("a ação informa quantos procedimentos foram afetados", inativaCategoria.subordinados === 2, inativaCategoria.subordinados);
+
+  const filhos = await db.query(
+    "SELECT id, ativo FROM regula_procedimentos WHERE tipo_exame_id=$1 ORDER BY id",
+    [tipoA],
+  );
+  const ativoDe = (id) => filhos.rows.find((r) => r.id === id)?.ativo;
+  check("inativar a categoria NÃO altera o ativo do procedimento ativo", ativoDe(procA1) === true);
+  check("inativar a categoria NÃO altera o ativo do procedimento inativo", ativoDe(procA2) === false);
+
+  dados = await chamar(tokenFixture, "getProcedimentosData", [], REG);
+  check("subordinado ativo fica indisponível pela categoria", linhaDe(dados, procA1)?.disponivel === false);
+  check("motivo registrado como categoria", linhaDe(dados, procA1)?.indisponivelPorCategoria === true);
+  check("situação individual preservada no dado", linhaDe(dados, procA1)?.ativo === true);
+  check("outro tipo de exame continua disponível", linhaDe(dados, procB1)?.disponivel === true);
+  check("a categoria fica indisponível", categoriaDe(dados, tipoA)?.disponivel === false);
+
+  await chamar(tokenFixture, "alterarSituacaoTipoExame", [tipoA, { ativo: true }], REG);
+  dados = await chamar(tokenFixture, "getProcedimentosData", [], REG);
+  check("reativar a categoria devolve a disponibilidade", linhaDe(dados, procA1)?.disponivel === true);
+  check("inativação individual preservada após reativar a categoria", linhaDe(dados, procA2)?.disponivel === false && linhaDe(dados, procA2)?.ativo === false);
 
   // Catálogo do formulário do módulo: só procedimento disponível.
   const aux = await chamar(tokenFixture, "getAuxiliaryData", [], {
     rota: "/regulacao",
     arquivo: "regulacao/actions",
   });
-  const procsAux = aux.procedimentos || [];
-  check("catálogo do pedido marca o procedimento inativo como indisponível", procsAux.find((x) => x.id === procA2)?.disponivel === false, JSON.stringify(procsAux.find((x) => x.id === procA2)));
-  check("catálogo do pedido mantém o procedimento ativo disponível", procsAux.find((x) => x.id === procA1)?.disponivel === true);
-
-  const reativaIndividual = await chamar(
-    tokenFixture,
-    "alterarSituacaoProcedimento",
-    [procA2, { ativo: true }],
-    REG,
-  );
-  check("reativa o procedimento", reativaIndividual.success === true);
-  dados = await chamar(tokenFixture, "getProcedimentosData", [], REG);
-  check("procedimento reativado volta a disponível", linhaDe(dados, procA2)?.disponivel === true);
-  check("os demais continuam disponíveis", linhaDe(dados, procA1)?.disponivel === true && linhaDe(dados, procB1)?.disponivel === true);
+  check("catálogo do pedido marca o procedimento inativo como indisponível", (aux.procedimentos || []).find((x) => x.id === procA2)?.disponivel === false);
+  check("catálogo do pedido mantém o procedimento ativo disponível", (aux.procedimentos || []).find((x) => x.id === procA1)?.disponivel === true);
 
   console.log("\n2. JUNTA — Serviço (categoria) × Especialidade\n");
 
@@ -411,11 +427,21 @@ try {
   console.log("\n4. Auditoria e permissões\n");
   const aud = await db.query(
     `SELECT entidade, acao, detalhes FROM audit_logs
-      WHERE entidade IN ('Procedimento','Servico','ProcessoEspecialidade')
+      WHERE entidade IN ('TipoExame','Procedimento','Servico','ProcessoEspecialidade')
         AND created_at > now() - interval '10 minutes'
       ORDER BY id DESC`,
   );
-  check("auditoria registra DESATIVAR/REATIVAR do procedimento (Regulação)", aud.rows.some((r) => r.entidade === "Procedimento" && r.acao === "DESATIVAR") && aud.rows.some((r) => r.entidade === "Procedimento" && r.acao === "REATIVAR"), JSON.stringify(aud.rows.filter((r) => r.entidade === "Procedimento").slice(0,2)));
+  // `alterarSituacaoProcedimento` audita com a entidade do PROCEDIMENTO
+  check(
+    "auditoria registra DESATIVAR/REATIVAR do procedimento (Regulação)",
+    // Inativação e reativação foram gravadas como DESATIVAR e REATIVAR (nunca
+    // INATIVAR) sobre um procedimento da Regulação.
+    aud.rows.some((r) => r.entidade === "Procedimento" && r.acao === "DESATIVAR") &&
+      aud.rows.some((r) => r.entidade === "Procedimento" && r.acao === "REATIVAR"),
+    JSON.stringify(aud.rows.filter((r) => r.entidade === "Procedimento").slice(0, 3)),
+  );
+  check("auditoria registra DESATIVAR/REATIVAR do tipo de exame", aud.rows.some((r) => r.entidade === "TipoExame" && r.acao === "DESATIVAR") && aud.rows.some((r) => r.entidade === "TipoExame" && r.acao === "REATIVAR"));
+  check("auditoria do tipo de exame informa os procedimentos afetados", aud.rows.some((r) => r.entidade === "TipoExame" && r.detalhes?.procedimentosAfetados === 2), JSON.stringify(aud.rows.find((r) => r.entidade === "TipoExame")?.detalhes));
   check("auditoria do serviço informa as especialidades afetadas", aud.rows.some((r) => r.entidade === "Servico" && r.detalhes?.especialidadesAfetadas === 2), JSON.stringify(aud.rows.find((r) => r.entidade === "Servico")?.detalhes));
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -434,36 +460,206 @@ try {
 
   // Regulação: cadastro de um nível — procedimento inativo individual
   await db.query("UPDATE regula_procedimentos SET ativo=false WHERE id=$1", [procB1]);
+  // A rota ?tab=PROCEDIMENTOS é compartilhada com Exames; garante a aba certa.
+  const abaProcedimentos = p.getByRole("tab", { name: /Procedimentos/i });
+  if (await abaProcedimentos.count()) {
+    await abaProcedimentos.first().click();
+    await p.waitForTimeout(1200);
+  }
   await abrir("/regulacao?tab=PROCEDIMENTOS");
-  const situacaoReg = await p.locator(".cadTabela tbody tr").evaluateAll((trs) =>
-    trs.map((tr) => ({
-      texto: tr.textContent,
-      etiqueta: tr.querySelector(".cadStatusAtivo, .cadStatusInativo, .cadStatusIndisponivel")?.className,
-      classe: tr.className,
-    })),
+  await p.locator(".cadFiltroSituacao select").first().selectOption("todos");
+  await p.waitForTimeout(900);
+
+  // Cada linha tem o SEU botão: categoria (Inativar/Reativar tipo) e
+  // subordinado (Inativar/Reativar). Lê o botão de cada linha da hierarquia.
+  const linhasReg = await p.locator(".cadTabela tbody tr").evaluateAll(
+    (trs, marca) =>
+      trs
+        .map((tr) => ({
+          texto: tr.textContent,
+          botoes: [...tr.querySelectorAll("button")].map((b) => b.textContent.trim()),
+        }))
+        .filter((l) => l.texto.includes(marca)),
+    MARCA,
   );
-  const marcaB = situacaoReg.find((r) => r.texto.includes(`${MARCA} Hemograma`));
-  check("Regulação: filtro Ativos não traz o procedimento inativo", !marcaB);
-  await p.locator(".cadFiltroSituacao select").first().selectOption("inativos");
-  await p.waitForTimeout(800);
-  const emInativos = await p.locator(".cadTabela tbody tr").allTextContents();
-  check(
-    "Regulação: em Inativos aparece o procedimento inativo",
-    emInativos.some((t) => t.includes(`${MARCA} Hemograma`)),
-    JSON.stringify(emInativos.slice(0, 3)),
+  const linhaCategoriaReg = linhasReg.find(
+    (l) => l.texto.includes(`${MARCA} Imagem`) && l.texto.includes("categoria"),
   );
-  const botaoSubordinado = await p
+  const linhaProc1 = linhasReg.find(
+    (l) => l.texto.includes(`${MARCA} Raio-X`) && !l.texto.includes("categoria"),
+  );
+  const linhaProc2 = linhasReg.find(
+    (l) => l.texto.includes(`${MARCA} Tomografia`) && !l.texto.includes("categoria"),
+  );
+  check("Regulação: linha da categoria tem botão próprio", linhaCategoriaReg?.botoes.length === 1, JSON.stringify(linhaCategoriaReg));
+  check("Regulação: linha do procedimento 1 tem botão próprio", linhaProc1?.botoes.length === 1, JSON.stringify(linhaProc1));
+  check("Regulação: linha do procedimento 2 tem botão próprio", linhaProc2?.botoes.length === 1, JSON.stringify(linhaProc2));
+
+  // Clique real na categoria e no subordinado, de forma independente.
+  const linhaCategoria = p
     .locator(".cadTabela tbody tr")
-    .filter({ hasText: `${MARCA} Hemograma` })
-    .first()
-    .locator("button")
-    .allTextContents();
-  check(
-    "Regulação: a linha tem ação de Reativar",
-    botaoSubordinado.some((t) => /Reativar/.test(t)),
-    JSON.stringify(botaoSubordinado),
+    .filter({ hasText: `${MARCA} Imagem` })
+    .filter({ has: p.locator(".cadMarcaCategoria") })
+    .first();
+  await linhaCategoria.locator("button").first().click();
+  const modal = p.locator('[role="dialog"]');
+  await modal.waitFor({ state: "visible", timeout: 8000 });
+  check("Regulação: o botão da categoria abre a confirmação", true);
+  const textoModal = await modal.textContent();
+  check("Regulação: a confirmação menciona o tipo de exame", /tipo de exame/i.test(textoModal), textoModal.slice(0, 120));
+  await modal.locator("button").filter({ hasText: /^Inativar$/ }).first().click();
+  await p.waitForTimeout(2000);
+  const aviso = p.locator('[role="alertdialog"]');
+  if (await aviso.count()) {
+    await aviso.locator("button").last().click();
+    await p.waitForTimeout(600);
+  }
+  const tipoInativado = await db.query("SELECT ativo FROM regula_tipo_exame WHERE id=$1", [tipoA]);
+  check("Regulação: o clique na categoria inativa o tipo de exame", tipoInativado.rows[0].ativo === false);
+
+  await abrir("/regulacao?tab=PROCEDIMENTOS");
+  const aba2 = p.getByRole("tab", { name: /Procedimentos/i });
+  if (await aba2.count()) {
+    await aba2.first().click();
+    await p.waitForTimeout(1200);
+  }
+  await p.locator(".cadFiltroSituacao select").first().selectOption("todos");
+  await p.waitForTimeout(900);
+  const marcaIndisp = await p.locator(".cadStatusIndisponivel").count();
+  check("Regulação: procedimento ativo de categoria inativa aparece como Indisponível", marcaIndisp > 0, marcaIndisp);
+  const procNoBanco = await db.query("SELECT ativo FROM regula_procedimentos WHERE id=$1", [procA1]);
+  check("Regulação: o procedimento ativo continua ativo no banco", procNoBanco.rows[0].ativo === true);
+  await p.screenshot({ path: `${SAIDA}/regulacao-todos-1440.png`, fullPage: true });
+
+  // Clique individual: reativa só o procedimento já inativo
+  const aba3 = p.getByRole("tab", { name: /Procedimentos/i });
+  if (await aba3.count()) {
+    await aba3.first().click();
+    await p.waitForTimeout(1000);
+  }
+  const linhaSubordinado = p
+    .locator(".cadTabela tbody tr")
+    .filter({ hasText: `${MARCA} Raio-X` })
+    .filter({ hasNot: p.locator(".cadMarcaCategoria") })
+    .first();
+  await linhaSubordinado.locator("button").first().click();
+  const modal2 = p.locator('[role="dialog"]');
+  await modal2.waitFor({ state: "visible", timeout: 8000 });
+  const textoModal2 = await modal2.textContent();
+  check("Regulação: a confirmação do subordinado cita o procedimento", /Raio-X/.test(textoModal2), textoModal2.slice(0, 120));
+  await modal2.locator("button").filter({ hasText: /^Inativar$/ }).first().click();
+  await p.waitForTimeout(2000);
+  const aviso2 = p.locator('[role="alertdialog"]');
+  if (await aviso2.count()) {
+    await aviso2.locator("button").last().click();
+    await p.waitForTimeout(600);
+  }
+  const proc1Depois = await db.query("SELECT ativo FROM regula_procedimentos WHERE id=$1", [procA1]);
+  const tipoDepois = await db.query("SELECT ativo FROM regula_tipo_exame WHERE id=$1", [tipoA]);
+  check("Regulação: inativar o subordinado não mexe na categoria", tipoDepois.rows[0].ativo === false);
+  check("Regulação: o subordinado fica inativo individualmente", proc1Depois.rows[0].ativo === false);
+
+  // Restaura a categoria e o procedimento para o fim da suíte
+  await chamar(tokenFixture, "alterarSituacaoTipoExame", [tipoA, { ativo: true }], REG);
+  await chamar(tokenFixture, "alterarSituacaoProcedimento", [procA1, { ativo: true }], REG);
+
+  // ── Junta: botão em cada linha e clique independente ────────────────────
+  await db.query("UPDATE junta_servicos SET ativo=false WHERE id=$1", [servicoA]);
+  await abrir("/gerenciamento/servicos-especialidades");
+  await p.locator(".cadFiltroSituacao select").first().selectOption("todos");
+  await p.waitForTimeout(900);
+  const linhasJunta = await p.locator(".cadTabela tbody tr").evaluateAll(
+    (trs, marca) =>
+      trs
+        .map((tr) => ({
+          texto: tr.textContent,
+          botoes: [...tr.querySelectorAll("button")].map((b) => b.textContent.trim()),
+        }))
+        .filter((l) => l.texto.includes(marca)),
+    MARCA,
   );
-  await p.screenshot({ path: `${SAIDA}/regulacao-indisponiveis.png` });
+  const jCat = linhasJunta.find((l) => l.texto.includes(`${MARCA} CAEE`) && l.texto.includes("categoria"));
+  const jEsp = linhasJunta.find((l) => l.texto.includes(`${MARCA} Fono`) && !l.texto.includes("categoria"));
+  check("Junta: linha do serviço tem botão próprio", jCat?.botoes.length === 1, JSON.stringify(jCat));
+  check("Junta: linha da especialidade tem botão próprio", jEsp?.botoes.length === 1, JSON.stringify(jEsp));
+  check("Junta: especialidade de serviço inativo aparece como Indisponível", /Indisponível/.test(jEsp?.texto || ""), JSON.stringify(jEsp?.texto));
+
+  const linhaEsp = p
+    .locator(".cadTabela tbody tr")
+    .filter({ hasText: `${MARCA} Fono` })
+    .filter({ hasNot: p.locator(".cadMarcaCategoria") })
+    .first();
+  await linhaEsp.locator("button").first().click();
+  const modalJ = p.locator('[role="dialog"]');
+  await modalJ.waitFor({ state: "visible", timeout: 8000 });
+  const textoModalJ = await modalJ.textContent();
+  check("Junta: a confirmação cita a especialidade", /Fono/.test(textoModalJ), textoModalJ.slice(0, 120));
+  await modalJ.locator("button").filter({ hasText: /^Inativar$/ }).first().click();
+  await p.waitForTimeout(2000);
+  const avisoJ = p.locator('[role="alertdialog"]');
+  if (await avisoJ.count()) {
+    await avisoJ.locator("button").last().click();
+    await p.waitForTimeout(600);
+  }
+  const espDepois = await db.query("SELECT ativo FROM junta_especialidades WHERE id=$1", [espA1]);
+  const servicoDepois = await db.query("SELECT ativo FROM junta_servicos WHERE id=$1", [servicoA]);
+  check("Junta: inativar a especialidade não mexe no serviço", servicoDepois.rows[0].ativo === false);
+  check("Junta: a especialidade fica inativa individualmente", espDepois.rows[0].ativo === false);
+  await p.screenshot({ path: `${SAIDA}/junta-todos-1440.png`, fullPage: true });
+
+  // ── Processos: botão em cada linha e clique independente ────────────────
+  await db.query("UPDATE processos_especialidades SET ativo=false WHERE id=$1", [espOrto]);
+  await abrir("/gerenciamento/especialidades-procedimentos");
+  await p.locator(".cadFiltroSituacao select").first().selectOption("todos");
+  await p.waitForTimeout(900);
+  const linhasProcTela = await p.locator(".cadTabela tbody tr").evaluateAll(
+    (trs, marca) =>
+      trs
+        .map((tr) => ({
+          texto: tr.textContent,
+          botoes: [...tr.querySelectorAll("button")].map((b) => b.textContent.trim()),
+        }))
+        .filter((l) => l.texto.includes(marca)),
+    MARCA,
+  );
+  const pCat = linhasProcTela.find((l) => l.texto.includes(`${MARCA} Ortopedia`) && l.texto.includes("categoria"));
+  // O mesmo procedimento aparece em duas especialidades (N:N): a linha que
+  // interessa é a do vínculo com a especialidade INATIVA (Ortopedia).
+  const pVinc = linhasProcTela.find(
+    (l) =>
+      l.texto.includes(`${MARCA} Ortopedia`) &&
+      l.texto.includes(`${MARCA} Bloqueio`) &&
+      !l.texto.includes("categoria"),
+  );
+  check("Processos: linha da especialidade tem botão próprio", pCat?.botoes.length === 1, JSON.stringify(pCat));
+  check("Processos: linha do vínculo tem botão próprio", pVinc?.botoes.length === 1, JSON.stringify(pVinc));
+  check("Processos: vínculo de especialidade inativa aparece como Indisponível", /Indisponível/.test(pVinc?.texto || ""), JSON.stringify(pVinc?.texto));
+
+  const linhaVinc = p
+    .locator(".cadTabela tbody tr")
+    .filter({ hasText: `${MARCA} Ortopedia` })
+    .filter({ hasText: `${MARCA} Bloqueio` })
+    .filter({ hasNot: p.locator(".cadMarcaCategoria") })
+    .first();
+  await linhaVinc.locator("button").first().click();
+  const modalP = p.locator('[role="dialog"]');
+  await modalP.waitFor({ state: "visible", timeout: 8000 });
+  const textoModalP = await modalP.textContent();
+  check("Processos: a confirmação cita o procedimento", /Bloqueio/.test(textoModalP), textoModalP.slice(0, 120));
+  await modalP.locator("button").filter({ hasText: /^Inativar$/ }).first().click();
+  await p.waitForTimeout(2000);
+  const avisoP = p.locator('[role="alertdialog"]');
+  if (await avisoP.count()) {
+    await avisoP.locator("button").last().click();
+    await p.waitForTimeout(600);
+  }
+  const procDepoisP = await db.query("SELECT ativo FROM processos_procedimentos WHERE id=$1", [procCompartilhado]);
+  const espDepoisP = await db.query("SELECT ativo FROM processos_especialidades WHERE id=$1", [espOrto]);
+  check("Processos: o procedimento fica inativo individualmente", procDepoisP.rows[0].ativo === false);
+  check("Processos: a especialidade (categoria) continua como estava", espDepoisP.rows[0].ativo === false);
+  await p.screenshot({ path: `${SAIDA}/processos-todos-1440.png`, fullPage: true });
+
+  await b.close();
 } finally {
   await limpar();
   await db.query("DELETE FROM user_sessions WHERE user_id=$1", [GESTOR]);
