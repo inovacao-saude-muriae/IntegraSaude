@@ -5,8 +5,9 @@ import "@/components/cadastros/padraoCadastro.css";
 import ModalConfirmacaoExclusao from "@/app/regulacao/Modals/ModalConfirmacaoExclusao";
 import { useConfirm, useNotify } from "@/components/ConfirmDialog";
 import BotaoEditar from "@/components/BotaoEditar";
-import FiltroSituacao, { passaSituacao } from "@/components/cadastros/FiltroSituacao";
+import FiltroSituacao from "@/components/cadastros/FiltroSituacao";
 import StatusRegistro from "@/components/cadastros/StatusRegistro";
+import { situacaoRegistro, passaSituacaoOperacional } from "@/components/cadastros/situacaoCadastro";
 import AcoesSituacao from "@/components/cadastros/AcoesSituacao";
 import {
   createRegistro,
@@ -84,9 +85,14 @@ export default function CadastroServicos({
   const usandoNovoServico = form.servicoId === "__novo__";
   const usandoNovaEsp = form.especialidadeSel === "__novo__";
 
-  // Especialidades do serviço selecionado (para o dropdown).
+  // Especialidades do serviço selecionado (para o dropdown). Só as disponíveis
+  // entram como opção nova; a que está em edição permanece mesmo inativa.
   const especialidadesDoServico = (data.linhas || []).filter(
-    (l) => l.especialidadeId && String(l.servicoId) === String(form.servicoId)
+    (l) =>
+      l.especialidadeId &&
+      String(l.servicoId) === String(form.servicoId) &&
+      (l.disponivel !== false ||
+        String(l.especialidadeId) === String(form.especialidadeSel)),
   );
 
   const onSelecionarEspecialidade = (value) => {
@@ -177,9 +183,12 @@ export default function CadastroServicos({
       title: `${acao} serviço`,
       message: ativo
         ? `Inativar o serviço "${linha.servicoNome}"? Ele deixa de aparecer em novos ` +
-          `cadastros e as especialidades dele também ficam indisponíveis. Os ` +
-          `agendamentos e atendimentos já registrados continuam intactos.`
-        : `Reativar o serviço "${linha.servicoNome}"?`,
+          `cadastros e as especialidades dele ficam indisponíveis — sem serem ` +
+          `inativadas individualmente. Os agendamentos e atendimentos já registrados ` +
+          `continuam intactos.`
+        : `Reativar o serviço "${linha.servicoNome}"? As especialidades dele voltam a ` +
+          `ficar disponíveis, exceto as que estavam inativas individualmente, que ` +
+          `continuam inativas.`,
       confirmText: acao,
     });
     if (!ok) return;
@@ -220,17 +229,18 @@ export default function CadastroServicos({
   }
 
   const linhasTabela = (data.linhas || []).filter((l) => {
-        if (filterServicoId && String(l.servicoId) !== String(filterServicoId)) return false;
-        // Situação combinada: serviço e especialidade precisam passar no filtro.
-        // Linha sem especialidade é avaliada pela situação do serviço.
-        if (!passaSituacao(situacao, l.servicoAtivo !== false)) return false;
-        if (l.especialidadeId && !passaSituacao(situacao, l.especialidadeAtivo !== false)) {
-          return false;
-        }
-        return true;
-      });
+    if (filterServicoId && String(l.servicoId) !== String(filterServicoId)) return false;
+    // Disponibilidade operacional: combina a situação do serviço (categoria)
+    // com a da especialidade. Especialidade ativa de serviço inativo aparece
+    // em "Inativos" como indisponível.
+    return passaSituacaoOperacional(situacao, l.disponivel !== false);
+  });
 
-  const servicosDisponiveis = (data.servicos || []).filter((s) => s.ativo !== false);
+  // Serviços utilizáveis em novos registros: só os ativos. O serviço aberto para
+  // edição continua na lista mesmo inativo, para não perder a referência.
+  const servicosDisponiveis = (data.servicos || []).filter(
+    (s) => s.ativo !== false || String(s.id) === String(form.servicoId),
+  );
 
   return (
     <>
@@ -302,6 +312,8 @@ export default function CadastroServicos({
                                         ? l.especialidadeAtivo !== false
                                         : l.servicoAtivo !== false
                                     }
+                                    paiInativo={l.servicoAtivo === false}
+                                    nomePai="Serviço"
                                   />
                                 </td>
                               </tr>
@@ -357,7 +369,10 @@ export default function CadastroServicos({
                 >
                   <option value="">-- Selecione o Serviço --</option>
                   {servicosDisponiveis.map((s) => (
-                    <option key={s.id} value={s.id}>{s.nome}</option>
+                    <option key={s.id} value={s.id}>
+                      {s.nome}
+                      {s.ativo === false ? " (inativo)" : ""}
+                    </option>
                   ))}
                   <option value="__novo__">+ Novo serviço...</option>
                 </select>
@@ -478,7 +493,10 @@ export default function CadastroServicos({
                 >
                   <option value="">-- Todos os Serviços --</option>
                   {(data.servicos || []).map((s) => (
-                    <option key={s.id} value={s.id}>{s.nome}</option>
+                    <option key={s.id} value={s.id}>
+                      {s.nome}
+                      {s.ativo === false ? " (inativo)" : ""}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -498,33 +516,51 @@ export default function CadastroServicos({
               <tbody>
                 {linhasTabela.map((l) => {
                   const temEspecialidade = Boolean(l.especialidadeId);
-                  const ativo = temEspecialidade
-                    ? l.especialidadeAtivo !== false
-                    : l.servicoAtivo !== false;
+                  // A linha do serviço (categoria) mostra a própria situação; a
+                  // da especialidade combina com a do serviço.
+                  const situacaoLinha = temEspecialidade
+                    ? situacaoRegistro({ ativo: l.especialidadeAtivo, paiAtivo: l.servicoAtivo })
+                    : situacaoRegistro({ ativo: l.servicoAtivo, paiAtivo: true });
                   return (
-                    <tr key={l.id} className={ativo ? "" : "cadLinhaInativa"}>
-                      <td><strong>{l.servicoNome}</strong></td>
+                    <tr
+                      key={l.id}
+                      className={
+                        situacaoLinha.motivo === "categoria"
+                          ? "cadLinhaIndisponivel"
+                          : situacaoLinha.operacional
+                            ? ""
+                            : "cadLinhaInativa"
+                      }
+                    >
+                      <td>
+                        <strong>{l.servicoNome}</strong>
+                        {!temEspecialidade && (
+                          <span className="cadMarcaCategoria">categoria</span>
+                        )}
+                      </td>
                       <td>{l.nome || "—"}</td>
-                      <td><StatusRegistro ativo={ativo} /></td>
+                      <td>
+                        <StatusRegistro
+                          ativo={situacaoLinha.individualAtivo}
+                          paiInativo={temEspecialidade && !situacaoLinha.paiAtivo}
+                          nomePai="Serviço"
+                        />
+                      </td>
                       <td>
                         <div className="cadAcoesLinha">
                           {temEspecialidade ? (
                             <AcoesSituacao
-                              ativo={ativo}
+                              ativo={l.especialidadeAtivo !== false}
                               podeInativar={podeInativar}
                               ocupado={alternando === `e-${l.especialidadeId}`}
                               onAlternar={() => alternarEspecialidade(l)}
-                              rotuloInativar="Inativar especialidade"
-                              rotuloReativar="Reativar especialidade"
                             />
                           ) : (
                             <AcoesSituacao
-                              ativo={ativo}
+                              ativo={l.servicoAtivo !== false}
                               podeInativar={podeInativar}
                               ocupado={alternando === `s-${l.servicoId}`}
                               onAlternar={() => alternarServico(l)}
-                              rotuloInativar="Inativar serviço"
-                              rotuloReativar="Reativar serviço"
                             />
                           )}
                         </div>

@@ -31,6 +31,7 @@ import {
   limparNome,
   TAMANHO_MAXIMO_NOME,
 } from "@/lib/catalogoProcessos";
+import { situacaoRegistro } from "@/components/cadastros/situacaoCadastro";
 
 const MODULO_AUDITORIA = "PROCESSOS";
 const ROTA = "/camara-tecnica/processos/especialidades";
@@ -283,31 +284,41 @@ export async function getCatalogoProcessosData() {
         const pb = procPorId.get(b);
         return (pa?.nome || "").localeCompare(pb?.nome || "", "pt-BR");
       });
-      if (ids.length === 0) {
-        linhas.push({
-          id: `e-${e.id}`,
-          tipo: "ESPECIALIDADE",
-          especialidadeId: e.id,
-          especialidadeNome: e.nome,
-          especialidadeAtivo: e.ativo !== false,
-          procedimentoId: null,
-          procedimentoNome: "",
-          procedimentoAtivo: null,
-        });
-        continue;
-      }
+      // Linha própria da ESPECIALIDADE (categoria): é nela que fica a ação de
+      // inativar/reativar a especialidade, mesmo quando ela tem procedimentos.
+      linhas.push({
+        id: `e-${e.id}`,
+        tipo: "ESPECIALIDADE",
+        especialidadeId: e.id,
+        especialidadeNome: e.nome,
+        especialidadeAtivo: e.ativo !== false,
+        procedimentoId: null,
+        procedimentoNome: "",
+        procedimentoAtivo: null,
+        disponivel: e.ativo !== false,
+        indisponivelPorCategoria: false,
+      });
       for (const procId of ids) {
         const p = procPorId.get(procId);
         if (!p) continue;
+        // Disponibilidade NESTE contexto (especialidade): depende do procedimento
+        // E da especialidade. Como o vínculo é N:N, o mesmo procedimento pode
+        // continuar disponível pela outra especialidade ativa.
+        const situacao = situacaoRegistro({
+          ativo: p.ativo,
+          paiAtivo: e.ativo !== false,
+        });
         linhas.push({
           id: `${e.id}-${p.id}`,
           tipo: "VINCULO",
           especialidadeId: e.id,
           especialidadeNome: e.nome,
-          especialidadeAtivo: e.ativo !== false,
+          especialidadeAtivo: situacao.paiAtivo,
           procedimentoId: p.id,
           procedimentoNome: p.nome,
-          procedimentoAtivo: p.ativo !== false,
+          procedimentoAtivo: situacao.individualAtivo,
+          disponivel: situacao.operacional,
+          indisponivelPorCategoria: situacao.motivo === "categoria",
         });
       }
     }
@@ -325,12 +336,17 @@ export async function getCatalogoProcessosData() {
         const espIds = [...porEsp.entries()]
           .filter(([, ids]) => ids.includes(p.id))
           .map(([espId]) => espId);
+        // N:N: o procedimento é operacionalmente disponível se ele e PELO MENOS
+        // UMA das especialidades dele estiverem ativos. A inativação de uma
+        // especialidade não afeta a disponibilidade pela outra.
+        const disponivelEm = espIds.filter((id) => espPorId.get(id)?.ativo !== false);
         return {
           id: p.id,
           nome: p.nome,
           ativo: p.ativo !== false,
           especialidadeIds: espIds,
           especialidadeNomes: espIds.map((id) => espPorId.get(id)?.nome).filter(Boolean),
+          disponivel: p.ativo !== false && (espIds.length === 0 || disponivelEm.length > 0),
         };
       }),
       linhas,

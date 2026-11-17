@@ -7,12 +7,14 @@ import { useConfirm, useNotify } from "@/components/ConfirmDialog";
 import BotaoEditar from "@/components/BotaoEditar";
 import FiltroSituacao, { passaSituacao } from "@/components/cadastros/FiltroSituacao";
 import StatusRegistro from "@/components/cadastros/StatusRegistro";
+import { situacaoRegistro, passaSituacaoOperacional } from "@/components/cadastros/situacaoCadastro";
 import AcoesSituacao from "@/components/cadastros/AcoesSituacao";
 import {
   createRegistro,
   updateRegistro,
   deleteRegistro,
   alterarSituacaoProcedimento,
+  alterarSituacaoTipoExame,
 } from "./procedimentosActions";
 
 const FORM_VAZIO = {
@@ -87,8 +89,14 @@ export default function CadastroProcedimentos({
 
   // Procedimentos disponíveis para o dropdown: os do tipo de exame selecionado
   // (quando um tipo existente está escolhido); com tipo novo, não há procedimentos prévios.
+  // Só procedimentos disponíveis para uso: ativo E de um tipo de exame ativo.
+  // O procedimento já selecionado continua na lista mesmo se estiver inativo,
+  // para que a edição de um registro antigo não perca a referência.
   const procedimentosDoTipo = (data.linhas || []).filter(
-    (l) => l.procedimentoId && String(l.tipoExameId) === String(form.tipoExameId)
+    (l) =>
+      l.procedimentoId &&
+      String(l.tipoExameId) === String(form.tipoExameId) &&
+      (l.disponivel !== false || String(l.procedimentoId) === String(form.procedimentoSel)),
   );
 
   // Ao escolher um procedimento no dropdown
@@ -178,6 +186,41 @@ export default function CadastroProcedimentos({
   };
 
   // ── Inativar / Reativar ──────────────────────────────────────────────────
+  // Dois níveis: o Tipo de Exame (categoria) e o Procedimento (subordinado).
+  async function alternarTipoExame(tipoId, nome, ativoAtual) {
+    const ativo = ativoAtual !== false;
+    const acao = ativo ? "Inativar" : "Reativar";
+    const subordinados = (data.linhas || []).filter(
+      (l) => l.procedimentoId && String(l.tipoExameId) === String(tipoId),
+    );
+    const inativosIndividualmente = subordinados.filter((l) => l.ativo === false).length;
+
+    const ok = await confirm({
+      title: `${acao} tipo de exame`,
+      message: ativo
+        ? `Inativar o tipo de exame "${nome}"? Os ${subordinados.length} procedimento(s) ` +
+          `dele ficam indisponíveis para novos pedidos de exame, mas os pedidos que já os ` +
+          `utilizam continuam intactos. Nenhum procedimento será inativado individualmente.`
+        : `Reativar o tipo de exame "${nome}"? Os procedimentos dele voltam a ficar ` +
+          `disponíveis, exceto os que estavam inativos individualmente` +
+          (inativosIndividualmente ? ` (${inativosIndividualmente})` : "") +
+          `, que continuam inativos.`,
+      confirmText: acao,
+    });
+    if (!ok) return;
+
+    setAlternando(`t-${tipoId}`);
+    const res = await alterarSituacaoTipoExame(tipoId, { ativo: !ativo });
+    setAlternando(null);
+    if (!res.success) return notify({ tipo: "erro", title: "Erro", message: res.error });
+    await notify({
+      tipo: "sucesso",
+      title: `Tipo de exame ${ativo ? "inativado" : "reativado"}`,
+      message: `"${nome}" ${ativo ? "inativado" : "reativado"} com sucesso!`,
+    });
+    reloadData();
+  }
+
   async function alternarProcedimento(linha) {
     const ativo = linha.ativo !== false;
     const acao = ativo ? "Inativar" : "Reativar";
@@ -207,7 +250,9 @@ export default function CadastroProcedimentos({
     if (filterTipoExameId && String(l.tipoExameId) !== String(filterTipoExameId)) {
       return false;
     }
-    return passaSituacao(situacao, l.ativo !== false);
+    // O filtro olha a disponibilidade operacional: um procedimento ativo de um
+    // tipo inativo aparece em "Inativos" (indisponível por categoria).
+    return passaSituacaoOperacional(situacao, l.disponivel !== false);
   });
 
   const temProcedimentoSelecionado = usandoNovoProc || Boolean(form.procedimentoNome.trim());
@@ -279,7 +324,13 @@ export default function CadastroProcedimentos({
                                 <td style={{ textAlign: "right" }}>
                                   {l.valor != null ? `R$ ${Number(l.valor).toFixed(2)}` : "—"}
                                 </td>
-                                <td><StatusRegistro ativo={l.ativo !== false} /></td>
+                                <td>
+                                  <StatusRegistro
+                                    ativo={l.ativo !== false}
+                                    paiInativo={l.tipoExameAtivo === false}
+                                    nomePai="Tipo de exame"
+                                  />
+                                </td>
                               </tr>
                             ))
                           ) : (
@@ -334,11 +385,24 @@ export default function CadastroProcedimentos({
                 >
                   <option value="">-- Selecione o Tipo de Exame --</option>
                   {(data.tiposExame || []).map((t) => (
-                    <option key={t.id} value={t.id}>{t.nome}</option>
+                    <option key={t.id} value={t.id}>
+                      {t.nome}
+                      {t.ativo === false ? " (inativo)" : ""}
+                    </option>
                   ))}
                   <option value="__novo__">+ Novo tipo de exame...</option>
                 </select>
               </div>
+
+              {!usandoNovoTipo &&
+                form.tipoExameId &&
+                (data.tiposExame || []).find((t) => String(t.id) === String(form.tipoExameId))
+                  ?.ativo === false && (
+                  <p className="cadCampoDica cadOcupaTudo">
+                    Este tipo de exame está inativo: os procedimentos dele ficam
+                    indisponíveis até o tipo ser reativado na listagem de cadastros.
+                  </p>
+                )}
 
               {usandoNovoTipo && (
                 <div className="cadCampo cadCol6">
@@ -463,7 +527,10 @@ export default function CadastroProcedimentos({
                 >
                   <option value="">-- Todos os Tipos de Exames --</option>
                   {(data.tiposExame || []).map((t) => (
-                    <option key={t.id} value={t.id}>{t.nome}</option>
+                    <option key={t.id} value={t.id}>
+                      {t.nome}
+                      {t.ativo === false ? " (inativo)" : ""}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -483,26 +550,60 @@ export default function CadastroProcedimentos({
               </thead>
               <tbody>
                 {linhasTabela.map((l) => {
-                  const ativo = l.ativo !== false;
+                  // A linha da categoria (TIPO_EXAME) mostra a própria situação;
+                  // as demais combinam o procedimento com o tipo de exame.
+                  const situacaoLinha =
+                    l.tipo === "TIPO_EXAME"
+                      ? situacaoRegistro({ ativo: l.tipoExameAtivo, paiAtivo: true })
+                      : situacaoRegistro({ ativo: l.ativo, paiAtivo: l.tipoExameAtivo });
                   return (
-                    <tr key={l.id} className={ativo ? "" : "cadLinhaInativa"}>
-                      <td><strong>{l.tipoExameNome}</strong></td>
+                    <tr
+                      key={l.id}
+                      className={
+                        situacaoLinha.motivo === "categoria"
+                          ? "cadLinhaIndisponivel"
+                          : situacaoLinha.operacional
+                            ? ""
+                            : "cadLinhaInativa"
+                      }
+                    >
+                      <td>
+                        <strong>{l.tipoExameNome}</strong>
+                        {l.tipo === "TIPO_EXAME" && (
+                          <span className="cadMarcaCategoria">categoria</span>
+                        )}
+                      </td>
                       <td>{l.nome || "—"}</td>
                       <td className="cadDireita">
                         {l.valor != null ? `R$ ${Number(l.valor).toFixed(2)}` : "—"}
                       </td>
-                      <td><StatusRegistro ativo={ativo} /></td>
+                      <td>
+                        <StatusRegistro
+                          ativo={situacaoLinha.individualAtivo}
+                          paiInativo={l.tipo !== "TIPO_EXAME" && !situacaoLinha.paiAtivo}
+                          nomePai="Tipo de exame"
+                        />
+                      </td>
                       <td>
                         <div className="cadAcoesLinha">
                           {l.procedimentoId ? (
-                            <AcoesSituacao
-                              ativo={ativo}
-                              podeInativar={podeInativar}
-                              ocupado={alternando === l.procedimentoId}
-                              onAlternar={() => alternarProcedimento(l)}
-                            />
+                            <>
+                              <AcoesSituacao
+                                ativo={l.ativo !== false}
+                                podeInativar={podeInativar}
+                                ocupado={alternando === l.procedimentoId}
+                                onAlternar={() => alternarProcedimento(l)}
+                              />
+                            </>
                           ) : (
-                            <span className="cadCampoDica">—</span>
+                            <AcoesSituacao
+                              ativo={l.tipoExameAtivo !== false}
+                              podeInativar={podeInativar}
+                              ocupado={alternando === `t-${l.tipoExameId}`}
+                              onAlternar={() =>
+                                alternarTipoExame(l.tipoExameId, l.tipoExameNome, l.tipoExameAtivo)
+                              }
+                            />
                           )}
                         </div>
                       </td>

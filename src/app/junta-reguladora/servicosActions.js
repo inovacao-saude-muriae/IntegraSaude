@@ -5,6 +5,7 @@ import { MODULOS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { registrarAuditoria } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
+import { situacaoRegistro } from "@/components/cadastros/situacaoCadastro";
 
 // Serviços-e-Especialidades passam a pertencer à Junta (FR-3.3). Mudança
 // intencional de REGULACAO_ADMIN -> JUNTA/ADMIN (design §4.4).
@@ -42,23 +43,32 @@ export async function getServicosData() {
       }),
     ]);
 
-    const servicosComEsp = new Set(especialidades.map((e) => e.servicoId));
+    // Linhas de especialidades (id do registro de especialidade).
+    // `especialidadeAtivo` é a situação INDIVIDUAL; `disponivel` combina com a
+    // situação do serviço (categoria superior) — inativar o serviço não altera
+    // o `ativo` das especialidades, apenas as deixa indisponíveis.
+    const linhasEsp = especialidades.map((e) => {
+      const situacao = situacaoRegistro({
+        ativo: e.ativo,
+        paiAtivo: e.servico?.ativo !== false,
+      });
+      return {
+        id: e.id,
+        tipo: "ESPECIALIDADE",
+        especialidadeId: e.id,
+        nome: e.nome,
+        especialidadeAtivo: situacao.individualAtivo,
+        servicoAtivo: situacao.paiAtivo,
+        disponivel: situacao.operacional,
+        indisponivelPorCategoria: situacao.motivo === "categoria",
+        servicoId: e.servicoId,
+        servicoNome: e.servico?.nome || "—",
+      };
+    });
 
-    // Linhas de especialidades (id do registro de especialidade)
-    const linhasEsp = especialidades.map((e) => ({
-      id: e.id,
-      tipo: "ESPECIALIDADE",
-      especialidadeId: e.id,
-      nome: e.nome,
-      especialidadeAtivo: e.ativo !== false,
-      servicoId: e.servicoId,
-      servicoNome: e.servico?.nome || "—",
-      servicoAtivo: e.servico?.ativo !== false,
-    }));
-
-    // Linhas de serviços sem especialidade
-    const linhasServicoSozinho = servicos
-      .filter((s) => !servicosComEsp.has(s.id))
+    // Linha própria de cada SERVIÇO (a categoria), independentemente de ter
+    // especialidades: é nela que fica a ação de inativar/reativar o serviço.
+    const linhasServico = servicos
       .map((s) => ({
         id: `s-${s.id}`,
         tipo: "SERVICO",
@@ -68,11 +78,18 @@ export async function getServicosData() {
         servicoId: s.id,
         servicoNome: s.nome,
         servicoAtivo: s.ativo !== false,
+        disponivel: s.ativo !== false,
+        indisponivelPorCategoria: false,
       }));
 
-    const linhas = [...linhasEsp, ...linhasServicoSozinho].sort((a, b) => {
+    // Ordem: por serviço e, dentro dele, a linha do serviço (categoria) primeiro
+    // e as especialidades em seguida — a hierarquia fica visível na listagem.
+    const ehCategoria = (l) => (l.tipo === "SERVICO" ? 0 : 1);
+    const linhas = [...linhasServico, ...linhasEsp].sort((a, b) => {
       const cmp = a.servicoNome.localeCompare(b.servicoNome, "pt-BR");
       if (cmp !== 0) return cmp;
+      const nivel = ehCategoria(a) - ehCategoria(b);
+      if (nivel !== 0) return nivel;
       return (a.nome || "").localeCompare(b.nome || "", "pt-BR");
     });
 
@@ -189,7 +206,13 @@ export async function alterarSituacaoServico(id, { ativo } = {}) {
     if (!atual) return { success: false, error: "Serviço não encontrado." };
     if (atual.ativo === ativo) return { success: true, semAlteracoes: true };
 
+    // A inativação NÃO toca no `ativo` das especialidades: elas apenas ficam
+    // operacionalmente indisponíveis enquanto o serviço estiver inativo. Por
+    // isso reativar o serviço devolve cada especialidade ao estado que tinha,
+    // preservando as inativações individuais anteriores.
     await prisma.servico.update({ where: { id: servicoId }, data: { ativo } });
+
+    const subordinados = await prisma.especialidade.count({ where: { servicoId } });
 
     await registrarAuditoria({
       user,
@@ -198,12 +221,12 @@ export async function alterarSituacaoServico(id, { ativo } = {}) {
       entidade: "Servico",
       entidadeId: String(servicoId),
       descricao: `Serviço '${atual.nome}' ${ativo ? "reativado" : "inativado"}`,
-      detalhes: { nome: atual.nome, ativo },
+      detalhes: { nome: atual.nome, ativo, especialidadesAfetadas: subordinados },
     });
 
     revalidatePath("/junta-reguladora");
     revalidatePath("/gerenciamento/servicos-especialidades");
-    return { success: true };
+    return { success: true, subordinados };
   } catch (error) {
     console.error("Erro ao alterar situação do serviço:", error);
     return { success: false, error: error.message };

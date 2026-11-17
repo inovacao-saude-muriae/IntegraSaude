@@ -462,7 +462,8 @@
 
 /* ── Etiquetas de situação ──────────────────────────────────────────────── */
 .cadStatusAtivo,
-.cadStatusInativo {
+.cadStatusInativo,
+.cadStatusIndisponivel {
   display: inline-block;
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
@@ -481,6 +482,37 @@
   background-color: #f1f5f9;
   color: #64748b;
 }
+
+/* Registro ativo cuja categoria superior está inativa: não é inativo por si,
+   está apenas operacionalmente indisponível naquele contexto. */
+.cadStatusIndisponivel {
+  background-color: #fef3c7;
+  color: #b45309;
+}
+
+/* Marca discreta da linha que representa a categoria superior. */
+.cadMarcaCategoria {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  background-color: #e2e8f0;
+  color: #475569;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+/* Aviso/observação que ocupa a largura toda da grade do formulário. */
+.cadOcupaTudo {
+  grid-column: 1 / -1;
+}
+
+/* Linha ativa mas indisponível por causa da categoria. */
+.cadLinhaIndisponivel td { color: #a1762f; }
+.cadLinhaIndisponivel td strong { color: #92611a; }
 
 .cadAcoesLinha {
   display: flex;

@@ -21,8 +21,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import "@/components/cadastros/padraoCadastro.css";
 import { useConfirm, useNotify } from "@/components/ConfirmDialog";
 import BotaoEditar from "@/components/BotaoEditar";
-import FiltroSituacao, { passaSituacao } from "@/components/cadastros/FiltroSituacao";
+import FiltroSituacao from "@/components/cadastros/FiltroSituacao";
 import StatusRegistro from "@/components/cadastros/StatusRegistro";
+import { situacaoRegistro, passaSituacaoOperacional } from "@/components/cadastros/situacaoCadastro";
 import AcoesSituacao from "@/components/cadastros/AcoesSituacao";
 import {
   alterarSituacaoEspecialidadeProcesso,
@@ -269,9 +270,12 @@ export default function CatalogoProcessosPage({
     const ok = await confirm({
       title: `${acao} especialidade`,
       message: ativo
-        ? `Inativar "${linha.especialidadeNome}"? Ela deixa de ser oferecida em novos ` +
-          `processos, mas os vínculos e os registros históricos são preservados.`
-        : `Reativar "${linha.especialidadeNome}"? Ela volta a ser oferecida nos novos processos.`,
+        ? `Inativar a especialidade "${linha.especialidadeNome}"? Os procedimentos dela ` +
+          `ficam indisponíveis neste contexto — sem serem inativados individualmente. ` +
+          `Os vínculos e os registros históricos são preservados.`
+        : `Reativar a especialidade "${linha.especialidadeNome}"? Os procedimentos dela ` +
+          `voltam a ficar disponíveis, exceto os que estavam inativos individualmente, ` +
+          `que continuam inativos.`,
       confirmText: acao,
     });
     if (!ok) return;
@@ -327,10 +331,8 @@ export default function CatalogoProcessosPage({
     if (filterEspecialidadeId && String(l.especialidadeId) !== String(filterEspecialidadeId)) {
       return false;
     }
-    const ativo = l.procedimentoId
-      ? l.procedimentoAtivo !== false
-      : l.especialidadeAtivo !== false;
-    return passaSituacao(situacao, ativo);
+    // Disponibilidade neste contexto: procedimento ativo E especialidade ativa.
+    return passaSituacaoOperacional(situacao, l.disponivel !== false);
   });
 
   return (
@@ -397,6 +399,8 @@ export default function CatalogoProcessosPage({
                                         ? l.procedimentoAtivo !== false
                                         : l.especialidadeAtivo !== false
                                     }
+                                    paiInativo={l.especialidadeAtivo === false}
+                                    nomePai="Especialidade"
                                   />
                                 </td>
                               </tr>
@@ -555,6 +559,7 @@ export default function CatalogoProcessosPage({
                   {(data.especialidades || []).map((esp) => (
                     <option key={esp.id} value={esp.id}>
                       {esp.nome}
+                      {esp.ativo === false ? " (inativa)" : ""}
                     </option>
                   ))}
                 </select>
@@ -575,30 +580,51 @@ export default function CatalogoProcessosPage({
               <tbody>
                 {linhasTabela.map((l) => {
                   const temProcedimento = Boolean(l.procedimentoId);
-                  const ativo = temProcedimento
-                    ? l.procedimentoAtivo !== false
-                    : l.especialidadeAtivo !== false;
+                  // A linha da especialidade (categoria) mostra a própria
+                  // situação; a do vínculo combina procedimento com especialidade.
+                  const situacaoLinha = temProcedimento
+                    ? situacaoRegistro({
+                        ativo: l.procedimentoAtivo,
+                        paiAtivo: l.especialidadeAtivo,
+                      })
+                    : situacaoRegistro({ ativo: l.especialidadeAtivo, paiAtivo: true });
                   return (
-                    <tr key={l.id} className={ativo ? "" : "cadLinhaInativa"}>
+                    <tr
+                      key={l.id}
+                      className={
+                        situacaoLinha.motivo === "categoria"
+                          ? "cadLinhaIndisponivel"
+                          : situacaoLinha.operacional
+                            ? ""
+                            : "cadLinhaInativa"
+                      }
+                    >
                       <td>
                         <strong>{l.especialidadeNome}</strong>
+                        {!temProcedimento && (
+                          <span className="cadMarcaCategoria">categoria</span>
+                        )}
                       </td>
                       <td>{l.procedimentoNome || "—"}</td>
                       <td>
-                        <StatusRegistro ativo={ativo} />
+                        <StatusRegistro
+                          ativo={situacaoLinha.individualAtivo}
+                          paiInativo={temProcedimento && !situacaoLinha.paiAtivo}
+                          nomePai="Especialidade"
+                        />
                       </td>
                       <td>
                         <div className="cadAcoesLinha">
                           {temProcedimento ? (
                             <AcoesSituacao
-                              ativo={ativo}
+                              ativo={l.procedimentoAtivo !== false}
                               podeInativar={podeInativarProcedimento}
                               ocupado={alternando === `p-${l.procedimentoId}`}
                               onAlternar={() => alternarProcedimento(l)}
                             />
                           ) : (
                             <AcoesSituacao
-                              ativo={ativo}
+                              ativo={l.especialidadeAtivo !== false}
                               podeInativar={podeInativarEspecialidade}
                               ocupado={alternando === `e-${l.especialidadeId}`}
                               onAlternar={() => alternarEspecialidade(l)}
