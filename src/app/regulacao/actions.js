@@ -12,6 +12,7 @@ import { MODULOS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { registrarAuditoria } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
+import { situacaoRegistro } from "@/components/cadastros/situacaoCadastro";
 import {
   criarPessoaTx,
   atualizarPessoaTx,
@@ -250,14 +251,24 @@ export async function getAuxiliaryData() {
         }),
       ]);
 
+    // Catálogo do formulário: um tipo de exame (categoria) só é oferecido se
+    // estiver ativo; o procedimento, se ele E o tipo dele estiverem ativos.
+    // `disponivel` repete a mesma regra no dado, para a tela não recalculá-la.
+    const disponivelDe = (p) =>
+      situacaoRegistro({ ativo: p.ativo, paiAtivo: p.tipoExame?.ativo !== false })
+        .operacional;
+
     return {
-      tiposExame: tiposExame.map((t) => ({ id: t.id, nome: t.nome })),
+      tiposExame: tiposExame
+        .filter((t) => t.ativo !== false)
+        .map((t) => ({ id: t.id, nome: t.nome })),
       procedimentos: procedimentos.map((p) => ({
         id: p.id,
         nome: p.nome,
         valor: Number(p.valor),
         tipoExameId: p.tipoExameId,
         tipoExameNome: p.tipoExame.nome,
+        disponivel: disponivelDe(p),
       })),
       medicos: medicos.map((m) => ({
         id: m.id,
@@ -374,6 +385,28 @@ export async function searchPessoasAutocomplete(term) {
 export async function createPedidoExame(data) {
   try {
     const user = await requireAcessoModulo(MODULOS.REGULACAO);
+
+    // Disponibilidade operacional validada no servidor: não basta o
+    // procedimento estar ativo, o tipo de exame dele também precisa estar.
+    const procedimentoPedido = await prisma.procedimento.findUnique({
+      where: { id: Number(data.procedureId) },
+      include: { tipoExame: { select: { ativo: true } } },
+    });
+    if (!procedimentoPedido) {
+      return { success: false, error: "Selecione um procedimento válido." };
+    }
+    if (
+      !situacaoRegistro({
+        ativo: procedimentoPedido.ativo,
+        paiAtivo: procedimentoPedido.tipoExame?.ativo !== false,
+      }).operacional
+    ) {
+      return {
+        success: false,
+        error:
+          "Este procedimento está indisponível (inativo ou com o tipo de exame inativo) e não pode ser usado em novos pedidos.",
+      };
+    }
 
     // Pessoa absorvida por unificação não pode receber novos pedidos.
     const pessoaPedido = await prisma.pessoa.findUnique({
@@ -908,6 +941,23 @@ export async function updatePedidoExame(idStr, updateData) {
     };
 
     if (updateData.procedureId) {
+      const procedimentoTroca = await prisma.procedimento.findUnique({
+        where: { id: Number(updateData.procedureId) },
+        include: { tipoExame: { select: { ativo: true } } },
+      });
+      if (
+        !procedimentoTroca ||
+        !situacaoRegistro({
+          ativo: procedimentoTroca.ativo,
+          paiAtivo: procedimentoTroca.tipoExame?.ativo !== false,
+        }).operacional
+      ) {
+        return {
+          success: false,
+          error:
+            "Este procedimento está indisponível (inativo ou com o tipo de exame inativo).",
+        };
+      }
       payload.procedimentoId = Number(updateData.procedureId);
     }
 

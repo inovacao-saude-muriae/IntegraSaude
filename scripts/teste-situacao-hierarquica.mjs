@@ -1,9 +1,12 @@
 /**
  * Inativação/reativação HIERÁRQUICA nos três cadastros.
  *
- *   Regulação → Tipo de Exame      → Procedimento
  *   Junta     → Serviço            → Especialidade
  *   Processos → Especialidade      → Procedimento (N:N)
+ *
+ * Na Regulação o cadastro é de UM nível (Procedimento): a hierarquia de
+ * categoria não se aplica — o Tipo de Exame não é uma categoria com situação
+ * própria. Ali valida-se a disponibilidade operacional do próprio registro.
  *
  * Valida, no backend e na tela, que:
  *  - inativar a categoria deixa os subordinados indisponíveis SEM mudar o
@@ -13,7 +16,8 @@
  *  - inativar um subordinado não afeta os irmãos;
  *  - no N:N, a inativação de uma categoria não afeta a disponibilidade do
  *    procedimento pela outra categoria ativa;
- *  - registros históricos e vínculos são preservados.
+ *  - registros históricos e vínculos são preservados;
+ *  - o catálogo usado pelo cadastro do módulo só oferece registro disponível.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -174,7 +178,7 @@ await limpar();
 
 try {
   // ═══════════════════════════════════════════════════════════════════════
-  console.log("\n1. REGULAÇÃO — Tipo de Exame (categoria) × Procedimento\n");
+  console.log("\n1. REGULAÇÃO — cadastro de um nível (Procedimento)\n");
 
   const tipoA = (
     await db.query(
@@ -210,62 +214,45 @@ try {
     )
   ).rows[0].id;
 
-  // Inativação individual primeiro, para provar a preservação.
   const inativaIndividual = await chamar(
     tokenFixture,
     "alterarSituacaoProcedimento",
     [procA2, { ativo: false }],
     REG,
   );
-  check("inativa um procedimento individualmente", inativaIndividual.success === true, JSON.stringify(inativaIndividual).slice(0, 140));
+  check("inativa um procedimento", inativaIndividual.success === true, JSON.stringify(inativaIndividual).slice(0, 140));
 
   let dados = await chamar(tokenFixture, "getProcedimentosData", [], REG);
   const linhaDe = (d, id) => (d.linhas || []).find((l) => l.procedimentoId === id);
-  check("procedimento inativo: disponivel=false", linhaDe(dados, procA2)?.disponivel === false, JSON.stringify(linhaDe(dados, procA2)));
-  check("procedimento irmão ativo: disponivel=true", linhaDe(dados, procA1)?.disponivel === true);
-  check("tipo de exame ativo exposto com ativo=true", (dados.tiposExame || []).find((t) => t.id === tipoA)?.ativo === true);
+  check("procedimento inativo: disponivel=false", linhaDe(dados, procA2)?.disponivel === false);
+  check("procedimento ativo: disponivel=true", linhaDe(dados, procA1)?.disponivel === true);
+  check("inativar um procedimento não afeta o irmão", linhaDe(dados, procA1)?.ativo === true);
+  check(
+    "a Regulação não tem categoria com situação própria (só procedimentos)",
+    (dados.linhas || []).every((l) => l.tipo === "PROCEDIMENTO"),
+    JSON.stringify((dados.linhas || []).map((l) => l.tipo)),
+  );
 
-  // Inativar a CATEGORIA
-  const inativaCategoria = await chamar(
+  // Catálogo do formulário do módulo: só procedimento disponível.
+  const aux = await chamar(tokenFixture, "getAuxiliaryData", [], {
+    rota: "/regulacao",
+    arquivo: "regulacao/actions",
+  });
+  const procsAux = aux.procedimentos || [];
+  check("catálogo do pedido marca o procedimento inativo como indisponível", procsAux.find((x) => x.id === procA2)?.disponivel === false, JSON.stringify(procsAux.find((x) => x.id === procA2)));
+  check("catálogo do pedido mantém o procedimento ativo disponível", procsAux.find((x) => x.id === procA1)?.disponivel === true);
+
+  const reativaIndividual = await chamar(
     tokenFixture,
-    "alterarSituacaoTipoExame",
-    [tipoA, { ativo: false }],
+    "alterarSituacaoProcedimento",
+    [procA2, { ativo: true }],
     REG,
   );
-  check("inativa o tipo de exame (categoria)", inativaCategoria.success === true, JSON.stringify(inativaCategoria).slice(0, 160));
-
-  const filhosDepois = await db.query(
-    "SELECT id, ativo FROM regula_procedimentos WHERE tipo_exame_id=$1 ORDER BY id",
-    [tipoA],
-  );
-  const ativoDe = (id) => filhosDepois.rows.find((r) => r.id === id)?.ativo;
-  check("inativar a categoria NÃO altera o ativo do procedimento ativo", ativoDe(procA1) === true);
-  check("inativar a categoria NÃO altera o ativo do procedimento inativo", ativoDe(procA2) === false);
-
+  check("reativa o procedimento", reativaIndividual.success === true);
   dados = await chamar(tokenFixture, "getProcedimentosData", [], REG);
-  check("subordinado ativo fica indisponível pela categoria", linhaDe(dados, procA1)?.disponivel === false, JSON.stringify(linhaDe(dados, procA1)));
-  check("motivo registrado como categoria", linhaDe(dados, procA1)?.indisponivelPorCategoria === true);
-  check("situação individual preservada no dado", linhaDe(dados, procA1)?.ativo === true);
-  check("outro tipo de exame continua disponível", linhaDe(dados, procB1)?.disponivel === true);
-  const tipoSozinhoA = (dados.linhas || []).find((l) => l.tipo === "TIPO_EXAME" && l.tipoExameId === tipoA);
-  check("o tipo de exame aparece com disponivel=false", tipoSozinhoA ? tipoSozinhoA.disponivel === false : true);
+  check("procedimento reativado volta a disponível", linhaDe(dados, procA2)?.disponivel === true);
+  check("os demais continuam disponíveis", linhaDe(dados, procA1)?.disponivel === true && linhaDe(dados, procB1)?.disponivel === true);
 
-  // Reativar a CATEGORIA: inativação individual preservada
-  const reativaCategoria = await chamar(
-    tokenFixture,
-    "alterarSituacaoTipoExame",
-    [tipoA, { ativo: true }],
-    REG,
-  );
-  check("reativa o tipo de exame", reativaCategoria.success === true);
-  dados = await chamar(tokenFixture, "getProcedimentosData", [], REG);
-  check("procedimento ativo volta a ficar disponível", linhaDe(dados, procA1)?.disponivel === true);
-  check("inativação individual preservada após reativar a categoria", linhaDe(dados, procA2)?.disponivel === false && linhaDe(dados, procA2)?.ativo === false, JSON.stringify(linhaDe(dados, procA2)));
-
-  // Validação no backend: a disponibilidade é calculada no servidor
-  check("backend devolve indisponivelPorCategoria=false ao voltar", linhaDe(dados, procA1)?.indisponivelPorCategoria === false);
-
-  // ═══════════════════════════════════════════════════════════════════════
   console.log("\n2. JUNTA — Serviço (categoria) × Especialidade\n");
 
   const servicoA = (
@@ -424,11 +411,11 @@ try {
   console.log("\n4. Auditoria e permissões\n");
   const aud = await db.query(
     `SELECT entidade, acao, detalhes FROM audit_logs
-      WHERE entidade IN ('TipoExame','Servico','ProcessoEspecialidade')
+      WHERE entidade IN ('Procedimento','Servico','ProcessoEspecialidade')
         AND created_at > now() - interval '10 minutes'
       ORDER BY id DESC`,
   );
-  check("auditoria registra DESATIVAR/REATIVAR do tipo de exame", aud.rows.some((r) => r.entidade === "TipoExame" && r.acao === "DESATIVAR") && aud.rows.some((r) => r.entidade === "TipoExame" && r.acao === "REATIVAR"));
+  check("auditoria registra DESATIVAR/REATIVAR do procedimento (Regulação)", aud.rows.some((r) => r.entidade === "Procedimento" && r.acao === "DESATIVAR") && aud.rows.some((r) => r.entidade === "Procedimento" && r.acao === "REATIVAR"), JSON.stringify(aud.rows.filter((r) => r.entidade === "Procedimento").slice(0,2)));
   check("auditoria do serviço informa as especialidades afetadas", aud.rows.some((r) => r.entidade === "Servico" && r.detalhes?.especialidadesAfetadas === 2), JSON.stringify(aud.rows.find((r) => r.entidade === "Servico")?.detalhes));
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -445,8 +432,7 @@ try {
     await p.waitForTimeout(2500);
   };
 
-  // Regulação: categoria inativa + procedimento inativo individual
-  await db.query("UPDATE regula_tipo_exame SET ativo=false WHERE id=$1", [tipoA]);
+  // Regulação: cadastro de um nível — procedimento inativo individual
   await db.query("UPDATE regula_procedimentos SET ativo=false WHERE id=$1", [procB1]);
   await abrir("/regulacao?tab=PROCEDIMENTOS");
   const situacaoReg = await p.locator(".cadTabela tbody tr").evaluateAll((trs) =>
@@ -456,76 +442,28 @@ try {
       classe: tr.className,
     })),
   );
-  const marcaA = situacaoReg.find((r) => r.texto.includes(`${MARCA} Raio-X`));
-  // O padrão é "Ativos": o indisponível por categoria não aparece aqui.
-  check("Regulação: filtro Ativos não traz o procedimento indisponível", !marcaA);
   const marcaB = situacaoReg.find((r) => r.texto.includes(`${MARCA} Hemograma`));
-  // A etiqueta Indisponível já foi confirmada abaixo, na lista de inativos.
+  check("Regulação: filtro Ativos não traz o procedimento inativo", !marcaB);
   await p.locator(".cadFiltroSituacao select").first().selectOption("inativos");
   await p.waitForTimeout(800);
   const emInativos = await p.locator(".cadTabela tbody tr").allTextContents();
-  check("Regulação: em Inativos aparece o indisponível por categoria", emInativos.some((t) => t.includes(`${MARCA} Raio-X`)), JSON.stringify(emInativos.slice(0, 3)));
-  const etiquetas = await p.locator(".cadStatusIndisponivel").count();
-  check("Regulação: etiqueta Indisponível renderizada", etiquetas > 0, etiquetas);
-  const linhaIndisp = p.locator("tr.cadLinhaIndisponivel").filter({ hasText: `${MARCA} Raio-X` });
-  check("Regulação: linha marcada como indisponível por categoria", (await linhaIndisp.count()) > 0);
-  await p.screenshot({ path: `${SAIDA}/regulacao-indisponiveis.png` });
-
-  // ações dos dois níveis na linha do tipo de exame
-  // A rota ?tab=PROCEDIMENTOS é compartilhada com Exames; a lista mostra só as
-  // linhas da aba ativa, então garante a aba certa antes de ler as linhas.
-  const abaProcedimentos = p.getByRole("tab", { name: /Procedimentos/i });
-  if (await abaProcedimentos.count()) {
-    await abaProcedimentos.first().click();
-    await p.waitForTimeout(1200);
-  }
-  await p.locator(".cadFiltroSituacao select").first().selectOption("todos");
-  await p.waitForTimeout(600);
-  const linhaCategoria = p
+  check(
+    "Regulação: em Inativos aparece o procedimento inativo",
+    emInativos.some((t) => t.includes(`${MARCA} Hemograma`)),
+    JSON.stringify(emInativos.slice(0, 3)),
+  );
+  const botaoSubordinado = await p
     .locator(".cadTabela tbody tr")
-    .filter({ hasText: `${MARCA} Imagem` })
-    .filter({ has: p.locator(".cadMarcaCategoria") })
-    .first();
-  if (!(await linhaCategoria.count())) {
-    const linhasAll = await p.locator(".cadTabela tbody tr").allTextContents();
-    console.log("    linhas visíveis:", JSON.stringify(linhasAll.slice(0, 8)));
-  }
-  const botaoCategoria = (await linhaCategoria.count())
-    ? await linhaCategoria.locator("button").allTextContents()
-    : [];
-  check("Regulação: a linha da categoria tem ação de situação", botaoCategoria.some((t) => /Reativar/.test(t)), JSON.stringify(botaoCategoria));
-  const botaoSubordinado = await p.locator(".cadTabela tbody tr").filter({ hasText: `${MARCA} Raio-X` }).first().locator("button").allTextContents();
-  check("Regulação: a linha do subordinado tem ação individual", botaoSubordinado.some((t) => /Inativar/.test(t)), JSON.stringify(botaoSubordinado));
-
-  // Junta
-  await db.query("UPDATE junta_servicos SET ativo=false WHERE id=$1", [servicoA]);
-  await abrir("/gerenciamento/servicos-especialidades");
-  await p.locator(".cadFiltroSituacao select").first().selectOption("inativos");
-  await p.waitForTimeout(800);
-  const juntaInativos = await p.locator(".cadTabela tbody tr").evaluateAll((trs) =>
-    trs.map((tr) => ({ texto: tr.textContent, etiqueta: tr.querySelector(".cadStatusAtivo, .cadStatusInativo, .cadStatusIndisponivel")?.className })),
+    .filter({ hasText: `${MARCA} Hemograma` })
+    .first()
+    .locator("button")
+    .allTextContents();
+  check(
+    "Regulação: a linha tem ação de Reativar",
+    botaoSubordinado.some((t) => /Reativar/.test(t)),
+    JSON.stringify(botaoSubordinado),
   );
-  const linhaJunta = juntaInativos.find((r) => r.texto.includes(`${MARCA} Fono`));
-  check("Junta: especialidade de serviço inativo aparece como Indisponível", /cadStatusIndisponivel/.test(linhaJunta?.etiqueta || ""), JSON.stringify(linhaJunta));
-  await p.screenshot({ path: `${SAIDA}/junta-indisponiveis.png` });
-
-  // Processos
-  await db.query("UPDATE processos_especialidades SET ativo=false WHERE id=$1", [espOrto]);
-  await abrir("/gerenciamento/especialidades-procedimentos");
-  await p.locator(".cadFiltroSituacao select").first().selectOption("inativos");
-  await p.waitForTimeout(800);
-  const procInativos = await p.locator(".cadTabela tbody tr").evaluateAll((trs) =>
-    trs.map((tr) => ({ texto: tr.textContent, etiqueta: tr.querySelector(".cadStatusAtivo, .cadStatusInativo, .cadStatusIndisponivel")?.className })),
-  );
-  const linhaProc = procInativos.find((r) => r.texto.includes(`${MARCA} Ortopedia`) && r.texto.includes(`${MARCA} Bloqueio`));
-  check("Processos: vínculo de especialidade inativa aparece como Indisponível", /cadStatusIndisponivel/.test(linhaProc?.etiqueta || ""), JSON.stringify(linhaProc));
-  await p.locator(".cadFiltroSituacao select").first().selectOption("ativos");
-  await p.waitForTimeout(800);
-  const procAtivos = await p.locator(".cadTabela tbody tr").allTextContents();
-  check("Processos: o mesmo procedimento continua ativo pela outra especialidade", procAtivos.some((t) => t.includes(`${MARCA} Neurologia`) && t.includes(`${MARCA} Bloqueio`)), JSON.stringify(procAtivos.slice(0, 3)));
-  await p.screenshot({ path: `${SAIDA}/processos-indisponiveis.png` });
-
-  await b.close();
+  await p.screenshot({ path: `${SAIDA}/regulacao-indisponiveis.png` });
 } finally {
   await limpar();
   await db.query("DELETE FROM user_sessions WHERE user_id=$1", [GESTOR]);

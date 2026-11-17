@@ -65,8 +65,12 @@ function RegulacaoPageContent() {
 
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
+  // Só procedimentos operacionalmente disponíveis (o próprio e o tipo de exame
+  // ativos); a indisponibilidade também é validada no backend ao salvar.
   const availableProcedures = data.auxData.procedimentos.filter(
-    (p) => String(p.tipoExameId) === String(data.newRequest.examTypeId),
+    (p) =>
+      p.disponivel !== false &&
+      String(p.tipoExameId) === String(data.newRequest.examTypeId),
   );
 
   const activeExamName =

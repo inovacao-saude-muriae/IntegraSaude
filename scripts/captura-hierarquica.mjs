@@ -43,8 +43,8 @@ const token = await new SignJWT({ userId: G, nome: "DEMO Hierarquia" }).setProte
 await db.query(`INSERT INTO user_sessions (id,user_id,token,expires_at,created_at) VALUES (gen_random_uuid(),$1,$2,now()+interval '1 hour',now())`, [G, token]);
 
 // Dados de demonstração: categoria inativa, subordinado inativo e irmão ativo.
-const tImg = (await db.query(`INSERT INTO regula_tipo_exame (nome, ativo) VALUES ($1,true) RETURNING id`, [`${MARCA} Imagem`])).rows[0].id;
-const tLab = (await db.query(`INSERT INTO regula_tipo_exame (nome, ativo) VALUES ($1,false) RETURNING id`, [`${MARCA} Laboratório`])).rows[0].id;
+const tImg = (await db.query(`INSERT INTO regula_tipo_exame (nome) VALUES ($1) RETURNING id`, [`${MARCA} Imagem`])).rows[0].id;
+const tLab = (await db.query(`INSERT INTO regula_tipo_exame (nome) VALUES ($1) RETURNING id`, [`${MARCA} Laboratório`])).rows[0].id;
 await db.query(`INSERT INTO regula_procedimentos (tipo_exame_id,nome,valor,ativo) VALUES ($1,$2,10,true)`, [tImg, `${MARCA} Raio-X`]);
 await db.query(`INSERT INTO regula_procedimentos (tipo_exame_id,nome,valor,ativo) VALUES ($1,$2,20,false)`, [tImg, `${MARCA} Tomografia`]);
 await db.query(`INSERT INTO regula_procedimentos (tipo_exame_id,nome,valor,ativo) VALUES ($1,$2,5,true)`, [tLab, `${MARCA} Hemograma`]);

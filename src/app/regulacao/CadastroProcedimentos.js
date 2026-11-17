@@ -14,7 +14,6 @@ import {
   updateRegistro,
   deleteRegistro,
   alterarSituacaoProcedimento,
-  alterarSituacaoTipoExame,
 } from "./procedimentosActions";
 
 const FORM_VAZIO = {
@@ -186,41 +185,7 @@ export default function CadastroProcedimentos({
   };
 
   // ── Inativar / Reativar ──────────────────────────────────────────────────
-  // Dois níveis: o Tipo de Exame (categoria) e o Procedimento (subordinado).
-  async function alternarTipoExame(tipoId, nome, ativoAtual) {
-    const ativo = ativoAtual !== false;
-    const acao = ativo ? "Inativar" : "Reativar";
-    const subordinados = (data.linhas || []).filter(
-      (l) => l.procedimentoId && String(l.tipoExameId) === String(tipoId),
-    );
-    const inativosIndividualmente = subordinados.filter((l) => l.ativo === false).length;
-
-    const ok = await confirm({
-      title: `${acao} tipo de exame`,
-      message: ativo
-        ? `Inativar o tipo de exame "${nome}"? Os ${subordinados.length} procedimento(s) ` +
-          `dele ficam indisponíveis para novos pedidos de exame, mas os pedidos que já os ` +
-          `utilizam continuam intactos. Nenhum procedimento será inativado individualmente.`
-        : `Reativar o tipo de exame "${nome}"? Os procedimentos dele voltam a ficar ` +
-          `disponíveis, exceto os que estavam inativos individualmente` +
-          (inativosIndividualmente ? ` (${inativosIndividualmente})` : "") +
-          `, que continuam inativos.`,
-      confirmText: acao,
-    });
-    if (!ok) return;
-
-    setAlternando(`t-${tipoId}`);
-    const res = await alterarSituacaoTipoExame(tipoId, { ativo: !ativo });
-    setAlternando(null);
-    if (!res.success) return notify({ tipo: "erro", title: "Erro", message: res.error });
-    await notify({
-      tipo: "sucesso",
-      title: `Tipo de exame ${ativo ? "inativado" : "reativado"}`,
-      message: `"${nome}" ${ativo ? "inativado" : "reativado"} com sucesso!`,
-    });
-    reloadData();
-  }
-
+  // O cadastro da Regulação tem UM nível: o próprio procedimento.
   async function alternarProcedimento(linha) {
     const ativo = linha.ativo !== false;
     const acao = ativo ? "Inativar" : "Reativar";
@@ -234,7 +199,7 @@ export default function CadastroProcedimentos({
     });
     if (!ok) return;
 
-    setAlternando(linha.procedimentoId);
+    setAlternando(linha.id);
     const res = await alterarSituacaoProcedimento(linha.procedimentoId, { ativo: !ativo });
     setAlternando(null);
     if (!res.success) return notify({ tipo: "erro", title: "Erro", message: res.error });
@@ -550,12 +515,11 @@ export default function CadastroProcedimentos({
               </thead>
               <tbody>
                 {linhasTabela.map((l) => {
-                  // A linha da categoria (TIPO_EXAME) mostra a própria situação;
-                  // as demais combinam o procedimento com o tipo de exame.
-                  const situacaoLinha =
-                    l.tipo === "TIPO_EXAME"
-                      ? situacaoRegistro({ ativo: l.tipoExameAtivo, paiAtivo: true })
-                      : situacaoRegistro({ ativo: l.ativo, paiAtivo: l.tipoExameAtivo });
+                  // Cadastro de um nível: a situação é a do próprio registro.
+                  const situacaoLinha = situacaoRegistro({
+                    ativo: l.ativo,
+                    paiAtivo: true,
+                  });
                   return (
                     <tr
                       key={l.id}
@@ -569,42 +533,22 @@ export default function CadastroProcedimentos({
                     >
                       <td>
                         <strong>{l.tipoExameNome}</strong>
-                        {l.tipo === "TIPO_EXAME" && (
-                          <span className="cadMarcaCategoria">categoria</span>
-                        )}
                       </td>
                       <td>{l.nome || "—"}</td>
                       <td className="cadDireita">
                         {l.valor != null ? `R$ ${Number(l.valor).toFixed(2)}` : "—"}
                       </td>
                       <td>
-                        <StatusRegistro
-                          ativo={situacaoLinha.individualAtivo}
-                          paiInativo={l.tipo !== "TIPO_EXAME" && !situacaoLinha.paiAtivo}
-                          nomePai="Tipo de exame"
-                        />
+                        <StatusRegistro ativo={situacaoLinha.individualAtivo} />
                       </td>
                       <td>
                         <div className="cadAcoesLinha">
-                          {l.procedimentoId ? (
-                            <>
-                              <AcoesSituacao
-                                ativo={l.ativo !== false}
-                                podeInativar={podeInativar}
-                                ocupado={alternando === l.procedimentoId}
-                                onAlternar={() => alternarProcedimento(l)}
-                              />
-                            </>
-                          ) : (
-                            <AcoesSituacao
-                              ativo={l.tipoExameAtivo !== false}
-                              podeInativar={podeInativar}
-                              ocupado={alternando === `t-${l.tipoExameId}`}
-                              onAlternar={() =>
-                                alternarTipoExame(l.tipoExameId, l.tipoExameNome, l.tipoExameAtivo)
-                              }
-                            />
-                          )}
+                          <AcoesSituacao
+                            ativo={l.ativo !== false}
+                            podeInativar={podeInativar}
+                            ocupado={alternando === l.id}
+                            onAlternar={() => alternarProcedimento(l)}
+                          />
                         </div>
                       </td>
                     </tr>

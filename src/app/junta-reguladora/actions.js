@@ -460,8 +460,14 @@ export async function getEspecialidadesPorServico(servicoNome) {
         where: { nome: { equals: nome, mode: 'insensitive' } },
       });
 
+      // Só especialidade operacionalmente disponível: ela E o serviço (categoria
+      // superior) ativos. Inativar o serviço não altera o ativo da especialidade.
       const especialidades = await prisma.especialidade.findMany({
-        where: servico ? { servicoId: servico.id } : {},
+        where: {
+          ativo: true,
+          servico: { ativo: true },
+          ...(servico ? { servicoId: servico.id } : {}),
+        },
         include: { servico: true },
         orderBy: { nome: 'asc' },
       });
@@ -512,8 +518,9 @@ export async function getEspecialidadesPorServico(servicoNome) {
       where = { servicoId: { in: [...new Set(idsPermitidos)] } };
     }
 
+    // Disponibilidade operacional no servidor: especialidade E serviço ativos.
     const especialidades = await prisma.especialidade.findMany({
-      where,
+      where: { ...where, ativo: true, servico: { ativo: true } },
       include: { servico: true },
       orderBy: { nome: 'asc' },
     });

@@ -205,11 +205,16 @@ export default function EditarPedido({
                 required
               >
                 <option value="">-- Selecione o Procedimento --</option>
-                {auxData.procedimentos?.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nome} (R$ {Number(p.valor).toFixed(2)})
-                  </option>
-                ))}
+                {(auxData.procedimentos || [])
+                  // Só oferece procedimento operacionalmente disponível; o que
+                  // está no pedido continua na lista para não perder o vínculo.
+                  .filter((p) => p.disponivel !== false || p.id === editingItem.procedureId)
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nome} (R$ {Number(p.valor).toFixed(2)})
+                      {p.disponivel === false ? " (indisponível)" : ""}
+                    </option>
+                  ))}
               </select>
             </div>
 
