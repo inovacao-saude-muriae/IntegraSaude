@@ -65,12 +65,13 @@ export default function RelatoriosGeraisPage() {
 
   return (
     <>
-      <div className={abasStyles.abas} role="tablist" aria-label="Relatórios gerais">
+      {/* Abas no padrão único do sistema (padraoCadastro.css → .paginaAbas). */}
+      <div className="paginaAbas" role="tablist" aria-label="Relatórios gerais">
         <button
           type="button"
           role="tab"
           aria-selected={aba === "paciente"}
-          className={aba === "paciente" ? abasStyles.abaAtiva : abasStyles.aba}
+          className={`paginaAba ${aba === "paciente" ? "paginaAbaAtiva" : ""}`}
           onClick={() => setAba("paciente")}
         >
           Relatório do paciente
@@ -79,7 +80,7 @@ export default function RelatoriosGeraisPage() {
           type="button"
           role="tab"
           aria-selected={aba === "auditoria"}
-          className={aba === "auditoria" ? abasStyles.abaAtiva : abasStyles.aba}
+          className={`paginaAba ${aba === "auditoria" ? "paginaAbaAtiva" : ""}`}
           onClick={() => setAba("auditoria")}
         >
           Auditoria de usuário

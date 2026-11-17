@@ -61,6 +61,7 @@ const paginas = [
   ["/ccz?tab=PROCEDIMENTOS&subTab=LISTA", "ccz-procedimentos.png"],
   ["/ccz?tab=ESPOROTRICOSE&subTab=LISTA", "ccz-esporotricose.png"],
   ["/ccz?tab=DENUNCIA_AGRESSIVO&subTab=LISTA", "ccz-denuncias.png"],
+  ["/ccz?tab=PROCEDIMENTOS&subTab=CADASTRAR", "ccz-procedimentos-novo.png"],
 ];
 const resumo = [];
 try {
@@ -71,7 +72,25 @@ try {
       const painel = document.querySelector(".paginaPainel, [class*='unifiedPanel'], [class*='card']");
       const s = painel ? getComputedStyle(painel) : null;
       const r = painel?.getBoundingClientRect();
+      const abas = document.querySelector(".paginaAbas");
+      const btn = abas?.querySelector(".paginaAba");
+      const ativa = abas?.querySelector(".paginaAbaAtiva");
+      const sb = btn ? getComputedStyle(btn) : null;
+      const rb = btn?.getBoundingClientRect();
+      const sa = ativa ? getComputedStyle(ativa) : null;
       return {
+        abas: abas
+          ? {
+              w: Math.round(abas.getBoundingClientRect().width),
+              bg: getComputedStyle(abas).backgroundColor,
+              pad: getComputedStyle(abas).padding,
+              border: getComputedStyle(abas).borderStyle,
+              gap: getComputedStyle(abas).gap,
+              altura: rb ? Math.round(rb.height) : null,
+              aba: sb ? { radius: sb.borderRadius, font: sb.fontSize, color: sb.color, bg: sb.backgroundColor, pad: sb.padding } : null,
+              ativa: sa ? { color: sa.color, bg: sa.backgroundColor, border: sa.borderColor } : null,
+            }
+          : null,
         tituloExterno: document.querySelectorAll("h1").length,
         painel: r ? { w: Math.round(r.width), pad: s.padding, radius: s.borderRadius } : null,
       };

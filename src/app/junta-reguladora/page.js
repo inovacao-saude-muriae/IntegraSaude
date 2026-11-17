@@ -192,17 +192,17 @@ function JuntaReguladoraPageContent() {
       {activeTab === "SERVICOS" && servicoLiberado && (
         <div className="paginaPainel">
           {/* Alternância: Recepção/Atendimento ou Agenda */}
-          <div className={styles.servicoTabs}>
+          <div className="paginaAbas">
             <button
               type="button"
-              className={`${styles.servicoTab} ${abaServico === "ATENDIMENTO" ? styles.servicoTabActive : ""}`}
+              className={`paginaAba ${abaServico === "ATENDIMENTO" ? "paginaAbaAtiva" : ""}`}
               onClick={() => setAbaServico("ATENDIMENTO")}
             >
               Recepção / Atendimento
             </button>
             <button
               type="button"
-              className={`${styles.servicoTab} ${abaServico === "AGENDA" ? styles.servicoTabActive : ""}`}
+              className={`paginaAba ${abaServico === "AGENDA" ? "paginaAbaAtiva" : ""}`}
               onClick={() => setAbaServico("AGENDA")}
             >
               Agenda

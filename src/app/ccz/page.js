@@ -279,9 +279,9 @@ function CczPageContent() {
       {mostrarAbas && (
       <div>
       {/* Abas de navegação (Lista / Cadastrar) */}
-        <div className={styles.tabsContainer}>
+        <div className="paginaAbas">
           <button
-            className={`${styles.tabButton} ${activeSubTab === "LISTA" ? styles.tabActive : ""}`}
+            className={`paginaAba ${activeSubTab === "LISTA" ? "paginaAbaAtiva" : ""}`}
             onClick={() => irPara(activeTab, "LISTA")}
           >
             <svg
@@ -306,7 +306,7 @@ function CczPageContent() {
           </button>
           {(activeTab !== "ANIMAIS" || permAnimais.criar) && (
           <button
-            className={`${styles.tabButton} ${activeSubTab === "CADASTRAR" ? styles.tabActive : ""}`}
+            className={`paginaAba ${activeSubTab === "CADASTRAR" ? "paginaAbaAtiva" : ""}`}
             onClick={() => irPara(activeTab, "CADASTRAR")}
           >
             <svg
