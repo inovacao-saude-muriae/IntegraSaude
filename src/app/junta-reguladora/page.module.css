@@ -1,6 +1,8 @@
+/* A raiz da página usa `.paginaContainer` (padraoCadastro.css): o respiro e o
+   alinhamento vêm de lá, iguais aos da Lista de Espera da Regulação. */
 .container {
   width: 100%;
-  padding: 1.5rem; /* mesmo padrão de conteúdo do catálogo de Processos */
+  padding: 0;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: #1e293b;
 }
@@ -26,10 +28,6 @@
 }
 
 @media (max-width: 768px) {
-  .container {
-    padding: 1rem 0.75rem;
-  }
-
   .header h1 {
     font-size: 1.4rem;
   }
@@ -43,7 +41,9 @@
 .servicoTabs {
   display: flex;
   gap: 0.5rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: 0;
+  /* Empilhado dentro do painel principal, o espaço entre as abas internas e o
+     conteúdo vem do `gap` do painel — não do margin daqui. */
 }
 
 .servicoTab {

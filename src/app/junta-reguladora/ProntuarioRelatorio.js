@@ -7,6 +7,7 @@ import { listarPacientesJunta } from './actions';
 import { documentoPaciente } from '@/app/regulacao/constants';
 import { mascararTelefone } from '@/lib/telefone';
 import { formatarCpfExibicao } from '@/lib/cpf';
+import '@/components/cadastros/padraoCadastro.css';
 import styles from './ProntuarioRelatorio.module.css';
 import { rotuloEspecialidade } from './rotuloEspecialidade';
 import { usaRelatorioFinal } from './usaRelatorioFinal';
@@ -454,7 +455,8 @@ export default function ProntuarioRelatorio({ prontuarioData, onBuscar }) {
   };
 
   return (
-    <div className={styles.card}>
+    <div className="paginaContainer">
+    <div className="paginaPainel">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
         <h2 className={styles.title} style={{ margin: 0 }}>Prontuário Unificado e Relatório de Serviços</h2>
       </div>
@@ -790,6 +792,7 @@ export default function ProntuarioRelatorio({ prontuarioData, onBuscar }) {
           Digite o nome ou CPF no campo acima para pesquisar o histórico do paciente no banco de dados.
         </div>
       )}
+    </div>
     </div>
   );
 }

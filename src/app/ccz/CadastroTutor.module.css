@@ -1,7 +1,10 @@
+/* A raiz da página CCZ usa `.paginaContainer` (padraoCadastro.css): o painel
+   branco, o respiro e o alinhamento vêm de lá, iguais aos da Lista de Espera da
+   Regulação. */
 .container {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.25rem;
 }
 
 .header {
@@ -23,16 +26,15 @@
   margin-top: 0.25rem;
 }
 
-/* Abas de navegação (Lista / Cadastrar) */
+/* Abas de navegação (Lista / Cadastrar) — dentro do painel principal */
 .tabsContainer {
   display: flex;
   gap: 0.25rem;
-  margin-bottom: 1.5rem;
-  border-bottom: 2px solid #e2e8f0;
-  padding-bottom: 0;
-  background-color: #f8fafc;
+  margin-bottom: 0;
+  border-bottom: 1px solid #e2e8f0;
   padding: 0.25rem;
-  border-radius: 8px 8px 0 0;
+  background-color: #f8fafc;
+  border-radius: 8px;
 }
 
 .tabButton {

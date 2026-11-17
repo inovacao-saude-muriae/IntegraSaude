@@ -21,6 +21,7 @@ import Dashboard from "./Dashboard";
 import { usePermissoesJunta } from "./PermissoesJuntaContext";
 import { useNotify } from "@/components/ConfirmDialog";
 
+import "@/components/cadastros/padraoCadastro.css";
 import styles from "./page.module.css";
 
 // Mapeia os códigos de subTab da URL para os nomes exatos gravados no banco
@@ -159,8 +160,11 @@ function JuntaReguladoraPageContent() {
     }
   };
 
+  // Container principal único (padrão da Lista de Espera da Regulação):
+  // a raiz da página não tem respiro próprio e a aba "Serviços" ganha um painel
+  // branco que engloba as abas internas (Recepção/Agenda) e o conteúdo delas.
   return (
-    <div className={styles.container}>
+    <div className="paginaContainer">
       {/* Sem cabeçalho de módulo: cada aba já traz o próprio título (padrão da
           Farmácia Judicial). Na aba "Novo Pedido" o título é "Cadastrar Novo
           Pedido", como "Novo Processo" na Farmácia. */}
@@ -186,7 +190,7 @@ function JuntaReguladoraPageContent() {
       )}
 
       {activeTab === "SERVICOS" && servicoLiberado && (
-        <>
+        <div className="paginaPainel">
           {/* Alternância: Recepção/Atendimento ou Agenda */}
           <div className={styles.servicoTabs}>
             <button
@@ -213,7 +217,7 @@ function JuntaReguladoraPageContent() {
               onRegistrar={handleRegistrarAtendimento}
             />
           )}
-        </>
+        </div>
       )}
 
       {activeTab === "SERVICOS_ESPECIALIDADES" && (

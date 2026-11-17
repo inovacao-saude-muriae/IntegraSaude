@@ -7,6 +7,7 @@ import { documentoPaciente } from '@/app/regulacao/constants';
 import { mascararTelefone } from '@/lib/telefone';
 import SeletorPaciente from '@/components/SeletorPaciente';
 import { formatarCpfExibicao } from '@/lib/cpf';
+import '@/components/cadastros/padraoCadastro.css';
 import styles from './CadastroPacienteJunta.module.css';
 
 const LOCAIS_DISPONIVEIS = [
@@ -90,8 +91,8 @@ export default function CadastroPacienteJunta({
   };
 
   return (
-    <div className={styles.container}>
-      <div className={styles.mainWrapper}>
+    <div className="paginaContainer">
+      <div className="paginaPainel">
         <h2 className={styles.cardTitle}>{titulo}</h2>
 
         {/* SEÇÃO 1: IDENTIFICAÇÃO DO PACIENTE (estilo Novo Pedido) */}

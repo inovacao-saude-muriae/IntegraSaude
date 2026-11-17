@@ -18,6 +18,7 @@ import AgendaCCZ from "./AgendaCCZ";
 import TermosEmBranco from "./TermosEmBranco";
 import { obterAnimal, obterProcedimento, obterEsporotricose } from "./actions";
 
+import "@/components/cadastros/padraoCadastro.css";
 import styles from "./CadastroTutor.module.css";
 
 function CczPageContent() {
@@ -266,19 +267,18 @@ function CczPageContent() {
     }
   }
 
-  return (
-    <div className={styles.container}>
-      <header className={styles.header}>
-        <div>
-          <h1 className={styles.title}>CCZ — Centro de Controle de Zoonoses</h1>
-          <p className={styles.subtitle}>
-            Cadastro de tutores e animais do Centro de Controle de Zoonoses.
-          </p>
-        </div>
-      </header>
+  // Container principal único (padrão da Lista de Espera da Regulação): engloba
+  // as abas (Lista/Novo) e o conteúdo delas. O cabeçalho externo do módulo foi
+  // removido — cada tela mantém o próprio título interno.
+  const mostrarAbas =
+    activeTab !== "DASHBOARD" && activeTab !== "AGENDA" && activeTab !== "TERMOS";
 
-      {/* Abas de navegação (Lista / Cadastrar) - exceto para Dashboard, Agenda e Termos */}
-      {activeTab !== "DASHBOARD" && activeTab !== "AGENDA" && activeTab !== "TERMOS" && (
+  return (
+    <div className="paginaContainer">
+      <div className="paginaPainel">
+      {mostrarAbas && (
+      <div>
+      {/* Abas de navegação (Lista / Cadastrar) */}
         <div className={styles.tabsContainer}>
           <button
             className={`${styles.tabButton} ${activeSubTab === "LISTA" ? styles.tabActive : ""}`}
@@ -327,12 +327,15 @@ function CczPageContent() {
           </button>
           )}
         </div>
+      </div>
       )}
 
       {conteudo}
+      </div>
     </div>
   );
 }
+
 
 export default function CczPage() {
   return (
