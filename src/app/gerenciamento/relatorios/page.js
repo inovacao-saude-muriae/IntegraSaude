@@ -561,17 +561,6 @@ function RelatorioPacienteView() {
   // Agrupa as atividades (já ordenadas por data desc) por módulo, respeitando ORDEM_MODULOS.
   return (
     <main className={styles.container}>
-      <header className={styles.header}>
-        <div>
-          <p className={styles.eyebrow}>GERENCIAMENTO</p>
-          <h1>Relatório Unificado do Paciente</h1>
-          <p className={styles.subtitle}>
-            Busque uma pessoa e consulte tudo que ela registrou em todos os
-            módulos do sistema.
-          </p>
-        </div>
-      </header>
-
       <div className={styles.cardWrapper}>
       <section className={styles.buscaWrapper}>
         <label className={styles.buscaLabel}>

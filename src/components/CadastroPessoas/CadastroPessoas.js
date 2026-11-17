@@ -506,19 +506,6 @@ export default function CadastroPessoas({
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <div>
-          <h1 className={styles.title}>
-            {variante === "tutor" ? "Cadastro de Tutores" : "Cadastro de Pacientes"}
-          </h1>
-          <p className={styles.subtitle}>
-            {variante === "tutor"
-              ? "Tutor é uma pessoa da base central: os dados cadastrais são os mesmos de Pacientes, compartilhados entre Regulação, Junta, Farmácia Judicial, Processos e CCZ."
-              : "Base central compartilhada entre Regulação, Junta Reguladora, Farmácia Judicial, Processos e CCZ."}
-          </p>
-        </div>
-      </header>
-
       {erro && <div className={styles.alertErro}>{erro}</div>}
 
       {/* CARD ÚNICO: BUSCA + DADOS DA PESSOA */}

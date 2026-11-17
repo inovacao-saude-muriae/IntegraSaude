@@ -47,11 +47,6 @@ export default function UbsPage() {
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <h1>Unidades / UBS</h1>
-        <p>Cadastro e gestão das unidades de saúde.</p>
-      </header>
-
       <CadastroUbs
         formUbs={formUbs}
         setFormUbs={setFormUbs}

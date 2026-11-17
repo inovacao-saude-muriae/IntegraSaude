@@ -12,22 +12,3 @@
   gap: 1.25rem;
 }
 
-.header {
-  margin-bottom: 0.5rem;
-  padding-bottom: 1.25rem;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.header h1 {
-  font-size: 1.75rem;
-  font-weight: 800;
-  color: #0f172a;
-  letter-spacing: -0.025em;
-  margin: 0 0 0.25rem 0;
-}
-
-.header p {
-  font-size: 0.925rem;
-  color: #64748b;
-  margin: 0;
-}

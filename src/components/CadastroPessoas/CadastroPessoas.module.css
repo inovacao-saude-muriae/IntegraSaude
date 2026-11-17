@@ -4,25 +4,6 @@
   gap: 1.5rem;
 }
 
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-}
-
-.title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.subtitle {
-  font-size: 0.875rem;
-  color: #64748b;
-  margin-top: 0.25rem;
-}
-
 .alertErro {
   background-color: #fef2f2;
   color: #991b1b;
@@ -42,7 +23,6 @@
 }
 
 /* Largura contida compartilhada entre cabeçalho, formulário e busca/listagem */
-.header,
 .formCard,
 .searchCard,
 .alertErro {

@@ -53,11 +53,6 @@ export default function MedicosPage() {
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <h1>Médicos Solicitantes</h1>
-        <p>Cadastro e gestão dos médicos.</p>
-      </header>
-
       <CadastroMedicos
         formMedico={formMedico}
         setFormMedico={setFormMedico}
