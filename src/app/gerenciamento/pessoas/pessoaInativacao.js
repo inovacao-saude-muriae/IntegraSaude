@@ -7,32 +7,49 @@ import { MODULOS } from "@/lib/permissions";
 import { PERMISSOES } from "@/lib/permissoesCatalogo";
 import { revalidatePath } from "next/cache";
 import { normalizarCpfChave } from "@/lib/cpf";
+import {
+  SITUACOES_PESSOA,
+  MIN_JUSTIFICATIVA_SITUACAO,
+  MAX_JUSTIFICATIVA_SITUACAO,
+  normalizarSituacaoPessoa,
+  rotuloSituacaoPessoa,
+} from "@/lib/situacaoPessoa";
 
 // ── SITUAÇÃO CADASTRAL DA PESSOA CENTRAL (EMPI) ────────────────────────────
-// Inativar/reativar NÃO apaga nada: usa o campo `pessoa.ativo` que já existe e
-// preserva todos os vínculos (Regulação, Câmara Técnica, Junta, CCZ, animais).
-// A exclusão definitiva é outra operação (excluirPessoa, em actions.js).
+// Fonte única compartilhada por Regulação, Junta Reguladora, Farmácia Judicial,
+// Processos e CCZ. A regra (valores, rótulos, mensagens e filtros) está em
+// @/lib/situacaoPessoa — aqui fica só a escrita e a auditoria.
 //
-// Permissões próprias e separadas, do catálogo central:
-//   GESTAO · pessoas · inativar
-//   GESTAO · pessoas · reativar
-// Nenhum administrador de módulo recebe essas permissões por herança.
+// Permissões próprias do catálogo central, nenhuma herdada por administrador
+// de módulo:
+//   GESTAO · pessoas · inativar  → ATIVO → INATIVO
+//   GESTAO · pessoas · reativar  → INATIVO/FALECIDO → ATIVO
+//   GESTAO · pessoas · editar    → registrar/corrigir FALECIDO
+//
+// Nada é apagado: pedidos, prontuários, processos, registros da Farmácia e os
+// vínculos do CCZ (inclusive animais) permanecem intactos.
 
-const MIN_JUSTIFICATIVA = 15;
-const MAX_JUSTIFICATIVA = 500;
-
-function lerJustificativa(valor) {
+function lerJustificativa(valor, acao) {
   const texto = String(valor ?? "").trim().replace(/\s+/g, " ");
-  if (texto.length < MIN_JUSTIFICATIVA) {
+  if (texto.length < MIN_JUSTIFICATIVA_SITUACAO) {
     return {
-      erro: `Informe a justificativa da inativação (mínimo de ${MIN_JUSTIFICATIVA} caracteres).`,
+      erro: `Informe a justificativa da ${acao} (mínimo de ${MIN_JUSTIFICATIVA_SITUACAO} caracteres).`,
     };
   }
-  return { texto: texto.slice(0, MAX_JUSTIFICATIVA) };
+  return { texto: texto.slice(0, MAX_JUSTIFICATIVA_SITUACAO) };
 }
 
-// Quem ainda pode entrar no sistema com este CPF. Inativar o cadastro central
-// NÃO pode bloquear o acesso de um usuário administrativo sem decisão explícita.
+// Permissão exigida para ir da situação atual para a nova.
+function permissaoDaTransicao(anterior, nova) {
+  if (nova === SITUACOES_PESSOA.ATIVO) return PERMISSOES.REATIVAR;
+  if (nova === SITUACOES_PESSOA.FALECIDO) return PERMISSOES.EDITAR;
+  return anterior === SITUACOES_PESSOA.FALECIDO
+    ? PERMISSOES.EDITAR
+    : PERMISSOES.INATIVAR;
+}
+
+// Quem ainda pode entrar no sistema com este CPF. Tirar o cadastro de ATIVO não
+// pode bloquear o acesso de um usuário administrativo sem decisão explícita.
 async function contarUsuariosAtivos(cpf) {
   const [usuarios, acessos] = await Promise.all([
     prisma.user.count({ where: { cpf, ativo: true } }),
@@ -41,19 +58,20 @@ async function contarUsuariosAtivos(cpf) {
   return { usuarios, acessos };
 }
 
-// ── INATIVAR ───────────────────────────────────────────────────────────────
-export async function inativarPessoa(cpf, { justificativa } = {}) {
+// ── ALTERAR SITUAÇÃO CADASTRAL ─────────────────────────────────────────────
+export async function alterarSituacaoPessoa(cpf, { situacao, justificativa } = {}) {
   try {
-    const user = await requirePermissao(
-      MODULOS.GESTAO,
-      "pessoas",
-      PERMISSOES.INATIVAR,
-    );
     const cpfLimpo = normalizarCpfChave(cpf);
+    const nova = normalizarSituacaoPessoa(situacao);
 
     const pessoa = await prisma.pessoa.findUnique({
       where: { cpf: cpfLimpo },
-      select: { cpf: true, nomeCompleto: true, ativo: true, unificadoEmCpf: true },
+      select: {
+        cpf: true,
+        nomeCompleto: true,
+        situacao: true,
+        unificadoEmCpf: true,
+      },
     });
     if (!pessoa) return { success: false, error: "Pessoa não encontrada." };
     if (pessoa.unificadoEmCpf) {
@@ -63,48 +81,70 @@ export async function inativarPessoa(cpf, { justificativa } = {}) {
           "Este cadastro foi unificado em outro registro. A situação é controlada pela unificação e não pode ser alterada aqui.",
       };
     }
-    if (!pessoa.ativo) {
-      return { success: false, error: "Esta pessoa já está inativa." };
+
+    const anterior = normalizarSituacaoPessoa(pessoa.situacao);
+    if (anterior === nova) {
+      return {
+        success: false,
+        error: `Esta pessoa já está com a situação ${rotuloSituacaoPessoa(nova)}.`,
+      };
     }
 
-    const just = lerJustificativa(justificativa);
+    // Autorização calculada pela TRANSIÇÃO, antes de qualquer escrita.
+    const permissao = permissaoDaTransicao(anterior, nova);
+    const user = await requirePermissao(MODULOS.GESTAO, "pessoas", permissao);
+
+    const acao = `para ${rotuloSituacaoPessoa(nova).toLowerCase()}`;
+    const just = lerJustificativa(justificativa, acao);
     if (just.erro) return { success: false, error: just.erro };
 
-    // Proteção de acesso: usuário administrativo ativo não é inativado por aqui.
-    const uso = await contarUsuariosAtivos(cpfLimpo);
-    if (uso.usuarios > 0) {
-      await registrarAuditoria({
-        user,
-        acao: "NEGAR",
-        modulo: "GERENCIAMENTO",
-        entidade: "Pessoa",
-        entidadeId: cpfLimpo,
-        descricao: "Inativação bloqueada: a pessoa possui usuário ativo no sistema",
-      });
-      return {
-        success: false,
-        status: 409,
-        error:
-          "Não é possível inativar: este CPF está vinculado a um usuário ativo do " +
-          "IntegraSaúde. Ajuste o acesso do usuário antes de inativar o cadastro.",
-      };
+    // Proteção de acesso: usuário administrativo ativo não perde a situação por aqui.
+    if (nova !== SITUACOES_PESSOA.ATIVO) {
+      const uso = await contarUsuariosAtivos(cpfLimpo);
+      if (uso.usuarios > 0) {
+        await registrarAuditoria({
+          user,
+          acao: "NEGAR",
+          modulo: "GERENCIAMENTO",
+          entidade: "Pessoa",
+          entidadeId: cpfLimpo,
+          descricao: `Alteração para ${rotuloSituacaoPessoa(nova)} bloqueada: a pessoa possui usuário ativo no sistema`,
+          detalhes: {
+            situacaoAnterior: anterior,
+            novaSituacao: nova,
+            resultado: "NEGADO",
+            justificativa: just.texto,
+          },
+        });
+        return {
+          success: false,
+          status: 409,
+          error:
+            "Não é possível alterar a situação: este CPF está vinculado a um usuário ativo do " +
+            "IntegraSaúde. Ajuste o acesso do usuário antes de alterar o cadastro.",
+        };
+      }
     }
 
+    // `ativo` é espelho técnico: o trigger do banco o recalcula a partir de
+    // `situacao`. A aplicação grava apenas a situação.
     await prisma.pessoa.update({
       where: { cpf: cpfLimpo },
-      data: { ativo: false },
+      data: { situacao: nova },
     });
 
     await registrarAuditoria({
       user,
-      acao: "DESATIVAR",
+      acao: nova === SITUACOES_PESSOA.ATIVO ? "REATIVAR" : "DESATIVAR",
       modulo: "GERENCIAMENTO",
       entidade: "Pessoa",
       entidadeId: cpfLimpo,
-      descricao: `Pessoa '${pessoa.nomeCompleto}' inativada. Justificativa: ${just.texto}`,
+      descricao: `Pessoa '${pessoa.nomeCompleto}': situação alterada de ${rotuloSituacaoPessoa(
+        anterior,
+      )} para ${rotuloSituacaoPessoa(nova)}. Justificativa: ${just.texto}`,
       detalhes: {
-        situacaoAnterior: "ATIVA",
-        novaSituacao: "INATIVA",
+        situacaoAnterior: anterior,
+        novaSituacao: nova,
         resultado: "SUCESSO",
         justificativa: just.texto,
       },
@@ -112,94 +152,22 @@ export async function inativarPessoa(cpf, { justificativa } = {}) {
 
     revalidatePath("/gerenciamento/pessoas");
     revalidatePath("/gerenciamento/tutores");
-    return {
-      success: true,
-      data: { cpf: cpfLimpo, ativo: false },
-    };
+    revalidatePath("/ccz");
+    revalidatePath("/regulacao");
+    revalidatePath("/junta-reguladora");
+    return { success: true, data: { cpf: cpfLimpo, situacao: nova } };
   } catch (error) {
     if (error.status === 401 || error.status === 403) {
       return { success: false, error: error.message };
     }
-    console.error("Erro ao inativar pessoa:", error);
-    return { success: false, error: "Erro ao inativar a pessoa." };
+    console.error("Erro ao alterar a situação da pessoa:", error);
+    return { success: false, error: "Erro ao alterar a situação da pessoa." };
   }
 }
 
-// ── REATIVAR ───────────────────────────────────────────────────────────────
-// Reativa o MESMO registro (nunca cria outro) e preserva os vínculos.
-export async function reativarPessoa(cpf, { justificativa } = {}) {
-  try {
-    const user = await requirePermissao(
-      MODULOS.GESTAO,
-      "pessoas",
-      PERMISSOES.REATIVAR,
-    );
-    const cpfLimpo = normalizarCpfChave(cpf);
-
-    const pessoa = await prisma.pessoa.findUnique({
-      where: { cpf: cpfLimpo },
-      select: { cpf: true, nomeCompleto: true, ativo: true, unificadoEmCpf: true },
-    });
-    if (!pessoa) return { success: false, error: "Pessoa não encontrada." };
-    if (pessoa.unificadoEmCpf) {
-      return {
-        success: false,
-        error:
-          "Este cadastro foi absorvido por uma unificação e não pode ser reativado.",
-      };
-    }
-    if (pessoa.ativo) {
-      return { success: false, error: "Esta pessoa já está ativa." };
-    }
-
-    const just = lerJustificativa(justificativa);
-    if (just.erro) return { success: false, error: just.erro.replace("inativação", "reativação") };
-
-    // Reativação é sempre do MESMO registro: o CPF é a chave primária, então
-    // não há como gerar duplicidade. Confirmamos para deixar explícito.
-    const totalComCpf = await prisma.pessoa.count({ where: { cpf: cpfLimpo } });
-    if (totalComCpf !== 1) {
-      return {
-        success: false,
-        error: "Situação inesperada do cadastro. Nenhuma alteração foi feita.",
-      };
-    }
-
-    await prisma.pessoa.update({
-      where: { cpf: cpfLimpo },
-      data: { ativo: true },
-    });
-
-    await registrarAuditoria({
-      user,
-      acao: "REATIVAR",
-      modulo: "GERENCIAMENTO",
-      entidade: "Pessoa",
-      entidadeId: cpfLimpo,
-      descricao: `Pessoa '${pessoa.nomeCompleto}' reativada. Justificativa: ${just.texto}`,
-      detalhes: {
-        situacaoAnterior: "INATIVA",
-        novaSituacao: "ATIVA",
-        resultado: "SUCESSO",
-        justificativa: just.texto,
-      },
-    });
-
-    revalidatePath("/gerenciamento/pessoas");
-    revalidatePath("/gerenciamento/tutores");
-    return { success: true, data: { cpf: cpfLimpo, ativo: true } };
-  } catch (error) {
-    if (error.status === 401 || error.status === 403) {
-      return { success: false, error: error.message };
-    }
-    console.error("Erro ao reativar pessoa:", error);
-    return { success: false, error: "Erro ao reativar a pessoa." };
-  }
-}
-
-// ── CONSULTA DE HISTÓRICO (pessoa inativa continua consultável) ────────────
-// Retorna apenas a SITUAÇÃO e as contagens por módulo (rótulos), para a tela
-// mostrar por que o cadastro está inativo sem expor dados de outros módulos.
+// ── CONSULTA DE HISTÓRICO (pessoa inativa/falecida continua consultável) ───
+// Retorna a SITUAÇÃO e as contagens por módulo (rótulos), para a tela mostrar
+// por que o cadastro está indisponível sem expor dados de outros módulos.
 export async function consultarSituacaoPessoa(cpf) {
   try {
     await requirePermissao(MODULOS.GESTAO, "pessoas", PERMISSOES.VISUALIZAR);
@@ -209,7 +177,7 @@ export async function consultarSituacaoPessoa(cpf) {
       select: {
         cpf: true,
         nomeCompleto: true,
-        ativo: true,
+        situacao: true,
         unificadoEmCpf: true,
         _count: {
           select: {
@@ -243,7 +211,7 @@ export async function consultarSituacaoPessoa(cpf) {
       data: {
         cpf: pessoa.cpf,
         nomeCompleto: pessoa.nomeCompleto,
-        ativo: pessoa.ativo,
+        situacao: normalizarSituacaoPessoa(pessoa.situacao),
         unificado: Boolean(pessoa.unificadoEmCpf),
         vinculos: {
           regulacao: pessoa._count.pedidos,

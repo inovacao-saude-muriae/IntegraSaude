@@ -37,6 +37,14 @@ model Session {
   @@map("user_sessions")
 }
 
+/// Situação cadastral da Pessoa central (EMPI). Fonte única compartilhada por
+/// todos os módulos. `pessoa.ativo` é o espelho técnico de `situacao = ATIVO`.
+enum SituacaoCadastral {
+  ATIVO
+  INATIVO
+  FALECIDO
+}
+
 model Pessoa {
   cpf                  String                    @id @db.VarChar(11)
   nomeCompleto         String                    @map("nome_completo") @db.VarChar(150)
@@ -55,7 +63,8 @@ model Pessoa {
   processosJudiciais   ProcessoJudicial[]
   auditoriaUnificacaos AuditoriaUnificacao[]
 
-  // EMPI: unificação de cadastros (ativo=false => absorvida em unificadoEmCpf)
+  // Situação cadastral (fonte única entre módulos) e seu espelho técnico.
+  situacao              SituacaoCadastral @default(ATIVO)
   ativo                 Boolean   @default(true)
   unificadoEmCpf        String?   @map("unificado_em_cpf") @db.VarChar(11)
   dataUnificacao        DateTime? @map("data_unificacao") @db.Timestamptz(6)
@@ -65,6 +74,7 @@ model Pessoa {
   unificadoPor          User?     @relation("PessoaUnificadaPor", fields: [unificadoPorUsuarioId], references: [cpf], onDelete: SetNull, onUpdate: Cascade, map: "fk_pessoa_unificado_por")
 
   @@index([ativo], map: "idx_pessoa_ativo")
+  @@index([situacao], map: "idx_pessoa_situacao")
   @@index([unificadoEmCpf], map: "idx_pessoa_unificado_em")
   @@index([nomeCompleto, dataNascimento], map: "idx_pessoa_nome")
   @@map("pessoa")

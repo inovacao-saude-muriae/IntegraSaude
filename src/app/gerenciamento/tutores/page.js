@@ -18,11 +18,22 @@ export default async function TutoresPage() {
   // Excluir a PESSOA é outra operação, com permissão própria da Gestão Geral.
   const podeExcluirPessoa =
     ctx && (await usuarioTemPermissao(ctx.user, MODULOS.GESTAO, "pessoas", "excluir"));
+  // Situação cadastral: mesma fonte para tutores e pacientes.
+  const [podeInativarPessoa, podeReativarPessoa, podeEditarPessoa] = ctx
+    ? await Promise.all([
+        usuarioTemPermissao(ctx.user, MODULOS.GESTAO, "pessoas", "inativar"),
+        usuarioTemPermissao(ctx.user, MODULOS.GESTAO, "pessoas", "reativar"),
+        usuarioTemPermissao(ctx.user, MODULOS.GESTAO, "pessoas", "editar"),
+      ])
+    : [false, false, false];
 
   return (
     <TutoresGerenciamento
       podeExcluir={podeExcluirTutor}
       podeExcluirPessoa={podeExcluirPessoa}
+      podeInativarPessoa={podeInativarPessoa}
+      podeReativarPessoa={podeReativarPessoa}
+      podeEditarPessoa={podeEditarPessoa}
     />
   );
 }

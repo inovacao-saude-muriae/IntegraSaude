@@ -7,6 +7,10 @@ import { MODULOS } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { normalizarCpfChave } from "@/lib/cpf";
 import {
+  whereSituacaoPessoa,
+  mensagemPessoaIndisponivel,
+} from "@/lib/situacaoPessoa";
+import {
   soDigitos,
   validarCpf,
   upsertPessoaTx,
@@ -35,6 +39,8 @@ const serializarPessoa = (pessoa) => {
   return {
     cpf: pessoa.cpf,
     nomeCompleto: pessoa.nomeCompleto,
+    situacao: pessoa.situacao || "ATIVO",
+    ativo: pessoa.ativo !== false,
     sexo: pessoa.sexo || "Masculino",
     dataNascimento: dataParaInput(pessoa.dataNascimento),
     nomeMae: pessoa.nomeMae || "",
@@ -66,16 +72,18 @@ export async function buscarPessoasCCZ(termo = "") {
     const termoLimpo = String(termo || "").trim();
     const termoDigitos = soDigitos(termoLimpo);
 
-    // Cadastros absorvidos por unificação (ativo=false) ficam fora da busca.
+    // Situação cadastral (fonte única): só pessoas ATIVAS aparecem na busca de
+    // tutores. Cadastros unificados também ficam fora.
     const where = termoLimpo
       ? {
-          ativo: true,
+          ...whereSituacaoPessoa("ativos"),
+          unificadoEmCpf: null,
           OR: [
             { nomeCompleto: { contains: termoLimpo, mode: "insensitive" } },
             ...(termoDigitos ? [{ cpf: { contains: termoDigitos } }] : []),
           ],
         }
-      : { ativo: true };
+      : { ...whereSituacaoPessoa("ativos"), unificadoEmCpf: null };
 
     const pessoas = await prisma.pessoa.findMany({
       where,
@@ -146,6 +154,7 @@ export async function listarTutoresComAnimais() {
     const data = tutores.map((t) => ({
       pessoaCpf: t.pessoaCpf,
       nome: t.pessoa?.nomeCompleto || "",
+      situacao: t.pessoa?.situacao || "ATIVO",
       cpf: t.pessoa?.cpf || "",
       cns: t.pessoa?.cns || "",
       telefone: t.pessoa?.telefone || "",
@@ -419,21 +428,24 @@ export async function salvarTutor(dados) {
     }
 
     const cpf = soDigitos(dados.cpf);
-    
-    // Verifica se já existe pessoa com este CPF (apenas em modo novo cadastro)
-    if (!dados.jaEhTutor) {
-      const pessoaExistente = await prisma.pessoa.findUnique({
-        where: { cpf },
-        select: { cpf: true, nomeCompleto: true },
-      });
-      
-      if (pessoaExistente) {
-        return { 
-          success: false, 
-          error: `CPF já cadastrado no sistema para: ${pessoaExistente.nomeCompleto}. Use a busca para selecionar esta pessoa.` 
-        };
-      }
+
+    // A Pessoa é a MESMA do Cadastro de Pacientes (fonte única). Em cadastro
+    // novo, um CPF que já existe é reaproveitado — nunca duplicado.
+    const pessoaExistente = await prisma.pessoa.findUnique({
+      where: { cpf },
+      select: { cpf: true, nomeCompleto: true, situacao: true, unificadoEmCpf: true },
+    });
+    if (pessoaExistente?.unificadoEmCpf) {
+      return {
+        success: false,
+        error: `Este CPF pertence a um cadastro unificado em ${pessoaExistente.nomeCompleto}. Selecione o cadastro principal pela busca.`,
+      };
     }
+    if (pessoaExistente && !dados.jaEhTutor) {
+      const indisponivel = mensagemPessoaIndisponivel(pessoaExistente.situacao);
+      if (indisponivel) return { success: false, error: indisponivel };
+    }
+    const pessoaJaExiste = Boolean(pessoaExistente);
 
     const dadosTutor = {
       rg: dados.rg ? String(dados.rg).slice(0, 20) : null,
@@ -448,8 +460,13 @@ export async function salvarTutor(dados) {
       observacoes: dados.observacoes ? String(dados.observacoes) : null,
     };
 
+    // Situação cadastral: gravada apenas na CRIAÇÃO da pessoa (alterá-la exige
+    // confirmação e justificativa, em alterarSituacaoPessoa).
+    const dadosPessoa = { ...dados };
+    delete dadosPessoa.situacao;
+
     await prisma.$transaction(async (tx) => {
-      await upsertPessoaTx(tx, dados);
+      await upsertPessoaTx(tx, pessoaJaExiste ? dadosPessoa : dados);
       await gravarEnderecoTx(tx, cpf, dados);
       await tx.tutor.upsert({
         where: { pessoaCpf: cpf },
@@ -460,11 +477,11 @@ export async function salvarTutor(dados) {
 
     await registrarAuditoria({
       user,
-      acao: dados.jaEhTutor ? "EDITAR" : "CRIAR",
+      acao: pessoaJaExiste ? "EDITAR" : "CRIAR",
       modulo: "CCZ",
       entidade: "Tutor",
       entidadeId: cpf,
-      descricao: `Tutor '${String(dados.nomeCompleto).trim()}' ${dados.jaEhTutor ? "atualizado" : "cadastrado"}`,
+      descricao: `Tutor '${String(dados.nomeCompleto).trim()}' ${pessoaJaExiste ? "atualizado" : "cadastrado"}`,
     });
 
     revalidatePath("/ccz");
@@ -806,14 +823,20 @@ export async function salvarAnimal(dados) {
       // tutora (ccz_tutores). Assim o vínculo Pessoa → Tutor → Animal fica
       // íntegro e o relatório do paciente consegue listar os animais dela.
       if (pessoaCpf) {
+        // Tutor é uma Pessoa do cadastro único: só pessoa ATIVA pode ser
+        // vinculada a um NOVO animal. Vínculos existentes não são tocados.
         const pessoa = await tx.pessoa.findUnique({
           where: { cpf: pessoaCpf },
-          select: { cpf: true, ativo: true },
+          select: { cpf: true, situacao: true, unificadoEmCpf: true },
         });
-        if (!pessoa || !pessoa.ativo) {
+        if (!pessoa || pessoa.unificadoEmCpf) {
           throw Object.assign(new Error("Pessoa (tutor) não encontrada no cadastro."), {
             codigoApp: "TUTOR_INEXISTENTE",
           });
+        }
+        const indisponivel = mensagemPessoaIndisponivel(pessoa.situacao);
+        if (indisponivel) {
+          throw Object.assign(new Error(indisponivel), { codigoApp: "TUTOR_INDISPONIVEL" });
         }
         await tx.tutor.upsert({
           where: { pessoaCpf },

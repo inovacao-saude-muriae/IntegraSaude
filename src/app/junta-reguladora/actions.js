@@ -1,6 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import { mensagemPessoaIndisponivel } from '@/lib/situacaoPessoa';
 import { registrarAuditoria } from '@/lib/audit';
 import { revalidatePath } from 'next/cache';
 import { normalizarCpfChave } from '@/lib/cpf';
@@ -129,15 +130,25 @@ export async function cadastrarPacienteJunta(data) {
     // A pessoa deve estar previamente cadastrada em Gerenciamento > Cadastro de Pessoas.
     const pessoa = await prisma.pessoa.findUnique({
       where: { cpf: cpfClean },
-      select: { cpf: true, ativo: true },
+      select: { cpf: true, situacao: true, unificadoEmCpf: true },
     });
-    if (!pessoa || !pessoa.ativo) {
+    if (!pessoa) {
       return {
         success: false,
         error:
           'Pessoa não encontrada. Cadastre-a primeiro em Gerenciamento > Cadastro de Pessoas.',
       };
     }
+    if (pessoa.unificadoEmCpf) {
+      return {
+        success: false,
+        error: 'Este cadastro foi unificado em outro. Selecione o cadastro principal.',
+      };
+    }
+    // Situação cadastral (fonte única): inativo ou falecido não abre novo
+    // atendimento na Junta Reguladora; o histórico continua consultável.
+    const indisponivel = mensagemPessoaIndisponivel(pessoa.situacao);
+    if (indisponivel) return { success: false, error: indisponivel };
 
     // Transação: apenas dados específicos da Junta (PacienteJunta + vínculos).
     const pacienteJunta = await prisma.$transaction(async (tx) => {
@@ -283,7 +294,7 @@ export async function getPacientesPorServico(servicoNome) {
     const pessoaCpfs = pacientesJunta.map((pj) => pj.pessoaCpf).filter(Boolean);
 
     const pessoas = await prisma.pessoa.findMany({
-      where: { cpf: { in: pessoaCpfs }, ativo: true },
+      where: { cpf: { in: pessoaCpfs }, unificadoEmCpf: null },
       include: {
         enderecos: {
           where: { enderecoAtual: true },

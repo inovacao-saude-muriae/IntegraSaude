@@ -4,7 +4,7 @@ import { Suspense, useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 
 import DashboardCCZ from "./DashboardCCZ";
-import CadastroTutor from "./CadastroTutor";
+import CadastroPessoas from "@/components/CadastroPessoas/CadastroPessoas";
 import CadastroAnimal from "./CadastroAnimal";
 import CadastroProcedimento from "./CadastroProcedimento";
 import CadastroEsporotricose from "./CadastroEsporotricose";
@@ -16,7 +16,12 @@ import EsporotricoseLista from "./EsporotricoseLista";
 import DenunciasLista from "./DenunciasLista";
 import AgendaCCZ from "./AgendaCCZ";
 import TermosEmBranco from "./TermosEmBranco";
-import { obterAnimal, obterProcedimento, obterEsporotricose } from "./actions";
+import {
+  obterAnimal,
+  obterProcedimento,
+  obterEsporotricose,
+  salvarTutor,
+} from "./actions";
 
 import "@/components/cadastros/padraoCadastro.css";
 import styles from "./CadastroTutor.module.css";
@@ -28,6 +33,13 @@ function CczPageContent() {
   // no servidor. A tela só mostra "Novo" e o botão Editar para quem pode; o
   // backend (salvarAnimal) revalida com requirePermissao.
   const [permAnimais, setPermAnimais] = useState({ criar: false, editar: false });
+  // Situação cadastral da pessoa central: mesmas permissões da Gestão Geral,
+  // calculadas no servidor (/api/me) — a tela só exibe; o backend revalida.
+  const [permSituacao, setPermSituacao] = useState({
+    inativar: false,
+    reativar: false,
+    editar: false,
+  });
   useEffect(() => {
     let ativo = true;
     (async () => {
@@ -39,6 +51,14 @@ function CczPageContent() {
         const lista = data?.user?.permissoes || [];
         const pode = (p) => lista.includes(`animais:${p}`);
         if (ativo) setPermAnimais({ criar: pode("criar"), editar: pode("editar") });
+        const podePessoa = (p) => lista.includes(`pessoas:${p}`);
+        if (ativo) {
+          setPermSituacao({
+            inativar: podePessoa("inativar"),
+            reativar: podePessoa("reativar"),
+            editar: podePessoa("editar"),
+          });
+        }
       } catch {
         // Sem contexto: a tela fica em modo consulta (fail-closed).
       }
@@ -163,10 +183,6 @@ function CczPageContent() {
   };
 
   // Volta para a lista correspondente após salvar/cancelar edição.
-  const voltarListaTutores = () => {
-    setCpfTutorEdicao("");
-    irPara("TUTORES", "LISTA");
-  };
   const voltarListaAnimais = () => {
     setAnimalEdicao(null);
     irPara("ANIMAIS", "LISTA");
@@ -258,10 +274,13 @@ function CczPageContent() {
       conteudo = <TutoresLista onEditar={editarTutor} />;
     } else {
       conteudo = (
-        <CadastroTutor
+        <CadastroPessoas
           key={cpfTutorEdicao || "novo"}
-          cpfInicial={cpfTutorEdicao}
-          onVoltarLista={voltarListaTutores}
+          variante="tutor"
+          salvarTutor={salvarTutor}
+          podeInativar={permSituacao.inativar}
+          podeReativar={permSituacao.reativar}
+          podeEditarSituacao={permSituacao.editar}
         />
       );
     }

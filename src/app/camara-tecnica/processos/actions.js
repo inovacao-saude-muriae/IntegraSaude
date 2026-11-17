@@ -18,6 +18,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { mensagemPessoaIndisponivel } from "@/lib/situacaoPessoa";
 import { requirePermissao } from "@/lib/auth";
 import { MODULOS } from "@/lib/permissions";
 import { registrarAuditoria } from "@/lib/audit";
@@ -118,12 +119,15 @@ async function exigirPessoa(cpfBruto) {
   if (cpf.length !== 11) throw falha("Informe o CPF do paciente.");
   const pessoa = await prisma.pessoa.findUnique({
     where: { cpf },
-    select: { cpf: true, nomeCompleto: true, ativo: true },
+    select: { cpf: true, nomeCompleto: true, situacao: true, unificadoEmCpf: true },
   });
   if (!pessoa) throw falha("Paciente não encontrado no cadastro único.");
-  if (pessoa.ativo === false) {
+  if (pessoa.unificadoEmCpf) {
     throw falha("Este cadastro foi unificado em outro. Selecione o cadastro atual.");
   }
+  // Situação cadastral (fonte única): inativo ou falecido não recebe novo processo.
+  const indisponivel = mensagemPessoaIndisponivel(pessoa.situacao);
+  if (indisponivel) throw falha(indisponivel);
   return pessoa;
 }
 

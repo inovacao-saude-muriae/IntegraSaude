@@ -605,7 +605,8 @@
 }
 
 .avisoAtiva,
-.avisoInativa {
+.avisoInativa,
+.avisoFalecido {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -623,9 +624,16 @@
 }
 
 .avisoInativa {
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
-  color: #9a3412;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+}
+
+/* Falecido: vermelho, para nunca passar despercebido. */
+.avisoFalecido {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
 }
 
 .pillSituacao {

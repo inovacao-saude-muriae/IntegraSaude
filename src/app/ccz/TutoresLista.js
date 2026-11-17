@@ -5,6 +5,11 @@ import styles from "./ListaCCZ.module.css";
 import { documentoPaciente } from "@/app/regulacao/constants";
 import { mascararTelefone } from "@/lib/telefone";
 import { listarTutoresComAnimais } from "./actions";
+import {
+  FILTROS_SITUACAO_PESSOA,
+  rotuloSituacaoPessoa,
+  classeSituacaoPessoa,
+} from "@/lib/situacaoPessoa";
 import FichaTutor from "./FichaTutor";
 import { useNotify } from "@/components/ConfirmDialog";
 
@@ -13,6 +18,8 @@ export default function TutoresLista({ onEditar }) {
   const [tutores, setTutores] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [termo, setTermo] = useState("");
+  // Filtro de situação cadastral: Todos, Ativos, Inativos e Falecidos.
+  const [filtroSituacao, setFiltroSituacao] = useState("todos");
   const [cpfFicha, setCpfFicha] = useState(null);
 
   const carregar = useCallback(async () => {
@@ -30,6 +37,10 @@ export default function TutoresLista({ onEditar }) {
   const termoLimpo = termo.trim().toLowerCase();
   const termoDigitos = termo.replace(/\D/g, "");
   const filtrados = tutores.filter((t) => {
+    const situacao = String(t.situacao || "ATIVO").toUpperCase();
+    if (filtroSituacao === "ativos" && situacao !== "ATIVO") return false;
+    if (filtroSituacao === "inativos" && situacao !== "INATIVO") return false;
+    if (filtroSituacao === "falecidos" && situacao !== "FALECIDO") return false;
     if (!termoLimpo) return true;
     const nome = (t.nome || "").toLowerCase();
     const cpf = (t.cpf || "").replace(/\D/g, "");
@@ -77,13 +88,27 @@ export default function TutoresLista({ onEditar }) {
           <h2 className={styles.cardHeaderTitle}>
             Tutores cadastrados{filtrados.length > 0 ? ` (${filtrados.length})` : ""}
           </h2>
-          <input
-            type="text"
-            className={styles.buscaInput}
-            placeholder="Buscar por nome ou CPF..."
-            value={termo}
-            onChange={(e) => setTermo(e.target.value)}
-          />
+          <div className={styles.filtrosLinha}>
+            <select
+              className={styles.filtroSelect}
+              value={filtroSituacao}
+              onChange={(e) => setFiltroSituacao(e.target.value)}
+              aria-label="Filtrar por situação cadastral"
+            >
+              {FILTROS_SITUACAO_PESSOA.map((f) => (
+                <option key={f.valor} value={f.valor}>
+                  {f.rotulo}
+                </option>
+              ))}
+            </select>
+            <input
+              type="text"
+              className={styles.buscaInput}
+              placeholder="Buscar por nome ou CPF..."
+              value={termo}
+              onChange={(e) => setTermo(e.target.value)}
+            />
+          </div>
         </div>
 
         {carregando ? (
@@ -98,6 +123,7 @@ export default function TutoresLista({ onEditar }) {
                   <th>Nome</th>
                   <th>CPF / CNS</th>
                   <th>Telefone</th>
+                  <th>Situação</th>
                   <th>Animais</th>
                 </tr>
               </thead>
@@ -118,6 +144,11 @@ export default function TutoresLista({ onEditar }) {
                     <td className={styles.boldName}>{t.nome}</td>
                     <td>{documentoPaciente({ cpf: t.cpf, cns: t.cns })}</td>
                     <td>{t.telefone ? mascararTelefone(t.telefone) : "-"}</td>
+                    <td>
+                      <span className={classeSituacaoPessoa(t.situacao)}>
+                        {rotuloSituacaoPessoa(t.situacao)}
+                      </span>
+                    </td>
                     <td>
                       {t.animais.length > 0 ? (
                         nomesAnimais(t.animais)

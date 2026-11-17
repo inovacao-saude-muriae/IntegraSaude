@@ -42,6 +42,7 @@ export async function GET(request, context) {
     const dados = {
       cpf: tutor.pessoa?.cpf || "",
       nomeCompleto: tutor.pessoa?.nomeCompleto || "",
+      situacao: tutor.pessoa?.situacao || "ATIVO",
       sexo: tutor.pessoa?.sexo || "",
       dataNascimento: tutor.pessoa?.dataNascimento || null,
       nomeMae: tutor.pessoa?.nomeMae || "",

@@ -19,10 +19,20 @@ import {
   confirmarUnificacaoPessoas,
 } from "@/app/gerenciamento/pessoas/actions";
 import {
-  inativarPessoa,
-  reativarPessoa,
+  alterarSituacaoPessoa,
   consultarSituacaoPessoa,
 } from "@/app/gerenciamento/pessoas/pessoaInativacao";
+import {
+  SITUACOES_PESSOA,
+  SITUACOES_PESSOA_LISTA,
+  FILTROS_SITUACAO_PESSOA,
+  SITUACAO_PESSOA_ROTULO,
+  SITUACAO_PESSOA_CLASSE,
+  normalizarSituacaoPessoa,
+  rotuloSituacaoPessoa,
+  classeSituacaoPessoa,
+  MIN_JUSTIFICATIVA_SITUACAO,
+} from "@/lib/situacaoPessoa";
 
 // ── Máscaras ────────────────────────────────────────────────────────────
 const maskCpf = (v) =>
@@ -44,6 +54,14 @@ const NOMES_MODULOS = {
   CCZ: "CCZ (tutor)",
 };
 
+// Classe do aviso de situação (verde / cinza / vermelho).
+const classeAvisoSituacao = (situacao) => {
+  const s = normalizarSituacaoPessoa(situacao);
+  if (s === SITUACOES_PESSOA.FALECIDO) return styles.avisoFalecido;
+  if (s === SITUACOES_PESSOA.INATIVO) return styles.avisoInativa;
+  return styles.avisoAtiva;
+};
+
 const FORM_VAZIO = {
   // cpfChave = identidade da pessoa carregada (oficial ou provisório "T...").
   cpfChave: "",
@@ -62,6 +80,16 @@ const FORM_VAZIO = {
   bairro: "",
   cidade: "Muriaé",
   uf: "MG",
+  // Situação cadastral (fonte única da Pessoa central).
+  situacao: SITUACOES_PESSOA.ATIVO,
+  // Complementares do vínculo CCZ (tabela ccz_tutores) — só na variante tutor.
+  ehTutor: false,
+  rg: "",
+  tutorSexo: "",
+  profissao: "",
+  telefoneSecundario: "",
+  pontoReferencia: "",
+  observacoes: "",
 };
 
 // Preenche o formulário a partir de uma pessoa vinda do banco.
@@ -69,6 +97,7 @@ const pessoaParaForm = (p) => ({
   ...FORM_VAZIO,
   ...p,
   cpfChave: p.cpf,
+  situacao: normalizarSituacaoPessoa(p.situacao),
   // CPF provisório não é exibido: o campo fica vazio para informar o oficial.
   cpf: isCpfProvisorio(p.cpf) ? "" : maskCpf(p.cpf),
   dataNascimento: p.dataNascimento === DATA_NASC_PLACEHOLDER ? "" : p.dataNascimento || "",
@@ -87,6 +116,13 @@ export default function CadastroPessoas({
   podeExcluir = false,
   podeInativar = false,
   podeReativar = false,
+  podeEditarSituacao = false,
+  // "paciente" (Gerenciamento/Regulação/Junta/Farmácia) ou "tutor" (CCZ).
+  // Muda apenas rótulos e campos complementares — a base é a MESMA Pessoa.
+  variante = "paciente",
+  // Server action que grava o vínculo CCZ junto com a pessoa (variante tutor).
+  // Passada como prop para este componente não importar regras do CCZ.
+  salvarTutor = null,
 }) {
   const confirm = useConfirm();
   const notify = useNotify();
@@ -108,10 +144,12 @@ export default function CadastroPessoas({
   const [cepLoading, setCepLoading] = useState(false);
   const [cepErro, setCepErro] = useState("");
   const [confirmarExclusao, setConfirmarExclusao] = useState(false);
-  // Filtro de situação cadastral: "ativas" | "inativas" | "todas".
-  const [filtroSituacao, setFiltroSituacao] = useState("ativas");
+  // Filtro de situação cadastral: "todos" | "ativos" | "inativos" | "falecidos".
+  const [filtroSituacao, setFiltroSituacao] = useState("todos");
   // Modal de inativação/reativação: { tipo: "inativar" | "reativar" } | null.
   const [situacaoModal, setSituacaoModal] = useState(null);
+  // Situação de destino escolhida no seletor (ATIVO/INATIVO/FALECIDO).
+  const [situacaoDestino, setSituacaoDestino] = useState(SITUACOES_PESSOA.ATIVO);
   const [justificativa, setJustificativa] = useState("");
   const [situacaoErro, setSituacaoErro] = useState("");
   const [situacaoSalvando, setSituacaoSalvando] = useState(false);
@@ -159,7 +197,7 @@ export default function CadastroPessoas({
     (async () => {
       const [resUbs, resPessoas] = await Promise.all([
         listarUbs(),
-        listarPessoas("", { situacao: "ativas" }),
+        listarPessoas("", { situacao: "todos" }),
       ]);
       if (!ativo) return;
       if (resUbs.success) setUbsList(resUbs.data);
@@ -287,12 +325,13 @@ export default function CadastroPessoas({
       return;
     }
 
+    const substantivo = variante === "tutor" ? "tutor" : "paciente";
     const ok = await confirm({
-      title: modo === "edicao" ? "Atualizar pessoa" : "Cadastrar pessoa",
+      title: modo === "edicao" ? "Atualizar cadastro" : "Cadastrar cadastro",
       message:
         modo === "edicao"
-          ? "Deseja salvar as alterações desta pessoa?"
-          : "Deseja confirmar o cadastro desta pessoa?",
+          ? `Deseja salvar as alterações deste ${substantivo}?`
+          : `Deseja confirmar o cadastro deste ${substantivo}?`,
       confirmText: modo === "edicao" ? "Atualizar" : "Cadastrar",
     });
     if (!ok) return;
@@ -303,14 +342,23 @@ export default function CadastroPessoas({
       telefone: soDigitos(form.telefone),
       cep: soDigitos(form.cep),
       cns: soDigitos(form.cns),
+      telefoneSecundario: soDigitos(form.telefoneSecundario),
       ubsReferenciaId: form.ubsReferenciaId || null,
     };
 
+    // A situação só é gravada na CRIAÇÃO (alterar depois exige justificativa).
+    if (modo !== "novo") delete payload.situacao;
+
     // Em edição de pessoa com CPF provisório, cpf vazio mantém o provisório.
+    // Variante tutor: a MESMA pessoa + o vínculo CCZ (ccz_tutores) na mesma ação.
     const res =
       modo === "edicao"
-        ? await atualizarPessoa(form.cpfChave, payload)
-        : await criarPessoa(payload);
+        ? variante === "tutor" && typeof salvarTutor === "function"
+          ? await salvarTutor({ ...payload, jaEhTutor: true })
+          : await atualizarPessoa(form.cpfChave, payload)
+        : variante === "tutor" && typeof salvarTutor === "function"
+          ? await salvarTutor(payload)
+          : await criarPessoa(payload);
 
     setSalvando(false);
 
@@ -329,8 +377,8 @@ export default function CadastroPessoas({
 
     if (res.success) {
       setErro("");
-      const chaveFinal = res.cpf || payload.cpf;
-      const busca = await listarPessoas(chaveFinal);
+      const chaveFinal = res.cpf || res.data?.pessoaCpf || payload.cpf;
+      const busca = await listarPessoas(chaveFinal, { situacao: "todos" });
       const salva = busca.success
         ? busca.data.find((x) => x.cpf === chaveFinal)
         : null;
@@ -341,9 +389,19 @@ export default function CadastroPessoas({
     }
   };
 
-  const abrirSituacao = (tipo) => {
+  // Abre a confirmação para alterar a situação cadastral. `tipo` é o valor de
+  // destino: "inativar" (ATIVO→INATIVO), "falecido" ou "reativar" (→ATIVO).
+  const abrirSituacao = (tipo, destino) => {
     setSituacaoErro("");
     setJustificativa("");
+    setSituacaoDestino(
+      destino ||
+        (tipo === "inativar"
+          ? SITUACOES_PESSOA.INATIVO
+          : tipo === "falecido"
+            ? SITUACOES_PESSOA.FALECIDO
+            : SITUACOES_PESSOA.ATIVO),
+    );
     setSituacaoModal({ tipo });
   };
 
@@ -352,10 +410,10 @@ export default function CadastroPessoas({
     if (!acao) return;
     setSituacaoErro("");
     setSituacaoSalvando(true);
-    const res =
-      acao === "inativar"
-        ? await inativarPessoa(form.cpfChave, { justificativa })
-        : await reativarPessoa(form.cpfChave, { justificativa });
+    const res = await alterarSituacaoPessoa(form.cpfChave, {
+      situacao: situacaoDestino,
+      justificativa,
+    });
     setSituacaoSalvando(false);
 
     if (res.success) {
@@ -364,11 +422,11 @@ export default function CadastroPessoas({
       await notify({
         tipo: "sucesso",
         message:
-          acao === "inativar"
-            ? "Pessoa inativada. Os vínculos e o histórico foram preservados."
-            : "Pessoa reativada com todos os vínculos preservados.",
+          situacaoDestino === SITUACOES_PESSOA.ATIVO
+            ? "Situação alterada para Ativo. Os vínculos e o histórico foram preservados."
+            : `Situação alterada para ${rotuloSituacaoPessoa(situacaoDestino)}. Os vínculos e o histórico foram preservados.`,
       });
-      const busca = await listarPessoas(form.cpfChave, { situacao: "todas" });
+      const busca = await listarPessoas(form.cpfChave, { situacao: "todos" });
       const atualizada = busca.success
         ? busca.data.find((x) => x.cpf === form.cpfChave)
         : null;
@@ -434,15 +492,29 @@ export default function CadastroPessoas({
   const pessoaSelecionada = Boolean(form.cpfChave);
   const cpfProvisorioAtual = modo === "edicao" && isCpfProvisorio(form.cpfChave);
   const tituloForm =
-    modo === "novo" ? "Nova pessoa" : modo === "edicao" ? "Editar pessoa" : "Dados da pessoa";
+    modo === "novo"
+      ? variante === "tutor"
+        ? "Novo tutor"
+        : "Novo paciente"
+      : modo === "edicao"
+        ? variante === "tutor"
+          ? "Editar tutor"
+          : "Editar paciente"
+        : variante === "tutor"
+          ? "Dados do tutor"
+          : "Dados do paciente";
 
   return (
     <div className={styles.container}>
       <header className={styles.header}>
         <div>
-          <h1 className={styles.title}>Cadastro de Pessoas</h1>
+          <h1 className={styles.title}>
+            {variante === "tutor" ? "Cadastro de Tutores" : "Cadastro de Pacientes"}
+          </h1>
           <p className={styles.subtitle}>
-            Base central compartilhada entre Regulação, Farmácia Judicial, Junta e CCZ.
+            {variante === "tutor"
+              ? "Tutor é uma pessoa da base central: os dados cadastrais são os mesmos de Pacientes, compartilhados entre Regulação, Junta, Farmácia Judicial, Processos e CCZ."
+              : "Base central compartilhada entre Regulação, Junta Reguladora, Farmácia Judicial, Processos e CCZ."}
           </p>
         </div>
       </header>
@@ -455,11 +527,7 @@ export default function CadastroPessoas({
           <h2 className={styles.cardHeaderTitle}>{tituloForm}</h2>
           <div className={styles.headerAcoes}>
             <div className={styles.filtroSituacao} role="group" aria-label="Filtrar por situação cadastral">
-              {[
-                ["ativas", "Ativas"],
-                ["inativas", "Inativas"],
-                ["todas", "Todas"],
-              ].map(([valor, rotulo]) => (
+              {FILTROS_SITUACAO_PESSOA.map(({ valor, rotulo }) => (
                 <button
                   key={valor}
                   type="button"
@@ -477,18 +545,20 @@ export default function CadastroPessoas({
           </div>
         </div>
 
-        {/* Situação cadastral da pessoa carregada (discreta, mas clara) */}
+        {/* Situação cadastral da pessoa carregada (fonte única entre módulos) */}
         {pessoaSelecionada && !editavel && (
-          <div className={form.ativo === false ? styles.avisoInativa : styles.avisoAtiva} role="status">
-            <span className={styles.pillSituacao}>{form.ativo === false ? "Inativa" : "Ativa"}</span>
+          <div className={classeAvisoSituacao(form.situacao)} role="status">
+            <span className={styles.pillSituacao}>{rotuloSituacaoPessoa(form.situacao)}</span>
             <span>
-              {form.ativo === false
-                ? "Cadastro inativo: o histórico continua consultável, mas a pessoa não deve ser usada em novos cadastros."
-                : "Cadastro ativo e disponível para novos atendimentos."}
+              {form.situacao === SITUACOES_PESSOA.FALECIDO
+                ? "Pessoa falecida: não são permitidos novos registros assistenciais. Todo o histórico continua consultável e os vínculos (inclusive animais do CCZ) permanecem preservados."
+                : form.situacao === SITUACOES_PESSOA.INATIVO
+                  ? "Cadastro inativo: o histórico continua consultável, mas a pessoa não é usada em novos registros assistenciais."
+                  : "Cadastro ativo e disponível para novos atendimentos."}
               {situacaoInfo?.ultimaAlteracaoSituacao && (
                 <em className={styles.avisoDetalhe}>
                   {" "}
-                  Última alteração: {situacaoInfo.ultimaAlteracaoSituacao.acao === "DESATIVAR" ? "inativado" : "reativado"}
+                  Última alteração: {situacaoInfo.ultimaAlteracaoSituacao.acao === "DESATIVAR" ? "situação alterada para não ativo" : "situação reativada"}
                   {situacaoInfo.ultimaAlteracaoSituacao.usuario
                     ? ` por ${situacaoInfo.ultimaAlteracaoSituacao.usuario}`
                     : ""}
@@ -568,8 +638,8 @@ export default function CadastroPessoas({
                                 : "-"}
                             </td>
                             <td>
-                              <span className={p.ativo === false ? styles.tagInativa : styles.tagAtiva}>
-                                {p.ativo === false ? "Inativa" : "Ativa"}
+                              <span className={classeSituacaoPessoa(p.situacao)}>
+                                {rotuloSituacaoPessoa(p.situacao)}
                               </span>
                             </td>
                           </tr>
@@ -608,6 +678,36 @@ export default function CadastroPessoas({
               required
               aria-required="true"
             />
+          </div>
+          <div className={styles.field}>
+            <label htmlFor="situacaoCadastral">Situação cadastral</label>
+            {modo === "novo" ? (
+              <select
+                id="situacaoCadastral"
+                value={form.situacao}
+                onChange={(e) => setForm({ ...form, situacao: e.target.value })}
+              >
+                {SITUACOES_PESSOA_LISTA.map((v) => (
+                  <option key={v} value={v}>
+                    {SITUACAO_PESSOA_ROTULO[v]}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <>
+                <input
+                  id="situacaoCadastral"
+                  type="text"
+                  value={rotuloSituacaoPessoa(form.situacao)}
+                  readOnly
+                  disabled
+                  aria-describedby="situacao-hint"
+                />
+                <small id="situacao-hint" className={styles.hint}>
+                  A situação é alterada pelos botões abaixo, com confirmação e justificativa.
+                </small>
+              </>
+            )}
           </div>
           <div className={styles.field}>
             <label htmlFor="sexo">Sexo <span aria-label="obrigatório">*</span></label>
@@ -781,6 +881,71 @@ export default function CadastroPessoas({
         </div>
         </div>
 
+        {variante === "tutor" && (
+          <>
+            <div className={styles.formSectionTitle}>Dados complementares do tutor</div>
+            <div className={styles.grid}>
+              <div className={styles.field}>
+                <label htmlFor="rg">RG</label>
+                <input
+                  type="text"
+                  id="rg"
+                  value={form.rg}
+                  maxLength={20}
+                  onChange={(e) => setForm({ ...form, rg: e.target.value })}
+                  disabled={!editavel}
+                />
+              </div>
+              <div className={styles.field}>
+                <label htmlFor="profissao">Profissão</label>
+                <input
+                  type="text"
+                  id="profissao"
+                  value={form.profissao}
+                  maxLength={100}
+                  onChange={(e) => setForm({ ...form, profissao: e.target.value })}
+                  disabled={!editavel}
+                />
+              </div>
+              <div className={styles.field}>
+                <label htmlFor="telefoneSecundario">Telefone secundário</label>
+                <input
+                  type="text"
+                  id="telefoneSecundario"
+                  value={form.telefoneSecundario}
+                  placeholder="(00) 00000-0000"
+                  onChange={(e) =>
+                    setForm({ ...form, telefoneSecundario: maskTelefone(e.target.value) })
+                  }
+                  disabled={!editavel}
+                />
+              </div>
+              <div className={styles.field}>
+                <label htmlFor="pontoReferencia">Ponto de referência</label>
+                <input
+                  type="text"
+                  id="pontoReferencia"
+                  value={form.pontoReferencia}
+                  maxLength={150}
+                  onChange={(e) => setForm({ ...form, pontoReferencia: e.target.value })}
+                  disabled={!editavel}
+                />
+              </div>
+              <div className={`${styles.field} ${styles.colWide}`}>
+                <label htmlFor="observacoesTutor">Observações do tutor</label>
+                <textarea
+                  id="observacoesTutor"
+                  className={styles.textarea}
+                  rows={2}
+                  value={form.observacoes}
+                  onChange={(e) => setForm({ ...form, observacoes: e.target.value })}
+                  disabled={!editavel}
+                />
+              </div>
+            </div>
+          </>
+        )}
+
         <div className={styles.formActions}>
           {modo === "leitura" && pessoaSelecionada && (
             <BotaoEditar onClick={habilitarEdicao} />
@@ -790,7 +955,7 @@ export default function CadastroPessoas({
               Cancelar
             </button>
           )}
-          {modo === "leitura" && pessoaSelecionada && form.ativo !== false && podeInativar && (
+          {modo === "leitura" && pessoaSelecionada && form.situacao === SITUACOES_PESSOA.ATIVO && podeInativar && (
             <button
               type="button"
               className={styles.btnSecundario}
@@ -801,13 +966,24 @@ export default function CadastroPessoas({
               Inativar
             </button>
           )}
-          {modo === "leitura" && pessoaSelecionada && form.ativo === false && podeReativar && (
+          {modo === "leitura" && pessoaSelecionada && form.situacao === SITUACOES_PESSOA.ATIVO && podeEditarSituacao && (
+            <button
+              type="button"
+              className={styles.btnSecundario}
+              onClick={() => abrirSituacao("falecido")}
+              disabled={salvando}
+              aria-label="Registrar falecimento"
+            >
+              Registrar falecimento
+            </button>
+          )}
+          {modo === "leitura" && pessoaSelecionada && form.situacao !== SITUACOES_PESSOA.ATIVO && podeReativar && (
             <button
               type="button"
               className={styles.btnSecundario}
               onClick={() => abrirSituacao("reativar")}
               disabled={salvando}
-              aria-label="Reativar pessoa"
+              aria-label="Alterar situação para Ativo"
             >
               Reativar
             </button>
@@ -884,7 +1060,7 @@ export default function CadastroPessoas({
         </div>
       )}
 
-      {/* MODAL: INATIVAR / REATIVAR PESSOA */}
+      {/* MODAL: ALTERAÇÃO DA SITUAÇÃO CADASTRAL (confirmar + justificar) */}
       {situacaoModal && (
         <div className={styles.modalOverlay} onClick={fecharSituacao}>
           <div
@@ -897,36 +1073,41 @@ export default function CadastroPessoas({
             aria-describedby="situacao-text"
           >
             <h3 id="situacao-title" className={styles.modalTitle}>
-              {situacaoModal.tipo === "inativar" ? "Inativar pessoa" : "Reativar pessoa"}
+              Alterar situação cadastral
             </h3>
             <p id="situacao-text" className={styles.modalText}>
-              {situacaoModal.tipo === "inativar" ? (
-                <>
-                  Você vai inativar o cadastro de <strong>{form.nomeCompleto}</strong>
-                  {form.cpfChave && !isCpfProvisorio(form.cpfChave) ? (
-                    <> (CPF {maskCpf(form.cpfChave)})</>
-                  ) : null}
-                  .<br />
-                  <span className={styles.modalNota}>
-                    Nada será apagado: pedidos da Regulação, processos da Câmara Técnica,
-                    registros da Farmácia Judicial, prontuários da Junta Reguladora e os
-                    vínculos do CCZ (inclusive os animais) continuam intactos. O cadastro
-                    sai das listas de uso e o histórico permanece consultável.
-                  </span>
-                </>
-              ) : (
-                <>
-                  Reativar o cadastro de <strong>{form.nomeCompleto}</strong>
-                  {form.cpfChave && !isCpfProvisorio(form.cpfChave) ? (
-                    <> (CPF {maskCpf(form.cpfChave)})</>
-                  ) : null}
-                  ?<br />
-                  <span className={styles.modalNota}>
-                    O MESMO registro volta a ficar ativo — nenhum cadastro novo é criado —
-                    e todos os vínculos já existentes são mantidos.
-                  </span>
-                </>
-              )}
+              Cadastro de <strong>{form.nomeCompleto}</strong>
+              {form.cpfChave && !isCpfProvisorio(form.cpfChave) ? (
+                <> (CPF {maskCpf(form.cpfChave)})</>
+              ) : null}
+              .<br />
+              <span className={styles.modalNota}>
+                Situação atual: <strong>{rotuloSituacaoPessoa(form.situacao)}</strong> → nova
+                situação: <strong>{rotuloSituacaoPessoa(situacaoDestino)}</strong>.
+              </span>
+            </p>
+            <div className={styles.field}>
+              <label htmlFor="situacao-destino">
+                Nova situação <span aria-label="obrigatório">*</span>
+              </label>
+              <select
+                id="situacao-destino"
+                value={situacaoDestino}
+                onChange={(e) => setSituacaoDestino(e.target.value)}
+              >
+                {SITUACOES_PESSOA_LISTA.filter((v) => v !== form.situacao).map((v) => (
+                  <option key={v} value={v}>
+                    {SITUACAO_PESSOA_ROTULO[v]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p className={styles.modalNota}>
+              {situacaoDestino === SITUACOES_PESSOA.FALECIDO
+                ? "Falecido: bloqueia novos registros assistenciais em todos os módulos. Consultas históricas e procedimentos administrativos continuam permitidos, e os vínculos do CCZ (inclusive os animais) são preservados."
+                : situacaoDestino === SITUACOES_PESSOA.INATIVO
+                  ? "Inativo: o cadastro sai das listas de uso, mas não impede o atendimento já registrado. Nada é apagado: pedidos, processos, prontuários, registros da Farmácia e os animais do CCZ continuam intactos."
+                  : "Ativo: o MESMO registro volta a ficar disponível — nenhum cadastro novo é criado — e todos os vínculos existentes são mantidos."}
             </p>
             <div className={styles.field}>
               <label htmlFor="justificativa-situacao">
@@ -940,14 +1121,18 @@ export default function CadastroPessoas({
                 value={justificativa}
                 onChange={(e) => setJustificativa(e.target.value)}
                 placeholder={
-                  situacaoModal.tipo === "inativar"
-                    ? "Ex.: cadastro duplicado de paciente que já possui registro ativo."
-                    : "Ex.: paciente retornou ao acompanhamento na UBS."
+                  situacaoDestino === SITUACOES_PESSOA.FALECIDO
+                    ? "Ex.: óbito informado pela família em 12/11/2026."
+                    : situacaoDestino === SITUACOES_PESSOA.INATIVO
+                      ? "Ex.: cadastro duplicado de paciente que já possui registro ativo."
+                      : "Ex.: situação cadastral corrigida após conferência da documentação."
                 }
                 required
                 aria-required="true"
               />
-              <small className={styles.hint}>Mínimo de 15 caracteres. Fica registrado na auditoria.</small>
+              <small className={styles.hint}>
+                Mínimo de {MIN_JUSTIFICATIVA_SITUACAO} caracteres. Fica registrado na auditoria.
+              </small>
             </div>
             {situacaoErro && (
               <div className={styles.alertErro} role="alert">
@@ -965,15 +1150,17 @@ export default function CadastroPessoas({
               </button>
               <button
                 type="button"
-                className={situacaoModal.tipo === "inativar" ? styles.btnDanger : styles.btnPrimary}
+                className={situacaoDestino === SITUACOES_PESSOA.ATIVO ? styles.btnPrimary : styles.btnDanger}
                 onClick={confirmarSituacao}
-                disabled={situacaoSalvando || justificativa.trim().length < 15}
+                disabled={
+                  situacaoSalvando ||
+                  justificativa.trim().length < MIN_JUSTIFICATIVA_SITUACAO ||
+                  situacaoDestino === form.situacao
+                }
               >
                 {situacaoSalvando
                   ? "Salvando..."
-                  : situacaoModal.tipo === "inativar"
-                    ? "Confirmar inativação"
-                    : "Confirmar reativação"}
+                  : `Confirmar: ${rotuloSituacaoPessoa(situacaoDestino)}`}
               </button>
             </div>
           </div>

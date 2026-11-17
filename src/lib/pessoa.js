@@ -7,6 +7,7 @@
 // Não use "use server" aqui: este arquivo é um utilitário, não server actions.
 
 import { isCpfProvisorio, normalizarCpfChave } from "@/lib/cpf";
+import { normalizarSituacaoPessoa } from "@/lib/situacaoPessoa";
 
 export const soDigitos = (valor) => (valor ? String(valor).replace(/\D/g, "") : "");
 
@@ -74,6 +75,12 @@ export function normalizarPessoa(data, { exigirData = true } = {}) {
     telefone: soDigitos(data.telefone).slice(0, 20),
     cns: data.cns ? soDigitos(data.cns).slice(0, 15) : null,
   };
+
+  // Situação cadastral (fonte única da Pessoa central). Só é gravada quando o
+  // formulário a envia — os módulos que não a exibem nunca a sobrescrevem.
+  if (Object.prototype.hasOwnProperty.call(data, "situacao")) {
+    normalizado.situacao = normalizarSituacaoPessoa(data.situacao);
+  }
 
   // UBS de referência é opcional. Só inclui a chave quando o campo veio no
   // formulário, para não sobrescrever com null indevidamente nos módulos.

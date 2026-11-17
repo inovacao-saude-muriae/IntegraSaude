@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { whereSituacaoPessoa } from "@/lib/situacaoPessoa";
 import { requireAcessoPessoas } from "@/lib/auth";
 
 /**
@@ -18,8 +19,10 @@ export async function GET(req) {
     }
 
     const searchTerm = termo.trim();
+    // Busca de pessoas para NOVOS registros: só situação ATIVA e não unificadas.
     const where = {
-      ativo: true,
+      ...whereSituacaoPessoa("ativos"),
+      unificadoEmCpf: null,
       OR: [
         { nomeCompleto: { contains: searchTerm, mode: "insensitive" } },
         { cpf: { contains: searchTerm } },

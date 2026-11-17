@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import stylesModal from "./AgendaCCZ.module.css";
 import styles from "./ListaCCZ.module.css";
 import { mascararTelefone } from "@/lib/telefone";
+import { rotuloSituacaoPessoa, classeSituacaoPessoa } from "@/lib/situacaoPessoa";
 import { useConfirm, useNotify } from "@/components/ConfirmDialog";
 
 const maskCpf = (v) =>
@@ -103,6 +104,10 @@ export default function FichaTutor({ cpf, onFechar, onEditar, onExcluir }) {
             <h3 className={stylesModal.modalTitle}>Ficha do Tutor</h3>
             <p className={stylesModal.modalSubtitle}>
               {dados.nomeCompleto}
+              {" — "}
+              <span className={classeSituacaoPessoa(dados.situacao)}>
+                {rotuloSituacaoPessoa(dados.situacao)}
+              </span>
             </p>
           </div>
           <button type="button" className={stylesModal.modalClose} onClick={onFechar}>

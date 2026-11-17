@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { whereSituacaoPessoa } from "@/lib/situacaoPessoa";
 import { requireAcessoPessoas } from "@/lib/auth";
 import { registrarAuditoria } from "@/lib/audit";
 
@@ -19,8 +20,10 @@ export async function GET(req) {
     }
 
     const searchTerm = q.trim();
+    // Busca de pessoas para NOVOS registros: só situação ATIVA e não unificadas.
     const where = {
-      ativo: true,
+      ...whereSituacaoPessoa("ativos"),
+      unificadoEmCpf: null,
       OR: [
         { nomeCompleto: { contains: searchTerm, mode: "insensitive" } },
         { cpf: { contains: searchTerm } },
@@ -95,9 +98,9 @@ export async function POST(req) {
       return NextResponse.json(
         {
           success: false,
-          error: existing.ativo
-            ? "CPF já cadastrado"
-            : "CPF pertence a um cadastro que foi unificado em outro",
+          error: existing.unificadoEmCpf
+            ? "CPF pertence a um cadastro que foi unificado em outro"
+            : "CPF já cadastrado",
         },
         { status: 409 }
       );

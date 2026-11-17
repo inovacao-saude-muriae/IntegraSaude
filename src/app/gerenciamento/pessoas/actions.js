@@ -14,6 +14,7 @@ import {
 } from "@/lib/pessoa";
 import { normalizarCpfChave } from "@/lib/cpf";
 import { atualizarPessoaComCpf, unificarPessoas } from "@/lib/unificacaoPessoa";
+import { situacaoDoFormulario, whereSituacaoPessoa } from "@/lib/situacaoPessoa";
 
 // Cadastro central de pessoas: GESTOR ∨ REGULACAO/ADMIN ∨ JUNTA/ADMIN
 // (guarda "pessoas", refinamento #5 / design §5).
@@ -32,6 +33,9 @@ const serializarPessoa = (pessoa) => {
     // remove SÓ este vínculo, nunca a Pessoa central.
     ehTutor: Boolean(pessoa.tutor),
     cpf: pessoa.cpf,
+    // Situação cadastral (fonte única) e espelho técnico.
+    situacao: pessoa.situacao || "ATIVO",
+    ativo: pessoa.ativo !== false,
     nomeCompleto: pessoa.nomeCompleto,
     sexo: pessoa.sexo || "Masculino",
     dataNascimento: dataParaInput(pessoa.dataNascimento),
@@ -70,23 +74,18 @@ export async function listarUbs() {
 }
 
 // ── LISTAR / BUSCAR ────────────────────────────────────────────────────────
-// `situacao`: "ativas" (padrão) | "inativas" | "todas".
-// Cadastros absorvidos por unificação (unificadoEmCpf preenchido) NUNCA são
-// listados como inativos: eles não são "inativos", foram unificados em outro.
-export async function listarPessoas(termo = "", { situacao = "ativas" } = {}) {
+// `situacao`: "ativos" (padrão) | "inativos" | "falecidos" | "todos".
+// A situação vem da fonte única (pessoa.situacao). Cadastros absorvidos por
+// unificação (unificadoEmCpf preenchido) NUNCA são listados: eles não são
+// "inativos", foram unificados em outro registro.
+export async function listarPessoas(termo = "", { situacao = "ativos" } = {}) {
   try {
     await requireAcessoPessoas();
 
     const termoLimpo = termo.trim();
     const termoDigitos = soDigitos(termoLimpo);
 
-    // Unificados (unificadoEmCpf preenchido) nunca entram como "inativos".
-    const filtroSituacao =
-      situacao === "inativas"
-        ? { ativo: false }
-        : situacao === "todas"
-          ? {}
-          : { ativo: true };
+    const filtroSituacao = whereSituacaoPessoa(situacao);
 
     // Os dois critérios são combinados com AND de propósito: o termo não pode
     // reabrir a lista (ex.: buscar um CPF específico em "ativas").
@@ -155,7 +154,10 @@ export async function criarPessoa(data) {
     }
 
     await prisma.$transaction(async (tx) => {
-      await criarPessoaTx(tx, data);
+      await criarPessoaTx(tx, {
+        ...data,
+        situacao: situacaoDoFormulario(data.situacao),
+      });
       await gravarEnderecoTx(tx, pessoaData.cpf, data);
     });
 
@@ -187,9 +189,14 @@ export async function atualizarPessoa(cpfOriginal, data) {
   try {
     const user = await requireAcessoPessoas();
 
+    // A SITUAÇÃO CADASTRAL não é alterada na edição comum: ela exige
+    // confirmação e justificativa (alterarSituacaoPessoa, em pessoaInativacao).
+    // Removida do payload para não sobrescrever a fonte única.
+    const { situacao: _situacaoIgnorada, ...dadosEdicao } = data || {};
+
     // O CPF só muda quando o atual é provisório; conflito devolve objeto de
     // controle (status CPF_DUPLICADO_CONFLITO) SEM salvar nada.
-    const res = await atualizarPessoaComCpf(prisma, cpfOriginal, data);
+    const res = await atualizarPessoaComCpf(prisma, cpfOriginal, dadosEdicao);
     if (!res.success) return res;
 
     await registrarAuditoria({

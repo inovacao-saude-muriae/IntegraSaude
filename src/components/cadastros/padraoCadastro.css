@@ -525,6 +525,7 @@
 /* ── Etiquetas de situação ──────────────────────────────────────────────── */
 .cadStatusAtivo,
 .cadStatusInativo,
+.cadStatusFalecido,
 .cadStatusIndisponivel {
   display: inline-block;
   padding: 0.2rem 0.6rem;
@@ -543,6 +544,13 @@
 .cadStatusInativo {
   background-color: #f1f5f9;
   color: #64748b;
+}
+
+/* Situação cadastral da pessoa central: Ativo (verde) / Inativo (cinza) /
+   Falecido (vermelho). Fonte única em src/lib/situacaoPessoa.js. */
+.cadStatusFalecido {
+  background-color: #fee2e2;
+  color: #b91c1c;
 }
 
 /* Registro ativo cuja categoria superior está inativa: não é inativo por si,

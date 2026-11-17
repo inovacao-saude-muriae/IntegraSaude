@@ -139,7 +139,8 @@ export async function GET() {
       ultimosPedidos,
       ultimasDispensacoes,
     ] = await Promise.all([
-      prisma.pessoa.count({ where: { ativo: true } }),
+      // Situação cadastral: fonte única da pessoa central.
+      prisma.pessoa.count({ where: { situacao: "ATIVO" } }),
 
       // Regulação
       pode.regulacao

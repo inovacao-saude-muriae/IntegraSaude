@@ -10,6 +10,7 @@ import {
 } from "@/lib/auth";
 import { MODULOS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { mensagemPessoaIndisponivel } from "@/lib/situacaoPessoa";
 import { registrarAuditoria } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { situacaoRegistro } from "@/components/cadastros/situacaoCadastro";
@@ -408,17 +409,24 @@ export async function createPedidoExame(data) {
       };
     }
 
-    // Pessoa absorvida por unificação não pode receber novos pedidos.
+    // Situação cadastral da pessoa central (fonte única): cadastro unificado,
+    // inativo ou de pessoa falecida não recebe novos pedidos. O histórico
+    // continua consultável normalmente.
     const pessoaPedido = await prisma.pessoa.findUnique({
       where: { cpf: String(data.cpf || "") },
-      select: { ativo: true },
+      select: { situacao: true, unificadoEmCpf: true },
     });
-    if (pessoaPedido && !pessoaPedido.ativo) {
+    if (!pessoaPedido) {
+      return { success: false, error: "Pessoa não encontrada no cadastro único." };
+    }
+    if (pessoaPedido.unificadoEmCpf) {
       return {
         success: false,
         error: "Este cadastro foi unificado em outro. Selecione o cadastro principal.",
       };
     }
+    const indisponivel = mensagemPessoaIndisponivel(pessoaPedido.situacao);
+    if (indisponivel) return { success: false, error: indisponivel };
 
     const newRecord = await prisma.pedidoExame.create({
       data: {
