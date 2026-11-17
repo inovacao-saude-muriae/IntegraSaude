@@ -246,20 +246,30 @@ async function main() {
   }
 
   console.log("\n7. Especialidade e procedimento (catálogo PRÓPRIO de Processos)");
-  const espPropria = await chamarAction(GESTOR, "criarEspecialidadeProcesso", [{ nome: "TESTE-Cardiologia" }], CAT);
+  const espPropria = await chamarAction(GESTOR, "salvarRegistroCatalogo", [
+    { linha: null, especialidadeId: null, especialidadeNome: "TESTE-Cardiologia" },
+  ], CAT);
   check("cria especialidade no catálogo próprio", espPropria.success === true, JSON.stringify(espPropria).slice(0, 140));
-  const espId = espPropria?.data?.id;
+  const espId = espPropria?.data?.especialidadeId;
 
-  const procProprio = await chamarAction(GESTOR, "criarProcedimentoProcesso", [
-    { nome: "TESTE-Consulta Cardiológica", especialidadeIds: [espId] },
+  const procProprio = await chamarAction(GESTOR, "salvarRegistroCatalogo", [
+    { linha: null, especialidadeId: espId, procedimentoNome: "TESTE-Consulta Cardiológica" },
   ], CAT);
   check("cria procedimento vinculado à especialidade", procProprio.success === true, JSON.stringify(procProprio).slice(0, 140));
-  const procId = procProprio?.data?.id;
+  const procId = procProprio?.data?.procedimentoId;
 
-  const outroProc = await chamarAction(GESTOR, "criarProcedimentoProcesso", [
-    { nome: "TESTE-Procedimento sem vínculo", especialidadeIds: [] },
+  // Procedimento cadastrado em OUTRA especialidade (sem vínculo com a de cima).
+  const outraEsp = await chamarAction(GESTOR, "salvarRegistroCatalogo", [
+    { linha: null, especialidadeId: null, especialidadeNome: "TESTE-Ortopedia" },
   ], CAT);
-  const outroProcId = outroProc?.data?.id;
+  const outroProc = await chamarAction(GESTOR, "salvarRegistroCatalogo", [
+    {
+      linha: null,
+      especialidadeId: outraEsp?.data?.especialidadeId,
+      procedimentoNome: "TESTE-Procedimento sem vínculo",
+    },
+  ], CAT);
+  const outroProcId = outroProc?.data?.procedimentoId;
 
   const comEsp = await chamarAction(GESTOR, "editarProcesso", [id, {
     pacienteCpf: pessoa.cpf, numeroProcesso: "TESTE-001", numeroPasta: "PASTA-EDITADA",

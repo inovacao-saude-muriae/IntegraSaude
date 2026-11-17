@@ -34,17 +34,6 @@ export default function ProcedimentosTab({ podeInativar = false }) {
 
   return (
     <div className="cadCadastro">
-      {/* Cabeçalho no mesmo padrão de "Serviços e Especialidades" e
-          "Especialidades e Procedimentos" (padraoCadastro.css). */}
-      <div className="cadPaginaCabecalho">
-        <div>
-          <h1 className="cadPaginaTitulo">Exames e Procedimentos</h1>
-          <p className="cadPaginaSubtitulo">
-            Cadastro dos tipos de exame (ex.: Imagem) e seus procedimentos
-            (ex.: Ultrassonografia).
-          </p>
-        </div>
-      </div>
 
       <CadastroProcedimentos
         data={data}

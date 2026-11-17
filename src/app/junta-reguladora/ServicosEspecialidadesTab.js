@@ -36,18 +36,6 @@ export default function ServicosEspecialidadesTab({ podeInativar = false }) {
 
   return (
     <div className="cadCadastro">
-      {/* Cabeçalho no mesmo padrão de "Exames e Procedimentos" e
-          "Especialidades e Procedimentos" (padraoCadastro.css). */}
-      <div className="cadPaginaCabecalho">
-        <div>
-          <h1 className="cadPaginaTitulo">Serviços e Especialidades</h1>
-          <p className="cadPaginaSubtitulo">
-            Serviços da Junta Reguladora e as especialidades de cada um. Os
-            serviços cadastrados aqui são a fonte oficial das opções de escopo
-            de acesso dos usuários.
-          </p>
-        </div>
-      </div>
 
       <CadastroServicos
         data={data}

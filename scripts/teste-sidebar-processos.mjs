@@ -205,10 +205,16 @@ async function main() {
 
   // ── 4-7. Consulta, cadastro, edição e exclusão ─────────────────────────
   console.log("\n4-7. Consulta, cadastro, edição e exclusão");
-  const esp = await cat(GESTOR, "criarEspecialidadeProcesso", [{ nome: "TSTSB Especialidade" }]);
+  const esp = await cat(GESTOR, "salvarRegistroCatalogo", [
+    { linha: null, especialidadeId: null, especialidadeNome: "TSTSB Especialidade" },
+  ]);
   check("catálogo aceita especialidade", esp.success === true, esp.error);
-  const pro = await cat(GESTOR, "criarProcedimentoProcesso", [
-    { nome: "TSTSB Procedimento", especialidadeIds: [esp.data.id] },
+  const pro = await cat(GESTOR, "salvarRegistroCatalogo", [
+    {
+      linha: null,
+      especialidadeId: esp.data.especialidadeId,
+      procedimentoNome: "TSTSB Procedimento",
+    },
   ]);
   check("catálogo aceita procedimento", pro.success === true, pro.error);
 
@@ -221,8 +227,8 @@ async function main() {
       numeroProcesso: "TSTSB-0001",
       numeroPasta: "P-TSTSB-1",
       pacienteCpf: pessoa.cpf,
-      especialidadeId: esp.data.id,
-      procedimentoId: pro.data.id,
+      especialidadeId: esp.data.especialidadeId,
+      procedimentoId: pro.data.procedimentoId,
       observacoes: "registro de teste",
     },
   ]);
@@ -301,23 +307,33 @@ async function main() {
 
   // ── 10. Cadastro e edição no catálogo ──────────────────────────────────
   console.log("\n10. Cadastro e edição no catálogo");
-  const ed = await cat(GESTOR, "editarEspecialidadeProcesso", [
-    esp.data.id,
-    { nome: "TSTSB Especialidade Editada" },
+  const ed = await cat(GESTOR, "salvarRegistroCatalogo", [
+    {
+      linha: { id: `E-${esp.data.especialidadeId}`, especialidadeId: esp.data.especialidadeId },
+      especialidadeId: esp.data.especialidadeId,
+      especialidadeNome: "TSTSB Especialidade Editada",
+    },
   ]);
   check("edição de especialidade", ed.success === true, ed.error);
-  const inativada = await cat(GESTOR, "alterarSituacaoEspecialidadeProcesso", [esp.data.id, { ativo: false }]);
+  const inativada = await cat(GESTOR, "alterarSituacaoEspecialidadeProcesso", [esp.data.especialidadeId, { ativo: false }]);
   check("inativação de especialidade", inativada.success === true, inativada.error);
-  const reativada = await cat(GESTOR, "alterarSituacaoEspecialidadeProcesso", [esp.data.id, { ativo: true }]);
+  const reativada = await cat(GESTOR, "alterarSituacaoEspecialidadeProcesso", [esp.data.especialidadeId, { ativo: true }]);
   check("reativação de especialidade", reativada.success === true, reativada.error);
-  const vinculo = await cat(GESTOR, "definirProcedimentosDaEspecialidade", [esp.data.id, { procedimentoIds: [pro.data.id] }]);
-  check("vínculo procedimento ↔ especialidade", vinculo.success === true, vinculo.error);
+  // O procedimento nasce vinculado junto com o registro; o vínculo é único e
+  // não pode ser criado duas vezes para o mesmo par.
+  const vinculos = await db.query(
+    "SELECT count(*)::int AS n FROM processos_especialidade_procedimento WHERE especialidade_id=$1 AND procedimento_id=$2",
+    [esp.data.especialidadeId, pro.data.procedimentoId],
+  );
+  check("vínculo procedimento ↔ especialidade gravado uma única vez", vinculos.rows[0].n === 1, vinculos.rows[0].n);
 
   // ── 11. Permissões do catálogo ─────────────────────────────────────────
   console.log("\n11. Permissões do catálogo");
-  const semModulo = await cat(JEFINNY, "listarCatalogoProcessos", []);
+  const semModulo = await cat(JEFINNY, "getCatalogoProcessosData", []);
   check("sem vínculo com PROCESSOS: catálogo negado", semModulo.success === false, JSON.stringify(semModulo).slice(0, 120));
-  const ccz = await cat(CCZ, "criarEspecialidadeProcesso", [{ nome: "TSTSB Proibida" }]);
+  const ccz = await cat(CCZ, "salvarRegistroCatalogo", [
+    { linha: null, especialidadeId: null, especialidadeNome: "TSTSB Proibida" },
+  ]);
   check("outro módulo não cria especialidade", ccz.success === false);
   const pgNegada = await pagina("/gerenciamento/especialidades-procedimentos", JEFINNY);
   check(

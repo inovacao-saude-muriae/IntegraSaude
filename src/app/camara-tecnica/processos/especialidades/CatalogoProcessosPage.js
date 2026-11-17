@@ -5,33 +5,42 @@
 // ─────────────────────────────────────────────────────────────────────────
 // Câmara Técnica → Processos → Especialidades e Procedimentos.
 //
-// Independente da Junta Reguladora: nada aqui lê ou grava
-// `junta_servicos`, `junta_especialidades` ou `regula_procedimentos`.
+// Estrutura IDÊNTICA à de "Exames e Procedimentos" (Regulação) e "Serviços e
+// Especialidades" (Junta): Buscar no Banco + Adicionar novo, Informações do
+// Registro (dois campos lado a lado, com "+ Nova ..." dentro do próprio
+// campo de seleção) e a tabela Cadastros com filtros de situação e de
+// especialidade. Sem cabeçalho externo: o título é o do container.
 //
-// Layout PADRONIZADO com Serviços e Especialidades (Junta) e Procedimentos
-// (Regulação): busca, formulário e tabela única com situação e ações. A
-// especialidade em foco é escolhida pela primeira coluna da tabela; os
-// procedimentos listados são os dela, e o vínculo continua N:N (um
-// procedimento pode estar em várias especialidades).
+// Independência dos catálogos: nada aqui lê ou grava `junta_servicos`,
+// `junta_especialidades` ou `regula_procedimentos`. As fontes são
+// `processos_especialidades`, `processos_procedimentos` e o vínculo N:N em
+// `processos_especialidade_procedimento`.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import "@/components/cadastros/padraoCadastro.css";
-import { useConfirm } from "@/components/ConfirmDialog";
+import { useConfirm, useNotify } from "@/components/ConfirmDialog";
+import BotaoEditar from "@/components/BotaoEditar";
 import FiltroSituacao, { passaSituacao } from "@/components/cadastros/FiltroSituacao";
 import StatusRegistro from "@/components/cadastros/StatusRegistro";
 import AcoesSituacao from "@/components/cadastros/AcoesSituacao";
 import {
   alterarSituacaoEspecialidadeProcesso,
   alterarSituacaoProcedimentoProcesso,
-  criarEspecialidadeProcesso,
-  criarProcedimentoProcesso,
-  definirProcedimentosDaEspecialidade,
-  editarEspecialidadeProcesso,
-  editarProcedimentoProcesso,
-  listarCatalogoProcessos,
+  getCatalogoProcessosData,
+  salvarRegistroCatalogo,
 } from "./actions";
-import styles from "./catalogo.module.css";
+
+const FORM_VAZIO = {
+  linha: null, // linha em edição (par Especialidade + Procedimento)
+  especialidadeId: "", // id da especialidade ("__novo__" para criar)
+  especialidadeNome: "", // usado quando especialidadeId === "__novo__"
+  procedimentoSel: "", // "" | "__novo__" | id do procedimento
+  procedimentoNome: "", // nome do procedimento (novo ou existente)
+  search: "",
+  isEditing: false,
+  isFormActive: false,
+};
 
 export default function CatalogoProcessosPage({
   podeCriarEspecialidade = false,
@@ -43,264 +52,513 @@ export default function CatalogoProcessosPage({
   podeVincular = false,
 }) {
   const confirm = useConfirm();
+  const notify = useNotify();
 
-  const [dados, setDados] = useState({ especialidades: [], procedimentos: [] });
-  const [carregando, setCarregando] = useState(true);
-  const [erro, setErro] = useState("");
-  const [aviso, setAviso] = useState("");
-
-  const [selecionadaId, setSelecionadaId] = useState(null);
-  const [buscaEsp, setBuscaEsp] = useState("");
+  const [data, setData] = useState({
+    especialidades: [],
+    procedimentos: [],
+    linhas: [],
+  });
+  const [form, setForm] = useState(FORM_VAZIO);
+  const [dropAberto, setDropAberto] = useState(false);
+  const [filterEspecialidadeId, setFilterEspecialidadeId] = useState("");
   const [situacao, setSituacao] = useState("ativos");
-  const [buscaProc, setBuscaProc] = useState("");
-  const [situacaoProc, setSituacaoProc] = useState("ativos");
-  const [alternando, setAlternando] = useState("");
+  const [alternando, setAlternando] = useState(null);
 
-  // Modais
-  const [modalEsp, setModalEsp] = useState(null); // { id?, nome }
-  const [modalProc, setModalProc] = useState(null); // { id?, nome, especialidadeIds }
-  const [modalVincular, setModalVincular] = useState(false);
-  const [salvando, setSalvando] = useState(false);
+  const dropRef = useRef(null);
 
-  const recarregar = useCallback(async () => {
-    const res = await listarCatalogoProcessos({ incluirInativos: true });
-    if (res.success) setDados(res.data);
-    else setErro(res.error);
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (dropRef.current && !dropRef.current.contains(e.target)) {
+        setDropAberto(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const reloadData = useCallback(async () => {
+    const res = await getCatalogoProcessosData();
+    setData(
+      res?.success
+        ? res
+        : { especialidades: [], procedimentos: [], linhas: [] },
+    );
     return res;
   }, []);
 
   useEffect(() => {
+    let ativo = true;
     (async () => {
-      await recarregar();
-      setCarregando(false);
+      const res = await getCatalogoProcessosData();
+      if (!ativo) return;
+      setData(res?.success ? res : { especialidades: [], procedimentos: [], linhas: [] });
     })();
-  }, [recarregar]);
+    return () => {
+      ativo = false;
+    };
+  }, []);
 
-  const especialidadesVisiveis = useMemo(() => {
-    const termo = buscaEsp.trim().toLowerCase();
-    return dados.especialidades
-      .filter((e) => passaSituacao(situacao, e.ativo !== false))
-      .filter((e) => (termo ? e.nome.toLowerCase().includes(termo) : true));
-  }, [dados.especialidades, buscaEsp, situacao]);
+  const resetForm = () => setForm(FORM_VAZIO);
 
-  // A especialidade em foco é DERIVADA: se a escolhida continua na lista usa
-  // ela; senão cai para a primeira visível. Sem setState dentro de efeito.
-  const selecionada = useMemo(() => {
-    const escolhida = dados.especialidades.find((e) => e.id === selecionadaId);
-    if (escolhida) return escolhida;
-    return especialidadesVisiveis[0] || null;
-  }, [dados.especialidades, especialidadesVisiveis, selecionadaId]);
+  const carregarParaEdicao = (linha) => {
+    setForm({
+      linha,
+      especialidadeId: String(linha.especialidadeId),
+      especialidadeNome: "",
+      procedimentoSel: linha.procedimentoId ? String(linha.procedimentoId) : "",
+      procedimentoNome: linha.procedimentoNome || "",
+      search: linha.procedimentoNome || linha.especialidadeNome,
+      isEditing: true,
+      isFormActive: false,
+    });
+    setDropAberto(false);
+  };
 
-  const procedimentosVisiveis = useMemo(() => {
-    if (!selecionada) return [];
-    const termo = buscaProc.trim().toLowerCase();
-    return (selecionada.procedimentos || [])
-      .filter((p) => passaSituacao(situacaoProc, p.ativo !== false))
-      .filter((p) => (termo ? p.nome.toLowerCase().includes(termo) : true));
-  }, [selecionada, buscaProc, situacaoProc]);
+  const habilitarEdicao = () => setForm((prev) => ({ ...prev, isFormActive: true }));
 
-  function limparMensagens() {
-    setErro("");
-    setAviso("");
-  }
+  // ── Busca no banco ───────────────────────────────────────────────────────
+  const termo = (form.search || "").toLowerCase().trim();
+  const linhasFiltradas = (data.linhas || []).filter((l) => {
+    if (!termo) return true;
+    return (
+      (l.procedimentoNome || "").toLowerCase().includes(termo) ||
+      (l.especialidadeNome || "").toLowerCase().includes(termo)
+    );
+  });
 
-  // ── Especialidades ───────────────────────────────────────────────────────
-  async function salvarEspecialidade(e) {
-    e?.preventDefault?.();
-    limparMensagens();
-    const alvo = modalEsp;
-    if (!alvo?.nome?.trim()) return setErro("Informe o nome da especialidade.");
+  const usandoNovaEsp = form.especialidadeId === "__novo__";
+  const usandoNovoProc = form.procedimentoSel === "__novo__";
 
-    setSalvando(true);
-    const res = alvo.id
-      ? await editarEspecialidadeProcesso(alvo.id, { nome: alvo.nome })
-      : await criarEspecialidadeProcesso({ nome: alvo.nome });
-    setSalvando(false);
+  // Procedimentos elegíveis para a especialidade escolhida: os já vinculados a
+  // ela. Um procedimento existente de outra especialidade continua disponível
+  // pela busca/lista geral — o vínculo N:N é criado ao salvar.
+  const procedimentosDisponiveis = (data.procedimentos || []).filter(
+    (p) =>
+      p.ativo !== false ||
+      // inativo só aparece se já estiver vinculado a esta especialidade
+      (form.especialidadeId &&
+        form.especialidadeId !== "__novo__" &&
+        (p.especialidadeIds || []).includes(Number(form.especialidadeId))),
+  );
 
-    if (!res.success) return setErro(res.error);
-    setModalEsp(null);
-    setAviso(alvo.id ? "Especialidade atualizada." : "Especialidade cadastrada.");
-    await recarregar();
-    // Foca a especialidade recém-criada (a seleção é derivada do id).
-    if (!alvo.id && res.data?.id) setSelecionadaId(res.data.id);
-  }
+  // O <select> controlado não expõe a opção "+ Novo procedimento..." como
+  // valor: ao escolhê-la, o navegador volta para a opção atual e o evento
+  // nunca chega ao estado. Por isso o "+ Novo" é tratado aqui, no próprio
+  // evento de mudança, antes de qualquer outra coisa.
+  const mudarProcedimento = (e) => {
+    const value = e.target.value;
+    if (value === "__novo__") {
+      setForm((prev) => ({
+        ...prev,
+        procedimentoSel: "__novo__",
+        procedimentoNome: "",
+        linha: prev.linha?.procedimentoId
+          ? { ...prev.linha, procedimentoId: null }
+          : prev.linha,
+      }));
+      return;
+    }
+    onSelecionarProcedimento(value);
+  };
 
-  async function alternarEspecialidade(esp) {
-    const ativo = esp.ativo !== false;
+  const onSelecionarProcedimento = (value) => {
+    if (value === "__novo__") {
+      setForm((prev) => ({
+        ...prev,
+        procedimentoSel: "__novo__",
+        procedimentoNome: "",
+        linha: prev.linha?.procedimentoId
+          ? { ...prev.linha, procedimentoId: null }
+          : prev.linha,
+      }));
+      return;
+    }
+    if (value === "") {
+      setForm((prev) => ({
+        ...prev,
+        procedimentoSel: "",
+        procedimentoNome: "",
+        linha: prev.linha?.procedimentoId
+          ? { ...prev.linha, procedimentoId: null }
+          : prev.linha,
+      }));
+      return;
+    }
+    const proc = procedimentosDisponiveis.find((p) => String(p.id) === String(value));
+    setForm((prev) => ({
+      ...prev,
+      procedimentoSel: value,
+      procedimentoNome: proc?.nome || "",
+      linha: prev.linha,
+    }));
+  };
+
+  // ── Salvar ───────────────────────────────────────────────────────────────
+  const submit = async (e) => {
+    e.preventDefault();
+
+    if (!form.especialidadeId) {
+      await notify({
+        tipo: "erro",
+        title: "Campo obrigatório",
+        message: "Selecione ou informe a especialidade.",
+      });
+      return;
+    }
+    if (usandoNovaEsp && !form.especialidadeNome.trim()) {
+      await notify({
+        tipo: "erro",
+        title: "Campo obrigatório",
+        message: "Informe o nome da nova especialidade.",
+      });
+      return;
+    }
+    if (usandoNovoProc && !form.procedimentoNome.trim()) {
+      await notify({
+        tipo: "erro",
+        title: "Campo obrigatório",
+        message: "Informe o nome do novo procedimento.",
+      });
+      return;
+    }
+
+    const ok = await confirm({
+      title: form.isEditing ? "Atualizar registro" : "Cadastrar registro",
+      message: form.isEditing
+        ? "Deseja salvar as alterações deste registro?"
+        : "Deseja confirmar este cadastro?",
+      confirmText: form.isEditing ? "Atualizar" : "Cadastrar",
+    });
+    if (!ok) return;
+
+    const payload = {
+      linha: form.linha,
+      especialidadeId: usandoNovaEsp ? null : form.especialidadeId,
+      especialidadeNome: usandoNovaEsp ? form.especialidadeNome : "",
+      procedimentoId: usandoNovoProc ? null : form.procedimentoSel,
+      procedimentoNome: form.procedimentoNome,
+    };
+    const res = await salvarRegistroCatalogo({
+      linha: form.linha,
+      especialidadeId: usandoNovaEsp ? null : form.especialidadeId,
+      especialidadeNome: usandoNovaEsp ? form.especialidadeNome : "",
+      procedimentoId: usandoNovoProc ? null : form.procedimentoSel,
+      procedimentoNome: form.procedimentoNome,
+    });
+
+    if (res.success) {
+      await notify({
+        tipo: "sucesso",
+        title: form.isEditing ? "Registro atualizado" : "Registro cadastrado",
+        message: form.isEditing
+          ? "Registro atualizado com sucesso!"
+          : "Registro cadastrado com sucesso!",
+      });
+      await reloadData();
+      resetForm();
+    } else {
+      await notify({ tipo: "erro", title: "Erro", message: res.error });
+    }
+  };
+
+  // ── Inativar / Reativar ──────────────────────────────────────────────────
+  async function alternarEspecialidade(linha) {
+    const ativo = linha.especialidadeAtivo !== false;
     const acao = ativo ? "Inativar" : "Reativar";
     const ok = await confirm({
       title: `${acao} especialidade`,
       message: ativo
-        ? `Inativar "${esp.nome}"? Ela deixa de aparecer em novos cadastros de processo, ` +
-          `mas continua visível nos processos que já a utilizam.`
-        : `Reativar "${esp.nome}"? Ela volta a aparecer nos novos cadastros.`,
+        ? `Inativar "${linha.especialidadeNome}"? Ela deixa de ser oferecida em novos ` +
+          `processos, mas os vínculos e os registros históricos são preservados.`
+        : `Reativar "${linha.especialidadeNome}"? Ela volta a ser oferecida nos novos processos.`,
       confirmText: acao,
     });
     if (!ok) return;
-    limparMensagens();
-    setAlternando(`e-${esp.id}`);
-    const res = await alterarSituacaoEspecialidadeProcesso(esp.id, { ativo: !ativo });
-    setAlternando("");
-    if (!res.success) return setErro(res.error);
-    setAviso(`Especialidade ${ativo ? "inativada" : "reativada"}.`);
-    await recarregar();
+
+    setAlternando(`e-${linha.especialidadeId}`);
+    const res = await alterarSituacaoEspecialidadeProcesso(linha.especialidadeId, {
+      ativo: !ativo,
+    });
+    setAlternando(null);
+    if (!res.success) {
+      return notify({ tipo: "erro", title: "Erro", message: res.error });
+    }
+    await notify({
+      tipo: "sucesso",
+      title: `Especialidade ${ativo ? "inativada" : "reativada"}`,
+      message: `"${linha.especialidadeNome}" ${ativo ? "inativada" : "reativada"} com sucesso!`,
+    });
+    reloadData();
   }
 
-  // ── Procedimentos ────────────────────────────────────────────────────────
-  async function salvarProcedimento(e) {
-    e?.preventDefault?.();
-    limparMensagens();
-    const alvo = modalProc;
-    if (!alvo?.nome?.trim()) return setErro("Informe o nome do procedimento.");
-
-    setSalvando(true);
-    const res = alvo.id
-      ? await editarProcedimentoProcesso(alvo.id, { nome: alvo.nome })
-      : await criarProcedimentoProcesso({
-          nome: alvo.nome,
-          especialidadeIds: alvo.especialidadeIds || [],
-        });
-    setSalvando(false);
-
-    if (!res.success) return setErro(res.error);
-    setModalProc(null);
-    setAviso(alvo.id ? "Procedimento atualizado." : "Procedimento cadastrado.");
-    await recarregar();
-  }
-
-  async function alternarProcedimento(proc) {
-    const ativo = proc.ativo !== false;
+  async function alternarProcedimento(linha) {
+    const ativo = linha.procedimentoAtivo !== false;
     const acao = ativo ? "Inativar" : "Reativar";
     const ok = await confirm({
       title: `${acao} procedimento`,
       message: ativo
-        ? `Inativar "${proc.nome}"? Ele deixa de aparecer em novos cadastros, mas ` +
-          `continua visível nos processos que já o utilizam.`
-        : `Reativar "${proc.nome}"?`,
+        ? `Inativar "${linha.procedimentoNome}"? Ele deixa de ser oferecido em novos ` +
+          `processos. Os vínculos com as especialidades e os registros históricos são ` +
+          `preservados.`
+        : `Reativar "${linha.procedimentoNome}"? Ele volta a ser oferecido nos novos processos.`,
       confirmText: acao,
     });
     if (!ok) return;
-    limparMensagens();
-    setAlternando(`p-${proc.id}`);
-    const res = await alterarSituacaoProcedimentoProcesso(proc.id, { ativo: !ativo });
-    setAlternando("");
-    if (!res.success) return setErro(res.error);
-    setAviso(`Procedimento ${ativo ? "inativado" : "reativado"}.`);
-    await recarregar();
-  }
 
-  async function salvarVinculos(e) {
-    e?.preventDefault?.();
-    limparMensagens();
-    if (!selecionada) return;
-    const marcados = (modalVincular?.selecionados || []).map(Number);
-    setSalvando(true);
-    const res = await definirProcedimentosDaEspecialidade(selecionada.id, {
-      procedimentoIds: marcados,
+    setAlternando(`p-${linha.procedimentoId}`);
+    const res = await alterarSituacaoProcedimentoProcesso(linha.procedimentoId, {
+      ativo: !ativo,
     });
-    setSalvando(false);
-    if (!res.success) return setErro(res.error);
-    setModalVincular(null);
-    setAviso("Procedimentos da especialidade atualizados.");
-    await recarregar();
+    setAlternando(null);
+    if (!res.success) {
+      return notify({ tipo: "erro", title: "Erro", message: res.error });
+    }
+    await notify({
+      tipo: "sucesso",
+      title: `Procedimento ${ativo ? "inativado" : "reativado"}`,
+      message: `"${linha.procedimentoNome}" ${ativo ? "inativado" : "reativado"} com sucesso!`,
+    });
+    reloadData();
   }
 
-  // Procedimentos disponíveis para vincular (todos, ativos primeiro).
-  const todosProcedimentos = useMemo(
-    () =>
-      [...dados.procedimentos].sort((a, b) => {
-        if (a.ativo !== b.ativo) return a.ativo ? -1 : 1;
-        return a.nome.localeCompare(b.nome, "pt-BR");
-      }),
-    [dados.procedimentos],
-  );
+  // ── Tabela ───────────────────────────────────────────────────────────────
+  const linhasTabela = (data.linhas || []).filter((l) => {
+    if (filterEspecialidadeId && String(l.especialidadeId) !== String(filterEspecialidadeId)) {
+      return false;
+    }
+    const ativo = l.procedimentoId
+      ? l.procedimentoAtivo !== false
+      : l.especialidadeAtivo !== false;
+    return passaSituacao(situacao, ativo);
+  });
 
   return (
     <div className="cadCadastro">
-      {/* Cabeçalho e avisos no MESMO padrão de "Exames e Procedimentos" e
-          "Serviços e Especialidades" (padraoCadastro.css). */}
-      <div className="cadPaginaCabecalho">
-        <div>
-          <h1 className="cadPaginaTitulo">Especialidades e Procedimentos</h1>
-          <p className="cadPaginaSubtitulo">
-            Catálogo próprio da área Processos (Câmara Técnica). Não compartilha
-            cadastros com a Junta Reguladora.
-          </p>
-        </div>
-      </div>
-
-      {aviso && (
-        <div className="cadAviso cadAvisoSucesso" role="status">
-          {aviso}
-          <button
-            type="button"
-            className="cadAvisoFechar"
-            onClick={() => setAviso("")}
-            aria-label="Fechar"
-          >
-            ×
-          </button>
-        </div>
-      )}
-      {erro && (
-        <div className="cadAviso cadAvisoErro" role="alert">
-          {erro}
-          <button
-            type="button"
-            className="cadAvisoFechar"
-            onClick={() => setErro("")}
-            aria-label="Fechar"
-          >
-            ×
-          </button>
-        </div>
-      )}
-
       <div className="cadCard">
         <div className="cadCardTitleRow">
           <h3 className="cadCardTitle">Especialidades e Procedimentos</h3>
           <span className="cadCardSubtitle">
-            Ex.: Cardiologia (especialidade) — Consulta Cardiológica (procedimento)
+            Ex.: Ortopedia (especialidade) | Artroplastia (procedimento)
           </span>
         </div>
 
         {/* BUSCA */}
         <div className="cadBuscaBox">
           <div className="cadCampo">
-            <label>Buscar especialidade</label>
+            <label>Buscar no Banco (Especialidade ou Procedimento)</label>
             <div className="cadBuscaRow">
-              <div className="cadBuscaWrapper">
+              <div className="cadBuscaWrapper" ref={dropRef}>
                 <input
                   type="text"
                   className="cadBuscaInput"
-                  value={buscaEsp}
-                  placeholder="Digite o nome da especialidade..."
-                  onChange={(e) => setBuscaEsp(e.target.value)}
+                  value={form.search || ""}
+                  placeholder="Selecionar ou digitar para buscar..."
+                  onChange={(e) => {
+                    setForm((prev) => ({ ...prev, search: e.target.value }));
+                    setDropAberto(true);
+                  }}
+                  onFocus={() => setDropAberto(true)}
                 />
+                <span className="cadBuscaSeta" onClick={() => setDropAberto(!dropAberto)}>
+                  {dropAberto ? "▲" : "▼"}
+                </span>
+
+                {dropAberto && (
+                  <div className="cadDropdown">
+                    <div className="cadDropdownScroll">
+                      <table className="cadDropdownTabela">
+                        <thead>
+                          <tr>
+                            <th>Especialidade</th>
+                            <th>Procedimento</th>
+                            <th>Situação</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {linhasFiltradas.length > 0 ? (
+                            linhasFiltradas.map((l) => (
+                              <tr
+                                key={l.id}
+                                onMouseDown={(ev) => {
+                                  ev.preventDefault();
+                                  carregarParaEdicao(l);
+                                }}
+                                className={form.linha?.id === l.id ? "cadLinhaSelecionada" : ""}
+                              >
+                                <td>
+                                  <strong>{l.especialidadeNome}</strong>
+                                </td>
+                                <td>{l.procedimentoNome || "—"}</td>
+                                <td>
+                                  <StatusRegistro
+                                    ativo={
+                                      l.procedimentoId
+                                        ? l.procedimentoAtivo !== false
+                                        : l.especialidadeAtivo !== false
+                                    }
+                                  />
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan="3" className="cadSemDados">
+                                Nenhum registro encontrado.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
-              {podeCriarEspecialidade && (
-                <button
-                  type="button"
-                  className="cadBtnAdicionar"
-                  onClick={() => setModalEsp({ nome: "" })}
-                >
-                  + Adicionar especialidade
-                </button>
-              )}
+
+              <button
+                type="button"
+                className="cadBtnAdicionar"
+                onClick={() => setForm({ ...FORM_VAZIO, isFormActive: true })}
+              >
+                + Adicionar novo
+              </button>
             </div>
           </div>
         </div>
 
-        {/* TABELA DE ESPECIALIDADES */}
+        {/* FORMULÁRIO */}
+        <form onSubmit={submit} className="cadForm">
+          <div className="cadFormSecao">
+            <div className="cadFormSecaoTopo">
+              <h4>Informações do Registro</h4>
+            </div>
+            <div className="cadGrade">
+              <div className="cadCampo cadCol6">
+                <label>Especialidade *</label>
+                <select
+                  value={form.especialidadeId}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      especialidadeId: e.target.value,
+                      especialidadeNome: "",
+                      // troca de especialidade limpa a seleção de procedimento
+                      procedimentoSel: "",
+                      procedimentoNome: "",
+                      linha: null,
+                    })
+                  }
+                  disabled={!form.isFormActive}
+                  required
+                >
+                  <option value="">-- Selecione a Especialidade --</option>
+                  {(data.especialidades || []).map((esp) => (
+                    <option key={esp.id} value={esp.id}>
+                      {esp.nome}
+                      {esp.ativo === false ? " (inativa)" : ""}
+                    </option>
+                  ))}
+                  {podeCriarEspecialidade && (
+                    <option value="__novo__">+ Nova especialidade...</option>
+                  )}
+                </select>
+                {form.isFormActive && (data.especialidades || []).length === 0 && (
+                  <p className="cadCampoDica">
+                    Nenhuma especialidade ativa. Use “+ Nova especialidade…” para cadastrar.
+                  </p>
+                )}
+              </div>
+
+              {usandoNovaEsp && (
+                <div className="cadCampo cadCol6">
+                  <label>Nome da Nova Especialidade *</label>
+                  <input
+                    type="text"
+                    value={form.especialidadeNome}
+                    placeholder="Ex.: Ortopedia"
+                    onChange={(e) => setForm({ ...form, especialidadeNome: e.target.value })}
+                    disabled={!form.isFormActive}
+                    required
+                  />
+                </div>
+              )}
+
+              <div className="cadCampo cadCol6">
+                <label>Procedimento</label>
+                <select
+                  value={form.procedimentoSel}
+                  onChange={mudarProcedimento}
+                  disabled={!form.isFormActive || !form.especialidadeId}
+                >
+                  <option value="">-- Nenhum / Selecione --</option>
+                  {procedimentosDisponiveis.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nome}
+                      {p.ativo === false ? " (inativo)" : ""}
+                    </option>
+                  ))}
+                  {podeCriarProcedimento && (
+                    <option value="__novo__">+ Novo procedimento...</option>
+                  )}
+                </select>
+              </div>
+
+              {usandoNovoProc && (
+                <div className="cadCampo cadCol6">
+                  <label>Nome do Novo Procedimento *</label>
+                  <input
+                    type="text"
+                    value={form.procedimentoNome}
+                    placeholder="Ex.: Artroplastia"
+                    onChange={(e) => setForm({ ...form, procedimentoNome: e.target.value })}
+                    disabled={!form.isFormActive}
+                    required
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="cadFormAcoes">
+            {form.isEditing && !form.isFormActive && <BotaoEditar onClick={habilitarEdicao} />}
+            {form.isFormActive && (
+              <>
+                <button type="button" className="cadBtnGhost" onClick={resetForm}>
+                  Cancelar
+                </button>
+                <button type="submit" className="cadBtnPrimario">
+                  {form.isEditing ? "Atualizar" : "Salvar"}
+                </button>
+              </>
+            )}
+          </div>
+        </form>
+
+        {/* TABELA ÚNICA */}
         <div className="cadTabelaTopo">
           <div className="cadTabelaTopoLinha">
-            <h4 className="cadTabelaTitulo">Especialidades</h4>
+            <h4 className="cadTabelaTitulo">Cadastros</h4>
             <div className="cadFiltros">
               <FiltroSituacao
-                id="filtro-situacao-especialidades"
+                id="filtro-situacao-catalogo-processos"
                 valor={situacao}
                 onChange={setSituacao}
               />
+              <div className="cadFiltroSituacao">
+                <label>Filtrar por Especialidade:</label>
+                <select
+                  value={filterEspecialidadeId}
+                  onChange={(e) => setFilterEspecialidadeId(e.target.value)}
+                  className="cadFiltroSelect"
+                >
+                  <option value="">-- Todas as Especialidades --</option>
+                  {(data.especialidades || []).map((esp) => (
+                    <option key={esp.id} value={esp.id}>
+                      {esp.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
@@ -309,387 +567,60 @@ export default function CatalogoProcessosPage({
               <thead>
                 <tr>
                   <th>Especialidade</th>
-                  <th>Situação</th>
-                  <th className="cadDireita">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {carregando ? (
-                  <tr>
-                    <td colSpan={3} className="cadTabelaVazia">
-                      Carregando catálogo…
-                    </td>
-                  </tr>
-                ) : especialidadesVisiveis.length === 0 ? (
-                  <tr>
-                    <td colSpan={3} className="cadTabelaVazia">
-                      Nenhuma especialidade encontrada. Use “+ Adicionar especialidade”.
-                    </td>
-                  </tr>
-                ) : (
-                  especialidadesVisiveis.map((e) => {
-                    const ativo = e.ativo !== false;
-                    const emFoco = selecionada?.id === e.id;
-                    return (
-                      <tr
-                        key={e.id}
-                        className={ativo ? "" : "cadLinhaInativa"}
-                        style={emFoco ? { background: "#eff6ff" } : undefined}
-                      >
-                        <td>
-                          <div className={styles.celulaEsp}>
-                            <button
-                              type="button"
-                              onClick={() => setSelecionadaId(e.id)}
-                              style={{
-                                background: "none",
-                                border: "none",
-                                padding: 0,
-                                font: "inherit",
-                                fontWeight: 600,
-                                color: emFoco ? "#1d4ed8" : "#0f172a",
-                                cursor: "pointer",
-                                textAlign: "left",
-                              }}
-                              title="Ver os procedimentos desta especialidade"
-                            >
-                              {e.nome}
-                            </button>
-                            {emFoco && (
-                              <span className={styles.tagInativo}>em foco</span>
-                            )}
-                            <span className={styles.tagUsos}>
-                              {e.procedimentos.length} procedimento(s) · {e.usos} processo(s)
-                            </span>
-                          </div>
-                        </td>
-                        <td>
-                          <StatusRegistro ativo={ativo} />
-                        </td>
-                        <td>
-                          <div className="cadAcoesLinha">
-                            {podeEditarEspecialidade && (
-                              <button
-                                type="button"
-                                className="cadBtnGhost"
-                                style={{ padding: "0.35rem 0.75rem", fontSize: "0.78rem" }}
-                                onClick={() => setModalEsp({ id: e.id, nome: e.nome })}
-                              >
-                                Editar
-                              </button>
-                            )}
-                            <AcoesSituacao
-                              ativo={ativo}
-                              podeInativar={podeInativarEspecialidade}
-                              ocupado={alternando === `e-${e.id}`}
-                              onAlternar={() => alternarEspecialidade(e)}
-                            />
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* PROCEDIMENTOS DA ESPECIALIDADE EM FOCO */}
-        <div className="cadTabelaTopo">
-          <div className="cadTabelaTopoLinha">
-            <h4 className="cadTabelaTitulo">
-              {selecionada
-                ? `Procedimentos — ${selecionada.nome}`
-                : "Procedimentos"}
-            </h4>
-            <div className="cadFiltros">
-              <FiltroSituacao
-                id="filtro-situacao-procedimentos-processos"
-                valor={situacaoProc}
-                onChange={setSituacaoProc}
-              />
-              {selecionada && podeVincular && (
-                <button
-                  type="button"
-                  className="cadBtnGhost"
-                  onClick={() =>
-                    setModalVincular({
-                      selecionados: selecionada.procedimentos.map((p) => p.id),
-                    })
-                  }
-                >
-                  Gerenciar vínculos
-                </button>
-              )}
-              {podeCriarProcedimento && (
-                <button
-                  type="button"
-                  className="cadBtnAdicionar"
-                  onClick={() =>
-                    setModalProc({
-                      nome: "",
-                      especialidadeIds: selecionada ? [selecionada.id] : [],
-                    })
-                  }
-                >
-                  + Adicionar procedimento
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="cadBuscaBox" style={{ padding: "0.85rem" }}>
-            <div className="cadBuscaWrapper">
-              <input
-                type="text"
-                className="cadBuscaInput"
-                value={buscaProc}
-                placeholder="Buscar procedimento nesta especialidade..."
-                onChange={(e) => setBuscaProc(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="cadTabelaWrapper">
-            <table className="cadTabela">
-              <thead>
-                <tr>
                   <th>Procedimento</th>
                   <th>Situação</th>
                   <th className="cadDireita">Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {!selecionada ? (
-                  <tr>
-                    <td colSpan={3} className="cadTabelaVazia">
-                      Selecione uma especialidade na tabela acima para ver seus
-                      procedimentos.
-                    </td>
-                  </tr>
-                ) : procedimentosVisiveis.length === 0 ? (
-                  <tr>
-                    <td colSpan={3} className="cadTabelaVazia">
-                      Nenhum procedimento para os filtros selecionados. Use “Gerenciar
-                      vínculos” ou “+ Adicionar procedimento”.
-                    </td>
-                  </tr>
-                ) : (
-                  procedimentosVisiveis.map((p) => {
-                    const ativo = p.ativo !== false;
-                    return (
-                      <tr key={p.id} className={ativo ? "" : "cadLinhaInativa"}>
-                        <td><strong>{p.nome}</strong></td>
-                        <td><StatusRegistro ativo={ativo} /></td>
-                        <td>
-                          <div className="cadAcoesLinha">
-                            {podeEditarProcedimento && (
-                              <button
-                                type="button"
-                                className="cadBtnGhost"
-                                style={{ padding: "0.35rem 0.75rem", fontSize: "0.78rem" }}
-                                onClick={() => setModalProc({ id: p.id, nome: p.nome })}
-                              >
-                                Editar
-                              </button>
-                            )}
+                {linhasTabela.map((l) => {
+                  const temProcedimento = Boolean(l.procedimentoId);
+                  const ativo = temProcedimento
+                    ? l.procedimentoAtivo !== false
+                    : l.especialidadeAtivo !== false;
+                  return (
+                    <tr key={l.id} className={ativo ? "" : "cadLinhaInativa"}>
+                      <td>
+                        <strong>{l.especialidadeNome}</strong>
+                      </td>
+                      <td>{l.procedimentoNome || "—"}</td>
+                      <td>
+                        <StatusRegistro ativo={ativo} />
+                      </td>
+                      <td>
+                        <div className="cadAcoesLinha">
+                          {temProcedimento ? (
                             <AcoesSituacao
                               ativo={ativo}
                               podeInativar={podeInativarProcedimento}
-                              ocupado={alternando === `p-${p.id}`}
-                              onAlternar={() => alternarProcedimento(p)}
+                              ocupado={alternando === `p-${l.procedimentoId}`}
+                              onAlternar={() => alternarProcedimento(l)}
                             />
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
+                          ) : (
+                            <AcoesSituacao
+                              ativo={ativo}
+                              podeInativar={podeInativarEspecialidade}
+                              ocupado={alternando === `e-${l.especialidadeId}`}
+                              onAlternar={() => alternarEspecialidade(l)}
+                            />
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {linhasTabela.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="cadTabelaVazia">
+                      Nenhum registro encontrado para os filtros selecionados.
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
           </div>
         </div>
       </div>
-
-      {/* ── Modal especialidade ────────────────────────────────────────────── */}
-      {modalEsp && (
-        <div className={styles.overlay} onClick={() => setModalEsp(null)} role="presentation">
-          <div
-            className={styles.modal}
-            onClick={(ev) => ev.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-          >
-            <h3 className={styles.modalTitulo}>
-              {modalEsp.id ? "Editar especialidade" : "Nova especialidade"}
-            </h3>
-            <form onSubmit={salvarEspecialidade} className={styles.formulario}>
-              <label className={styles.label}>Nome *</label>
-              <input
-                className={styles.input}
-                autoFocus
-                maxLength={150}
-                value={modalEsp.nome}
-                onChange={(ev) => setModalEsp({ ...modalEsp, nome: ev.target.value })}
-                placeholder="Ex.: Cardiologia"
-              />
-              <p className={styles.dica}>
-                Nomes equivalentes (maiúsculas, acentos e espaços) não são duplicados.
-              </p>
-              <div className={styles.acoesForm}>
-                <button
-                  type="button"
-                  className="cadBtnGhost"
-                  onClick={() => setModalEsp(null)}
-                >
-                  Cancelar
-                </button>
-                <button type="submit" className="cadBtnPrimario" disabled={salvando}>
-                  {salvando ? "Salvando…" : "Salvar"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ── Modal procedimento ─────────────────────────────────────────────── */}
-      {modalProc && (
-        <div
-          className={styles.overlay}
-          onClick={() => setModalProc(null)}
-          role="presentation"
-        >
-          <div
-            className={styles.modal}
-            onClick={(ev) => ev.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-          >
-            <h3 className={styles.modalTitulo}>
-              {modalProc.id ? "Editar procedimento" : "Novo procedimento"}
-            </h3>
-            <form onSubmit={salvarProcedimento} className={styles.formulario}>
-              <label className={styles.label}>Nome *</label>
-              <input
-                className={styles.input}
-                autoFocus
-                maxLength={150}
-                value={modalProc.nome}
-                onChange={(ev) => setModalProc({ ...modalProc, nome: ev.target.value })}
-                placeholder="Ex.: Consulta Cardiológica"
-              />
-
-              {!modalProc.id && (
-                <>
-                  <label className={styles.label}>Especialidades vinculadas</label>
-                  <div className={styles.caixaSelecao}>
-                    {dados.especialidades
-                      .filter((e) => e.ativo)
-                      .map((e) => (
-                        <label key={e.id} className={styles.check}>
-                          <input
-                            type="checkbox"
-                            checked={(modalProc.especialidadeIds || []).includes(e.id)}
-                            onChange={(ev) => {
-                              const atual = modalProc.especialidadeIds || [];
-                              setModalProc({
-                                ...modalProc,
-                                especialidadeIds: ev.target.checked
-                                  ? [...atual, e.id]
-                                  : atual.filter((x) => x !== e.id),
-                              });
-                            }}
-                          />
-                          {e.nome}
-                        </label>
-                      ))}
-                    {dados.especialidades.filter((e) => e.ativo).length === 0 && (
-                      <p className={styles.dica}>
-                        Cadastre uma especialidade primeiro.
-                      </p>
-                    )}
-                  </div>
-                </>
-              )}
-
-              <div className={styles.acoesForm}>
-                <button
-                  type="button"
-                  className="cadBtnGhost"
-                  onClick={() => setModalProc(null)}
-                >
-                  Cancelar
-                </button>
-                <button type="submit" className="cadBtnPrimario" disabled={salvando}>
-                  {salvando ? "Salvando…" : "Salvar"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ── Modal vínculos ─────────────────────────────────────────────────── */}
-      {modalVincular && selecionada && (
-        <div
-          className={styles.overlay}
-          onClick={() => setModalVincular(null)}
-          role="presentation"
-        >
-          <div
-            className={styles.modal}
-            onClick={(ev) => ev.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-          >
-            <h3 className={styles.modalTitulo}>
-              Procedimentos de “{selecionada.nome}”
-            </h3>
-            <form onSubmit={salvarVinculos} className={styles.formulario}>
-              <div className={styles.caixaSelecao}>
-                {todosProcedimentos.length === 0 && (
-                  <p className={styles.dica}>
-                    Nenhum procedimento no catálogo. Cadastre um em “+ Adicionar
-                    procedimento”.
-                  </p>
-                )}
-                {todosProcedimentos.map((p) => (
-                  <label key={p.id} className={styles.check}>
-                    <input
-                      type="checkbox"
-                      checked={(modalVincular.selecionados || []).includes(p.id)}
-                      onChange={(ev) => {
-                        const atual = modalVincular.selecionados || [];
-                        setModalVincular({
-                          selecionados: ev.target.checked
-                            ? [...atual, p.id]
-                            : atual.filter((x) => x !== p.id),
-                        });
-                      }}
-                    />
-                    {p.nome}
-                    {!p.ativo && <span className={styles.tagInativo}>inativo</span>}
-                  </label>
-                ))}
-              </div>
-              <div className={styles.acoesForm}>
-                <button
-                  type="button"
-                  className="cadBtnGhost"
-                  onClick={() => setModalVincular(null)}
-                >
-                  Cancelar
-                </button>
-                <button type="submit" className="cadBtnPrimario" disabled={salvando}>
-                  {salvando ? "Salvando…" : "Salvar vínculos"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

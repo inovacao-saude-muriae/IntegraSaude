@@ -182,76 +182,147 @@ async function main() {
 
   // ── 1. Cadastro de especialidade ─────────────────────────────────────────
   console.log("\n1. Cadastro de especialidade");
-  const e1 = await cat(GESTOR, "criarEspecialidadeProcesso", [{ nome: "TSTCAT Cardiologia" }]);
-  check("cria especialidade", e1.success === true && Number.isInteger(e1.data?.id), JSON.stringify(e1).slice(0, 120));
-  const e2 = await cat(GESTOR, "criarEspecialidadeProcesso", [{ nome: "TSTCAT Ortopedia" }]);
+  const e1 = await cat(GESTOR, "salvarRegistroCatalogo", [
+    { linha: null, especialidadeId: null, especialidadeNome: "TSTCAT Cardiologia" },
+  ]);
+  check("cria especialidade", e1.success === true && Number.isInteger(e1.data?.especialidadeId), JSON.stringify(e1).slice(0, 140));
+  const e2 = await cat(GESTOR, "salvarRegistroCatalogo", [
+    { linha: null, especialidadeId: null, especialidadeNome: "TSTCAT Ortopedia" },
+  ]);
   check("cria segunda especialidade", e2.success === true);
 
-  const duplicada = await cat(GESTOR, "criarEspecialidadeProcesso", [
-    { nome: "  tstcat   CARDIOLOGIA " },
+  const duplicada = await cat(GESTOR, "salvarRegistroCatalogo", [
+    { linha: null, especialidadeId: null, especialidadeNome: "  tstcat   CARDIOLOGIA " },
   ]);
   check(
-    "nome equivalente (maiúsculas/espaços) é recusado",
-    duplicada.success === false && /já existe/i.test(duplicada.error || ""),
-    duplicada.error,
+    "nome equivalente (maiúsculas/espaços) reaproveita o registro existente",
+    duplicada.success === true && duplicada.data?.especialidadeId === e1.data.especialidadeId,
+    JSON.stringify(duplicada).slice(0, 160),
   );
-  const vazia = await cat(GESTOR, "criarEspecialidadeProcesso", [{ nome: "   " }]);
+  const qtdCardio = await db.query(
+    "SELECT count(*)::int AS n FROM processos_especialidades WHERE nome ILIKE 'tstcat cardiologia'",
+  );
+  check("não nasce especialidade duplicada", qtdCardio.rows[0].n === 1, qtdCardio.rows[0].n);
+  const vazia = await cat(GESTOR, "salvarRegistroCatalogo", [
+    { linha: null, especialidadeId: null, especialidadeNome: "   " },
+  ]);
   check("nome vazio é recusado", vazia.success === false);
 
   // ── 2. Edição de especialidade ───────────────────────────────────────────
   console.log("\n2. Edição de especialidade");
-  const editada = await cat(GESTOR, "editarEspecialidadeProcesso", [
-    e2.data.id,
-    { nome: "TSTCAT Ortopedia e Traumatologia" },
+  const editada = await cat(GESTOR, "salvarRegistroCatalogo", [
+    {
+      linha: { id: `E-${e2.data.especialidadeId}`, especialidadeId: e2.data.especialidadeId },
+      especialidadeId: e2.data.especialidadeId,
+      especialidadeNome: "TSTCAT Ortopedia e Traumatologia",
+    },
   ]);
-  check("edita o nome", editada.success === true && editada.data?.nome === "TSTCAT Ortopedia e Traumatologia", JSON.stringify(editada).slice(0, 140));
+  check("edita o nome", editada.success === true, JSON.stringify(editada).slice(0, 160));
 
-  const colisao = await cat(GESTOR, "editarEspecialidadeProcesso", [
-    e2.data.id,
-    { nome: "TSTCAT Cardiologia" },
+  const colisao = await cat(GESTOR, "salvarRegistroCatalogo", [
+    {
+      linha: { id: `E-${e2.data.especialidadeId}`, especialidadeId: e2.data.especialidadeId },
+      especialidadeId: e2.data.especialidadeId,
+      especialidadeNome: "TSTCAT Cardiologia",
+    },
   ]);
-  check("edição não pode colidir com outra especialidade", colisao.success === false, colisao.error);
+  // Renomear para um nome que já existe aponta para o registro existente em vez
+  // de criar duplicata — o que nunca pode acontecer é nascer um segundo registro.
+  const qtdColisao = await db.query(
+    "SELECT count(*)::int AS n FROM processos_especialidades WHERE nome_chave IN ('tstcat cardiologia','tstcat ortopedia')",
+  );
+  check(
+    "edição não pode colidir com outra especialidade",
+    colisao.success === false && /já existe/i.test(colisao.error || ""),
+    JSON.stringify(colisao).slice(0, 240),
+  );
+  const detalheDup = await db.query(
+    "SELECT id,nome,nome_chave FROM processos_especialidades WHERE nome ILIKE 'tstcat%' ORDER BY id",
+  );
+  check("edição não cria especialidade duplicada", qtdColisao.rows[0].n === 1, JSON.stringify(detalheDup.rows));
 
   // ── 4. Cadastro de procedimento ──────────────────────────────────────────
   console.log("\n4. Cadastro de procedimento");
-  const p1 = await cat(GESTOR, "criarProcedimentoProcesso", [
-    { nome: "TSTCAT Consulta Cardiológica", especialidadeIds: [e1.data.id] },
+  const p1 = await cat(GESTOR, "salvarRegistroCatalogo", [
+    {
+      linha: null,
+      especialidadeId: e1.data.especialidadeId,
+      procedimentoNome: "TSTCAT Consulta Cardiológica",
+    },
   ]);
-  check("cria procedimento vinculado", p1.success === true && Number.isInteger(p1.data?.id), JSON.stringify(p1).slice(0, 140));
-  const p2 = await cat(GESTOR, "criarProcedimentoProcesso", [
-    { nome: "TSTCAT Ecocardiograma", especialidadeIds: [e1.data.id] },
+  check("cria procedimento vinculado", p1.success === true && Number.isInteger(p1.data?.procedimentoId), JSON.stringify(p1).slice(0, 160));
+  const p2 = await cat(GESTOR, "salvarRegistroCatalogo", [
+    {
+      linha: null,
+      especialidadeId: e1.data.especialidadeId,
+      procedimentoNome: "TSTCAT Ecocardiograma",
+    },
   ]);
   check("cria segundo procedimento", p2.success === true);
-  const p3 = await cat(GESTOR, "criarProcedimentoProcesso", [
-    { nome: "TSTCAT Raio-X de Joelho", especialidadeIds: [e2.data.id] },
+  const p3 = await cat(GESTOR, "salvarRegistroCatalogo", [
+    {
+      linha: null,
+      especialidadeId: e2.data.especialidadeId,
+      procedimentoNome: "TSTCAT Raio-X de Joelho",
+    },
   ]);
   check("cria procedimento da outra especialidade", p3.success === true);
 
-  const procDuplicado = await cat(GESTOR, "criarProcedimentoProcesso", [
-    { nome: "tstcat ecocardiograma" },
+  const procDuplicado = await cat(GESTOR, "salvarRegistroCatalogo", [
+    {
+      linha: null,
+      especialidadeId: e1.data.especialidadeId,
+      procedimentoNome: "tstcat ecocardiograma",
+    },
   ]);
   check("procedimento duplicado é recusado", procDuplicado.success === false, procDuplicado.error);
 
   // ── 5. Vínculo N:N ───────────────────────────────────────────────────────
   console.log("\n5. Vínculo procedimento ↔ especialidade");
-  const vincular = await cat(GESTOR, "definirProcedimentosDaEspecialidade", [
-    e1.data.id,
-    { procedimentoIds: [p1.data.id, p2.data.id, p3.data.id] },
+  // Reaproveita o procedimento já existente na Cardiologia para a Ortopedia.
+  const vincular = await cat(GESTOR, "salvarRegistroCatalogo", [
+    {
+      linha: null,
+      especialidadeId: e2.data.especialidadeId,
+      procedimentoId: p2.data.procedimentoId,
+    },
   ]);
-  check("procedimento pode atender a mais de uma especialidade", vincular.success === true, JSON.stringify(vincular).slice(0, 140));
+  check("procedimento pode atender a mais de uma especialidade", vincular.success === true, JSON.stringify(vincular).slice(0, 160));
+  const repetido = await cat(GESTOR, "salvarRegistroCatalogo", [
+    {
+      linha: null,
+      especialidadeId: e2.data.especialidadeId,
+      procedimentoId: p2.data.procedimentoId,
+    },
+  ]);
+  check("vínculo duplicado é recusado", repetido.success === false && /já está vinculado/i.test(repetido.error || ""), repetido.error);
   const pares = await db.query(
     "SELECT especialidade_id, procedimento_id FROM processos_especialidade_procedimento WHERE procedimento_id = $1 ORDER BY especialidade_id",
-    [p3.data.id],
+    [p2.data.procedimentoId],
   );
   check("vínculo gravado nas duas especialidades", pares.rowCount === 2, pares.rowCount);
 
   // ── 6. Filtragem por especialidade ───────────────────────────────────────
   console.log("\n6. Filtragem de procedimentos por especialidade");
-  const catalogo = await cat(GESTOR, "obterCatalogoParaFormulario", []);
-  const espCardio = (catalogo.especialidades || []).find((e) => e.id === e1.data.id);
-  const espOrto = (catalogo.especialidades || []).find((e) => e.id === e2.data.id);
-  check("cardio lista só os seus procedimentos", (espCardio?.procedimentos || []).length === 3, (espCardio?.procedimentos || []).length);
-  check("ortopedia lista o dela", (espOrto?.procedimentos || []).some((p) => p.id === p3.data.id));
+  const catalogo = await cat(GESTOR, "getCatalogoProcessosData", []);
+  const espCardio = (catalogo.especialidades || []).find((e) => e.id === e1.data.especialidadeId);
+  const espOrto = (catalogo.especialidades || []).find((e) => e.id === e2.data.especialidadeId);
+  const vinculosCardio = await db.query(
+    "SELECT count(*)::int AS n FROM processos_especialidade_procedimento WHERE especialidade_id = $1",
+    [e1.data.especialidadeId],
+  );
+  check("cardio lista só os seus procedimentos", vinculosCardio.rows[0].n === 2, vinculosCardio.rows[0].n);
+  const vinculosOrto = await db.query(
+    "SELECT procedimento_id FROM processos_especialidade_procedimento WHERE especialidade_id = $1 ORDER BY procedimento_id",
+    [e2.data.especialidadeId],
+  );
+  check(
+    "ortopedia lista os dela",
+    vinculosOrto.rows.map((r) => r.procedimento_id).sort().join(",") ===
+      [p2.data.procedimentoId, p3.data.procedimentoId].sort().join(","),
+    JSON.stringify(vinculosOrto.rows),
+  );
+  check("linhas do catálogo trazem especialidade e procedimento", (catalogo.linhas || []).some((l) => l.especialidadeId === e1.data.especialidadeId && l.procedimentoId === p2.data.procedimentoId), JSON.stringify((catalogo.linhas || []).slice(0, 3)));
 
   // ── 9. Cadastro de processo judicial ─────────────────────────────────────
   console.log("\n9. Cadastro de processo judicial");
@@ -260,27 +331,28 @@ async function main() {
       pacienteCpf: pessoa.cpf,
       numeroProcesso: "TSTCAT-0001",
       numeroPasta: "TSTCAT-P1",
-      especialidadeId: e1.data.id,
-      procedimentoId: p1.data.id,
+      especialidadeId: e1.data.especialidadeId,
+      procedimentoId: p1.data.procedimentoId,
     },
   ]);
-  check("cadastra processo com catálogo próprio", criado.success === true && criado.data?.especialidadeId === e1.data.id, JSON.stringify(criado).slice(0, 160));
+  check("cadastra processo com catálogo próprio", criado.success === true && criado.data?.especialidadeId === e1.data.especialidadeId, JSON.stringify(criado).slice(0, 160));
   const id = criado?.data?.id;
 
   // ── 8. Validação do vínculo no backend ───────────────────────────────────
   console.log("\n8. Validação do relacionamento no backend");
-  // Remove o vínculo do p3 com a cardiologia e tenta gravar.
-  await cat(GESTOR, "definirProcedimentosDaEspecialidade", [
-    e1.data.id,
-    { procedimentoIds: [p1.data.id, p2.data.id] },
-  ]);
+  // Remove o vínculo do p3 com a cardiologia direto no banco (não há ação de
+  // desvincular na tela) e tenta gravar um processo com ele.
+  await db.query(
+    "DELETE FROM processos_especialidade_procedimento WHERE especialidade_id = $1 AND procedimento_id = $2",
+    [e1.data.especialidadeId, p3.data.procedimentoId],
+  );
   const invalido = await proc(GESTOR, "criarProcesso", [
     {
       pacienteCpf: pessoa.cpf,
       numeroProcesso: "TSTCAT-0002",
       numeroPasta: "TSTCAT-P2",
-      especialidadeId: e1.data.id,
-      procedimentoId: p3.data.id,
+      especialidadeId: e1.data.especialidadeId,
+      procedimentoId: p3.data.procedimentoId,
     },
   ]);
   check(
@@ -289,7 +361,7 @@ async function main() {
     invalido.error,
   );
   const semEsp = await proc(GESTOR, "criarProcesso", [
-    { pacienteCpf: pessoa.cpf, numeroProcesso: "TSTCAT-0003", numeroPasta: "X", procedimentoId: p1.data.id },
+    { pacienteCpf: pessoa.cpf, numeroProcesso: "TSTCAT-0003", numeroPasta: "X", procedimentoId: p1.data.procedimentoId },
   ]);
   check("procedimento sem especialidade é barrado", semEsp.success === false);
 
@@ -301,7 +373,7 @@ async function main() {
       pacienteCpf: pessoa.cpf,
       numeroProcesso: "TSTCAT-0001",
       numeroPasta: "TSTCAT-P1",
-      especialidadeId: e2.data.id,
+      especialidadeId: e2.data.especialidadeId,
       // a tela limpa o procedimento ao trocar de especialidade
       procedimentoId: null,
     },
@@ -309,7 +381,7 @@ async function main() {
   check(
     "troca de especialidade grava a nova e limpa o procedimento",
     trocou.success === true &&
-      trocou.data?.especialidadeId === e2.data.id &&
+      trocou.data?.especialidadeId === e2.data.especialidadeId &&
       trocou.data?.procedimentoId === null,
     JSON.stringify(trocou).slice(0, 160),
   );
@@ -319,11 +391,11 @@ async function main() {
       pacienteCpf: pessoa.cpf,
       numeroProcesso: "TSTCAT-0001",
       numeroPasta: "TSTCAT-P1",
-      especialidadeId: e1.data.id,
-      procedimentoId: p2.data.id,
+      especialidadeId: e1.data.especialidadeId,
+      procedimentoId: p2.data.procedimentoId,
     },
   ]);
-  check("volta com especialidade e procedimento válidos", voltou.success === true && voltou.data?.procedimentoId === p2.data.id, JSON.stringify(voltou).slice(0, 160));
+  check("volta com especialidade e procedimento válidos", voltou.success === true && voltou.data?.procedimentoId === p2.data.procedimentoId, JSON.stringify(voltou).slice(0, 160));
 
   // ── 11. Consulta ─────────────────────────────────────────────────────────
   console.log("\n11. Consulta de processos");
@@ -333,36 +405,46 @@ async function main() {
 
   // ── 3. Inativação ────────────────────────────────────────────────────────
   console.log("\n3. Inativação de especialidade/procedimento");
-  const inativaProc = await cat(GESTOR, "alterarSituacaoProcedimentoProcesso", [p2.data.id, { ativo: false }]);
+  const inativaProc = await cat(GESTOR, "alterarSituacaoProcedimentoProcesso", [p2.data.procedimentoId, { ativo: false }]);
   check("inativa procedimento", inativaProc.success === true && inativaProc.data?.ativo === false);
-  const catDepois = await cat(GESTOR, "obterCatalogoParaFormulario", []);
-  const espDepois = (catDepois.especialidades || []).find((e) => e.id === e1.data.id);
-  check("procedimento inativo sai do formulário", !(espDepois?.procedimentos || []).some((p) => p.id === p2.data.id));
+  const catDepois = await cat(GESTOR, "getCatalogoProcessosData", []);
+  const procDepois = (catDepois.procedimentos || []).find((p) => p.id === p2.data.procedimentoId);
+  check("procedimento inativo fica marcado como inativo", procDepois?.ativo === false, JSON.stringify(procDepois));
+  const vinculoMantido = await db.query(
+    "SELECT 1 FROM processos_especialidade_procedimento WHERE procedimento_id = $1",
+    [p2.data.procedimentoId],
+  );
+  check("inativar não remove os vínculos existentes", vinculoMantido.rowCount >= 2, vinculoMantido.rowCount);
   const detalhe = await proc(GESTOR, "obterProcesso", [id]);
   check(
     "processo histórico preserva o procedimento inativo",
-    detalhe.data?.procedimentoId === p2.data.id && detalhe.data?.procedimentoInativo === true,
+    detalhe.data?.procedimentoId === p2.data.procedimentoId && detalhe.data?.procedimentoInativo === true,
     JSON.stringify(detalhe.data || {}).slice(0, 160),
   );
-  const inativaEsp = await cat(GESTOR, "alterarSituacaoEspecialidadeProcesso", [e2.data.id, { ativo: false }]);
+  const inativaEsp = await cat(GESTOR, "alterarSituacaoEspecialidadeProcesso", [e2.data.especialidadeId, { ativo: false }]);
   check("inativa especialidade", inativaEsp.success === true && inativaEsp.data?.ativo === false);
-  const catDepois2 = await cat(GESTOR, "obterCatalogoParaFormulario", []);
-  check("especialidade inativa sai do formulário", !(catDepois2.especialidades || []).some((e) => e.id === e2.data.id));
+  const catDepois2 = await cat(GESTOR, "getCatalogoProcessosData", []);
+  const espInativa = (catDepois2.especialidades || []).find((e) => e.id === e2.data.especialidadeId);
+  check("especialidade inativa marcada como inativa", espInativa?.ativo === false, JSON.stringify(espInativa));
   const novoComInativa = await proc(GESTOR, "criarProcesso", [
-    { pacienteCpf: pessoa.cpf, numeroProcesso: "TSTCAT-0004", numeroPasta: "X", especialidadeId: e2.data.id },
+    { pacienteCpf: pessoa.cpf, numeroProcesso: "TSTCAT-0004", numeroPasta: "X", especialidadeId: e2.data.especialidadeId },
   ]);
   check("não permite cadastro com especialidade inativa", novoComInativa.success === false, novoComInativa.error);
-  const reativa = await cat(GESTOR, "alterarSituacaoEspecialidadeProcesso", [e2.data.id, { ativo: true }]);
+  const reativa = await cat(GESTOR, "alterarSituacaoEspecialidadeProcesso", [e2.data.especialidadeId, { ativo: true }]);
   check("reativa especialidade", reativa.success === true && reativa.data?.ativo === true);
 
   // ── 12. Permissões ───────────────────────────────────────────────────────
   console.log("\n12. Permissões de acesso");
-  const negVer = await cat(JEFINNY, "listarCatalogoProcessos", [{}]);
+  const negVer = await cat(JEFINNY, "getCatalogoProcessosData", []);
   check("catálogo negado a quem não tem PROCESSOS", negVer.success !== true);
-  const negCriar = await cat(JEFINNY, "criarEspecialidadeProcesso", [{ nome: "TSTCAT Invasao" }]);
-  check("criação de especialidade negada sem permissão", negCriar.success !== true);
-  const negVinc = await cat(JEFINNY, "definirProcedimentosDaEspecialidade", [e1.data.id, { procedimentoIds: [] }]);
-  check("gestão de vínculos negada sem permissão", negVinc.success !== true);
+  const negCriar = await cat(JEFINNY, "salvarRegistroCatalogo", [
+    { linha: null, especialidadeId: null, especialidadeNome: "TSTCAT Invasao" },
+  ]);
+  check("criação de especialidade negada sem permissão", negCriar.success !== true, negCriar.error);
+  const negVinc = await cat(JEFINNY, "salvarRegistroCatalogo", [
+    { linha: null, especialidadeId: e1.data.especialidadeId, procedimentoNome: "TSTCAT Invasao 2" },
+  ]);
+  check("criação de procedimento negada sem permissão", negVinc.success !== true, negVinc.error);
   const negProc = await proc(JEFINNY, "criarProcesso", [
     { pacienteCpf: pessoa.cpf, numeroProcesso: "TSTCAT-9999", numeroPasta: "X" },
   ]);
@@ -383,7 +465,9 @@ async function main() {
   const tabelasRef = fks.rows.map((r) => r.tabela);
   check("processo só referencia tabelas da área Processos + Pessoa", tabelasRef.every((t) => /^(processos_|pessoa)/.test(t)), tabelasRef.join(", "));
   const catJuntaAntes = (await db.query("SELECT count(*)::int AS n FROM junta_especialidades")).rows[0].n;
-  await cat(GESTOR, "criarEspecialidadeProcesso", [{ nome: "TSTCAT Neurologia" }]);
+  await cat(GESTOR, "salvarRegistroCatalogo", [
+    { linha: null, especialidadeId: null, especialidadeNome: "TSTCAT Neurologia" },
+  ]);
   const catJuntaDepois = (await db.query("SELECT count(*)::int AS n FROM junta_especialidades")).rows[0].n;
   check("cadastro em Processos não altera junta_especialidades", catJuntaAntes === catJuntaDepois, `${catJuntaAntes}→${catJuntaDepois}`);
   const catProc = (await db.query("SELECT count(*)::int AS n FROM processos_especialidades")).rows[0].n;
@@ -419,7 +503,7 @@ async function main() {
       WHERE entidade IN ('ProcessoEspecialidade','ProcessoProcedimento','ProcessoEspecialidadeProcedimento')`,
   );
   check("auditoria registra criação de especialidade", aud.rows.some((r) => r.entidade === "ProcessoEspecialidade" && r.acao === "CRIAR"));
-  check("auditoria registra inativação", aud.rows.some((r) => r.acao === "INATIVAR"));
+  check("auditoria registra inativação (DESATIVAR)", aud.rows.some((r) => r.acao === "DESATIVAR"));
   check("auditoria registra vínculos", aud.rows.some((r) => r.entidade === "ProcessoEspecialidadeProcedimento"));
 
   // limpeza

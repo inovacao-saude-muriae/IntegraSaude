@@ -170,6 +170,354 @@ export async function obterCatalogoParaFormulario() {
   }
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CATÁLOGO EM LINHAS (mesmo modelo de Exames e Procedimentos / Serviços e
+// Especialidades): cada linha é um par Especialidade + Procedimento. Uma
+// especialidade sem nenhum procedimento aparece como uma linha própria.
+// A tela de Gerenciamento consome estas funções; o vínculo continua N:N.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Cria (ou reaproveita) uma especialidade pelo nome. Usado pelo cadastro
+// direto no campo "+ Nova especialidade...".
+async function garantirEspecialidade(user, nomeBruto) {
+  const { nome, chave } = prepararNome(nomeBruto, "o nome da especialidade");
+  const existente = await prisma.processoEspecialidade.findFirst({
+    where: { OR: [{ nomeChave: chave }, { nome: { equals: nome, mode: "insensitive" } }] },
+    select: { id: true, nome: true, ativo: true },
+  });
+  if (existente) {
+    if (!existente.ativo) {
+      throw falha(
+        `Já existe a especialidade "${existente.nome}" (inativa). Reative-a em vez de duplicar.`,
+        409,
+      );
+    }
+    return existente;
+  }
+  const criada = await prisma.processoEspecialidade.create({
+    data: { nome, nomeChave: chave },
+  });
+  await registrarAuditoria({
+    user,
+    acao: "CRIAR",
+    modulo: MODULO_AUDITORIA,
+    entidade: "ProcessoEspecialidade",
+    entidadeId: String(criada.id),
+    descricao: `Especialidade "${criada.nome}" cadastrada (catálogo de Processos)`,
+    detalhes: { nome: criada.nome },
+  });
+  return criada;
+}
+
+// Cria (ou reaproveita) um procedimento pelo nome e garante o vínculo com a
+// especialidade. Um procedimento existente NUNCA é duplicado: ele é apenas
+// vinculado à especialidade escolhida.
+async function garantirProcedimento(user, nomeBruto, especialidadeId) {
+  const { nome, chave } = prepararNome(nomeBruto, "o nome do procedimento");
+  let procedimento = await prisma.processoProcedimento.findFirst({
+    where: { OR: [{ nomeChave: chave }, { nome: { equals: nome, mode: "insensitive" } }] },
+    select: { id: true, nome: true, ativo: true },
+  });
+  let criado = false;
+  if (!procedimento) {
+    procedimento = await prisma.processoProcedimento.create({
+      data: { nome, nomeChave: chave },
+    });
+    criado = true;
+  } else if (!procedimento.ativo) {
+    throw falha(
+      `Já existe o procedimento "${procedimento.nome}" (inativo). Reative-o em vez de duplicar.`,
+      409,
+    );
+  }
+  if (criado) {
+    await registrarAuditoria({
+      user,
+      acao: "CRIAR",
+      modulo: MODULO_AUDITORIA,
+      entidade: "ProcessoProcedimento",
+      entidadeId: String(procedimento.id),
+      descricao: `Procedimento "${procedimento.nome}" cadastrado (catálogo de Processos)`,
+      detalhes: { nome: procedimento.nome },
+    });
+  }
+  if (especialidadeId) {
+    await prisma.processoEspecialidadeProcedimento.createMany({
+      data: [{ especialidadeId, procedimentoId: procedimento.id }],
+      skipDuplicates: true,
+    });
+  }
+  return procedimento;
+}
+
+/**
+ * Lista para a tela de cadastro: as linhas (Especialidade + Procedimento), as
+ * especialidades e os procedimentos para os campos de seleção.
+ * Leitura exige apenas visualizar o catálogo de Processos.
+ */
+export async function getCatalogoProcessosData() {
+  try {
+    await requirePermissao(MODULOS.PROCESSOS, "catalogo_especialidades", "visualizar");
+
+    const [especialidades, procedimentos, vinculos] = await Promise.all([
+      prisma.processoEspecialidade.findMany({ orderBy: { nome: "asc" } }),
+      prisma.processoProcedimento.findMany({ orderBy: { nome: "asc" } }),
+      prisma.processoEspecialidadeProcedimento.findMany({
+        select: { especialidadeId: true, procedimentoId: true },
+      }),
+    ]);
+
+    const porEsp = new Map();
+    for (const v of vinculos) {
+      if (!porEsp.has(v.especialidadeId)) porEsp.set(v.especialidadeId, []);
+      porEsp.get(v.especialidadeId).push(v.procedimentoId);
+    }
+    const procPorId = new Map(procedimentos.map((p) => [p.id, p]));
+    const espPorId = new Map(especialidades.map((e) => [e.id, e]));
+
+    const linhas = [];
+    for (const e of especialidades) {
+      const ids = (porEsp.get(e.id) || []).slice().sort((a, b) => {
+        const pa = procPorId.get(a);
+        const pb = procPorId.get(b);
+        return (pa?.nome || "").localeCompare(pb?.nome || "", "pt-BR");
+      });
+      if (ids.length === 0) {
+        linhas.push({
+          id: `e-${e.id}`,
+          tipo: "ESPECIALIDADE",
+          especialidadeId: e.id,
+          especialidadeNome: e.nome,
+          especialidadeAtivo: e.ativo !== false,
+          procedimentoId: null,
+          procedimentoNome: "",
+          procedimentoAtivo: null,
+        });
+        continue;
+      }
+      for (const procId of ids) {
+        const p = procPorId.get(procId);
+        if (!p) continue;
+        linhas.push({
+          id: `${e.id}-${p.id}`,
+          tipo: "VINCULO",
+          especialidadeId: e.id,
+          especialidadeNome: e.nome,
+          especialidadeAtivo: e.ativo !== false,
+          procedimentoId: p.id,
+          procedimentoNome: p.nome,
+          procedimentoAtivo: p.ativo !== false,
+        });
+      }
+    }
+    // Especialidade inativa sem vínculo já está acima; procedimentos sem
+    // nenhuma especialidade não aparecem na tabela (não há par a exibir).
+
+    return {
+      success: true,
+      especialidades: especialidades.map((e) => ({
+        id: e.id,
+        nome: e.nome,
+        ativo: e.ativo !== false,
+      })),
+      procedimentos: procedimentos.map((p) => {
+        const espIds = [...porEsp.entries()]
+          .filter(([, ids]) => ids.includes(p.id))
+          .map(([espId]) => espId);
+        return {
+          id: p.id,
+          nome: p.nome,
+          ativo: p.ativo !== false,
+          especialidadeIds: espIds,
+          especialidadeNomes: espIds.map((id) => espPorId.get(id)?.nome).filter(Boolean),
+        };
+      }),
+      linhas,
+    };
+  } catch (erro) {
+    return { ...responder(erro), especialidades: [], procedimentos: [], linhas: [] };
+  }
+}
+
+/**
+ * Gravação única da tela: cria ou atualiza o par Especialidade + Procedimento.
+ * - especialidadeId presente  → usa a existente;
+ * - especialidadeNome presente → cria/reaproveita pelo nome ("+ Nova especialidade");
+ * - procedimentoNome vazio     → a linha é só a especialidade (sem vínculo);
+ * - procedimentoId presente    → usa o existente (e garante o vínculo);
+ * - procedimentoNome novo      → cria/reaproveita e vincula.
+ * Nada é duplicado: nomes repetidos reaproveitam o registro existente.
+ */
+export async function salvarRegistroCatalogo(payload = {}) {
+  try {
+    const user = await requirePermissao(
+      MODULOS.PROCESSOS,
+      "catalogo_especialidades",
+      "criar",
+    );
+
+    const edicao = payload.linha || null;
+    const especialidadeNome = (payload.especialidadeNome || "").trim();
+    const idEmEdicao = edicao
+      ? inteiroPositivo(edicao.especialidadeId ?? edicao.especialidade_id)
+      : null;
+    const procedimentoNome = (payload.procedimentoNome || "").trim();
+    const especialidadeIdInformada = inteiroPositivo(payload.especialidadeId);
+    const procedimentoIdInformado = inteiroPositivo(payload.procedimentoId);
+
+    if (!especialidadeIdInformada && !especialidadeNome && !idEmEdicao) {
+      throw falha("Selecione ou informe a especialidade.");
+    }
+
+    // 1) Especialidade alvo
+    // Na edição, quem manda é o registro que está sendo editado: um nome novo
+    // renomeia a especialidade dele; um nome igual ao de outra especialidade é
+    // recusado (nunca cria nem aponta para a outra).
+    let especialidade = null;
+    if (edicao) {
+      if (idEmEdicao) {
+        especialidade = await prisma.processoEspecialidade.findUnique({
+          where: { id: idEmEdicao },
+        });
+        if (!especialidade) throw falha("Especialidade não encontrada no catálogo.", 404);
+        const nomeNovo = especialidadeNome || especialidade.nome;
+        const { nome, chave } = prepararNome(nomeNovo, "o nome da especialidade");
+        const conflito = await prisma.processoEspecialidade.findFirst({
+          where: {
+            id: { not: idEmEdicao },
+            OR: [{ nomeChave: chave }, { nome: { equals: nome, mode: "insensitive" } }],
+          },
+          select: { nome: true },
+        });
+        if (conflito) throw falha(`Já existe a especialidade "${conflito.nome}".`, 409);
+        if (especialidade.nome !== nome || especialidade.nomeChave !== chave) {
+          especialidade = await prisma.processoEspecialidade.update({
+            where: { id: idEmEdicao },
+            data: { nome, nomeChave: chave },
+          });
+          await registrarAuditoria({
+            user,
+            acao: "EDITAR",
+            modulo: MODULO_AUDITORIA,
+            entidade: "ProcessoEspecialidade",
+            entidadeId: String(idEmEdicao),
+            descricao: `Especialidade renomeada para "${nome}" (catálogo de Processos)`,
+            detalhes: { nome },
+          });
+        }
+      }
+    }
+
+    if (especialidade) {
+      // já resolvido acima (edição)
+    } else if (especialidadeIdInformada) {
+      especialidade = await prisma.processoEspecialidade.findUnique({
+        where: { id: especialidadeIdInformada },
+      });
+      if (!especialidade) throw falha("Especialidade não encontrada no catálogo.", 404);
+      if (!especialidade.ativo) throw falha("A especialidade está inativa.", 409);
+    } else {
+      especialidade = await garantirEspecialidade(user, especialidadeNome);
+    }
+
+    // 2) Procedimento (opcional)
+    let procedimento = null;
+    if (!procedimentoIdInformado && !procedimentoNome && payload.procedimentoNovo) {
+      throw falha("Informe o nome do novo procedimento.");
+    }
+    if (procedimentoIdInformado) {
+      procedimento = await prisma.processoProcedimento.findUnique({
+        where: { id: procedimentoIdInformado },
+      });
+      if (!procedimento) throw falha("Procedimento não encontrado no catálogo.", 404);
+      if (!procedimento.ativo) throw falha("O procedimento está inativo.", 409);
+    } else if (procedimentoNome) {
+      // Reaproveita o procedimento existente; se não houver, cria agora.
+      // `garantirProcedimento` já faz as duas coisas (e audita a criação).
+      const { nome: nomeProc, chave: chaveProc } = prepararNome(
+        procedimentoNome,
+        "o nome do procedimento",
+      );
+      const existente = await prisma.processoProcedimento.findFirst({
+        where: {
+          OR: [{ nomeChave: chaveProc }, { nome: { equals: nomeProc, mode: "insensitive" } }],
+        },
+      });
+      if (existente) {
+        if (!existente.ativo) {
+          throw falha(
+            `Já existe o procedimento "${existente.nome}" (inativo). Reative-o em vez de duplicar.`,
+            409,
+          );
+        }
+        procedimento = existente;
+      } else {
+        procedimento = await prisma.processoProcedimento.create({
+          data: { nome: nomeProc, nomeChave: chaveProc },
+        });
+        await registrarAuditoria({
+          user,
+          acao: "CRIAR",
+          modulo: MODULO_AUDITORIA,
+          entidade: "ProcessoProcedimento",
+          entidadeId: String(procedimento.id),
+          descricao: `Procedimento "${procedimento.nome}" cadastrado (catálogo de Processos)`,
+          detalhes: { nome: procedimento.nome },
+        });
+      }
+    }
+
+    // 3) Vínculo N:N (idempotente — nunca duplica)
+    if (procedimento) {
+      const jaVinculado = await prisma.processoEspecialidadeProcedimento.findFirst({
+        where: {
+          especialidadeId: especialidade.id,
+          procedimentoId: procedimento.id,
+        },
+      });
+      if (jaVinculado && !edicao) {
+        throw falha(
+          `O procedimento "${procedimento.nome}" já está vinculado à especialidade "${especialidade.nome}".`,
+          409,
+        );
+      }
+      if (!jaVinculado) {
+        await prisma.processoEspecialidadeProcedimento.create({
+          data: { especialidadeId: especialidade.id, procedimentoId: procedimento.id },
+        });
+        await registrarAuditoria({
+          user,
+          acao: "CRIAR",
+          modulo: MODULO_AUDITORIA,
+          entidade: "ProcessoEspecialidadeProcedimento",
+          entidadeId: String(especialidade.id),
+          descricao: `Vínculo criado: "${especialidade.nome}" — "${procedimento.nome}"`,
+          detalhes: {
+            especialidade: especialidade.nome,
+            procedimento: procedimento.nome,
+          },
+        });
+      }
+    }
+
+    revalidatePath(ROTA);
+    return {
+      success: true,
+      data: {
+        especialidadeId: especialidade.id,
+        especialidadeNome: especialidade.nome,
+        procedimentoId: procedimento?.id ?? null,
+        procedimentoNome: procedimento?.nome ?? "",
+      },
+    };
+  } catch (erro) {
+    return responder(erro);
+  }
+}
+
+// ── Inativar / Reativar ────────────────────────────────────────────────────
+
 // ── Especialidades ─────────────────────────────────────────────────────────
 
 export async function criarEspecialidadeProcesso({ nome } = {}) {
