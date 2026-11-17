@@ -26,6 +26,7 @@ import { registrarAuditoria } from "@/lib/audit";
 const FUNCIONALIDADE = "processo_judicial";
 const MODULO_AUDITORIA = "PROCESSOS";
 const ROTA = "/camara-tecnica/processos";
+const ROTA_BLOQUEIO = "/camara-tecnica/processos/bloqueio";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -114,21 +115,75 @@ async function resolverCatalogos(especialidadeId, procedimentoId, { edicao = fal
   return { especialidade, procedimento };
 }
 
-async function exigirPessoa(cpfBruto) {
+async function exigirPessoa(cpfBruto, { permitirIndisponivel = false } = {}) {
   const cpf = String(cpfBruto || "").replace(/\D/g, "");
   if (cpf.length !== 11) throw falha("Informe o CPF do paciente.");
   const pessoa = await prisma.pessoa.findUnique({
     where: { cpf },
-    select: { cpf: true, nomeCompleto: true, situacao: true, unificadoEmCpf: true },
+    select: {
+      cpf: true,
+      nomeCompleto: true,
+      situacao: true,
+      unificadoEmCpf: true,
+      numeroPasta: true,
+    },
   });
   if (!pessoa) throw falha("Paciente não encontrado no cadastro único.");
   if (pessoa.unificadoEmCpf) {
     throw falha("Este cadastro foi unificado em outro. Selecione o cadastro atual.");
   }
   // Situação cadastral (fonte única): inativo ou falecido não recebe novo processo.
-  const indisponivel = mensagemPessoaIndisponivel(pessoa.situacao);
-  if (indisponivel) throw falha(indisponivel);
+  // No bloqueio a pessoa pode já ter sido inativada depois do processo: o
+  // bloqueio é ato administrativo sobre um processo existente, então só o
+  // cadastro unificado é impedido.
+  if (!permitirIndisponivel) {
+    const indisponivel = mensagemPessoaIndisponivel(pessoa.situacao);
+    if (indisponivel) throw falha(indisponivel);
+  }
   return pessoa;
+}
+
+// ── Número de pasta: o dado é do PACIENTE ────────────────────────────────
+// A pasta pertence à pessoa (cadastro único), não ao processo: vários
+// processos do mesmo paciente compartilham a mesma pasta. A coluna vive em
+// `pessoa.numero_pasta` (única) e `processos_judiciais.numero_pasta` guarda o
+// espelho do momento do cadastro.
+async function resolverNumeroPasta(numeroPastaInformado, pessoa) {
+  const informado = texto(numeroPastaInformado, 50);
+
+  if (pessoa.numeroPasta) {
+    // Já tem pasta: o campo vem bloqueado na tela. Se o cliente mandar outro
+    // número, é conflito — a pasta do paciente só muda por decisão própria.
+    if (informado && informado !== pessoa.numeroPasta) {
+      throw falha(
+        `O paciente já possui a pasta ${pessoa.numeroPasta}. O número da pasta ` +
+          "pertence ao paciente e não pode ser alterado pelo processo.",
+        409,
+      );
+    }
+    return pessoa.numeroPasta;
+  }
+
+  if (!informado) throw falha("Informe o número da pasta.");
+
+  const ocupada = await prisma.pessoa.findFirst({
+    where: { numeroPasta: informado, NOT: { cpf: pessoa.cpf } },
+    select: { cpf: true },
+  });
+  if (ocupada) {
+    throw falha(
+      `A pasta ${informado} já está vinculada a outro paciente. ` +
+        "Cada número de pasta pertence a um único paciente.",
+      409,
+    );
+  }
+
+  // Grava a pasta no PACIENTE (fonte única), não no processo.
+  await prisma.pessoa.update({
+    where: { cpf: pessoa.cpf },
+    data: { numeroPasta: informado },
+  });
+  return informado;
 }
 
 async function exigirProcesso(id) {
@@ -137,9 +192,10 @@ async function exigirProcesso(id) {
   const processo = await prisma.processoJudicial.findUnique({
     where: { id: processoId },
     include: {
-      pessoa: { select: { cpf: true, nomeCompleto: true } },
+      pessoa: { select: { cpf: true, nomeCompleto: true, numeroPasta: true } },
       especialidade: { select: { id: true, nome: true, ativo: true } },
       procedimento: { select: { id: true, nome: true, ativo: true } },
+      _count: { select: { bloqueios: true } },
     },
   });
   if (!processo) throw falha("Processo não encontrado.", 404);
@@ -154,6 +210,10 @@ function serializar(p) {
     status: p.status,
     pacienteCpf: p.pessoaCpf,
     pacienteNome: p.pessoa?.nomeCompleto || "",
+    // A pasta vigente é a do PACIENTE; o espelho do processo fica como
+    // fallback para processos antigos gravados antes desta regra.
+    numeroPastaPaciente: p.pessoa?.numeroPasta || p.numeroPasta || "",
+    totalBloqueios: p._count?.bloqueios ?? 0,
     especialidadeId: p.especialidadeId,
     especialidadeNome: p.especialidade?.nome || p.especialidadeNome || "",
     especialidadeInativa: Boolean(p.especialidadeId && p.especialidade && p.especialidade.ativo === false),
@@ -188,7 +248,7 @@ export async function listarProcessos({ termo = "" } = {}) {
     const processos = await prisma.processoJudicial.findMany({
       where,
       include: {
-        pessoa: { select: { nomeCompleto: true } },
+        pessoa: { select: { nomeCompleto: true, numeroPasta: true } },
         especialidade: { select: { nome: true, ativo: true } },
         procedimento: { select: { nome: true, ativo: true } },
       },
@@ -219,7 +279,6 @@ export async function criarProcesso(dados) {
 
     const pessoa = await exigirPessoa(dados?.pacienteCpf);
     const numeroProcesso = exigirTexto(dados?.numeroProcesso, "o número do processo", 100);
-    const numeroPasta = exigirTexto(dados?.numeroPasta, "o número da pasta", 50);
     const { especialidade, procedimento } = await resolverCatalogos(
       inteiroPositivo(dados?.especialidadeId),
       inteiroPositivo(dados?.procedimentoId),
@@ -231,6 +290,9 @@ export async function criarProcesso(dados) {
       select: { id: true },
     });
     if (repetido) throw falha("Já existe um processo com este número.", 409);
+
+    // A pasta é do PACIENTE: reaproveitada se já existir, cadastrada se não.
+    const numeroPasta = await resolverNumeroPasta(dados?.numeroPasta, pessoa);
 
     const criado = await prisma.processoJudicial.create({
       data: {
@@ -244,7 +306,7 @@ export async function criarProcesso(dados) {
         criadoPor: user.cpf,
         atualizadoPor: user.cpf,
       },
-      include: { pessoa: { select: { nomeCompleto: true } } },
+      include: { pessoa: { select: { nomeCompleto: true, numeroPasta: true } } },
     });
 
     await registrarAuditoria({
@@ -279,7 +341,7 @@ export async function editarProcesso(id, dados) {
     const atual = await exigirProcesso(id);
     const pessoa = await exigirPessoa(dados?.pacienteCpf);
     const numeroProcesso = exigirTexto(dados?.numeroProcesso, "o número do processo", 100);
-    const numeroPasta = exigirTexto(dados?.numeroPasta, "o número da pasta", 50);
+    const numeroPasta = await resolverNumeroPasta(dados?.numeroPasta, pessoa);
     const { especialidade, procedimento } = await resolverCatalogos(
       inteiroPositivo(dados?.especialidadeId),
       inteiroPositivo(dados?.procedimentoId),
@@ -339,7 +401,7 @@ export async function editarProcesso(id, dados) {
         procedimentoNome: procedimento?.nome ?? null,
         atualizadoPor: user.cpf,
       },
-      include: { pessoa: { select: { nomeCompleto: true } } },
+      include: { pessoa: { select: { nomeCompleto: true, numeroPasta: true } } },
     });
 
     await registrarAuditoria({
@@ -377,7 +439,8 @@ export async function editarProcesso(id, dados) {
 // existem como tabela; quando existirem, entram nesta lista — e o bloqueio
 // passa a valer automaticamente.
 async function dependenciasDoProcesso(id) {
-  return { documentos: 0, movimentacoes: 0, total: 0, _id: id };
+  const bloqueios = await prisma.processoBloqueio.count({ where: { processoId: id } });
+  return { documentos: 0, movimentacoes: 0, bloqueios, total: bloqueios };
 }
 
 export async function verificarDependenciasProcesso(id) {
@@ -392,6 +455,7 @@ export async function verificarDependenciasProcesso(id) {
         dependencias: {
           documentos: deps.documentos,
           movimentacoes: deps.movimentacoes,
+          bloqueios: deps.bloqueios,
           total: deps.total,
         },
         podeExcluir: deps.total === 0,
@@ -416,7 +480,8 @@ export async function excluirProcesso(id, { confirmado = false } = {}) {
       // Nunca cascata: com vínculos, a operação para aqui.
       throw falha(
         `Este processo possui ${deps.total} registro(s) vinculado(s) ` +
-          `(${deps.documentos} documento(s), ${deps.movimentacoes} movimentação(ões)) ` +
+          `(${deps.documentos} documento(s), ${deps.movimentacoes} movimentação(ões), ` +
+          `${deps.bloqueios} bloqueio(s)) ` +
           "e não pode ser excluído. Arquite/encere esses registros primeiro.",
         409,
       );
@@ -444,6 +509,221 @@ export async function excluirProcesso(id, { confirmado = false } = {}) {
 
     revalidatePath(ROTA);
     return { success: true };
+  } catch (erro) {
+    return responder(erro);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 5. BLOQUEIOS JUDICIAIS (Processos Cirúrgicos › Realizar Bloqueio)
+// ─────────────────────────────────────────────────────────────────────────
+// O bloqueio pertence ao PROCESSO (processos_bloqueios.processo_id), nunca só
+// ao paciente: um paciente com vários processos tem bloqueios independentes.
+// Permissões: ver = `processo_judicial:visualizar`; registrar = `:criar`.
+// Valor em Decimal(14,2) — exato para operação financeira.
+// ═══════════════════════════════════════════════════════════════════════════
+
+function serializarBloqueio(b) {
+  return {
+    id: b.id,
+    processoId: b.processoId,
+    dataBloqueio: b.dataBloqueio ? b.dataBloqueio.toISOString().slice(0, 10) : null,
+    // String para não perder centavos na serialização do RSC.
+    valor: b.valor ? String(b.valor) : "0.00",
+    observacao: b.observacao || "",
+    criadoPor: b.criadoPor || null,
+    criadoEm: b.createdAt ? b.createdAt.toISOString() : null,
+    processo: b.processo
+      ? {
+          id: b.processo.id,
+          numeroProcesso: b.processo.numeroProcesso,
+          numeroPasta: b.processo.pessoa?.numeroPasta || b.processo.numeroPasta,
+          pacienteCpf: b.processo.pessoaCpf,
+          pacienteNome: b.processo.pessoa?.nomeCompleto || "",
+          especialidadeNome:
+            b.processo.especialidade?.nome || b.processo.especialidadeNome || "",
+          procedimentoNome:
+            b.processo.procedimento?.nome || b.processo.procedimentoNome || "",
+        }
+      : null,
+  };
+}
+
+// Busca processos por paciente (nome/CPF) ou número do processo — alimenta a
+// seleção do bloqueio. Devolve os processos do paciente para que a tela possa
+// carregar automaticamente quando houver apenas um.
+export async function buscarProcessosParaBloqueio(termo = "") {
+  try {
+    await requirePermissao(MODULOS.PROCESSOS, FUNCIONALIDADE, "visualizar");
+
+    const busca = texto(termo, 100);
+    const digitos = busca.replace(/\D/g, "");
+    const where = busca
+      ? {
+          OR: [
+            { numeroProcesso: { contains: busca, mode: "insensitive" } },
+            { numeroPasta: { contains: busca, mode: "insensitive" } },
+            { pessoa: { nomeCompleto: { contains: busca, mode: "insensitive" } } },
+            ...(digitos ? [{ pessoaCpf: { contains: digitos } }] : []),
+          ],
+        }
+      : {};
+
+    const processos = await prisma.processoJudicial.findMany({
+      where,
+      include: {
+        pessoa: { select: { cpf: true, nomeCompleto: true, numeroPasta: true } },
+        especialidade: { select: { nome: true, ativo: true } },
+        procedimento: { select: { nome: true, ativo: true } },
+        _count: { select: { bloqueios: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    });
+
+    return { success: true, data: processos.map(serializar) };
+  } catch (erro) {
+    return responder(erro);
+  }
+}
+
+export async function listarBloqueios({ processoId = null } = {}) {
+  try {
+    await requirePermissao(MODULOS.PROCESSOS, FUNCIONALIDADE, "visualizar");
+
+    const filtro = inteiroPositivo(processoId);
+    const bloqueios = await prisma.processoBloqueio.findMany({
+      where: filtro ? { processoId: filtro } : {},
+      include: {
+        processo: {
+          select: {
+            id: true,
+            numeroProcesso: true,
+            numeroPasta: true,
+            pessoaCpf: true,
+            especialidadeNome: true,
+            procedimentoNome: true,
+            pessoa: { select: { nomeCompleto: true, numeroPasta: true } },
+            especialidade: { select: { nome: true } },
+            procedimento: { select: { nome: true } },
+          },
+        },
+      },
+      orderBy: [{ dataBloqueio: "desc" }, { id: "desc" }],
+      take: 300,
+    });
+
+    return { success: true, data: bloqueios.map(serializarBloqueio) };
+  } catch (erro) {
+    return responder(erro);
+  }
+}
+
+// Valida e converte o valor monetário (aceita "1.234,56" ou número).
+function valorMonetario(bruto) {
+  if (bruto === null || bruto === undefined || bruto === "") {
+    throw falha("Informe o valor do bloqueio.");
+  }
+  const normalizado =
+    typeof bruto === "number"
+      ? bruto
+      : Number(
+          String(bruto)
+            .replace(/\s/g, "")
+            .replace(/^R\$/i, "")
+            .replace(/\./g, "")
+            .replace(",", "."),
+        );
+  if (!Number.isFinite(normalizado) || normalizado <= 0) {
+    throw falha("O valor do bloqueio deve ser maior que zero.");
+  }
+  if (normalizado > 99999999999.99) throw falha("Valor do bloqueio acima do limite permitido.");
+  // Duas casas: o banco é NUMERIC(14,2).
+  const centavos = Math.round(normalizado * 100) / 100;
+  if (centavos <= 0) throw falha("O valor do bloqueio deve ser maior que zero.");
+  return centavos.toFixed(2);
+}
+
+function dataDoFormulario(bruto) {
+  const valor = String(bruto || "").trim();
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(valor);
+  const br = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(valor);
+  const ano = iso ? iso[1] : br ? br[3] : null;
+  const mes = iso ? iso[2] : br ? br[2] : null;
+  const dia = iso ? iso[3] : br ? br[1] : null;
+  if (!ano || !mes || !dia) throw falha("Informe a data do bloqueio.");
+  const data = new Date(`${ano}-${mes}-${dia}T00:00:00.000Z`);
+  if (
+    Number.isNaN(data.getTime()) ||
+    data.getUTCFullYear() !== Number(ano) ||
+    data.getUTCMonth() + 1 !== Number(mes) ||
+    data.getUTCDate() !== Number(dia)
+  ) {
+    throw falha("Data do bloqueio inválida.");
+  }
+  return data;
+}
+
+export async function criarBloqueio(dados) {
+  try {
+    const user = await requirePermissao(MODULOS.PROCESSOS, FUNCIONALIDADE, "criar");
+
+    const processo = await exigirProcesso(dados?.processoId);
+    // A pessoa pode ter sido inativada depois do processo: o bloqueio é ato
+    // administrativo sobre o processo existente e continua permitido.
+    await exigirPessoa(processo.pessoaCpf, { permitirIndisponivel: true });
+
+    const dataBloqueio = dataDoFormulario(dados?.dataBloqueio);
+    const valor = valorMonetario(dados?.valor);
+    const observacao = texto(dados?.observacao, 255) || null;
+
+    const criado = await prisma.processoBloqueio.create({
+      data: {
+        processoId: processo.id,
+        dataBloqueio,
+        valor,
+        observacao,
+        criadoPor: user.cpf,
+      },
+      include: {
+        processo: {
+          select: {
+            id: true,
+            numeroProcesso: true,
+            numeroPasta: true,
+            pessoaCpf: true,
+            especialidadeNome: true,
+            procedimentoNome: true,
+            pessoa: { select: { nomeCompleto: true, numeroPasta: true } },
+            especialidade: { select: { nome: true } },
+            procedimento: { select: { nome: true } },
+          },
+        },
+      },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "CRIAR",
+      modulo: MODULO_AUDITORIA,
+      entidade: "ProcessoBloqueio",
+      entidadeId: String(criado.id),
+      descricao: `Bloqueio de R$ ${valor} registrado no processo ${processo.numeroProcesso}`,
+      detalhes: {
+        processoId: processo.id,
+        numeroProcesso: processo.numeroProcesso,
+        numeroPasta: criado.processo.pessoa?.numeroPasta || processo.numeroPasta,
+        pacienteCpf: processo.pessoaCpf,
+        pacienteNome: processo.pessoa?.nomeCompleto || null,
+        dataBloqueio: criado.dataBloqueio.toISOString().slice(0, 10),
+        valor,
+        observacao,
+      },
+    });
+
+    revalidatePath(ROTA_BLOQUEIO);
+    revalidatePath(ROTA);
+    return { success: true, data: serializarBloqueio(criado) };
   } catch (erro) {
     return responder(erro);
   }

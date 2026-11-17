@@ -53,6 +53,9 @@ model Pessoa {
   nomeMae              String                    @map("nome_mae") @db.VarChar(150)
   telefone             String                    @db.VarChar(20)
   cns                  String?                   @unique @db.VarChar(15)
+  // Número da pasta do paciente nos Processos Judiciais: um por PESSOA (o
+  // mesmo paciente pode ter vários processos na mesma pasta).
+  numeroPasta          String?                   @unique @map("numero_pasta") @db.VarChar(50)
   ubsReferenciaId      Int?                      @map("ubs_referencia_id")
   tutor                Tutor?
   pacienteFarmacia     PacienteFarmaciaJudicial?
@@ -633,6 +636,7 @@ model ProcessoJudicial {
   pessoa        Pessoa                 @relation(fields: [pessoaCpf], references: [cpf], onDelete: Restrict, onUpdate: Cascade, map: "fk_processo_pessoa")
   especialidade ProcessoEspecialidade? @relation(fields: [especialidadeId], references: [id], onDelete: SetNull, onUpdate: Cascade, map: "fk_processo_especialidade")
   procedimento  ProcessoProcedimento?  @relation(fields: [procedimentoId], references: [id], onDelete: SetNull, onUpdate: Cascade, map: "fk_processo_procedimento")
+  bloqueios     ProcessoBloqueio[]
 
   @@unique([numeroProcesso], map: "uq_processo_numero")
   @@index([pessoaCpf], map: "idx_processo_pessoa")
@@ -695,6 +699,30 @@ model ProcessoEspecialidadeProcedimento {
   @@unique([especialidadeId, procedimentoId], map: "uq_pep_par")
   @@index([procedimentoId], map: "idx_pep_procedimento")
   @@map("processos_especialidade_procedimento")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BLOQUEIO JUDICIAL (Processos Cirúrgicos)
+// ─────────────────────────────────────────────────────────────────────────
+// O bloqueio pertence ao PROCESSO (não ao paciente): um paciente com vários
+// processos pode ter bloqueio em um deles e não no outro. Valor em
+// NUMERIC(14,2) — decimal exato para operação financeira — e sempre > 0.
+// A exclusão do processo é bloqueada (RESTRICT) enquanto houver bloqueio.
+// ═══════════════════════════════════════════════════════════════════════════
+model ProcessoBloqueio {
+  id           Int      @id @default(autoincrement())
+  processoId   Int      @map("processo_id")
+  dataBloqueio DateTime @map("data_bloqueio") @db.Date
+  valor        Decimal  @db.Decimal(14, 2)
+  observacao   String?  @db.VarChar(255)
+  criadoPor    String?  @map("criado_por") @db.VarChar(11)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  processo ProcessoJudicial @relation(fields: [processoId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "fk_processo_bloqueio_processo")
+
+  @@index([processoId], map: "idx_processo_bloqueio_processo")
+  @@index([dataBloqueio], map: "idx_processo_bloqueio_data")
+  @@map("processos_bloqueios")
 }
 
 model UserAcesso {

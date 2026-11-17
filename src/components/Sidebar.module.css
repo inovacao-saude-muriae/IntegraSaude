@@ -290,6 +290,59 @@
   border-left: 0;
 }
 
+/* TERCEIRO NÍVEL (categoria dentro de um submenu — ex.: Processos Judiciais ›
+   Procedimentos Cirúrgicos). Mesmo padrão visual, com recuo e conector menores
+   para deixar a hierarquia de três níveis clara. */
+.nivel3Btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: #cfe4ea;
+  text-decoration: none;
+  border-radius: 7px;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.nivel3Btn:hover {
+  background: #ffffff14;
+  color: #f4fcff;
+}
+
+.nivel3Btn:focus-visible {
+  outline: 2px solid #9cebdc;
+  outline-offset: -2px;
+}
+
+.nivel3List {
+  list-style: none;
+  margin: 2px 0 4px 14px;
+  padding: 0 0 0 8px;
+  border-left: 1px solid #8ec9ce22;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nivel3List .subMenuItemLink {
+  min-height: 38px;
+  font-size: 12.5px;
+  padding: 6px 10px;
+}
+
+.sidebarCompact .nivel3List {
+  margin-left: 0;
+  padding-left: 0;
+  border-left: 0;
+}
+
 .nestedBtnOpen {
   color: #c6fff1;
   font-weight: 600;

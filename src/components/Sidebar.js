@@ -113,9 +113,10 @@ const menuSections = [
             ],
           },
           {
-            // Processos Judiciais é um GRUPO (não um item solto): abre em
-            // Novo Processo, Realizar Bloqueio e Dashboard. A tela de Novo
-            // Processo é a página já existente, com as abas Consultar/Novo.
+            // Processos Judiciais é um GRUPO de categorias. Hoje há uma:
+            // Procedimentos Cirúrgicos (Novo Processo e Realizar Bloqueio).
+            // Novas categorias entram como outros itens `isNestedDropdown`
+            // dentro de `subItems`, sem alterar a estrutura.
             name: "Processos Judiciais",
             tab: "PROCESSOS",
             path: "/camara-tecnica/processos",
@@ -123,16 +124,22 @@ const menuSections = [
             visivelSe: "PROCESSOS",
             nestedItems: [
               {
-                name: "Novo Processo",
+                name: "Procedimentos Cirúrgicos",
+                tab: "PROCEDIMENTOS_CIRURGICOS",
                 path: "/camara-tecnica/processos",
-                visivelSe: "PROCESSOS",
-              },
-              // Placeholder: a rota existe e explica que a funcionalidade será
-              // liberada depois. Nenhuma operação fictícia é oferecida.
-              {
-                name: "Realizar Bloqueio",
-                path: "/camara-tecnica/processos/bloqueio",
-                visivelSe: "PROCESSOS",
+                isNestedDropdown: true,
+                nestedItems: [
+                  {
+                    name: "Novo Processo",
+                    path: "/camara-tecnica/processos",
+                    visivelSe: "PROCESSOS",
+                  },
+                  {
+                    name: "Realizar Bloqueio",
+                    path: "/camara-tecnica/processos/bloqueio",
+                    visivelSe: "PROCESSOS",
+                  },
+                ],
               },
               {
                 name: "Dashboard",
@@ -1016,6 +1023,112 @@ function MenuRender({ menuSections, isOpen, onClose }) {
                                           return (
                                             <li key={`nested-separator-${nestedIndex}`} className={styles.menuSeparator}>
                                               <hr />
+                                            </li>
+                                          );
+                                        }
+
+                                        // ── TERCEIRO NÍVEL (categoria dentro de
+                                        // um submenu: Processos Judiciais ›
+                                        // Procedimentos Cirúrgicos). Mesma
+                                        // mecânica de expansão manual e
+                                        // independente dos outros níveis.
+                                        if (nested.isNestedDropdown) {
+                                          const terceiroKey = nested.tab || `t3-${nestedIndex}`;
+                                          const terceiroAberto =
+                                            Boolean(openNested[terceiroKey]) ||
+                                            Boolean(searchTerm);
+                                          const terceiroListId = `nivel3-${terceiroKey}`;
+                                          const filhos = nested.nestedItems || [];
+
+                                          const caminhoAtivo = (filho) => {
+                                            if (!filho.path) return false;
+                                            const [base, query] = String(filho.path).split("?");
+                                            const params = new URLSearchParams(query || "");
+                                            const tabAlvo = params.get("tab") || "DASHBOARD";
+                                            const subTabAlvo = params.get("subTab");
+                                            return (
+                                              pathname === base &&
+                                              currentTab === tabAlvo &&
+                                              (!subTabAlvo || currentSubTab === subTabAlvo)
+                                            );
+                                          };
+                                          const temFilhoAtivo = filhos.some(caminhoAtivo);
+
+                                          return (
+                                            <li key={terceiroKey}>
+                                              <button
+                                                type="button"
+                                                className={`${styles.nivel3Btn} ${
+                                                  terceiroAberto || temFilhoAtivo
+                                                    ? styles.nestedBtnOpen
+                                                    : ""
+                                                }`}
+                                                onClick={() =>
+                                                  setOpenNested((prev) => ({
+                                                    ...prev,
+                                                    [terceiroKey]: !prev[terceiroKey],
+                                                  }))
+                                                }
+                                                aria-expanded={terceiroAberto}
+                                                aria-controls={terceiroListId}
+                                              >
+                                                <span className={styles.subItemContent}>
+                                                  <span className={styles.subItemIcon}>
+                                                    {subIcon(nested.name)}
+                                                  </span>
+                                                  {nested.name}
+                                                </span>
+                                                <svg
+                                                  className={`${styles.arrowIcon} ${
+                                                    terceiroAberto ? styles.arrowOpen : ""
+                                                  }`}
+                                                  width="11"
+                                                  height="11"
+                                                  viewBox="0 0 24 24"
+                                                  fill="none"
+                                                  stroke="currentColor"
+                                                  strokeWidth="2"
+                                                  strokeLinecap="round"
+                                                  strokeLinejoin="round"
+                                                >
+                                                  <polyline points="9 18 15 12 9 6" />
+                                                </svg>
+                                              </button>
+
+                                              {terceiroAberto && (
+                                                <ul id={terceiroListId} className={styles.nivel3List}>
+                                                  {filhos.map((filho, filhoIndex) => {
+                                                    if (filho.isSeparator) {
+                                                      return (
+                                                        <li
+                                                          key={`nivel3-sep-${filhoIndex}`}
+                                                          className={styles.menuSeparator}
+                                                        >
+                                                          <hr />
+                                                        </li>
+                                                      );
+                                                    }
+                                                    return (
+                                                      <li key={filho.tab || filho.path || `n3-${filhoIndex}`}>
+                                                        <Link
+                                                          href={filho.path}
+                                                          className={`${styles.subMenuItemLink} ${
+                                                            caminhoAtivo(filho) ? styles.activeLink : ""
+                                                          }`}
+                                                          onClick={handleLinkClick}
+                                                        >
+                                                          <span className={styles.subItemContent}>
+                                                            <span className={styles.subItemIcon}>
+                                                              {subIcon(filho.name)}
+                                                            </span>
+                                                            {filho.name}
+                                                          </span>
+                                                        </Link>
+                                                      </li>
+                                                    );
+                                                  })}
+                                                </ul>
+                                              )}
                                             </li>
                                           );
                                         }

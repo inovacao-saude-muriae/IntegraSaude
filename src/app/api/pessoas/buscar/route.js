@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { whereSituacaoPessoa } from "@/lib/situacaoPessoa";
-import { requireAcessoPessoas } from "@/lib/auth";
+import { usuarioDaSessao, requireAcessoPessoas } from "@/lib/auth";
+import { MODULOS, usuarioTemPermissao } from "@/lib/permissions";
 
 /**
  * GET /api/pessoas/buscar?termo=searchTerm
@@ -9,7 +10,18 @@ import { requireAcessoPessoas } from "@/lib/auth";
  */
 export async function GET(req) {
   try {
-    await requireAcessoPessoas();
+    // Quem opera Processos (Câmara Técnica) também busca o paciente no
+    // cadastro único: a tela de Processos Cirúrgicos usa este endpoint.
+    const sessao = await usuarioDaSessao();
+    const podePorProcessos =
+      sessao &&
+      (await usuarioTemPermissao(
+        sessao,
+        MODULOS.PROCESSOS,
+        "processo_judicial",
+        "visualizar",
+      ));
+    if (!podePorProcessos) await requireAcessoPessoas();
 
     const { searchParams } = new URL(req.url);
     const termo = searchParams.get("termo");
@@ -19,13 +31,16 @@ export async function GET(req) {
     }
 
     const searchTerm = termo.trim();
+    // CPF é procurado pelos dígitos (o cadastro único guarda só números), para
+    // que a busca aceite "910.000.009-40" e "91000000940".
+    const digitos = searchTerm.replace(/\D/g, "");
     // Busca de pessoas para NOVOS registros: só situação ATIVA e não unificadas.
     const where = {
       ...whereSituacaoPessoa("ativos"),
       unificadoEmCpf: null,
       OR: [
         { nomeCompleto: { contains: searchTerm, mode: "insensitive" } },
-        { cpf: { contains: searchTerm } },
+        ...(digitos.length >= 3 ? [{ cpf: { contains: digitos } }] : []),
       ],
     };
 
@@ -41,6 +56,7 @@ export async function GET(req) {
         telefone: true,
         cns: true,
         sexo: true,
+        numeroPasta: true,
         ubsReferencia: {
           select: {
             id: true,

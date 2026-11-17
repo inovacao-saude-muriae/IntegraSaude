@@ -88,7 +88,6 @@ export default function ProcessosJudiciaisPage({
   const confirm = useConfirm();
 
   const [aba, setAba] = useState("consultar");
-  const [processos, setProcessos] = useState([]);
   // Catálogo PRÓPRIO da área Processos: cada especialidade já vem com os
   // procedimentos vinculados a ela (nada de Junta Reguladora).
   const [especialidades, setEspecialidades] = useState([]);
@@ -99,6 +98,7 @@ export default function ProcessosJudiciaisPage({
 
   // Formulário (novo e edição usam o MESMO estado/componente)
   const [form, setForm] = useState(FORM_VAZIO);
+  const [processos, setProcessos] = useState([]);
   const [editandoId, setEditandoId] = useState(null);
   // CPF do titular no momento em que a edição começou (detecta a troca).
   const [cpfOriginal, setCpfOriginal] = useState("");
@@ -176,13 +176,18 @@ export default function ProcessosJudiciaisPage({
       pacienteCpf: p.pacienteCpf,
       pacienteNome: p.pacienteNome,
       numeroProcesso: p.numeroProcesso,
-      numeroPasta: p.numeroPasta,
+      numeroPasta: p.numeroPastaPaciente || p.numeroPasta,
       especialidadeId: p.especialidadeId ? String(p.especialidadeId) : "",
       procedimentoId: p.procedimentoId ? String(p.procedimentoId) : "",
     });
     setPacienteSelecionado(
       p.pacienteCpf
-        ? { cpf: p.pacienteCpf, nomeCompleto: p.pacienteNome, nome: p.pacienteNome }
+        ? {
+            cpf: p.pacienteCpf,
+            nomeCompleto: p.pacienteNome,
+            nome: p.pacienteNome,
+            numeroPasta: p.numeroPastaPaciente || p.numeroPasta || "",
+          }
         : null,
     );
     setEditandoId(p.id);
@@ -194,14 +199,18 @@ export default function ProcessosJudiciaisPage({
   function selecionarPaciente(pessoa) {
     if (!pessoa) {
       setPacienteSelecionado(null);
-      setForm((f) => ({ ...f, pacienteCpf: "", pacienteNome: "" }));
+      setForm((f) => ({ ...f, pacienteCpf: "", pacienteNome: "", numeroPasta: "" }));
       return;
     }
-    setPacienteSelecionado(pessoa);
+    // Pasta do paciente: se já existir, vem preenchida e bloqueada (o número é
+    // do paciente, não do processo). O cadastro único devolve `numeroPasta`.
+    const pastaDoPaciente = String(pessoa.numeroPasta || "").trim();
+    setPacienteSelecionado({ ...pessoa, numeroPasta: pastaDoPaciente });
     setForm((f) => ({
       ...f,
       pacienteCpf: pessoa.cpf,
       pacienteNome: pessoa.nomeCompleto || pessoa.nome || "",
+      numeroPasta: pastaDoPaciente || (f.pacienteCpf === pessoa.cpf ? f.numeroPasta : ""),
     }));
   }
 
@@ -315,12 +324,7 @@ export default function ProcessosJudiciaisPage({
   return (
     <div className={styles.container}>
       <div className={styles.cabecalho}>
-        <div>
-          <h1 className={styles.titulo}>Processos Judiciais</h1>
-          <p className={styles.subtitulo}>
-            Câmara Técnica › Processos — consulta, cadastro, edição e exclusão.
-          </p>
-        </div>
+        <h1 className={styles.titulo}>Procedimentos Cirúrgicos</h1>
         <div className={styles.cabecalhoAcoes}>
           {/* O cadastro de Especialidades e Procedimentos é administrativo e
               vive em Gerenciamento → Especialidades e Procedimentos. Não é
@@ -506,7 +510,14 @@ export default function ProcessosJudiciaisPage({
                   value={form.numeroPasta}
                   onChange={(e) => setForm((f) => ({ ...f, numeroPasta: e.target.value }))}
                   maxLength={50}
+                  readOnly={Boolean(pacienteSelecionado?.numeroPasta)}
+                  placeholder="Número da pasta do paciente"
                 />
+                <span className={styles.dica}>
+                  {pacienteSelecionado?.numeroPasta
+                    ? "O paciente já possui pasta: o número é do paciente e vale para todos os processos dele."
+                    : "A pasta é do paciente: será reaproveitada nos próximos processos dele."}
+                </span>
               </div>
             </div>
 
@@ -604,7 +615,7 @@ export default function ProcessosJudiciaisPage({
             <dt>Número do processo</dt>
             <dd>{detalhe.numeroProcesso}</dd>
             <dt>Número da pasta</dt>
-            <dd>{detalhe.numeroPasta}</dd>
+            <dd>{detalhe.numeroPastaPaciente || detalhe.numeroPasta || "—"}</dd>
             <dt>Especialidade</dt>
             <dd>{detalhe.especialidadeNome || "—"}</dd>
             <dt>Procedimento</dt>
