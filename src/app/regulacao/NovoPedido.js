@@ -4,9 +4,8 @@ import styles from './NovoPedido.module.css';
 import { useUnsavedChanges } from './hooks/useUnsavedChanges';
 import { LOCAIS_REALIZACAO } from './constants';
 import { mascararTelefone } from '@/lib/telefone';
-import SeletorPaciente from '@/components/SeletorPaciente';
-import { formatarCpfExibicao } from '@/lib/cpf';
-import SituacaoPessoa, { pessoaAptaParaVinculo } from '@/components/cadastros/SituacaoPessoa';
+import { pessoaAptaParaVinculo } from '@/components/cadastros/SituacaoPessoa';
+import IdentificacaoPaciente from '@/components/IdentificacaoPaciente';
 import '@/components/cadastros/padraoCadastro.css';
 
 export default function NovoPedido({
@@ -32,12 +31,6 @@ export default function NovoPedido({
   handleExamTypeChange = () => {},
   handleProcedureChange = () => {},
 }) {
-  // Função para formatar o CPF na exibição do campo somente leitura (000.000.000-00)
-  const formatCPF = (cpf) => {
-    if (!cpf) return '';
-    return formatarCpfExibicao(cpf);
-  };
-
   // Fonte de busca do SeletorPaciente: filtra a lista de pessoas (auxData.pessoas),
   // que já traz TODOS os campos usados ao selecionar (sexo, telefone, UBS, endereço...).
   // Mantém a mesma fonte de dados usada antes pelo dropdown inline.
@@ -86,116 +79,30 @@ export default function NovoPedido({
 
       <form onSubmit={onSubmit} className={styles.patientFormContainer}>
         
-        {/* SEÇÃO 1: BUSCA E IDENTIFICAÇÃO DO PACIENTE */}
-        <div className={styles.formSection}>
-          <div className={styles.formSectionHeader}>
-            <h4>1. Identificação do Paciente</h4>
-          </div>
-
-          {/* DADOS DO PACIENTE — o campo "Nome completo" é também a busca */}
-          <div className={styles.formGridStrict}>
-            <div className={`${styles.fieldGroup} ${styles.colName}`}>
-              <SeletorPaciente
-                label="Nome completo"
-                required
-                placeholder="Digite nome ou CPF para buscar..."
-                texto={newRequest.patientSearch || ''}
-                onTextoChange={(v) =>
-                  setNewRequest((prev) => ({ ...prev, patientSearch: v }))
-                }
-                onSelect={handleSelectPerson}
-                buscar={buscarPessoas}
-                cpfSelecionado={newRequest.cpf}
-              />
-              <p className={styles.helperNote}>
-                A pessoa precisa estar cadastrada em <strong>Gerenciamento &gt; Cadastro de Pessoas</strong>.
-              </p>
-            </div>
-
-            <div className={`${styles.fieldGroup} ${styles.colMother}`}>
-              <label>Nome da Mãe</label>
-              <input
-                type="text"
-                value={newRequest.motherName || ''}
-                readOnly
-                placeholder="Nome da Mãe"
-                className={styles.readOnlyInput}
-              />
-            </div>
-
-            <div className={`${styles.fieldGroup} ${styles.colSmall}`}>
-              <label>Data de nascimento</label>
-              <input
-                type="text"
-                value={newRequest.dataNascimento || ''}
-                readOnly
-                placeholder="dd/mm/aaaa"
-                className={styles.readOnlyInput}
-              />
-            </div>
-
-            <div className={`${styles.fieldGroup} ${styles.colSmall}`}>
-              <label>Sexo</label>
-              <input
-                type="text"
-                value={newRequest.sexo || ''}
-                readOnly
-                placeholder="—"
-                className={styles.readOnlyInput}
-              />
-            </div>
-
-            <div className={`${styles.fieldGroup} ${styles.colSmall}`}>
-              <label>Telefone</label>
-              <input
-                type="text"
-                value={mascararTelefone(newRequest.telefone)}
-                readOnly
-                placeholder="(00) 00000-0000"
-                className={styles.readOnlyInput}
-              />
-            </div>
-
-            <div className={`${styles.fieldGroup} ${styles.colCpf}`}>
-              <label>CPF *</label>
-              <input
-                type="text"
-                value={formatCPF(newRequest.cpf) || ''}
-                readOnly
-                placeholder="000.000.000-00"
-                className={styles.readOnlyInput}
-                required
-              />
-            </div>
-
-            <div className={`${styles.fieldGroup} ${styles.colSus}`}>
-              <label>Cartão SUS</label>
-              <input
-                type="text"
-                value={newRequest.susCard || ''}
-                readOnly
-                placeholder="700000000000000"
-                className={styles.readOnlyInput}
-              />
-            </div>
-
-            <SituacaoPessoa
-              situacao={newRequest.situacao}
-              className={`${styles.fieldGroup} ${styles.colSituacao}`}
-            />
-
-            <div className={`${styles.fieldGroup} ${styles.colUbsRef}`}>
-              <label>UBS de referência</label>
-              <input
-                type="text"
-                value={newRequest.ubsReferencia || ''}
-                readOnly
-                placeholder="—"
-                className={styles.readOnlyInput}
-              />
-            </div>
-          </div>
-        </div>
+        {/* SEÇÃO 1: BUSCA E IDENTIFICAÇÃO DO PACIENTE
+            Container ÚNICO e reutilizável (também usado pelo Prontuário da
+            Junta): mesmos campos, grid e estilos. A busca e a seleção continuam
+            chamando handleSelectPatientSuggestion (preenche newRequest). */}
+        <IdentificacaoPaciente
+          titulo="1. Identificação do Paciente"
+          buscaTexto={newRequest.patientSearch || ''}
+          onBuscaTextoChange={(v) =>
+            setNewRequest((prev) => ({ ...prev, patientSearch: v }))
+          }
+          onSelect={handleSelectPerson}
+          buscar={buscarPessoas}
+          cpfSelecionado={newRequest.cpf}
+          paciente={{
+            nomeMae: newRequest.motherName,
+            dataNascimento: newRequest.dataNascimento,
+            sexo: newRequest.sexo,
+            telefone: newRequest.telefone,
+            cpf: newRequest.cpf,
+            cns: newRequest.susCard,
+            situacao: newRequest.situacao,
+            ubsReferencia: newRequest.ubsReferencia,
+          }}
+        />
 
         {/* SEÇÃO 2: DETALHES DO PEDIDO */}
         <div className={styles.formSection}>

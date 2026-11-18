@@ -1,0 +1,98 @@
+/* Container ÚNICO de identificação do paciente.
+   Estilos extraídos de NovoPedido.module.css (Regulação), a referência visual.
+   Regulação e Prontuário da Junta usam ESTE arquivo: nada de layout paralelo. */
+
+/* Seção como card cinza (equivalente a .cardSection) */
+.formSection {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1.25rem;
+}
+
+/* Cabeçalho/título da seção (equivalente a .sectionHeaderTitle) */
+.formSectionHeader {
+  margin: 0 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.helperNote {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.formSectionHeader h4 {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #1e293b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 0;
+}
+
+/* ── Grid Flexível de 12 Colunas ── */
+.formGridStrict {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 1rem;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.fieldGroup label {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.fieldGroup input,
+.fieldGroup select,
+.fieldGroup textarea {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: #1e293b;
+  outline: none;
+  background-color: #ffffff;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.fieldGroup input:focus,
+.fieldGroup select:focus,
+.fieldGroup textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+}
+
+.readOnlyInput {
+  background-color: #f1f5f9 !important;
+  color: #64748b !important;
+  border-color: #cbd5e1 !important;
+  cursor: not-allowed;
+}
+
+/* Larguras do Grid */
+.colName { grid-column: span 6; }
+.colMother { grid-column: span 6; }
+.colCpf { grid-column: span 4; }
+.colSus { grid-column: span 4; }
+.colSmall { grid-column: span 4; }
+.colUbsRef { grid-column: span 4; }
+
+.colSituacao { grid-column: span 4; }
+
+/* ── Responsividade (mesma quebra da Regulação) ── */
+@media (max-width: 900px) {
+  .colName, .colMother, .colCpf, .colSus, .colSmall, .colUbsRef, .colSituacao {
+    grid-column: span 12;
+  }
+}

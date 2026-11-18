@@ -4,9 +4,9 @@ import { useState, useEffect, useRef } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { listarPacientesJunta } from './actions';
-import { documentoPaciente } from '@/app/regulacao/constants';
 import { mascararTelefone } from '@/lib/telefone';
 import { formatarCpfExibicao } from '@/lib/cpf';
+import IdentificacaoPaciente from '@/components/IdentificacaoPaciente';
 import '@/components/cadastros/padraoCadastro.css';
 import styles from './ProntuarioRelatorio.module.css';
 import { rotuloEspecialidade } from './rotuloEspecialidade';
@@ -26,9 +26,8 @@ const competenciaDaData = (d) => {
 
 export default function ProntuarioRelatorio({ prontuarioData, onBuscar }) {
   const [termo, setTermo] = useState('');
-  const [sugestoes, setSugestoes] = useState([]);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
+  // Pessoa escolhida no SeletorPaciente (identificação do container único).
+  const [pessoaSelecionada, setPessoaSelecionada] = useState(null);
 
   // Filtro por intervalo de datas (De / Até). Vazio = sem limite nesse lado.
   const [dataDe, setDataDe] = useState('');
@@ -37,93 +36,43 @@ export default function ProntuarioRelatorio({ prontuarioData, onBuscar }) {
   // Menu dropdown de exportação.
   const [exportMenuAberto, setExportMenuAberto] = useState(false);
   const exportMenuRef = useRef(null);
-  // Dropdown de busca de paciente (tabela).
-  const buscaRef = useRef(null);
-
   useEffect(() => {
     function handleClickOutside(e) {
       if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
         setExportMenuAberto(false);
-      }
-      if (buscaRef.current && !buscaRef.current.contains(e.target)) {
-        setShowDropdown(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Carrega a lista inicial de pacientes da Junta ao montar.
-  useEffect(() => {
-    let ativo = true;
-    (async () => {
-      try {
-        const lista = await listarPacientesJunta('');
-        if (ativo) setSugestoes(Array.isArray(lista) ? lista : []);
-      } catch {
-        if (ativo) setSugestoes([]);
-      }
-    })();
-    return () => {
-      ativo = false;
-    };
-  }, []);
-
   // 🎯 LIMPEZA SILENCIOSA DOS CAMPOS AO DESMONTA/TROCAR DE ABA
   useEffect(() => {
     return () => {
       setTermo('');
-      setSugestoes([]);
-      setShowDropdown(false);
+      setPessoaSelecionada(null);
     };
   }, []);
 
-  const formatCPF = (cpf) => {
-    if (!cpf) return '';
-    return formatarCpfExibicao(cpf);
+  // Busca do SeletorPaciente: mesma API de pessoas dos demais módulos.
+  // A consulta de HISTÓRICO enxerga também pessoas falecidas — o prontuário
+  // continua consultável; o bloqueio vale só para NOVOS vínculos.
+  const buscarPessoas = async (termoBusca) => {
+    const res = await fetch(
+      `/api/pessoas/buscar?termo=${encodeURIComponent(termoBusca)}&incluirIndisponiveis=1`,
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    const lista = Array.isArray(data) ? data : data?.results ?? data?.data ?? [];
+    return Array.isArray(lista) ? lista : [];
   };
 
-  const handleInputChange = async (valor) => {
-    setTermo(valor);
-    // Só mostra o dropdown ao começar a digitar (>= 2 caracteres).
-    if (valor.trim().length < 2) {
-      setShowDropdown(false);
-      setSugestoes([]);
-      return;
-    }
-    setShowDropdown(true);
-    setIsSearching(true);
-    try {
-      const resultados = await listarPacientesJunta(valor.trim());
-      setSugestoes(Array.isArray(resultados) ? resultados : []);
-    } catch (error) {
-      console.error('Erro ao buscar pacientes da Junta:', error);
-      setSugestoes([]);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
+  // Seleção: identifica no container único e carrega o prontuário (por CPF).
   const handleSelectPessoa = (pessoa) => {
-    const nomeSelecionado = pessoa.nomeCompleto || pessoa.nome || '';
-    
-    // Insere o NOME no campo visual do input
-    setTermo(nomeSelecionado);
-    setShowDropdown(false);
-
-    // Dispara a consulta com o CPF do paciente selecionado
-    if (onBuscar) {
-      onBuscar(pessoa.cpf || nomeSelecionado);
-    }
-  };
-
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    if (!termo.trim()) return alert('Digite um Nome ou CPF para pesquisar.');
-    setShowDropdown(false);
-    if (onBuscar) {
-      onBuscar(termo.trim());
-    }
+    if (!pessoa) return;
+    setPessoaSelecionada(pessoa);
+    setTermo(pessoa.nomeCompleto || pessoa.nome || '');
+    if (onBuscar) onBuscar(pessoa.cpf || pessoa.nomeCompleto || pessoa.nome || '');
   };
 
   const paciente = prontuarioData?.paciente;
@@ -275,7 +224,7 @@ export default function ProntuarioRelatorio({ prontuarioData, onBuscar }) {
     const alturaLinha = gapRotulo + alturaCaixa + 4;
 
     // Linha 1: CPF | Nome completo | Sexo
-    campoCaixa('CPF', formatCPF(paciente.cpf), x3[0], yGrid, col3);
+    campoCaixa('CPF', formatarCpfExibicao(paciente.cpf), x3[0], yGrid, col3);
     campoCaixa('Nome completo', paciente.nome, x3[1], yGrid, col3);
     campoCaixa('Sexo', paciente.sexo, x3[2], yGrid, col3);
     yGrid += alturaLinha;
@@ -461,70 +410,31 @@ export default function ProntuarioRelatorio({ prontuarioData, onBuscar }) {
         <h2 className={styles.title} style={{ margin: 0 }}>Prontuário Unificado e Relatório de Serviços</h2>
       </div>
 
-      {/* BUSCA DE PACIENTE DA JUNTA (dropdown em tabela, igual aos outros módulos) */}
-      <div className={styles.buscaWrapper}>
-        <label className={styles.buscaLabel}>Buscar Paciente da Junta (Nome ou CPF)</label>
-        <div className={styles.searchSelectWrapper} ref={buscaRef}>
-          <input
-            type="text"
-            className={styles.selectLikeInput}
-            placeholder="Selecionar ou digitar nome/CPF..."
-            value={termo}
-            onChange={(e) => handleInputChange(e.target.value)}
-          />
-          <span className={styles.arrowIcon} onClick={() => setShowDropdown((v) => !v)}>
-            {showDropdown ? '▲' : '▼'}
-          </span>
-
-          {showDropdown && (
-            <div className={styles.tableDropdownMenu}>
-              <div className={styles.tableContainerScroll}>
-                <table className={styles.patientTableDropdown}>
-                  <thead>
-                    <tr>
-                      <th>CPF / CNS</th>
-                      <th>Usuário</th>
-                      <th>Nome da mãe</th>
-                      <th>Data nasc.</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sugestoes.length > 0 ? (
-                      sugestoes.map((p, index) => (
-                        <tr
-                          key={p.cpf ? `${p.cpf}-${index}` : index}
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            handleSelectPessoa(p);
-                          }}
-                          className={paciente?.cpf === p.cpf ? styles.selectedRow : ''}
-                        >
-                          <td>{documentoPaciente({ cpf: p.cpf, cns: p.cns })}</td>
-                          <td className={styles.boldName}>{p.nomeCompleto || p.nome}</td>
-                          <td>{p.nomeMae || 'Não informada'}</td>
-                          <td>
-                            {p.dataNascimento
-                              ? p.dataNascimento.split('-').reverse().join('/')
-                              : '-'}
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="4" className={styles.noDataTd}>
-                          {isSearching
-                            ? 'Consultando...'
-                            : 'Nenhum paciente da Junta encontrado.'}
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+      {/* CONTAINER ÚNICO DE IDENTIFICAÇÃO DO PACIENTE — o mesmo componente e o
+          mesmo layout do Novo Pedido da Regulação. Ao selecionar outra pessoa,
+          os campos e a Situação Cadastral são atualizados automaticamente. */}
+      <IdentificacaoPaciente
+        titulo="Identificação do Paciente"
+        buscaLabel="Buscar Paciente (Nome ou CPF)"
+        buscaTexto={termo}
+        onBuscaTextoChange={setTermo}
+        onSelect={handleSelectPessoa}
+        buscar={buscarPessoas}
+        incluirIndisponiveis
+        cpfSelecionado={pessoaSelecionada?.cpf || paciente?.cpf || ''}
+        paciente={{
+          nomeMae: pessoaSelecionada?.nomeMae || paciente?.nomeMae,
+          dataNascimento: pessoaSelecionada?.dataNascimento || paciente?.data_nascimento,
+          sexo: pessoaSelecionada?.sexo || paciente?.sexo,
+          telefone: pessoaSelecionada?.telefone || paciente?.telefone,
+          cpf: pessoaSelecionada?.cpf || paciente?.cpf,
+          cns: pessoaSelecionada?.cns || paciente?.cns || '',
+          // Situação cadastral: fonte única em `pessoa` (seleção ou prontuário).
+          situacao: pessoaSelecionada?.situacao || paciente?.situacao || '',
+          ubsReferencia:
+            pessoaSelecionada?.ubsReferencia?.nome || pessoaSelecionada?.ubsReferencia || '',
+        }}
+      />
 
       {paciente ? (
         <div className={styles.prontuarioBox}>
@@ -558,7 +468,7 @@ export default function ProntuarioRelatorio({ prontuarioData, onBuscar }) {
               </div>
               <div className={styles.campo}>
                 <label>CPF</label>
-                <div className={styles.valorBox}>{formatCPF(paciente.cpf) || '—'}</div>
+                <div className={styles.valorBox}>{formatarCpfExibicao(paciente.cpf) || '—'}</div>
               </div>
 
               <div className={`${styles.campo} ${styles.campoFull}`}>

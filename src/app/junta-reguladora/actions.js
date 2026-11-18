@@ -547,9 +547,12 @@ export async function getProntuarioUnificado(termoBusca) {
     const apenasNumeros = termoClean.replace(/\D/g, '');
 
     // 1. Busca os dados primários da pessoa diretamente pelo Prisma ORM
+    // Consulta de HISTÓRICO: pessoas FALECIDAS também têm prontuário (o
+    // bloqueio de novos vínculos é outra regra, validada ao salvar). Pessoas
+    // unificadas no cadastro único (EMPI) ficam de fora — a ficha é a atual.
     const pessoa = await prisma.pessoa.findFirst({
       where: {
-        ativo: true,
+        unificadoEmCpf: null,
         OR: [
           { nomeCompleto: { contains: termoClean, mode: 'insensitive' } },
           ...(apenasNumeros.length > 0 ? [{ cpf: { contains: apenasNumeros } }] : []),
@@ -700,6 +703,9 @@ export async function getProntuarioUnificado(termoBusca) {
       uf: end.uf || '',
       cep: end.cep || '',
       servicos_ativos: servicosAtivos,
+      // Situação cadastral (fonte única em `pessoa`) — somente exibição.
+      situacao: pessoa.situacao || '',
+      cns: pessoa.cns || '',
     };
 
     return {
