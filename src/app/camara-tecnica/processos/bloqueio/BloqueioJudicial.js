@@ -17,10 +17,10 @@
 // (`podeCriar`); o backend revalida tudo em `criarBloqueio`.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatarCpfExibicao } from "@/lib/cpf";
 import { mascararMoeda, formatarMoedaBRL } from "@/lib/moeda";
-import { obterCatalogoParaFormulario } from "../especialidades/actions";
+import { obterCatalogoParaFiltros } from "../especialidades/actions";
 import { useConfirm } from "@/components/ConfirmDialog";
 import {
   buscarProcessosParaBloqueio,
@@ -39,9 +39,7 @@ const dataBR = (iso) => {
 };
 
 const FILTROS_VAZIOS = {
-  paciente: "",
-  numeroProcesso: "",
-  numeroPasta: "",
+  busca: "",
   especialidadeId: "",
   procedimentoId: "",
   dataInicio: "",
@@ -74,7 +72,12 @@ export default function BloqueioJudicial({
   const [total, setTotal] = useState(0);
   const [valorTotal, setValorTotal] = useState("0.00");
   const [consultando, setConsultando] = useState(false);
-  const [especialidades, setEspecialidades] = useState([]);
+  // Catálogo dos FILTROS (inclui itens inativos = registros históricos).
+  const [catalogoFiltros, setCatalogoFiltros] = useState({
+    especialidades: [],
+    procedimentos: [],
+    vinculosProcedimentos: {},
+  });
   // Edição inline de um bloqueio da tabela.
   const [editando, setEditando] = useState(null);
   const [salvandoEdicao, setSalvandoEdicao] = useState(false);
@@ -99,19 +102,45 @@ export default function BloqueioJudicial({
   useEffect(() => {
     let vivo = true;
     (async () => {
-      // Nada é listado na abertura: só o catálogo de especialidades.
-      const cats = await obterCatalogoParaFormulario();
-      if (vivo && cats.success) setEspecialidades(cats.especialidades || []);
+      // Nada é listado na abertura: só o catálogo dos filtros.
+      const cats = await obterCatalogoParaFiltros();
+      if (vivo && cats.success) {
+        setCatalogoFiltros({
+          especialidades: cats.especialidades || [],
+          procedimentos: cats.procedimentos || [],
+          vinculosProcedimentos: cats.vinculosProcedimentos || {},
+        });
+      }
     })();
     return () => {
       vivo = false;
     };
   }, []);
 
+  // Procedimentos exibidos no filtro: sem especialidade, TODOS; com
+  // especialidade, apenas os vinculados a ela. O campo nunca é desabilitado.
+  const procedimentosDoFiltro = useMemo(() => {
+    const todos = catalogoFiltros.procedimentos || [];
+    const espId = filtros.especialidadeId;
+    if (!espId) return todos;
+    const vinculados = new Set(
+      catalogoFiltros.vinculosProcedimentos?.[String(espId)] || [],
+    );
+    return todos.filter((p) => vinculados.has(p.id));
+  }, [catalogoFiltros, filtros.especialidadeId]);
+
   function alterarFiltro(campo, valor) {
     setFiltros((f) => {
       const proximo = { ...f, [campo]: valor };
-      if (campo === "especialidadeId") proximo.procedimentoId = "";
+      // Trocar a especialidade limpa o procedimento incompatível com ela.
+      if (campo === "especialidadeId" && proximo.procedimentoId) {
+        const vinculados = new Set(
+          catalogoFiltros.vinculosProcedimentos?.[String(valor)] || [],
+        );
+        if (valor && !vinculados.has(Number(proximo.procedimentoId))) {
+          proximo.procedimentoId = "";
+        }
+      }
       return proximo;
     });
   }
@@ -125,10 +154,6 @@ export default function BloqueioJudicial({
     setErro("");
   }
 
-  const filtrosEspecialidade = especialidades.find(
-    (x) => String(x.id) === String(filtros.especialidadeId),
-  );
-  const filtrosProcedimentos = filtrosEspecialidade?.procedimentos || [];
 
   // Busca com debounce (nome, CPF ou número do processo).
   const buscar = useCallback(async (texto) => {
@@ -566,39 +591,15 @@ export default function BloqueioJudicial({
             {/* Filtros de consulta: nada é listado até uma consulta. */}
             <div className={styles.filtros}>
               <div className={styles.filtrosGrid}>
-                <div className={styles.campoFiltro}>
-                  <label>Nome ou CPF do paciente</label>
+                <div className={styles.campoFiltroBusca}>
+                  <label>Buscar Registro</label>
                   <input
-                    value={filtros.paciente}
-                    onChange={(e) => alterarFiltro("paciente", e.target.value)}
+                    value={filtros.busca}
+                    onChange={(e) => alterarFiltro("busca", e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") consultar(filtros);
                     }}
-                    placeholder="Nome ou CPF"
-                    autoComplete="off"
-                  />
-                </div>
-                <div className={styles.campoFiltro}>
-                  <label>Número do processo</label>
-                  <input
-                    value={filtros.numeroProcesso}
-                    onChange={(e) => alterarFiltro("numeroProcesso", e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") consultar(filtros);
-                    }}
-                    placeholder="Número do processo"
-                    autoComplete="off"
-                  />
-                </div>
-                <div className={styles.campoFiltro}>
-                  <label>Número da pasta</label>
-                  <input
-                    value={filtros.numeroPasta}
-                    onChange={(e) => alterarFiltro("numeroPasta", e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") consultar(filtros);
-                    }}
-                    placeholder="Número da pasta"
+                    placeholder="Digite o nome, CPF, número do processo ou número da pasta..."
                     autoComplete="off"
                   />
                 </div>
@@ -609,9 +610,10 @@ export default function BloqueioJudicial({
                     onChange={(e) => alterarFiltro("especialidadeId", e.target.value)}
                   >
                     <option value="">Todas</option>
-                    {especialidades.map((esp) => (
+                    {catalogoFiltros.especialidades.map((esp) => (
                       <option key={esp.id} value={String(esp.id)}>
                         {esp.nome}
+                        {esp.ativo === false ? " (inativa)" : ""}
                       </option>
                     ))}
                   </select>
@@ -621,14 +623,12 @@ export default function BloqueioJudicial({
                   <select
                     value={filtros.procedimentoId}
                     onChange={(e) => alterarFiltro("procedimentoId", e.target.value)}
-                    disabled={!filtros.especialidadeId}
                   >
-                    <option value="">
-                      {filtros.especialidadeId ? "Todos" : "Selecione a especialidade"}
-                    </option>
-                    {filtrosProcedimentos.map((p) => (
-                      <option key={p.id} value={String(p.id)}>
-                        {p.nome}
+                    <option value="">Todos</option>
+                    {procedimentosDoFiltro.map((pr) => (
+                      <option key={pr.id} value={String(pr.id)}>
+                        {pr.nome}
+                        {pr.ativo === false ? " (inativo)" : ""}
                       </option>
                     ))}
                   </select>

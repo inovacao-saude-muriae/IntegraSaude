@@ -233,56 +233,50 @@ function serializar(p) {
 // com AND; `todos` só é usado pelo botão "Consultar todos".
 export async function listarProcessos({
   todos = false,
-  paciente = "",
-  numeroProcesso = "",
-  numeroPasta = "",
+  busca = "",
+  dataInicio = "",
+  dataFim = "",
   especialidadeId = null,
   procedimentoId = null,
-  termo = "",
 } = {}) {
   try {
     await requirePermissao(MODULOS.PROCESSOS, FUNCIONALIDADE, "visualizar");
 
-    const busca = texto(termo, 100);
-    const nomeOuCpf = texto(paciente, 100);
-    const digitos = nomeOuCpf.replace(/\D/g, "");
-    const numero = texto(numeroProcesso, 100);
-    const pasta = texto(numeroPasta, 50);
+    // Campo único "Buscar Registro": o conteúdo é procurado no nome, no CPF
+    // (com ou sem máscara), no número do processo e no número da pasta.
+    const termo = texto(busca, 100);
+    const digitos = termo.replace(/\D/g, "");
     const espId = inteiroPositivo(especialidadeId);
     const procId = inteiroPositivo(procedimentoId);
 
     const and = [];
-    if (busca) {
+    if (termo) {
       and.push({
         OR: [
-          { numeroProcesso: { contains: busca, mode: "insensitive" } },
-          { numeroPasta: { contains: busca, mode: "insensitive" } },
-          { pessoa: { nomeCompleto: { contains: busca, mode: "insensitive" } } },
-          { pessoaCpf: { contains: busca.replace(/\D/g, "") } },
-        ],
-      });
-    }
-    if (nomeOuCpf) {
-      and.push({
-        OR: [
-          { pessoa: { nomeCompleto: { contains: nomeOuCpf, mode: "insensitive" } } },
+          { pessoa: { nomeCompleto: { contains: termo, mode: "insensitive" } } },
           ...(digitos.length >= 3 ? [{ pessoaCpf: { contains: digitos } }] : []),
-        ],
-      });
-    }
-    if (numero) {
-      and.push({ numeroProcesso: { contains: numero, mode: "insensitive" } });
-    }
-    if (pasta) {
-      and.push({
-        OR: [
-          { numeroPasta: { contains: pasta, mode: "insensitive" } },
-          { pessoa: { numeroPasta: { contains: pasta, mode: "insensitive" } } },
+          { numeroProcesso: { contains: termo, mode: "insensitive" } },
+          { numeroPasta: { contains: termo, mode: "insensitive" } },
+          { pessoa: { numeroPasta: { contains: termo, mode: "insensitive" } } },
         ],
       });
     }
     if (espId) and.push({ especialidadeId: espId });
+    // Procedimento é independente da especialidade nos filtros de consulta.
     if (procId) and.push({ procedimentoId: procId });
+
+    // Período de cadastro (data/hora do servidor, gravada em created_at).
+    // O dia é o local (America/Sao_Paulo, UTC-3), não o UTC.
+    const de = diaLocalParaUtc(dataInicio, "inicio");
+    const ate = diaLocalParaUtc(dataFim, "fim");
+    if (de || ate) {
+      and.push({
+        createdAt: {
+          ...(de ? { gte: de } : {}),
+          ...(ate ? { lte: ate } : {}),
+        },
+      });
+    }
 
     // Nenhum filtro e sem "Consultar todos": a tabela não é carregada.
     if (and.length === 0 && !todos) {
@@ -635,67 +629,40 @@ export async function buscarProcessosParaBloqueio(termo = "") {
 export async function listarBloqueios({
   todos = false,
   processoId = null,
-  paciente = "",
-  numeroProcesso = "",
-  numeroPasta = "",
+  busca = "",
+  termo = "",
   especialidadeId = null,
   procedimentoId = null,
   dataInicio = "",
   dataFim = "",
-  termo = "",
 } = {}) {
   try {
     await requirePermissao(MODULOS.PROCESSOS, FUNCIONALIDADE, "visualizar");
 
     const filtro = inteiroPositivo(processoId);
-    // Pesquisa livre (usada pela tabela dentro do formulário).
-    const busca = texto(termo, 100);
-    const digitosBusca = busca.replace(/\D/g, "");
-    const nomeOuCpf = texto(paciente, 100);
-    const digitos = nomeOuCpf.replace(/\D/g, "");
-    const numero = texto(numeroProcesso, 100);
-    const pasta = texto(numeroPasta, 50);
+    // Campo único "Buscar Registro" (o mesmo vale para `termo`, mantido para
+    // a busca interna dentro do formulário de bloqueio).
+    const procura = texto(busca, 100) || texto(termo, 100);
+    const digitos = procura.replace(/\D/g, "");
     const espId = inteiroPositivo(especialidadeId);
     const procId = inteiroPositivo(procedimentoId);
 
     const and = [];
-    if (busca) {
+    if (procura) {
       and.push({
         processo: {
           OR: [
-            { numeroProcesso: { contains: busca, mode: "insensitive" } },
-            { numeroPasta: { contains: busca, mode: "insensitive" } },
-            { pessoa: { nomeCompleto: { contains: busca, mode: "insensitive" } } },
-            { pessoa: { numeroPasta: { contains: busca, mode: "insensitive" } } },
-            ...(digitosBusca ? [{ pessoaCpf: { contains: digitosBusca } }] : []),
-          ],
-        },
-      });
-    }
-    if (nomeOuCpf) {
-      and.push({
-        processo: {
-          OR: [
-            { pessoa: { nomeCompleto: { contains: nomeOuCpf, mode: "insensitive" } } },
+            { pessoa: { nomeCompleto: { contains: procura, mode: "insensitive" } } },
             ...(digitos.length >= 3 ? [{ pessoaCpf: { contains: digitos } }] : []),
-          ],
-        },
-      });
-    }
-    if (numero) {
-      and.push({ processo: { numeroProcesso: { contains: numero, mode: "insensitive" } } });
-    }
-    if (pasta) {
-      and.push({
-        processo: {
-          OR: [
-            { numeroPasta: { contains: pasta, mode: "insensitive" } },
-            { pessoa: { numeroPasta: { contains: pasta, mode: "insensitive" } } },
+            { numeroProcesso: { contains: procura, mode: "insensitive" } },
+            { numeroPasta: { contains: procura, mode: "insensitive" } },
+            { pessoa: { numeroPasta: { contains: procura, mode: "insensitive" } } },
           ],
         },
       });
     }
     if (espId) and.push({ processo: { especialidadeId: espId } });
+    // Procedimento é independente da especialidade nos filtros de consulta.
     if (procId) and.push({ processo: { procedimentoId: procId } });
 
     // Período sobre a data do bloqueio (Data CI).
@@ -750,58 +717,6 @@ export async function listarBloqueios({
   } catch (erro) {
     return responder(erro);
   }
-}
-
-// Valida e converte o valor monetário (aceita "1.234,56" ou número).
-function valorMonetario(bruto) {
-  if (bruto === null || bruto === undefined || bruto === "") {
-    throw falha("Informe o valor do bloqueio.");
-  }
-  const normalizado =
-    typeof bruto === "number"
-      ? bruto
-      : Number(
-          String(bruto)
-            .replace(/\s/g, "")
-            .replace(/^R\$/i, "")
-            .replace(/\./g, "")
-            .replace(",", "."),
-        );
-  if (!Number.isFinite(normalizado) || normalizado <= 0) {
-    throw falha("O valor do bloqueio deve ser maior que zero.");
-  }
-  if (normalizado > 99999999999.99) throw falha("Valor do bloqueio acima do limite permitido.");
-  // Duas casas: o banco é NUMERIC(14,2).
-  const centavos = Math.round(normalizado * 100) / 100;
-  if (centavos <= 0) throw falha("O valor do bloqueio deve ser maior que zero.");
-  return centavos.toFixed(2);
-}
-
-function dataDoFormulario(bruto) {
-  const valor = String(bruto || "").trim();
-  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(valor);
-  const br = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(valor);
-  const ano = iso ? iso[1] : br ? br[3] : null;
-  const mes = iso ? iso[2] : br ? br[2] : null;
-  const dia = iso ? iso[3] : br ? br[1] : null;
-  if (!ano || !mes || !dia) throw falha("Informe a data do bloqueio.");
-  const data = new Date(`${ano}-${mes}-${dia}T00:00:00.000Z`);
-  if (
-    Number.isNaN(data.getTime()) ||
-    data.getUTCFullYear() !== Number(ano) ||
-    data.getUTCMonth() + 1 !== Number(mes) ||
-    data.getUTCDate() !== Number(dia)
-  ) {
-    throw falha("Data do bloqueio inválida.");
-  }
-  return data;
-}
-
-// Data opcional (período de consulta): vazio = sem limite; inválida = erro.
-function dataDoFormularioOpcional(valor) {
-  const t = typeof valor === "string" ? valor.trim() : "";
-  if (!t) return null;
-  return dataDoFormulario(t);
 }
 
 export async function criarBloqueio(dados) {
@@ -886,6 +801,70 @@ const INCLUDE_BLOQUEIO = {
     },
   },
 };
+
+// Valida e converte o valor monetário (aceita "1.234,56" ou número).
+function valorMonetario(bruto) {
+  if (bruto === null || bruto === undefined || bruto === "") {
+    throw falha("Informe o valor do bloqueio.");
+  }
+  const normalizado =
+    typeof bruto === "number"
+      ? bruto
+      : Number(
+          String(bruto)
+            .replace(/\s/g, "")
+            .replace(/^R\$/i, "")
+            .replace(/\./g, "")
+            .replace(",", "."),
+        );
+  if (!Number.isFinite(normalizado) || normalizado <= 0) {
+    throw falha("O valor do bloqueio deve ser maior que zero.");
+  }
+  if (normalizado > 99999999999.99) throw falha("Valor do bloqueio acima do limite permitido.");
+  // Duas casas: o banco é NUMERIC(14,2).
+  const centavos = Math.round(normalizado * 100) / 100;
+  if (centavos <= 0) throw falha("O valor do bloqueio deve ser maior que zero.");
+  return centavos.toFixed(2);
+}
+
+function dataDoFormulario(bruto) {
+  const valor = String(bruto || "").trim();
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(valor);
+  const br = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(valor);
+  const ano = iso ? iso[1] : br ? br[3] : null;
+  const mes = iso ? iso[2] : br ? br[2] : null;
+  const dia = iso ? iso[3] : br ? br[1] : null;
+  if (!ano || !mes || !dia) throw falha("Informe a data do bloqueio.");
+  const data = new Date(`${ano}-${mes}-${dia}T00:00:00.000Z`);
+  if (
+    Number.isNaN(data.getTime()) ||
+    data.getUTCFullYear() !== Number(ano) ||
+    data.getUTCMonth() + 1 !== Number(mes) ||
+    data.getUTCDate() !== Number(dia)
+  ) {
+    throw falha("Data do bloqueio inválida.");
+  }
+  return data;
+}
+
+// Data opcional (período de consulta): vazio = sem limite; inválida = erro.
+function dataDoFormularioOpcional(valor) {
+  const t = typeof valor === "string" ? valor.trim() : "";
+  if (!t) return null;
+  return dataDoFormulario(t);
+}
+
+// Dia informado no filtro → instante UTC. O fuso do sistema é UTC-3:
+// início = 00:00 local; fim = 23:59:59.999 local (dia final inclusivo).
+const FUSO_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+function diaLocalParaUtc(valor, limite) {
+  const dia = dataDoFormularioOpcional(valor);
+  if (!dia) return null;
+  return new Date(
+    dia.getTime() - FUSO_OFFSET_MS + (limite === "fim" ? 24 * 60 * 60 * 1000 - 1 : 0),
+  );
+}
 
 async function exigirBloqueio(id) {
   const bloqueioId = inteiroPositivo(id);

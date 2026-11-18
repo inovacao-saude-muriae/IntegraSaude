@@ -136,6 +136,50 @@ export async function listarCatalogoProcessos({ incluirInativos = true } = {}) {
  * escolhido em um cadastro novo. Itens inativos continuam aparecendo nos
  * processos antigos pelo nome gravado no próprio processo.
  */
+// ── Catálogo para os FILTROS DE CONSULTA ──────────────────────────────────
+// Diferente do formulário: traz TODAS as especialidades e TODOS os
+// procedimentos (inclusive inativos) para permitir consultar registros
+// históricos, e alimenta o dropdown de procedimento mesmo sem especialidade.
+export async function obterCatalogoParaFiltros() {
+  try {
+    await requirePermissao(MODULOS.PROCESSOS, "processo_judicial", "visualizar");
+
+    const [especialidades, procedimentos, vinculos] = await Promise.all([
+      prisma.processoEspecialidade.findMany({ orderBy: { nome: "asc" } }),
+      prisma.processoProcedimento.findMany({ orderBy: { nome: "asc" } }),
+      prisma.processoEspecialidadeProcedimento.findMany({
+        select: { especialidadeId: true, procedimentoId: true },
+      }),
+    ]);
+
+    // Procedimentos vinculados a cada especialidade (N:N), em qualquer situação.
+    const vinculosPorEspecialidade = {};
+    for (const v of vinculos) {
+      if (!vinculosPorEspecialidade[v.especialidadeId]) {
+        vinculosPorEspecialidade[v.especialidadeId] = [];
+      }
+      vinculosPorEspecialidade[v.especialidadeId].push(v.procedimentoId);
+    }
+
+    return {
+      success: true,
+      especialidades: especialidades.map((e) => ({
+        id: e.id,
+        nome: e.nome,
+        ativo: e.ativo !== false,
+      })),
+      procedimentos: procedimentos.map((p) => ({
+        id: p.id,
+        nome: p.nome,
+        ativo: p.ativo !== false,
+      })),
+      vinculosProcedimentos: vinculosPorEspecialidade,
+    };
+  } catch (erro) {
+    return responder(erro);
+  }
+}
+
 export async function obterCatalogoParaFormulario() {
   try {
     await requirePermissao(MODULOS.PROCESSOS, "processo_judicial", "visualizar");

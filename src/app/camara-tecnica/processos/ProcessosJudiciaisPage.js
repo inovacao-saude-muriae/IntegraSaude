@@ -16,7 +16,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useConfirm } from "@/components/ConfirmDialog";
 import SeletorPaciente from "@/components/SeletorPaciente";
 import { formatarCpfExibicao } from "@/lib/cpf";
-import { obterCatalogoParaFormulario } from "./especialidades/actions";
+import {
+  obterCatalogoParaFiltros,
+  obterCatalogoParaFormulario,
+} from "./especialidades/actions";
 import {
   criarProcesso,
   editarProcesso,
@@ -96,12 +99,18 @@ export default function ProcessosJudiciaisPage({
   const [aviso, setAviso] = useState(null);
   // Filtros da CONSULTA: a tabela só aparece depois de uma consulta.
   const FILTROS_VAZIOS = {
-    paciente: "",
-    numeroProcesso: "",
-    numeroPasta: "",
+    busca: "",
+    dataInicio: "",
+    dataFim: "",
     especialidadeId: "",
     procedimentoId: "",
   };
+  // Catálogo dos FILTROS (inclui itens inativos = registros históricos).
+  const [catalogoFiltros, setCatalogoFiltros] = useState({
+    especialidades: [],
+    procedimentos: [],
+    vinculosProcedimentos: {},
+  });
   const [filtros, setFiltros] = useState(FILTROS_VAZIOS);
   const [consultou, setConsultou] = useState(false);
   const [total, setTotal] = useState(0);
@@ -140,10 +149,20 @@ export default function ProcessosJudiciaisPage({
     let vivo = true;
     (async () => {
       // Nada é listado na abertura: só o catálogo (especialidades/procedimentos).
-      const cats = await obterCatalogoParaFormulario();
+      const [cats, filtrosCat] = await Promise.all([
+        obterCatalogoParaFormulario(),
+        obterCatalogoParaFiltros(),
+      ]);
       if (!vivo) return;
       if (cats.success) setEspecialidades(cats.especialidades || []);
       else setErro(cats.error);
+      if (filtrosCat.success) {
+        setCatalogoFiltros({
+          especialidades: filtrosCat.especialidades || [],
+          procedimentos: filtrosCat.procedimentos || [],
+          vinculosProcedimentos: filtrosCat.vinculosProcedimentos || {},
+        });
+      }
       setCarregando(false);
     })();
     return () => {
@@ -151,11 +170,30 @@ export default function ProcessosJudiciaisPage({
     };
   }, []);
 
+  // Procedimentos exibidos no filtro: sem especialidade, TODOS; com
+  // especialidade, apenas os vinculados a ela. O campo nunca é desabilitado.
+  const procedimentosDoFiltro = useMemo(() => {
+    const todos = catalogoFiltros.procedimentos || [];
+    const espId = filtros.especialidadeId;
+    if (!espId) return todos;
+    const vinculados = new Set(
+      catalogoFiltros.vinculosProcedimentos?.[String(espId)] || [],
+    );
+    return todos.filter((p) => vinculados.has(p.id));
+  }, [catalogoFiltros, filtros.especialidadeId]);
+
   function alterarFiltro(campo, valor) {
     setFiltros((f) => {
       const proximo = { ...f, [campo]: valor };
-      // Trocar a especialidade limpa o procedimento (pode não pertencer a ela).
-      if (campo === "especialidadeId") proximo.procedimentoId = "";
+      // Trocar a especialidade limpa o procedimento incompatível com ela.
+      if (campo === "especialidadeId" && proximo.procedimentoId) {
+        const vinculados = new Set(
+          catalogoFiltros.vinculosProcedimentos?.[String(valor)] || [],
+        );
+        if (valor && !vinculados.has(Number(proximo.procedimentoId))) {
+          proximo.procedimentoId = "";
+        }
+      }
       return proximo;
     });
   }
@@ -168,11 +206,6 @@ export default function ProcessosJudiciaisPage({
     setErro("");
   }
 
-  const filtrosEspecialidade = useMemo(
-    () => especialidades.find((x) => String(x.id) === String(filtros.especialidadeId)) || null,
-    [especialidades, filtros.especialidadeId],
-  );
-  const filtrosProcedimentos = filtrosEspecialidade?.procedimentos || [];
 
   const especialidadeAtual = useMemo(
     () => especialidades.find((x) => String(x.id) === String(form.especialidadeId)) || null,
@@ -402,39 +435,15 @@ export default function ProcessosJudiciaisPage({
           {/* Filtros de consulta: nada é listado até uma consulta. */}
           <div className={styles.filtros}>
             <div className={styles.filtrosGrid}>
-              <div className={styles.campoFiltro}>
-                <label>Nome ou CPF do paciente</label>
+              <div className={styles.campoFiltroBusca}>
+                <label>Buscar Registro</label>
                 <input
-                  value={filtros.paciente}
-                  onChange={(e) => alterarFiltro("paciente", e.target.value)}
+                  value={filtros.busca}
+                  onChange={(e) => alterarFiltro("busca", e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") consultar(filtros);
                   }}
-                  placeholder="Nome ou CPF"
-                  autoComplete="off"
-                />
-              </div>
-              <div className={styles.campoFiltro}>
-                <label>Número do processo</label>
-                <input
-                  value={filtros.numeroProcesso}
-                  onChange={(e) => alterarFiltro("numeroProcesso", e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") consultar(filtros);
-                  }}
-                  placeholder="Número do processo"
-                  autoComplete="off"
-                />
-              </div>
-              <div className={styles.campoFiltro}>
-                <label>Número da pasta</label>
-                <input
-                  value={filtros.numeroPasta}
-                  onChange={(e) => alterarFiltro("numeroPasta", e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") consultar(filtros);
-                  }}
-                  placeholder="Número da pasta"
+                  placeholder="Digite o nome, CPF, número do processo ou número da pasta..."
                   autoComplete="off"
                 />
               </div>
@@ -445,9 +454,10 @@ export default function ProcessosJudiciaisPage({
                   onChange={(e) => alterarFiltro("especialidadeId", e.target.value)}
                 >
                   <option value="">Todas</option>
-                  {especialidades.map((esp) => (
+                  {catalogoFiltros.especialidades.map((esp) => (
                     <option key={esp.id} value={String(esp.id)}>
                       {esp.nome}
+                      {esp.ativo === false ? " (inativa)" : ""}
                     </option>
                   ))}
                 </select>
@@ -457,17 +467,33 @@ export default function ProcessosJudiciaisPage({
                 <select
                   value={filtros.procedimentoId}
                   onChange={(e) => alterarFiltro("procedimentoId", e.target.value)}
-                  disabled={!filtros.especialidadeId}
                 >
-                  <option value="">
-                    {filtros.especialidadeId ? "Todos" : "Selecione a especialidade"}
-                  </option>
-                  {filtrosProcedimentos.map((p) => (
+                  <option value="">Todos</option>
+                  {procedimentosDoFiltro.map((p) => (
                     <option key={p.id} value={String(p.id)}>
                       {p.nome}
+                      {p.ativo === false ? " (inativo)" : ""}
                     </option>
                   ))}
                 </select>
+              </div>
+              <div className={styles.campoFiltro}>
+                <label>Período do cadastro</label>
+                <div className={styles.periodo}>
+                  <input
+                    type="date"
+                    value={filtros.dataInicio}
+                    onChange={(e) => alterarFiltro("dataInicio", e.target.value)}
+                    aria-label="Data inicial do cadastro"
+                  />
+                  <span>até</span>
+                  <input
+                    type="date"
+                    value={filtros.dataFim}
+                    onChange={(e) => alterarFiltro("dataFim", e.target.value)}
+                    aria-label="Data final do cadastro"
+                  />
+                </div>
               </div>
             </div>
 

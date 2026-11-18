@@ -310,7 +310,7 @@ async function main() {
   check("processo histórico mantém o procedimento inativado", detalheHist.data?.procedimentoId === procId && detalheHist.data?.procedimentoInativo === true, JSON.stringify(detalheHist.data || {}).slice(0, 160));
 
   console.log("\n8. Lista reflete a edição (sem duplicar)");
-  const lista = await chamarAction(GESTOR, "listarProcessos", [{ numeroProcesso: "TESTE-001" }]);
+  const lista = await chamarAction(GESTOR, "listarProcessos", [{ busca: "TESTE-001" }]);
   check("lista traz o processo editado", lista.success === true && (lista.data || []).some((p) => p.id === id && p.numeroProcesso === "TESTE-001"));
   check("lista não duplica o processo", (lista.data || []).filter((p) => p.id === id).length === 1);
 

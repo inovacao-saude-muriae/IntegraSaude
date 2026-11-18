@@ -395,7 +395,7 @@ async function main() {
 
   // ── 11. Consulta ─────────────────────────────────────────────────────────
   console.log("\n11. Consulta de processos");
-  const lista = await proc(GESTOR, "listarProcessos", [{ numeroProcesso: "TSTCAT-0001" }]);
+  const lista = await proc(GESTOR, "listarProcessos", [{ busca: "TSTCAT-0001" }]);
   check("consulta encontra o processo", lista.success === true && (lista.data || []).some((p) => p.id === id));
   check("consulta traz os nomes do catálogo", (lista.data || [])[0]?.especialidadeNome === "TSTCAT Cardiologia", (lista.data || [])[0]?.especialidadeNome);
 

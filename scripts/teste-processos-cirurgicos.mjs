@@ -333,33 +333,53 @@ check("sem filtro e sem 'todos' NÃO carrega a tabela", semConsulta.success && s
 const todosProc = await chamar(GESTOR, "listarProcessos", [{ todos: true }]);
 check("consultar todos traz os processos", todosProc.success && todosProc.data.length >= 3, String(todosProc.data?.length));
 check("consultar todos informa o total", todosProc.total === todosProc.data.length);
-const fNome = await chamar(GESTOR, "listarProcessos", [{ paciente: "TESTE Paciente A" }]);
-check("filtro por nome do paciente", fNome.success && fNome.data.length === 2, String(fNome.data?.length));
-const fCpf = await chamar(GESTOR, "listarProcessos", [{ paciente: "910.000.009-40" }]);
-check("filtro por CPF com máscara", fCpf.success && fCpf.data.length === 2, String(fCpf.data?.length));
-const fProc = await chamar(GESTOR, "listarProcessos", [{ numeroProcesso: `${PFX}-001` }]);
-check("filtro por número do processo", fProc.success && fProc.data.length === 1, String(fProc.data?.length));
-const fPasta = await chamar(GESTOR, "listarProcessos", [{ numeroPasta: "PC-500" }]);
-check("filtro por número da pasta", fPasta.success && fPasta.data.length === 2, String(fPasta.data?.length));
+
+// Campo único "Buscar Registro": nome, CPF, número do processo e da pasta.
+const bNome = await chamar(GESTOR, "listarProcessos", [{ busca: "TESTE Paciente A" }]);
+check("busca única por nome do paciente", bNome.success && bNome.data.length === 2, String(bNome.data?.length));
+const bCpf = await chamar(GESTOR, "listarProcessos", [{ busca: "910.000.009-40" }]);
+check("busca única por CPF com máscara", bCpf.success && bCpf.data.length === 2, String(bCpf.data?.length));
+const bNumero = await chamar(GESTOR, "listarProcessos", [{ busca: `${PFX}-001` }]);
+check("busca única por número do processo", bNumero.success && bNumero.data.length === 1, String(bNumero.data?.length));
+const bPasta = await chamar(GESTOR, "listarProcessos", [{ busca: "PC-500" }]);
+check("busca única por número da pasta", bPasta.success && bPasta.data.length === 2, String(bPasta.data?.length));
+
+// Especialidade e procedimento independentes.
+const fProcSozinho = await chamar(GESTOR, "listarProcessos", [{ procedimentoId: PROC }]);
+check("filtra só por procedimento (sem especialidade)", fProcSozinho.success && fProcSozinho.data.length >= 1, String(fProcSozinho.data?.length));
 const fEsp = await chamar(GESTOR, "listarProcessos", [{ especialidadeId: ESP2 }]);
 check("filtro por especialidade", fEsp.success && fEsp.data.length === 1, String(fEsp.data?.length));
 const fProcCat = await chamar(GESTOR, "listarProcessos", [{ especialidadeId: ESP, procedimentoId: PROC }]);
-check("filtro por procedimento dentro da especialidade", fProcCat.success && fProcCat.data.length >= 1);
+check("especialidade + procedimento combinados", fProcCat.success && fProcCat.data.length >= 1);
 const fCombinado = await chamar(GESTOR, "listarProcessos", [
-  { paciente: "TESTE Paciente A", especialidadeId: ESP, procedimentoId: PROC, numeroPasta: "PC-500" },
+  { busca: "TESTE Paciente A", especialidadeId: ESP, procedimentoId: PROC },
 ]);
-check("filtros combinados (AND)", fCombinado.success && fCombinado.data.length === 1, String(fCombinado.data?.length));
-const fNenhum = await chamar(GESTOR, "listarProcessos", [{ numeroProcesso: `${PFX}-NAO-EXISTE` }]);
+check("busca + especialidade + procedimento (AND)", fCombinado.success && fCombinado.data.length === 1, String(fCombinado.data?.length));
+const fNenhum = await chamar(GESTOR, "listarProcessos", [{ busca: `${PFX}-NAO-EXISTE` }]);
 check("consulta sem correspondência devolve vazio", fNenhum.success && fNenhum.data.length === 0 && fNenhum.total === 0);
 
+// Período de cadastro (created_at gravado pelo servidor).
+const hoje = new Date();
+const dia = hoje.toISOString().slice(0, 10);
+const fHoje = await chamar(GESTOR, "listarProcessos", [{ dataInicio: dia, dataFim: dia }]);
+check("período de cadastro inclui os processos de hoje", fHoje.success && fHoje.data.length >= 3, String(fHoje.data?.length));
+const fFuturo = await chamar(GESTOR, "listarProcessos", [{ dataInicio: "2030-01-01", dataFim: "2030-12-31" }]);
+check("período de cadastro sem registros devolve vazio", fFuturo.success && fFuturo.data.length === 0);
+check("processo traz a data de cadastro do servidor", Boolean(todosProc.data?.[0]?.dataCadastro), JSON.stringify(todosProc.data?.[0]?.dataCadastro));
+
+// Bloqueios: busca única, filtros independentes e período da Data CI.
 const bPeriodo = await chamar(GESTOR, "listarBloqueios", [{ dataInicio: "2026-11-18", dataFim: "2026-11-18" }]);
 check("período da data do bloqueio (dia exato)", bPeriodo.success && bPeriodo.data.length === 2, String(bPeriodo.data?.length));
 const bPeriodoVazio = await chamar(GESTOR, "listarBloqueios", [{ dataInicio: "2026-01-01", dataFim: "2026-01-31" }]);
 check("período sem bloqueios devolve vazio", bPeriodoVazio.success && bPeriodoVazio.data.length === 0);
 const bTotal = await chamar(GESTOR, "listarBloqueios", [{ todos: true }]);
 check("consulta de bloqueios informa o valor total", bTotal.success && bTotal.valorTotal === "1358.56", String(bTotal.valorTotal));
+const bProcSozinho = await chamar(GESTOR, "listarBloqueios", [{ procedimentoId: PROC }]);
+check("bloqueios filtrados só por procedimento", bProcSozinho.success && bProcSozinho.data.length === 1, String(bProcSozinho.data?.length));
 const bPorEsp = await chamar(GESTOR, "listarBloqueios", [{ especialidadeId: ESP }]);
 check("bloqueios filtrados por especialidade", bPorEsp.success && bPorEsp.data.length === 1, String(bPorEsp.data?.length));
+const bBusca = await chamar(GESTOR, "listarBloqueios", [{ busca: "PC-500" }]);
+check("bloqueios pela busca única (pasta)", bBusca.success && bBusca.data.length === 1, String(bBusca.data?.length));
 
 // ── 4. Exclusão bloqueada por dependência ────────────────────────────────
 console.log("\n4. Dependências e exclusão");

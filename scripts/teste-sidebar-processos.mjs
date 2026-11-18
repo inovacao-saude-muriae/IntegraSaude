@@ -234,7 +234,7 @@ async function main() {
   check("cadastro de processo", criado.success === true, JSON.stringify(criado).slice(0, 160));
   const id = criado.data?.id;
 
-  const lista = await proc(GESTOR, "listarProcessos", [{ numeroProcesso: "TSTSB-0001" }]);
+  const lista = await proc(GESTOR, "listarProcessos", [{ busca: "TSTSB-0001" }]);
   check(
     "consulta encontra o processo",
     lista.success === true && lista.data.some((p) => p.id === id),
@@ -262,7 +262,7 @@ async function main() {
 
   const excluido = await proc(GESTOR, "excluirProcesso", [id, { confirmado: true }]);
   check("exclusão autorizada", excluido.success === true, JSON.stringify(excluido).slice(0, 160));
-  const depois = await proc(GESTOR, "listarProcessos", [{ numeroProcesso: "TSTSB-0001" }]);
+  const depois = await proc(GESTOR, "listarProcessos", [{ busca: "TSTSB-0001" }]);
   check("processo não aparece mais na lista", depois.success === true && !depois.data.some((p) => p.id === id));
 
   // ── 8. Catálogo fora da navegação operacional ──────────────────────────
