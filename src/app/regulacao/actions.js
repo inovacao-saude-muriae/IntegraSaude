@@ -10,7 +10,7 @@ import {
 } from "@/lib/auth";
 import { MODULOS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-import { mensagemPessoaIndisponivel } from "@/lib/situacaoPessoa";
+import { validarPessoaParaVinculo } from "@/lib/situacaoPessoaGuard";
 import { registrarAuditoria } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { situacaoRegistro } from "@/components/cadastros/situacaoCadastro";
@@ -391,23 +391,11 @@ export async function createPedidoExame(data) {
   try {
     const user = await requireAcessoModulo(MODULOS.REGULACAO);
 
-    // Situação cadastral (fonte única): o vínculo é verificado ANTES de
-    // qualquer catálogo, para que a pessoa falecida receba a mensagem certa.
-    const pessoaPedido = await prisma.pessoa.findUnique({
-      where: { cpf: String(data.cpf || "") },
-      select: { situacao: true, unificadoEmCpf: true },
-    });
-    if (!pessoaPedido) {
-      return { success: false, error: "Pessoa não encontrada no cadastro único." };
-    }
-    if (pessoaPedido.unificadoEmCpf) {
-      return {
-        success: false,
-        error: "Este cadastro foi unificado em outro. Selecione o cadastro principal.",
-      };
-    }
-    const indisponivel = mensagemPessoaIndisponivel(pessoaPedido.situacao);
-    if (indisponivel) return { success: false, error: indisponivel };
+    // Situação cadastral (fonte única): validação central refeita no backend
+    // no momento de salvar, ANTES de qualquer catálogo — pessoa falecida
+    // recebe a mensagem única de bloqueio de novos vínculos.
+    const aptoPedido = await validarPessoaParaVinculo(data.cpf);
+    if (!aptoPedido.ok) return { success: false, error: aptoPedido.error };
 
     // Disponibilidade operacional validada no servidor: não basta o
     // procedimento estar ativo, o tipo de exame dele também precisa estar.

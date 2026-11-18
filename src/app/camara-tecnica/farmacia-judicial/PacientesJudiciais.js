@@ -7,7 +7,7 @@ import { documentoPaciente } from '@/app/regulacao/constants';
 import { mascararTelefone } from '@/lib/telefone';
 import { formatarCpfExibicao } from '@/lib/cpf';
 import SeletorPaciente from '@/components/SeletorPaciente';
-import SituacaoPessoa from '@/components/cadastros/SituacaoPessoa';
+import SituacaoPessoa, { pessoaAptaParaVinculo } from '@/components/cadastros/SituacaoPessoa';
 import '@/components/cadastros/padraoCadastro.css';
 import styles from './PacientesJudiciais.module.css';
 
@@ -263,7 +263,11 @@ export default function TabPacientesJudiciais({
                 <button type="button" onClick={handleClear} className={styles.secondaryBtn} disabled={salvando}>
                   Cancelar
                 </button>
-                <button type="submit" className={styles.primaryBtn} disabled={salvando || loading}>
+                <button
+                  type="submit"
+                  className={styles.primaryBtn}
+                  disabled={salvando || loading || !pessoaAptaParaVinculo(pessoa?.situacao)}
+                >
                   {salvando ? 'Salvando...' : 'Salvar Processo e Medicamentos'}
                 </button>
               </div>

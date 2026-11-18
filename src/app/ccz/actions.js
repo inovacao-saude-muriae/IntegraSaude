@@ -7,6 +7,7 @@ import { MODULOS } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { normalizarCpfChave } from "@/lib/cpf";
 import { mensagemPessoaIndisponivel } from "@/lib/situacaoPessoa";
+import { validarPessoaParaVinculo } from "@/lib/situacaoPessoaGuard";
 import {
   soDigitos,
   validarCpf,
@@ -439,8 +440,9 @@ export async function salvarTutor(dados) {
       };
     }
     if (pessoaExistente && !dados.jaEhTutor) {
-      const indisponivel = mensagemPessoaIndisponivel(pessoaExistente.situacao);
-      if (indisponivel) return { success: false, error: indisponivel };
+      // Regra central de novo vínculo (mesma função dos demais módulos).
+      const aptoTutor = await validarPessoaParaVinculo(pessoaExistente.cpf);
+      if (!aptoTutor.ok) return { success: false, error: aptoTutor.error };
     }
     const pessoaJaExiste = Boolean(pessoaExistente);
 
@@ -778,21 +780,11 @@ export async function salvarAnimal(dados) {
         : null;
       const vinculoNovo = !editando || normalizarCpfChave(tutorAtual || "") !== pessoaCpf;
       if (vinculoNovo) {
-        const pessoaTutor = await prisma.pessoa.findUnique({
-          where: { cpf: pessoaCpf },
-          select: { situacao: true, unificadoEmCpf: true },
+        // Regra central de novo vínculo (mesma função dos demais módulos).
+        const aptoTutor = await validarPessoaParaVinculo(pessoaCpf, {
+          mensagemPessoa: "Tutor não encontrado no cadastro único.",
         });
-        if (!pessoaTutor) {
-          return { success: false, error: "Tutor não encontrado no cadastro único." };
-        }
-        if (pessoaTutor.unificadoEmCpf) {
-          return {
-            success: false,
-            error: "Este cadastro foi unificado em outro. Selecione o cadastro principal.",
-          };
-        }
-        const indisponivel = mensagemPessoaIndisponivel(pessoaTutor.situacao);
-        if (indisponivel) return { success: false, error: indisponivel };
+        if (!aptoTutor.ok) return { success: false, error: aptoTutor.error };
       }
     }
 
@@ -855,6 +847,8 @@ export async function salvarAnimal(dados) {
             codigoApp: "TUTOR_INEXISTENTE",
           });
         }
+        // Mesma decisão central de `validarPessoaParaVinculo` (releitura do
+        // banco dentro da transação, sem duplicar a regra).
         const indisponivel = mensagemPessoaIndisponivel(pessoa.situacao);
         if (indisponivel) {
           throw Object.assign(new Error(indisponivel), { codigoApp: "TUTOR_INDISPONIVEL" });

@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { mensagemPessoaIndisponivel } from '@/lib/situacaoPessoa';
+import { validarPessoaParaVinculo } from '@/lib/situacaoPessoaGuard';
 import { registrarAuditoria } from '@/lib/audit';
 import { revalidatePath } from 'next/cache';
 import { normalizarCpfChave } from '@/lib/cpf';
@@ -128,27 +128,13 @@ export async function cadastrarPacienteJunta(data) {
       return { success: false, error: 'CPF inválido. Deve conter 11 dígitos.' };
     }
     // A pessoa deve estar previamente cadastrada em Gerenciamento > Cadastro de Pessoas.
-    const pessoa = await prisma.pessoa.findUnique({
-      where: { cpf: cpfClean },
-      select: { cpf: true, situacao: true, unificadoEmCpf: true },
+    // Situação cadastral (fonte única): validação central, refeita no backend
+    // no momento de salvar — falecido não abre novo atendimento na Junta.
+    const apto = await validarPessoaParaVinculo(cpfClean, {
+      mensagemPessoa:
+        'Pessoa não encontrada. Cadastre-a primeiro em Gerenciamento > Cadastro de Pessoas.',
     });
-    if (!pessoa) {
-      return {
-        success: false,
-        error:
-          'Pessoa não encontrada. Cadastre-a primeiro em Gerenciamento > Cadastro de Pessoas.',
-      };
-    }
-    if (pessoa.unificadoEmCpf) {
-      return {
-        success: false,
-        error: 'Este cadastro foi unificado em outro. Selecione o cadastro principal.',
-      };
-    }
-    // Situação cadastral (fonte única): falecido não abre novo atendimento na
-    // Junta Reguladora; o histórico continua consultável.
-    const indisponivel = mensagemPessoaIndisponivel(pessoa.situacao);
-    if (indisponivel) return { success: false, error: indisponivel };
+    if (!apto.ok) return { success: false, error: apto.error };
 
     if (!tipoDeficiencia?.trim()) {
       return { success: false, error: 'Informe o tipo de deficiência.' };

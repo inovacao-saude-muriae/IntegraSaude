@@ -6,6 +6,8 @@ import { useConfirm, useNotify } from "@/components/ConfirmDialog";
 import { documentoPaciente } from "@/app/regulacao/constants";
 import { buscarPessoasCCZ, salvarAnimal, buscarAnimaisCCZ, obterAnimal } from "./actions";
 import { compressImage } from "@/lib/imageCompression";
+import SituacaoPessoa, { pessoaAptaParaVinculo } from "@/components/cadastros/SituacaoPessoa";
+import "@/components/cadastros/padraoCadastro.css";
 
 const MAX_FOTO_BYTES = 5 * 1024 * 1024; // ~5MB
 
@@ -54,6 +56,7 @@ export default function CadastroAnimal({ animalInicial = null, onSalvo, onCancel
   const [tutorTermo, setTutorTermo] = useState(animalInicial?.tutorNome || "");
   const [tutorNome, setTutorNome] = useState(animalInicial?.tutorNome || "");
   const [tutorResultados, setTutorResultados] = useState([]);
+  const [tutorSituacao, setTutorSituacao] = useState("");
   const [tutorDropAberto, setTutorDropAberto] = useState(false);
   const [tutorBuscando, setTutorBuscando] = useState(false);
   const tutorDropRef = useRef(null);
@@ -78,6 +81,7 @@ export default function CadastroAnimal({ animalInicial = null, onSalvo, onCancel
     setTutorNome(valor);
     // Ao digitar, limpa a seleção anterior até escolher de novo.
     setForm((prev) => ({ ...prev, pessoaCpf: "" }));
+    setTutorSituacao("");
     if (valor.trim().length < 2) {
       setTutorDropAberto(false);
       setTutorResultados([]);
@@ -94,6 +98,10 @@ export default function CadastroAnimal({ animalInicial = null, onSalvo, onCancel
     setForm((prev) => ({ ...prev, pessoaCpf: p.cpf }));
     setTutorNome(p.nomeCompleto || "");
     setTutorTermo(p.nomeCompleto || "");
+    // Situação cadastral da pessoa (fonte única): tutor falecido não recebe
+    // NOVO animal — o botão de salvar fica desabilitado. O backend refaz a
+    // verificação ao gravar.
+    setTutorSituacao(p.situacao || "");
     setTutorDropAberto(false);
   };
 
@@ -532,6 +540,14 @@ export default function CadastroAnimal({ animalInicial = null, onSalvo, onCancel
 
           <div className={styles.formSectionTitle}>Dados clínicos</div>
           <div className={styles.grid}>
+            {/* Situação cadastral do tutor selecionado (fonte única, somente
+                leitura). Falecido destaca em vermelho e bloqueia o vínculo. */}
+            {form.possuiResponsavel === "Sim" && form.pessoaCpf && tutorSituacao && (
+              <div className={`${styles.field} ${styles.colLg}`}>
+                <SituacaoPessoa situacao={tutorSituacao} />
+              </div>
+            )}
+
             {/* Possui tutor? + seletor de tutor ao lado */}
             <div className={`${styles.field} ${styles.colLg}`}>
               <label>Possui tutor?</label>
@@ -744,7 +760,16 @@ export default function CadastroAnimal({ animalInicial = null, onSalvo, onCancel
               >
                 Cancelar
               </button>
-              <button type="submit" className={styles.btnPrimary} disabled={salvando}>
+              <button
+                type="submit"
+                className={styles.btnPrimary}
+                disabled={
+                  salvando ||
+                  (Boolean(form.pessoaCpf) &&
+                    Boolean(tutorSituacao) &&
+                    !pessoaAptaParaVinculo(tutorSituacao))
+                }
+              >
                 {salvando ? "Salvando..." : animalCarregado ? "Atualizar" : "Salvar"}
               </button>
             </>

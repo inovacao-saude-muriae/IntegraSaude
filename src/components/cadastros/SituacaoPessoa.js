@@ -13,8 +13,18 @@ import {
   classeSituacaoPessoa,
   mensagemPessoaIndisponivel,
   normalizarSituacaoPessoa,
+  pessoaAptaAssistencia,
   rotuloSituacaoPessoa,
 } from "@/lib/situacaoPessoa";
+
+/**
+ * A pessoa está APTA a receber novos vínculos? Função única usada pelas telas
+ * dos módulos para desabilitar o botão de salvar. O backend refaz a mesma
+ * verificação no momento de gravar (validarPessoaParaVinculo).
+ */
+export function pessoaAptaParaVinculo(situacao) {
+  return Boolean(situacao) && pessoaAptaAssistencia(situacao);
+}
 
 export default function SituacaoPessoa({ situacao, className = "" }) {
   // Sem pessoa selecionada o campo fica VAZIO (nada de "Ativo" por omissão):

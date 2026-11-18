@@ -8,7 +8,7 @@ import {
 } from "@/lib/auth";
 import { MODULOS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-import { mensagemPessoaIndisponivel } from "@/lib/situacaoPessoa";
+import { exigirPessoaAptaParaVinculo } from "@/lib/situacaoPessoaGuard";
 import { registrarAuditoria } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { normalizarCpfChave } from "@/lib/cpf";
@@ -73,22 +73,12 @@ export async function createPacienteJudicial(data) {
       throw new Error("Selecione uma pessoa válida (CPF com 11 dígitos).");
     }
 
-    const pessoa = await prisma.pessoa.findUnique({
-      where: { cpf: cleanCpf },
-      select: { cpf: true, situacao: true, unificadoEmCpf: true },
+    // Situação cadastral (fonte única): validação central, refeita no backend
+    // no momento de salvar — pessoa falecida não abre novo acompanhamento.
+    await exigirPessoaAptaParaVinculo(cleanCpf, {
+      mensagemPessoa:
+        "Pessoa não encontrada. Cadastre-a primeiro em Gerenciamento > Cadastro de Pessoas.",
     });
-    if (!pessoa) {
-      throw new Error(
-        "Pessoa não encontrada. Cadastre-a primeiro em Gerenciamento > Cadastro de Pessoas."
-      );
-    }
-    if (pessoa.unificadoEmCpf) {
-      throw new Error("Este cadastro foi unificado em outro. Selecione o cadastro principal.");
-    }
-    // Situação cadastral (fonte única): falecido não abre novo acompanhamento
-    // na Farmácia Judicial.
-    const indisponivel = mensagemPessoaIndisponivel(pessoa.situacao);
-    if (indisponivel) throw new Error(indisponivel);
 
     if (!data.numeroPasta || !data.numeroProcesso) {
       throw new Error("Informe o número da pasta e do processo.");

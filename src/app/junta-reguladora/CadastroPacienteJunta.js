@@ -6,7 +6,7 @@ import { useConfirm } from '@/components/ConfirmDialog';
 import { documentoPaciente } from '@/app/regulacao/constants';
 import { mascararTelefone } from '@/lib/telefone';
 import SeletorPaciente from '@/components/SeletorPaciente';
-import SituacaoPessoa from '@/components/cadastros/SituacaoPessoa';
+import SituacaoPessoa, { pessoaAptaParaVinculo } from '@/components/cadastros/SituacaoPessoa';
 import { formatarCpfExibicao } from '@/lib/cpf';
 import '@/components/cadastros/padraoCadastro.css';
 import styles from './CadastroPacienteJunta.module.css';
@@ -184,7 +184,11 @@ export default function CadastroPacienteJunta({
             <button type="button" onClick={handleClear} className={styles.secondaryBtn} disabled={salvando}>
               Cancelar
             </button>
-            <button type="submit" className={styles.primaryBtn} disabled={salvando || !pessoa}>
+            <button
+              type="submit"
+              className={styles.primaryBtn}
+              disabled={salvando || !pessoa || !pessoaAptaParaVinculo(pessoa?.situacao)}
+            >
               {salvando ? 'Salvando...' : 'Salvar Dados da Junta'}
             </button>
           </div>

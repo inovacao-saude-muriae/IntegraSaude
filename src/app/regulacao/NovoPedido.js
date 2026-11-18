@@ -6,7 +6,7 @@ import { LOCAIS_REALIZACAO } from './constants';
 import { mascararTelefone } from '@/lib/telefone';
 import SeletorPaciente from '@/components/SeletorPaciente';
 import { formatarCpfExibicao } from '@/lib/cpf';
-import SituacaoPessoa from '@/components/cadastros/SituacaoPessoa';
+import SituacaoPessoa, { pessoaAptaParaVinculo } from '@/components/cadastros/SituacaoPessoa';
 import '@/components/cadastros/padraoCadastro.css';
 
 export default function NovoPedido({
@@ -295,7 +295,16 @@ export default function NovoPedido({
         </div>
 
         <div className={styles.formActions}>
-          <button type="submit" className={styles.primaryBtn}>
+          <button
+            type="submit"
+            className={styles.primaryBtn}
+            disabled={!pessoaAptaParaVinculo(newRequest.situacao)}
+            title={
+              pessoaAptaParaVinculo(newRequest.situacao)
+                ? undefined
+                : 'Pessoa com situação cadastral Falecido. Não é possível realizar novos vínculos.'
+            }
+          >
                 Cadastrar
           </button>
         </div>

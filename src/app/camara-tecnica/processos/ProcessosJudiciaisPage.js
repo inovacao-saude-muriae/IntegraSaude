@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useConfirm } from "@/components/ConfirmDialog";
 import SeletorPaciente from "@/components/SeletorPaciente";
-import SituacaoPessoa from "@/components/cadastros/SituacaoPessoa";
+import SituacaoPessoa, { pessoaAptaParaVinculo } from "@/components/cadastros/SituacaoPessoa";
 import "@/components/cadastros/padraoCadastro.css";
 import { formatarCpfExibicao } from "@/lib/cpf";
 import {
@@ -723,7 +723,11 @@ export default function ProcessosJudiciaisPage({
               >
                 Cancelar
               </button>
-              <button type="submit" className={styles.botaoPrimario} disabled={salvando}>
+              <button
+                type="submit"
+                className={styles.botaoPrimario}
+                disabled={salvando || !pessoaAptaParaVinculo(pacienteSelecionado?.situacao)}
+              >
                 {salvando
                   ? "Salvando…"
                   : editandoId

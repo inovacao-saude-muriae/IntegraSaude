@@ -132,13 +132,13 @@ async function exigirPessoa(cpfBruto, { permitirIndisponivel = false } = {}) {
   if (pessoa.unificadoEmCpf) {
     throw falha("Este cadastro foi unificado em outro. Selecione o cadastro atual.");
   }
-  // Situação cadastral (fonte única): falecido não recebe novo processo.
-  // No bloqueio a pessoa pode já ter sido inativada depois do processo: o
-  // bloqueio é ato administrativo sobre um processo existente, então só o
-  // cadastro unificado é impedido.
+  // Situação cadastral (fonte única): a regra é a MESMA função usada por todos
+  // os módulos, aplicada aqui no momento de salvar. No bloqueio o ato é
+  // administrativo sobre um processo existente: `permitirIndisponivel` mantém
+  // apenas o histórico consultável (o cadastro unificado continua impedido).
   if (!permitirIndisponivel) {
-    const indisponivel = mensagemPessoaIndisponivel(pessoa.situacao);
-    if (indisponivel) throw falha(indisponivel);
+    const erro = mensagemPessoaIndisponivel(pessoa.situacao);
+    if (erro) throw falha(erro);
   }
   return pessoa;
 }
