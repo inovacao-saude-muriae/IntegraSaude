@@ -76,8 +76,12 @@ export default function BloqueioJudicial({ podeCriar = false }) {
       return;
     }
     setResultados(res.data);
-    // Um único processo no resultado → carrega automaticamente.
-    if (res.data.length === 1) selecionar(res.data[0]);
+    // Com um único processo o seletor já vem com ele escolhido.
+    if (res.data.length === 1) {
+      setProcesso(res.data[0]);
+    } else {
+      setProcesso(null);
+    }
   }, []);
 
   function aoDigitar(texto) {
@@ -89,9 +93,10 @@ export default function BloqueioJudicial({ podeCriar = false }) {
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
+  // Escolhe o processo que receberá o bloqueio. A lista de resultados é
+  // mantida: com vários processos, o dropdown continua disponível.
   function selecionar(p) {
     setProcesso(p);
-    setResultados([]);
     setTermo(p.pacienteNome || "");
     setErro("");
   }
@@ -144,28 +149,26 @@ export default function BloqueioJudicial({ podeCriar = false }) {
 
   return (
     <div className={styles.container}>
-      <div className={styles.cabecalho}>
-        <h1 className={styles.titulo}>Realizar Bloqueio</h1>
-      </div>
+      {/* Container principal único, sem cabeçalho externo: o título fica no
+          topo do painel (padrão Novo Pedido da Regulação). */}
+      <section className={styles.painel}>
+        {aviso && (
+          <div className={styles.avisoSucesso} role="status">
+            {aviso}
+            <button type="button" onClick={() => setAviso("")} aria-label="Fechar">
+              ×
+            </button>
+          </div>
+        )}
+        {erro && (
+          <div className={styles.avisoErro} role="alert">
+            {erro}
+            <button type="button" onClick={() => setErro("")} aria-label="Fechar">
+              ×
+            </button>
+          </div>
+        )}
 
-      {aviso && (
-        <div className={styles.avisoSucesso} role="status">
-          {aviso}
-          <button type="button" onClick={() => setAviso("")} aria-label="Fechar">
-            ×
-          </button>
-        </div>
-      )}
-      {erro && (
-        <div className={styles.avisoErro} role="alert">
-          {erro}
-          <button type="button" onClick={() => setErro("")} aria-label="Fechar">
-            ×
-          </button>
-        </div>
-      )}
-
-      <section className={styles.card}>
         <h2 className={styles.secaoTitulo}>Dados do bloqueio</h2>
 
         <form onSubmit={salvar} className={styles.formulario}>
@@ -183,48 +186,42 @@ export default function BloqueioJudicial({ podeCriar = false }) {
                 ? "Buscando…"
                 : processo
                   ? "Processo selecionado. Altere a busca para escolher outro."
-                  : "Digite ao menos 2 caracteres. Um único processo é carregado automaticamente."}
+                  : "Digite ao menos 2 caracteres (nome, CPF ou número do processo)."}
             </span>
 
+            {/* Lista suspensa com os processos encontrados: o bloqueio é
+                vinculado ao processo escolhido. Com um único processo, ele já
+                vem selecionado. */}
             {resultados.length > 0 && (
-              <div className={styles.tabelaWrap} style={{ marginTop: "0.5rem" }}>
-                <table className={styles.tabela}>
-                  <thead>
-                    <tr>
-                      <th>Paciente</th>
-                      <th>Nº do Processo</th>
-                      <th>Nº da Pasta</th>
-                      <th>Especialidade</th>
-                      <th>Procedimento</th>
-                      <th className={styles.colAcoes}>Ação</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {resultados.map((p) => (
-                      <tr key={p.id}>
-                        <td>
-                          <div className={styles.nomeCelula}>{p.pacienteNome}</div>
-                          <div className={styles.cpfCelula}>
-                            {formatarCpfExibicao(p.pacienteCpf)}
-                          </div>
-                        </td>
-                        <td>{p.numeroProcesso}</td>
-                        <td>{p.numeroPastaPaciente || p.numeroPasta || "—"}</td>
-                        <td>{p.especialidadeNome || "—"}</td>
-                        <td>{p.procedimentoNome || "—"}</td>
-                        <td>
-                          <button
-                            type="button"
-                            className={styles.botaoIconeAzul}
-                            onClick={() => selecionar(p)}
-                          >
-                            Selecionar
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className={styles.campoGrande} style={{ marginTop: "0.75rem" }}>
+                <label className={styles.label}>Processo para o bloqueio *</label>
+                <select
+                  className={styles.select}
+                  value={processo ? String(processo.id) : ""}
+                  onChange={(e) => {
+                    const alvo = resultados.find((p) => String(p.id) === e.target.value);
+                    if (alvo) selecionar(alvo);
+                  }}
+                  required
+                >
+                  <option value="">
+                    {resultados.length === 1
+                      ? "Selecione o processo"
+                      : `Selecione o processo (${resultados.length} encontrados)`}
+                  </option>
+                  {resultados.map((p) => (
+                    <option key={p.id} value={String(p.id)}>
+                      {`${p.numeroProcesso} · pasta ${p.numeroPastaPaciente || p.numeroPasta || "—"}` +
+                        `${p.especialidadeNome ? ` · ${p.especialidadeNome}` : ""}` +
+                        `${p.procedimentoNome ? ` / ${p.procedimentoNome}` : ""}`}
+                    </option>
+                  ))}
+                </select>
+                <span className={styles.dica}>
+                  {resultados.length === 1
+                    ? "Este paciente possui um único processo: o bloqueio será vinculado a ele."
+                    : "Este paciente possui vários processos: escolha aquele que receberá o bloqueio."}
+                </span>
               </div>
             )}
 

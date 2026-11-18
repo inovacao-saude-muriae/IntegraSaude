@@ -108,9 +108,6 @@ export default function ProcessosJudiciaisPage({
   // Modais
   const [detalhe, setDetalhe] = useState(null);
   const [exclusao, setExclusao] = useState(null); // { processo, dependencias, podeExcluir }
-  const [modalEspecialidade, setModalEspecialidade] = useState(false);
-  const [modalProcedimento, setModalProcedimento] = useState(false);
-  const [filtroModal, setFiltroModal] = useState("");
 
   // ── Carga ────────────────────────────────────────────────────────────────
   const recarregar = useCallback(async (termo = "") => {
@@ -142,14 +139,10 @@ export default function ProcessosJudiciaisPage({
     () => especialidades.find((x) => String(x.id) === String(form.especialidadeId)) || null,
     [especialidades, form.especialidadeId],
   );
-  const especialidadeNome = especialidadeAtual?.nome || "";
 
   // Só os procedimentos VINCULADOS à especialidade escolhida — é o catálogo
   // próprio da área Processos, não o da Junta Reguladora.
   const procedimentosDaEspecialidade = especialidadeAtual?.procedimentos || [];
-  const procedimentoNome =
-    procedimentosDaEspecialidade.find((p) => String(p.id) === String(form.procedimentoId))
-      ?.nome || "";
 
   // ── Formulário ───────────────────────────────────────────────────────────
   function limparFormulario() {
@@ -323,33 +316,29 @@ export default function ProcessosJudiciaisPage({
 
   return (
     <div className={styles.container}>
-      <div className={styles.cabecalho}>
-        <h1 className={styles.titulo}>Procedimentos Cirúrgicos</h1>
-        <div className={styles.cabecalhoAcoes}>
-          {/* O cadastro de Especialidades e Procedimentos é administrativo e
-              vive em Gerenciamento → Especialidades e Procedimentos. Não é
-              etapa do formulário e não aparece mais na navegação operacional. */}
-          <div className={styles.abas}>
-            <button
-              type="button"
-              className={aba === "consultar" ? styles.abaAtiva : styles.aba}
-              onClick={() => setAba("consultar")}
-            >
-              Consultar Processos
-            </button>
-            <button
-              type="button"
-              className={aba === "novo" ? styles.abaAtiva : styles.aba}
-              onClick={() => {
-                if (!editandoId) limparFormulario();
-                setAba("novo");
-              }}
-            >
-              {editandoId ? "Editar Processo" : "Novo Processo"}
-            </button>
-          </div>
+      {/* Container principal único: abas + avisos + consulta/formulário ficam
+          todos sobre o mesmo painel branco (padrão Lista de Espera da Regulação).
+          Não há cabeçalho externo: o título é o da aba ativa. */}
+      <section className={styles.painel}>
+        <div className={styles.abas}>
+          <button
+            type="button"
+            className={aba === "consultar" ? styles.abaAtiva : styles.aba}
+            onClick={() => setAba("consultar")}
+          >
+            Consultar Processos
+          </button>
+          <button
+            type="button"
+            className={aba === "novo" ? styles.abaAtiva : styles.aba}
+            onClick={() => {
+              if (!editandoId) limparFormulario();
+              setAba("novo");
+            }}
+          >
+            {editandoId ? "Editar Processo" : "Novo Processo"}
+          </button>
         </div>
-      </div>
 
       {aviso && (
         <div className={styles.avisoSucesso} role="status">
@@ -370,7 +359,7 @@ export default function ProcessosJudiciaisPage({
 
       {/* ── ABA 1: CONSULTAR ─────────────────────────────────────────────── */}
       {aba === "consultar" && (
-        <section className={styles.card}>
+        <div className={styles.bloco}>
           <div className={styles.barraBusca}>
             <input
               className={styles.campoBusca}
@@ -465,12 +454,12 @@ export default function ProcessosJudiciaisPage({
               </table>
             </div>
           )}
-        </section>
+        </div>
       )}
 
       {/* ── ABA 2: NOVO / EDITAR ─────────────────────────────────────────── */}
       {aba === "novo" && (
-        <section className={styles.card}>
+        <div className={styles.bloco}>
           <h2 className={styles.secaoTitulo}>
             {editandoId ? `Editar processo #${editandoId}` : "Novo processo judicial"}
           </h2>
@@ -524,60 +513,47 @@ export default function ProcessosJudiciaisPage({
             <div className={styles.linha}>
               <div className={styles.campo}>
                 <label className={styles.label}>Especialidade *</label>
-                <div className={styles.campoComBotao}>
-                  <input
-                    className={styles.input}
-                    value={especialidadeNome}
-                    readOnly
-                    placeholder="Nenhuma especialidade selecionada"
-                  />
-                  <button
-                    type="button"
-                    className={styles.botaoSecundario}
-                    onClick={() => {
-                      setFiltroModal("");
-                      setModalEspecialidade(true);
-                    }}
-                  >
-                    Selecionar
-                  </button>
-                </div>
+                <select
+                  className={styles.select}
+                  value={form.especialidadeId}
+                  onChange={(e) => trocarEspecialidade(e.target.value)}
+                  required
+                >
+                  <option value="">Selecione a especialidade</option>
+                  {especialidades.map((esp) => (
+                    <option key={esp.id} value={String(esp.id)}>
+                      {esp.nome}
+                    </option>
+                  ))}
+                </select>
+                <span className={styles.dica}>
+                  Somente especialidades ativas da Câmara Técnica.
+                </span>
               </div>
               <div className={styles.campo}>
                 <label className={styles.label}>Procedimento</label>
-                <div className={styles.campoComBotao}>
-                  <input
-                    className={styles.input}
-                    value={procedimentoNome}
-                    readOnly
-                    placeholder={
-                      form.especialidadeId
-                        ? "Nenhum procedimento selecionado"
-                        : "Escolha a especialidade primeiro"
-                    }
-                  />
-                  <button
-                    type="button"
-                    className={styles.botaoSecundario}
-                    disabled={!form.especialidadeId}
-                    onClick={() => {
-                      setFiltroModal("");
-                      setModalProcedimento(true);
-                    }}
-                  >
-                    Selecionar
-                  </button>
-                  {form.procedimentoId && (
-                    <button
-                      type="button"
-                      className={styles.botaoLimpar}
-                      title="Limpar procedimento"
-                      onClick={() => setForm((f) => ({ ...f, procedimentoId: "" }))}
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
+                <select
+                  className={styles.select}
+                  value={form.procedimentoId}
+                  onChange={(e) => setForm((f) => ({ ...f, procedimentoId: e.target.value }))}
+                  disabled={!form.especialidadeId}
+                >
+                  <option value="">
+                    {form.especialidadeId
+                      ? "Selecione o procedimento"
+                      : "Selecione primeiro a especialidade"}
+                  </option>
+                  {procedimentosDaEspecialidade.map((p) => (
+                    <option key={p.id} value={String(p.id)}>
+                      {p.nome}
+                    </option>
+                  ))}
+                </select>
+                <span className={styles.dica}>
+                  {form.especialidadeId
+                    ? "Somente procedimentos ativos vinculados à especialidade."
+                    : "Escolha a especialidade para liberar os procedimentos."}
+                </span>
               </div>
             </div>
 
@@ -601,7 +577,7 @@ export default function ProcessosJudiciaisPage({
               </button>
             </div>
           </form>
-        </section>
+        </div>
       )}
 
       {/* ── Modal: detalhe ───────────────────────────────────────────────── */}
@@ -689,78 +665,7 @@ export default function ProcessosJudiciaisPage({
         </Modal>
       )}
 
-      {/* ── Modal: especialidade ─────────────────────────────────────────── */}
-      {modalEspecialidade && (
-        <Modal titulo="Selecionar especialidade" onFechar={() => setModalEspecialidade(false)}>
-          <input
-            className={styles.campoBusca}
-            placeholder="Filtrar especialidades…"
-            value={filtroModal}
-            onChange={(e) => setFiltroModal(e.target.value)}
-          />
-          <div className={styles.listaModal}>
-            {especialidades.length === 0 && (
-              <p className={styles.vazio}>
-                Nenhuma especialidade cadastrada. Cadastre em Câmara Técnica › Processos ›
-                Especialidades e Procedimentos.
-              </p>
-            )}
-            {especialidades
-              .filter((e) => e.nome.toLowerCase().includes(filtroModal.toLowerCase()))
-              .map((e) => (
-                <button
-                  key={e.id}
-                  type="button"
-                  className={styles.itemModal}
-                  onClick={() => {
-                    trocarEspecialidade(String(e.id));
-                    setModalEspecialidade(false);
-                  }}
-                >
-                  <span>{e.nome}</span>
-                  <span className={styles.itemModalSub}>
-                    {e.procedimentos.length} procedimento(s)
-                  </span>
-                </button>
-              ))}
-          </div>
-        </Modal>
-      )}
-
-      {/* ── Modal: procedimento ──────────────────────────────────────────── */}
-      {modalProcedimento && (
-        <Modal titulo="Selecionar procedimento" onFechar={() => setModalProcedimento(false)}>
-          <input
-            className={styles.campoBusca}
-            placeholder="Filtrar procedimentos…"
-            value={filtroModal}
-            onChange={(e) => setFiltroModal(e.target.value)}
-          />
-          <div className={styles.listaModal}>
-            {procedimentosDaEspecialidade.length === 0 && (
-              <p className={styles.vazio}>
-                Nenhum procedimento vinculado a esta especialidade. Cadastre em
-                Câmara Técnica › Processos › Especialidades e Procedimentos.
-              </p>
-            )}
-            {procedimentosDaEspecialidade
-              .filter((p) => p.nome.toLowerCase().includes(filtroModal.toLowerCase()))
-              .map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  className={styles.itemModal}
-                  onClick={() => {
-                    setForm((f) => ({ ...f, procedimentoId: String(p.id) }));
-                    setModalProcedimento(false);
-                  }}
-                >
-                  <span>{p.nome}</span>
-                </button>
-              ))}
-          </div>
-        </Modal>
-      )}
+      </section>
     </div>
   );
 }
