@@ -587,13 +587,34 @@ export async function buscarProcessosParaBloqueio(termo = "") {
   }
 }
 
-export async function listarBloqueios({ processoId = null } = {}) {
+export async function listarBloqueios({ processoId = null, termo = "" } = {}) {
   try {
     await requirePermissao(MODULOS.PROCESSOS, FUNCIONALIDADE, "visualizar");
 
     const filtro = inteiroPositivo(processoId);
+    // Pesquisa por nome do paciente, CPF, número da pasta ou do processo.
+    const busca = texto(termo, 100);
+    const digitos = busca.replace(/\D/g, "");
+    const porTexto = busca
+      ? {
+          processo: {
+            OR: [
+              { numeroProcesso: { contains: busca, mode: "insensitive" } },
+              { numeroPasta: { contains: busca, mode: "insensitive" } },
+              { pessoa: { nomeCompleto: { contains: busca, mode: "insensitive" } } },
+              { pessoa: { numeroPasta: { contains: busca, mode: "insensitive" } } },
+              ...(digitos ? [{ pessoaCpf: { contains: digitos } }] : []),
+            ],
+          },
+        }
+      : {};
+    const where = {
+      ...(filtro ? { processoId: filtro } : {}),
+      ...porTexto,
+    };
+
     const bloqueios = await prisma.processoBloqueio.findMany({
-      where: filtro ? { processoId: filtro } : {},
+      where,
       include: {
         processo: {
           select: {
@@ -724,6 +745,115 @@ export async function criarBloqueio(dados) {
     revalidatePath(ROTA_BLOQUEIO);
     revalidatePath(ROTA);
     return { success: true, data: serializarBloqueio(criado) };
+  } catch (erro) {
+    return responder(erro);
+  }
+}
+
+// ── Edição e exclusão do bloqueio ─────────────────────────────────────────
+// O bloqueio pertence ao PROCESSO: aqui só data, valor e observação mudam.
+const INCLUDE_BLOQUEIO = {
+  processo: {
+    select: {
+      id: true,
+      numeroProcesso: true,
+      numeroPasta: true,
+      pessoaCpf: true,
+      especialidadeNome: true,
+      procedimentoNome: true,
+      pessoa: { select: { nomeCompleto: true, numeroPasta: true } },
+      especialidade: { select: { nome: true } },
+      procedimento: { select: { nome: true } },
+    },
+  },
+};
+
+async function exigirBloqueio(id) {
+  const bloqueioId = inteiroPositivo(id);
+  if (!bloqueioId) throw falha("Bloqueio inválido.");
+  const bloqueio = await prisma.processoBloqueio.findUnique({
+    where: { id: bloqueioId },
+    include: INCLUDE_BLOQUEIO,
+  });
+  if (!bloqueio) throw falha("Bloqueio não encontrado.", 404);
+  return bloqueio;
+}
+
+export async function editarBloqueio(id, dados) {
+  try {
+    const user = await requirePermissao(MODULOS.PROCESSOS, FUNCIONALIDADE, "editar");
+    const atual = await exigirBloqueio(id);
+
+    const dataBloqueio = dataDoFormulario(dados?.dataBloqueio);
+    const valor = valorMonetario(dados?.valor);
+    const observacao = texto(dados?.observacao, 255) || null;
+
+    const atualizado = await prisma.processoBloqueio.update({
+      where: { id: atual.id },
+      data: { dataBloqueio, valor, observacao },
+      include: INCLUDE_BLOQUEIO,
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "EDITAR",
+      modulo: MODULO_AUDITORIA,
+      entidade: "ProcessoBloqueio",
+      entidadeId: String(atual.id),
+      descricao: `Bloqueio do processo ${atual.processo.numeroProcesso} alterado`,
+      detalhes: {
+        processoId: atual.processoId,
+        numeroProcesso: atual.processo.numeroProcesso,
+        antes: {
+          dataBloqueio: atual.dataBloqueio.toISOString().slice(0, 10),
+          valor: String(atual.valor),
+          observacao: atual.observacao,
+        },
+        depois: {
+          dataBloqueio: atualizado.dataBloqueio.toISOString().slice(0, 10),
+          valor: String(atualizado.valor),
+          observacao: atualizado.observacao,
+        },
+      },
+    });
+
+    revalidatePath(ROTA_BLOQUEIO);
+    revalidatePath(ROTA);
+    return { success: true, data: serializarBloqueio(atualizado) };
+  } catch (erro) {
+    return responder(erro);
+  }
+}
+
+export async function excluirBloqueio(id, { confirmado = false } = {}) {
+  try {
+    const user = await requirePermissao(MODULOS.PROCESSOS, FUNCIONALIDADE, "excluir");
+    if (!confirmado) throw falha("Confirme a exclusão do bloqueio.");
+    const atual = await exigirBloqueio(id);
+
+    await prisma.processoBloqueio.delete({ where: { id: atual.id } });
+
+    await registrarAuditoria({
+      user,
+      acao: "EXCLUIR",
+      modulo: MODULO_AUDITORIA,
+      entidade: "ProcessoBloqueio",
+      entidadeId: String(atual.id),
+      descricao: `Bloqueio do processo ${atual.processo.numeroProcesso} excluído`,
+      detalhes: {
+        processoId: atual.processoId,
+        numeroProcesso: atual.processo.numeroProcesso,
+        numeroPasta: atual.processo.pessoa?.numeroPasta || atual.processo.numeroPasta,
+        pacienteCpf: atual.processo.pessoaCpf,
+        dataBloqueio: atual.dataBloqueio.toISOString().slice(0, 10),
+        valor: String(atual.valor),
+        observacao: atual.observacao,
+      },
+    });
+
+    revalidatePath(ROTA_BLOQUEIO);
+    revalidatePath(ROTA);
+    return { success: true, data: { id: atual.id } };
   } catch (erro) {
     return responder(erro);
   }

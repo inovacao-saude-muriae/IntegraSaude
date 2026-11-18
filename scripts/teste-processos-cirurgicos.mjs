@@ -357,6 +357,62 @@ check("sem PROCESSOS: listagem negada", negadoLista.success === false);
 const nada = await db.query("SELECT count(*)::int AS n FROM processos_judiciais WHERE numero_processo=$1", [`${PFX}-900`]);
 check("nada foi gravado pela sessão negada", nada.rows[0].n === 0);
 
+// ── 7. Tabela de bloqueios: pesquisa, edição e exclusão ──────────────────
+console.log("\n7. Tabela de bloqueios");
+const b7 = await chamar(GESTOR, "criarBloqueio", [{
+  processoId: p2.data.id, dataBloqueio: "2026-11-10", valor: "250,00",
+}]);
+check("segundo bloqueio criado (outro processo)", b7.success === true, JSON.stringify(b7.error || ""));
+
+const todos = await chamar(GESTOR, "listarBloqueios", [{}]);
+check("listagem traz todos os bloqueios", todos.success && todos.data.length === 2, String(todos.data?.length));
+check(
+  "ordenado do mais recente para o mais antigo",
+  todos.data?.[0]?.dataBloqueio === "2026-11-18" && todos.data?.[1]?.dataBloqueio === "2026-11-10",
+  JSON.stringify(todos.data?.map((b) => b.dataBloqueio)),
+);
+const porNome = await chamar(GESTOR, "listarBloqueios", [{ termo: "TESTE Paciente A" }]);
+check("pesquisa por nome do paciente", porNome.success && porNome.data.length === 2, String(porNome.data?.length));
+const porCpf = await chamar(GESTOR, "listarBloqueios", [{ termo: "910.000.009-40" }]);
+check("pesquisa por CPF com máscara", porCpf.success && porCpf.data.length === 2);
+const porPasta = await chamar(GESTOR, "listarBloqueios", [{ termo: "PC-500" }]);
+check("pesquisa por número da pasta", porPasta.success && porPasta.data.length === 2);
+const porProcesso = await chamar(GESTOR, "listarBloqueios", [{ termo: `${PFX}-001` }]);
+check("pesquisa por número do processo", porProcesso.success && porProcesso.data.length === 1, String(porProcesso.data?.length));
+check("linha traz paciente, pasta, especialidade e procedimento",
+  Boolean(porProcesso.data?.[0]?.processo?.pacienteNome && porProcesso.data?.[0]?.processo?.numeroPasta),
+  JSON.stringify(porProcesso.data?.[0]?.processo || {}));
+
+const ed = await chamar(GESTOR, "editarBloqueio", [b7.data.id, {
+  dataBloqueio: "2026-11-12", valor: "300,75", observacao: "Corrigido",
+}]);
+check("bloqueio editado", ed.success === true, JSON.stringify(ed.error || ""));
+check("valor editado em decimal exato", String(ed.data?.valor) === "300.75", String(ed.data?.valor));
+check("processo preservado na edição", ed.data?.processoId === p2.data.id);
+const edInvalido = await chamar(GESTOR, "editarBloqueio", [b7.data.id, { dataBloqueio: "2026-11-12", valor: "0" }]);
+check("edição recusa valor zero", edInvalido.success === false);
+
+const semConfirmar = await chamar(GESTOR, "excluirBloqueio", [b7.data.id, {}]);
+check("exclusão exige confirmação", semConfirmar.success === false);
+const excB = await chamar(GESTOR, "excluirBloqueio", [b7.data.id, { confirmado: true }]);
+check("bloqueio excluído após confirmação", excB.success === true, JSON.stringify(excB.error || ""));
+const restantes = await chamar(GESTOR, "listarBloqueios", [{}]);
+check("tabela reflete a exclusão", restantes.data?.length === 1, String(restantes.data?.length));
+
+const audB = await db.query(
+  "SELECT acao FROM audit_logs WHERE entidade='ProcessoBloqueio' AND user_cpf=$1 ORDER BY id",
+  [GESTOR],
+);
+check("edição auditada", audB.rows.some((r) => r.acao === "EDITAR"));
+check("exclusão auditada", audB.rows.some((r) => r.acao === "EXCLUIR"));
+
+const negadoEdit = await chamar(SEM_ACESSO, "editarBloqueio", [b1.data.id, {
+  dataBloqueio: "2026-11-18", valor: "10,00",
+}]);
+check("sem PROCESSOS: edição negada", negadoEdit.success === false);
+const negadoExc = await chamar(SEM_ACESSO, "excluirBloqueio", [b1.data.id, { confirmado: true }]);
+check("sem PROCESSOS: exclusão negada", negadoExc.success === false);
+
 await limpar();
 await db.end();
 console.log(`\n${ok} OK · ${falhas.length} FALHA(S)`);

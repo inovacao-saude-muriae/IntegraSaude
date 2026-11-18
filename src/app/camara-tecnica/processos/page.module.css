@@ -149,13 +149,18 @@
   width: 260px;
 }
 
+/* Paciente e CPF na mesma linha: a coluna não cresce em altura. */
 .nomeCelula {
+  display: inline;
   font-weight: 600;
 }
 
 .cpfCelula {
+  display: inline;
+  margin-left: 0.4rem;
   font-size: 0.75rem;
   color: #64748b;
+  white-space: nowrap;
 }
 
 .acoes {
@@ -457,3 +462,28 @@
 }
 
 
+
+/* ── Tabela de bloqueios (abaixo do formulário, mesmo painel) ───────────── */
+.tabelaSecao {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.blocoEdicao {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.valorCelula {
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+}

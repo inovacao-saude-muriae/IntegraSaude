@@ -20,12 +20,17 @@ export default async function BloqueioProcessosPage() {
     (await usuarioTemPermissao(ctx.user, MODULOS.PROCESSOS, "processo_judicial", "visualizar"));
   if (!podeVer) return <AcessoNegadoModulo modulo="Processos Judiciais" />;
 
-  const podeCriar = await usuarioTemPermissao(
-    ctx.user,
-    MODULOS.PROCESSOS,
-    "processo_judicial",
-    "criar",
-  );
+  const [podeCriar, podeEditar, podeExcluir] = await Promise.all([
+    usuarioTemPermissao(ctx.user, MODULOS.PROCESSOS, "processo_judicial", "criar"),
+    usuarioTemPermissao(ctx.user, MODULOS.PROCESSOS, "processo_judicial", "editar"),
+    usuarioTemPermissao(ctx.user, MODULOS.PROCESSOS, "processo_judicial", "excluir"),
+  ]);
 
-  return <BloqueioJudicial podeCriar={podeCriar} />;
+  return (
+    <BloqueioJudicial
+      podeCriar={podeCriar}
+      podeEditar={podeEditar}
+      podeExcluir={podeExcluir}
+    />
+  );
 }
