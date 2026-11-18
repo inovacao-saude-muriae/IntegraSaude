@@ -8,8 +8,9 @@
 //    apresenta a lista para escolher aquele que receberá o bloqueio.
 // 3. Os dados do processo aparecem em campos SOMENTE LEITURA.
 // 4. Data (obrigatória) + valor monetário brasileiro (obrigatório, > 0).
-// 5. Abaixo do formulário, a tabela com TODOS os bloqueios cadastrados, com
-//    pesquisa, Editar e Excluir (permissões vêm do servidor).
+// 5. Duas abas, no mesmo padrão de Consultar Processos/Novo Processo:
+//    "Consultar Bloqueios" (filtros + tabela + Editar/Excluir) e
+//    "Novo Bloqueio" (formulário de cadastro, sem alteração de campos).
 //
 // O bloqueio é gravado em processos_bloqueios vinculado ao PROCESSO
 // (processo_id), nunca apenas ao paciente. As permissões vêm do servidor
@@ -19,6 +20,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatarCpfExibicao } from "@/lib/cpf";
 import { mascararMoeda, formatarMoedaBRL } from "@/lib/moeda";
+import { obterCatalogoParaFormulario } from "../especialidades/actions";
 import { useConfirm } from "@/components/ConfirmDialog";
 import {
   buscarProcessosParaBloqueio,
@@ -36,12 +38,24 @@ const dataBR = (iso) => {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : "—";
 };
 
+const FILTROS_VAZIOS = {
+  paciente: "",
+  numeroProcesso: "",
+  numeroPasta: "",
+  especialidadeId: "",
+  procedimentoId: "",
+  dataInicio: "",
+  dataFim: "",
+};
+
 export default function BloqueioJudicial({
   podeCriar = false,
   podeEditar = false,
   podeExcluir = false,
 }) {
   const confirmar = useConfirm();
+  // Mesmas abas de Novo Processo: Consultar Bloqueios / Novo Bloqueio.
+  const [aba, setAba] = useState("consultar");
   const [termo, setTermo] = useState("");
   const [resultados, setResultados] = useState([]);
   const [buscando, setBuscando] = useState(false);
@@ -54,42 +68,67 @@ export default function BloqueioJudicial({
   const [erro, setErro] = useState("");
   const [aviso, setAviso] = useState("");
   const [bloqueios, setBloqueios] = useState([]);
-  // Pesquisa da tabela (nome, CPF, número da pasta ou do processo).
-  const [buscaTabela, setBuscaTabela] = useState("");
-  const [carregandoTabela, setCarregandoTabela] = useState(true);
+  // Filtros da consulta: a tabela só aparece depois de uma consulta.
+  const [filtros, setFiltros] = useState(FILTROS_VAZIOS);
+  const [consultou, setConsultou] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [valorTotal, setValorTotal] = useState("0.00");
+  const [consultando, setConsultando] = useState(false);
+  const [especialidades, setEspecialidades] = useState([]);
   // Edição inline de um bloqueio da tabela.
   const [editando, setEditando] = useState(null);
   const [salvandoEdicao, setSalvandoEdicao] = useState(false);
   const timer = useRef(null);
-  const timerTabela = useRef(null);
 
-  const recarregarBloqueios = useCallback(async (termoBusca = "") => {
-    const res = await listarBloqueios({ termo: termoBusca });
-    if (res.success) setBloqueios(res.data);
-    else setErro(res.error);
+  // Consulta no backend: os filtros combinam entre si (AND).
+  const consultar = useCallback(async (filtrosConsulta = {}, { todos = false } = {}) => {
+    setConsultando(true);
+    const res = await listarBloqueios({ ...filtrosConsulta, todos });
+    setConsultando(false);
+    if (!res.success) {
+      setErro(res.error);
+      return res;
+    }
+    setBloqueios(res.data);
+    setTotal(res.total ?? res.data.length);
+    setValorTotal(res.valorTotal || "0.00");
+    setConsultou(true);
     return res;
   }, []);
 
   useEffect(() => {
     let vivo = true;
     (async () => {
-      const res = await listarBloqueios({});
-      if (!vivo) return;
-      if (res.success) setBloqueios(res.data);
-      else setErro(res.error);
-      setCarregandoTabela(false);
+      // Nada é listado na abertura: só o catálogo de especialidades.
+      const cats = await obterCatalogoParaFormulario();
+      if (vivo && cats.success) setEspecialidades(cats.especialidades || []);
     })();
     return () => {
       vivo = false;
     };
   }, []);
 
-  // Pesquisa com debounce na tabela de bloqueios.
-  function aoPesquisarTabela(texto) {
-    setBuscaTabela(texto);
-    clearTimeout(timerTabela.current);
-    timerTabela.current = setTimeout(() => recarregarBloqueios(texto), 350);
+  function alterarFiltro(campo, valor) {
+    setFiltros((f) => {
+      const proximo = { ...f, [campo]: valor };
+      if (campo === "especialidadeId") proximo.procedimentoId = "";
+      return proximo;
+    });
   }
+
+  function limparFiltros() {
+    setFiltros(FILTROS_VAZIOS);
+    setBloqueios([]);
+    setTotal(0);
+    setValorTotal("0.00");
+    setConsultou(false);
+    setErro("");
+  }
+
+  const filtrosEspecialidade = especialidades.find(
+    (x) => String(x.id) === String(filtros.especialidadeId),
+  );
+  const filtrosProcedimentos = filtrosEspecialidade?.procedimentos || [];
 
   // Busca com debounce (nome, CPF ou número do processo).
   const buscar = useCallback(async (texto) => {
@@ -124,13 +163,7 @@ export default function BloqueioJudicial({
     timer.current = setTimeout(() => buscar(texto), 350);
   }
 
-  useEffect(
-    () => () => {
-      clearTimeout(timer.current);
-      clearTimeout(timerTabela.current);
-    },
-    [],
-  );
+  useEffect(() => () => clearTimeout(timer.current), []);
 
   // Escolhe o processo que receberá o bloqueio. A lista de resultados é
   // mantida: com vários processos, o dropdown continua disponível.
@@ -178,8 +211,8 @@ export default function BloqueioJudicial({
     setValor("");
     setObservacao("");
     setData(hoje());
-    // Atualiza a tabela sem recarregar a página.
-    await recarregarBloqueios(buscaTabela);
+    // Atualiza a tabela sem recarregar a página (refaz a consulta atual).
+    if (consultou) await consultar(filtros);
   }
 
   // ── Edição e exclusão pela tabela ────────────────────────────────────────
@@ -193,6 +226,7 @@ export default function BloqueioJudicial({
       observacao: b.observacao || "",
     });
     setErro("");
+    setAba("novo");
   }
 
   async function salvarEdicao(e) {
@@ -212,7 +246,7 @@ export default function BloqueioJudicial({
         `(${formatarMoedaBRL(res.data.valor)}).`,
     );
     setEditando(null);
-    await recarregarBloqueios(buscaTabela);
+    if (consultou) await consultar(filtros);
   }
 
   async function remover(b) {
@@ -229,7 +263,7 @@ export default function BloqueioJudicial({
     const res = await excluirBloqueio(b.id, { confirmado: true });
     if (!res.success) return setErro(res.error);
     setAviso(`Bloqueio de ${b.processo?.numeroProcesso || ""} excluído.`);
-    await recarregarBloqueios(buscaTabela);
+    if (consultou) await consultar(filtros);
   }
 
   return (
@@ -254,6 +288,28 @@ export default function BloqueioJudicial({
           </div>
         )}
 
+        <div className={styles.abas}>
+          <button
+            type="button"
+            className={aba === "consultar" ? styles.abaAtiva : styles.aba}
+            onClick={() => setAba("consultar")}
+          >
+            Consultar Bloqueios
+          </button>
+          <button
+            type="button"
+            className={aba === "novo" ? styles.abaAtiva : styles.aba}
+            onClick={() => {
+              setEditando(null);
+              setAba("novo");
+            }}
+          >
+            Novo Bloqueio
+          </button>
+        </div>
+
+        {aba === "novo" && (
+          <div className={styles.bloco}>
         <h2 className={styles.secaoTitulo}>Dados do bloqueio</h2>
 
         <form onSubmit={salvar} className={styles.formulario}>
@@ -437,103 +493,10 @@ export default function BloqueioJudicial({
             </>
           )}
         </form>
-        {/* ── Bloqueios cadastrados ─────────────────────────────────────── */}
-        <div className={styles.tabelaSecao}>
-          <h2 className={styles.secaoTitulo}>Bloqueios cadastrados</h2>
-
-          <div className={styles.barraBusca}>
-            <input
-              className={styles.campoBusca}
-              placeholder="Buscar por nome, CPF, número da pasta ou do processo…"
-              value={buscaTabela}
-              onChange={(e) => aoPesquisarTabela(e.target.value)}
-            />
-            <button
-              type="button"
-              className={styles.botaoSecundario}
-              onClick={() => recarregarBloqueios(buscaTabela)}
-            >
-              Buscar
-            </button>
           </div>
+        )}
 
-          {carregandoTabela ? (
-            <p className={styles.vazio}>Carregando bloqueios…</p>
-          ) : bloqueios.length === 0 ? (
-            <p className={styles.vazio}>
-              {buscaTabela
-                ? "Nenhum bloqueio encontrado para esta busca."
-                : "Nenhum bloqueio cadastrado."}
-            </p>
-          ) : (
-            <div className={styles.tabelaWrap}>
-              <table className={styles.tabela}>
-                <thead>
-                  <tr>
-                    <th>Nº da Pasta</th>
-                    <th>Paciente</th>
-                    <th>Nº do Processo</th>
-                    <th>Especialidade</th>
-                    <th>Procedimento</th>
-                    <th>Data do Bloqueio</th>
-                    <th>Valor do Bloqueio</th>
-                    <th className={styles.colAcoes}>Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bloqueios.map((b) => (
-                    <tr key={b.id}>
-                      <td>{b.processo?.numeroPasta || "—"}</td>
-                      <td>
-                        <div className={styles.nomeCelula}>
-                          {b.processo?.pacienteNome || "—"}
-                        </div>
-                        <div className={styles.cpfCelula}>
-                          {formatarCpfExibicao(b.processo?.pacienteCpf)}
-                        </div>
-                      </td>
-                      <td>{b.processo?.numeroProcesso || "—"}</td>
-                      <td>{b.processo?.especialidadeNome || "—"}</td>
-                      <td>{b.processo?.procedimentoNome || "—"}</td>
-                      <td>{dataBR(b.dataBloqueio)}</td>
-                      <td className={styles.valorCelula}>{formatarMoedaBRL(b.valor)}</td>
-                      <td>
-                        <div className={styles.acoes}>
-                          {podeEditar && (
-                            <button
-                              type="button"
-                              className={styles.botaoIconeAzul}
-                              title="Editar bloqueio"
-                              onClick={() => abrirEdicao(b)}
-                            >
-                              ✎ Editar
-                            </button>
-                          )}
-                          {podeExcluir && (
-                            <button
-                              type="button"
-                              className={styles.botaoIconeVermelho}
-                              title="Excluir bloqueio"
-                              onClick={() => remover(b)}
-                            >
-                              🗑 Excluir
-                            </button>
-                          )}
-                          {!podeEditar && !podeExcluir && (
-                            <span className={styles.dica}>—</span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* ── Edição do bloqueio (inline, no painel) ────────────────────── */}
-        {editando && (
+        {aba === "novo" && editando && (
           <div className={styles.blocoEdicao}>
             <h3 className={styles.secaoTitulo}>
               Editar bloqueio · processo {editando.numeroProcesso}
@@ -595,6 +558,214 @@ export default function BloqueioJudicial({
                 </button>
               </div>
             </form>
+          </div>
+        )}
+
+        {aba === "consultar" && (
+          <div className={styles.bloco}>
+            {/* Filtros de consulta: nada é listado até uma consulta. */}
+            <div className={styles.filtros}>
+              <div className={styles.filtrosGrid}>
+                <div className={styles.campoFiltro}>
+                  <label>Nome ou CPF do paciente</label>
+                  <input
+                    value={filtros.paciente}
+                    onChange={(e) => alterarFiltro("paciente", e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") consultar(filtros);
+                    }}
+                    placeholder="Nome ou CPF"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className={styles.campoFiltro}>
+                  <label>Número do processo</label>
+                  <input
+                    value={filtros.numeroProcesso}
+                    onChange={(e) => alterarFiltro("numeroProcesso", e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") consultar(filtros);
+                    }}
+                    placeholder="Número do processo"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className={styles.campoFiltro}>
+                  <label>Número da pasta</label>
+                  <input
+                    value={filtros.numeroPasta}
+                    onChange={(e) => alterarFiltro("numeroPasta", e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") consultar(filtros);
+                    }}
+                    placeholder="Número da pasta"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className={styles.campoFiltro}>
+                  <label>Especialidade</label>
+                  <select
+                    value={filtros.especialidadeId}
+                    onChange={(e) => alterarFiltro("especialidadeId", e.target.value)}
+                  >
+                    <option value="">Todas</option>
+                    {especialidades.map((esp) => (
+                      <option key={esp.id} value={String(esp.id)}>
+                        {esp.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className={styles.campoFiltro}>
+                  <label>Procedimento</label>
+                  <select
+                    value={filtros.procedimentoId}
+                    onChange={(e) => alterarFiltro("procedimentoId", e.target.value)}
+                    disabled={!filtros.especialidadeId}
+                  >
+                    <option value="">
+                      {filtros.especialidadeId ? "Todos" : "Selecione a especialidade"}
+                    </option>
+                    {filtrosProcedimentos.map((p) => (
+                      <option key={p.id} value={String(p.id)}>
+                        {p.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className={styles.campoFiltro}>
+                  <label>Período da Data do Bloqueio</label>
+                  <div className={styles.periodo}>
+                    <input
+                      type="date"
+                      value={filtros.dataInicio}
+                      onChange={(e) => alterarFiltro("dataInicio", e.target.value)}
+                      aria-label="Data inicial"
+                    />
+                    <span>até</span>
+                    <input
+                      type="date"
+                      value={filtros.dataFim}
+                      onChange={(e) => alterarFiltro("dataFim", e.target.value)}
+                      aria-label="Data final"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.filtrosAcoes}>
+                <button
+                  type="button"
+                  className={styles.botaoPrimario}
+                  onClick={() => consultar(filtros)}
+                  disabled={consultando}
+                >
+                  {consultando ? "Filtrando…" : "Filtrar"}
+                </button>
+                <button type="button" className={styles.botaoSecundario} onClick={limparFiltros}>
+                  Limpar filtros
+                </button>
+                <button
+                  type="button"
+                  className={styles.botaoSecundario}
+                  onClick={() => consultar({}, { todos: true })}
+                  disabled={consultando}
+                >
+                  Consultar todos
+                </button>
+              </div>
+            </div>
+
+            <div className={styles.resumoConsulta}>
+              {consultou ? (
+                <>
+                  <span>
+                    <strong>{total}</strong>{" "}
+                    {total === 1 ? "registro encontrado" : "registros encontrados"}
+                  </span>
+                  <span>
+                    Valor total: <strong>{formatarMoedaBRL(valorTotal)}</strong>
+                  </span>
+                </>
+              ) : (
+                <span>
+                  Preencha os filtros e clique em Filtrar, ou consulte todos os registros.
+                </span>
+              )}
+            </div>
+
+            {!consultou ? null : bloqueios.length === 0 ? (
+              <p className={styles.vazio}>
+                Nenhum bloqueio encontrado para os filtros informados.
+              </p>
+            ) : (
+              <div className={styles.tabelaWrap}>
+
+              <table className={styles.tabela}>
+                <thead>
+                  <tr>
+                    <th>Nº da Pasta</th>
+                    <th>Paciente</th>
+                    <th>Nº do Processo</th>
+                    <th>Especialidade</th>
+                    <th>Procedimento</th>
+                    <th>Data do Bloqueio</th>
+                    <th>Valor do Bloqueio</th>
+                    <th className={styles.colAcoes}>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bloqueios.map((b) => (
+                    <tr key={b.id}>
+                      <td className={styles.colPasta}>
+                        {b.processo?.numeroPasta || "—"}
+                      </td>
+                      <td>
+                        <div className={styles.nomeCelula}>
+                          {b.processo?.pacienteNome || "—"}
+                        </div>
+                        <div className={styles.cpfCelula}>
+                          {formatarCpfExibicao(b.processo?.pacienteCpf)}
+                        </div>
+                      </td>
+                      <td>{b.processo?.numeroProcesso || "—"}</td>
+                      <td>{b.processo?.especialidadeNome || "—"}</td>
+                      <td>{b.processo?.procedimentoNome || "—"}</td>
+                      <td>{dataBR(b.dataBloqueio)}</td>
+                      <td className={styles.valorCelula}>{formatarMoedaBRL(b.valor)}</td>
+                      <td>
+                        <div className={styles.acoes}>
+                          {podeEditar && (
+                            <button
+                              type="button"
+                              className={styles.botaoIconeAzul}
+                              title="Editar bloqueio"
+                              onClick={() => abrirEdicao(b)}
+                            >
+                              ✎ Editar
+                            </button>
+                          )}
+                          {podeExcluir && (
+                            <button
+                              type="button"
+                              className={styles.botaoIconeVermelho}
+                              title="Excluir bloqueio"
+                              onClick={() => remover(b)}
+                            >
+                              🗑 Excluir
+                            </button>
+                          )}
+                          {!podeEditar && !podeExcluir && (
+                            <span className={styles.dica}>—</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            )}
           </div>
         )}
       </section>

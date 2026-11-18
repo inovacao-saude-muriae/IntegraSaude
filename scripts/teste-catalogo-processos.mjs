@@ -330,7 +330,6 @@ async function main() {
     {
       pacienteCpf: pessoa.cpf,
       numeroProcesso: "TSTCAT-0001",
-      numeroPasta: "TSTCAT-P1",
       especialidadeId: e1.data.especialidadeId,
       procedimentoId: p1.data.procedimentoId,
     },
@@ -350,7 +349,6 @@ async function main() {
     {
       pacienteCpf: pessoa.cpf,
       numeroProcesso: "TSTCAT-0002",
-      numeroPasta: "TSTCAT-P2",
       especialidadeId: e1.data.especialidadeId,
       procedimentoId: p3.data.procedimentoId,
     },
@@ -361,7 +359,7 @@ async function main() {
     invalido.error,
   );
   const semEsp = await proc(GESTOR, "criarProcesso", [
-    { pacienteCpf: pessoa.cpf, numeroProcesso: "TSTCAT-0003", numeroPasta: "X", procedimentoId: p1.data.procedimentoId },
+    { pacienteCpf: pessoa.cpf, numeroProcesso: "TSTCAT-0003", procedimentoId: p1.data.procedimentoId },
   ]);
   check("procedimento sem especialidade é barrado", semEsp.success === false);
 
@@ -372,7 +370,6 @@ async function main() {
     {
       pacienteCpf: pessoa.cpf,
       numeroProcesso: "TSTCAT-0001",
-      numeroPasta: "TSTCAT-P1",
       especialidadeId: e2.data.especialidadeId,
       // a tela limpa o procedimento ao trocar de especialidade
       procedimentoId: null,
@@ -390,7 +387,6 @@ async function main() {
     {
       pacienteCpf: pessoa.cpf,
       numeroProcesso: "TSTCAT-0001",
-      numeroPasta: "TSTCAT-P1",
       especialidadeId: e1.data.especialidadeId,
       procedimentoId: p2.data.procedimentoId,
     },
@@ -399,7 +395,7 @@ async function main() {
 
   // ── 11. Consulta ─────────────────────────────────────────────────────────
   console.log("\n11. Consulta de processos");
-  const lista = await proc(GESTOR, "listarProcessos", [{ termo: "TSTCAT-0001" }]);
+  const lista = await proc(GESTOR, "listarProcessos", [{ numeroProcesso: "TSTCAT-0001" }]);
   check("consulta encontra o processo", lista.success === true && (lista.data || []).some((p) => p.id === id));
   check("consulta traz os nomes do catálogo", (lista.data || [])[0]?.especialidadeNome === "TSTCAT Cardiologia", (lista.data || [])[0]?.especialidadeNome);
 
@@ -427,7 +423,7 @@ async function main() {
   const espInativa = (catDepois2.especialidades || []).find((e) => e.id === e2.data.especialidadeId);
   check("especialidade inativa marcada como inativa", espInativa?.ativo === false, JSON.stringify(espInativa));
   const novoComInativa = await proc(GESTOR, "criarProcesso", [
-    { pacienteCpf: pessoa.cpf, numeroProcesso: "TSTCAT-0004", numeroPasta: "X", especialidadeId: e2.data.especialidadeId },
+    { pacienteCpf: pessoa.cpf, numeroProcesso: "TSTCAT-0004", especialidadeId: e2.data.especialidadeId },
   ]);
   check("não permite cadastro com especialidade inativa", novoComInativa.success === false, novoComInativa.error);
   const reativa = await cat(GESTOR, "alterarSituacaoEspecialidadeProcesso", [e2.data.especialidadeId, { ativo: true }]);
@@ -446,7 +442,7 @@ async function main() {
   ]);
   check("criação de procedimento negada sem permissão", negVinc.success !== true, negVinc.error);
   const negProc = await proc(JEFINNY, "criarProcesso", [
-    { pacienteCpf: pessoa.cpf, numeroProcesso: "TSTCAT-9999", numeroPasta: "X" },
+    { pacienteCpf: pessoa.cpf, numeroProcesso: "TSTCAT-9999" },
   ]);
   check("cadastro de processo negado sem permissão", negProc.success !== true);
 

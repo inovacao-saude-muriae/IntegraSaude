@@ -185,16 +185,19 @@ async function main() {
   await db.query("DELETE FROM processos_especialidades WHERE nome LIKE 'TESTE-%'");
 
   console.log("\n1. Usuário sem permissão no módulo");
-  const semAcesso = await chamarAction(JEFINNY, "listarProcessos", [{}]);
+  // A consulta não carrega tudo: sem filtro só responde com "todos".
+  const semAcesso = await chamarAction(JEFINNY, "listarProcessos", [{ todos: true }]);
   check("listarProcessos negado (Regulação não tem PROCESSOS)", semAcesso.success !== true, JSON.stringify(semAcesso).slice(0, 120));
   const criarNegado = await chamarAction(JEFINNY, "criarProcesso", [{ pacienteCpf: pessoa.cpf, numeroProcesso: "TESTE-X", numeroPasta: "P-X" }]);
   check("criarProcesso negado sem permissão", criarNegado.success !== true);
 
   console.log("\n2. Cadastro (para os testes de edição)");
+  // A pasta pertence ao PACIENTE: o processo reutiliza a que ele já tem.
+  const pastaDoPaciente = (await db.query("SELECT numero_pasta FROM pessoa WHERE cpf=$1", [pessoa.cpf])).rows[0]?.numero_pasta;
   const criado = await chamarAction(GESTOR, "criarProcesso", [{
     pacienteCpf: pessoa.cpf,
     numeroProcesso: "TESTE-001",
-    numeroPasta: "PASTA-001",
+    ...(pastaDoPaciente ? {} : { numeroPasta: "PASTA-001" }),
   }]);
   check("criarProcesso com permissão", criado.success === true, JSON.stringify(criado).slice(0, 160));
   const id = criado?.data?.id;
@@ -217,9 +220,9 @@ async function main() {
   const editado = await chamarAction(GESTOR, "editarProcesso", [id, {
     pacienteCpf: pessoa.cpf,
     numeroProcesso: "TESTE-001",
-    numeroPasta: "PASTA-EDITADA",
+    
   }]);
-  check("editarProcesso atualiza", editado.success === true && editado.data?.numeroPasta === "PASTA-EDITADA", JSON.stringify(editado).slice(0, 140));
+  check("editarProcesso atualiza", editado.success === true && editado.data?.numeroProcesso === "TESTE-001", JSON.stringify(editado).slice(0, 140));
 
   console.log("\n6. Troca de paciente exige confirmação específica");
   const outra = (await db.query(
@@ -228,17 +231,17 @@ async function main() {
   )).rows[0];
   if (outra) {
     const semConfirmar = await chamarAction(GESTOR, "editarProcesso", [id, {
-      pacienteCpf: outra.cpf, numeroProcesso: "TESTE-001", numeroPasta: "PASTA-EDITADA",
+      pacienteCpf: outra.cpf, numeroProcesso: "TESTE-001", 
     }]);
     check("troca sem confirmação é recusada", semConfirmar.success === false, semConfirmar.error);
     const confirmada = await chamarAction(GESTOR, "editarProcesso", [id, {
-      pacienteCpf: outra.cpf, numeroProcesso: "TESTE-001", numeroPasta: "PASTA-EDITADA",
+      pacienteCpf: outra.cpf, numeroProcesso: "TESTE-001", 
       confirmarTrocaPaciente: true,
     }]);
     check("troca confirmada é aceita", confirmada.success === true && confirmada.trocouPaciente === true, JSON.stringify(confirmada).slice(0, 140));
     // volta o titular original
     await chamarAction(GESTOR, "editarProcesso", [id, {
-      pacienteCpf: pessoa.cpf, numeroProcesso: "TESTE-001", numeroPasta: "PASTA-EDITADA",
+      pacienteCpf: pessoa.cpf, numeroProcesso: "TESTE-001", 
       confirmarTrocaPaciente: true,
     }]);
   } else {
@@ -272,20 +275,20 @@ async function main() {
   const outroProcId = outroProc?.data?.procedimentoId;
 
   const comEsp = await chamarAction(GESTOR, "editarProcesso", [id, {
-    pacienteCpf: pessoa.cpf, numeroProcesso: "TESTE-001", numeroPasta: "PASTA-EDITADA",
+    pacienteCpf: pessoa.cpf, numeroProcesso: "TESTE-001", 
     especialidadeId: espId,
   }]);
   check("grava especialidade do catálogo próprio", comEsp.success === true && String(comEsp.data?.especialidadeId) === String(espId), JSON.stringify(comEsp).slice(0, 140));
 
   const comPar = await chamarAction(GESTOR, "editarProcesso", [id, {
-    pacienteCpf: pessoa.cpf, numeroProcesso: "TESTE-001", numeroPasta: "PASTA-EDITADA",
+    pacienteCpf: pessoa.cpf, numeroProcesso: "TESTE-001", 
     especialidadeId: espId, procedimentoId: procId,
   }]);
   check("grava procedimento vinculado à especialidade", comPar.success === true && String(comPar.data?.procedimentoId) === String(procId), JSON.stringify(comPar).slice(0, 140));
 
   if (outroProcId) {
     const semVinculo = await chamarAction(GESTOR, "editarProcesso", [id, {
-      pacienteCpf: pessoa.cpf, numeroProcesso: "TESTE-001", numeroPasta: "PASTA-EDITADA",
+      pacienteCpf: pessoa.cpf, numeroProcesso: "TESTE-001", 
       especialidadeId: espId, procedimentoId: outroProcId,
     }]);
     check("procedimento NÃO vinculado é barrado no backend", semVinculo.success === false && /não está vinculado/i.test(semVinculo.error || ""), semVinculo.error);
@@ -307,8 +310,8 @@ async function main() {
   check("processo histórico mantém o procedimento inativado", detalheHist.data?.procedimentoId === procId && detalheHist.data?.procedimentoInativo === true, JSON.stringify(detalheHist.data || {}).slice(0, 160));
 
   console.log("\n8. Lista reflete a edição (sem duplicar)");
-  const lista = await chamarAction(GESTOR, "listarProcessos", [{ termo: "TESTE-001" }]);
-  check("lista traz o processo editado", lista.success === true && (lista.data || []).some((p) => p.id === id && p.numeroPasta === "PASTA-EDITADA"));
+  const lista = await chamarAction(GESTOR, "listarProcessos", [{ numeroProcesso: "TESTE-001" }]);
+  check("lista traz o processo editado", lista.success === true && (lista.data || []).some((p) => p.id === id && p.numeroProcesso === "TESTE-001"));
   check("lista não duplica o processo", (lista.data || []).filter((p) => p.id === id).length === 1);
 
   console.log("\n9. Auditoria das alterações");
@@ -324,7 +327,8 @@ async function main() {
   );
   check(
     "auditoria guarda o que mudou",
-    Boolean(comAlteracoes) && /numeroPasta/.test(comAlteracoes.detalhes.camposAlterados),
+    Boolean(comAlteracoes) &&
+      /especialidade|procedimento|numeroPasta/i.test(comAlteracoes.detalhes.camposAlterados),
     JSON.stringify(comAlteracoes?.detalhes || {}).slice(0, 160),
   );
 

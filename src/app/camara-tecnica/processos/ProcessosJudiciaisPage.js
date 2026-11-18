@@ -93,8 +93,19 @@ export default function ProcessosJudiciaisPage({
   const [especialidades, setEspecialidades] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
-  const [busca, setBusca] = useState("");
   const [aviso, setAviso] = useState(null);
+  // Filtros da CONSULTA: a tabela só aparece depois de uma consulta.
+  const FILTROS_VAZIOS = {
+    paciente: "",
+    numeroProcesso: "",
+    numeroPasta: "",
+    especialidadeId: "",
+    procedimentoId: "",
+  };
+  const [filtros, setFiltros] = useState(FILTROS_VAZIOS);
+  const [consultou, setConsultou] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [consultando, setConsultando] = useState(false);
 
   // Formulário (novo e edição usam o MESMO estado/componente)
   const [form, setForm] = useState(FORM_VAZIO);
@@ -110,30 +121,58 @@ export default function ProcessosJudiciaisPage({
   const [exclusao, setExclusao] = useState(null); // { processo, dependencias, podeExcluir }
 
   // ── Carga ────────────────────────────────────────────────────────────────
-  const recarregar = useCallback(async (termo = "") => {
-    const res = await listarProcessos({ termo });
-    if (res.success) setProcessos(res.data);
-    else setErro(res.error);
+  // Consulta no backend: os filtros combinam entre si (AND).
+  const consultar = useCallback(async (filtrosConsulta = {}, { todos = false } = {}) => {
+    setConsultando(true);
+    const res = await listarProcessos({ ...filtrosConsulta, todos });
+    setConsultando(false);
+    if (!res.success) {
+      setErro(res.error);
+      return res;
+    }
+    setProcessos(res.data);
+    setTotal(res.total ?? res.data.length);
+    setConsultou(true);
     return res;
   }, []);
 
   useEffect(() => {
     let vivo = true;
     (async () => {
-      const [lista, cats] = await Promise.all([
-        listarProcessos({}),
-        obterCatalogoParaFormulario(),
-      ]);
+      // Nada é listado na abertura: só o catálogo (especialidades/procedimentos).
+      const cats = await obterCatalogoParaFormulario();
       if (!vivo) return;
-      if (lista.success) setProcessos(lista.data);
-      else setErro(lista.error);
       if (cats.success) setEspecialidades(cats.especialidades || []);
+      else setErro(cats.error);
       setCarregando(false);
     })();
     return () => {
       vivo = false;
     };
   }, []);
+
+  function alterarFiltro(campo, valor) {
+    setFiltros((f) => {
+      const proximo = { ...f, [campo]: valor };
+      // Trocar a especialidade limpa o procedimento (pode não pertencer a ela).
+      if (campo === "especialidadeId") proximo.procedimentoId = "";
+      return proximo;
+    });
+  }
+
+  function limparFiltros() {
+    setFiltros(FILTROS_VAZIOS);
+    setProcessos([]);
+    setTotal(0);
+    setConsultou(false);
+    setErro("");
+  }
+
+  const filtrosEspecialidade = useMemo(
+    () => especialidades.find((x) => String(x.id) === String(filtros.especialidadeId)) || null,
+    [especialidades, filtros.especialidadeId],
+  );
+  const filtrosProcedimentos = filtrosEspecialidade?.procedimentos || [];
 
   const especialidadeAtual = useMemo(
     () => especialidades.find((x) => String(x.id) === String(form.especialidadeId)) || null,
@@ -269,7 +308,7 @@ export default function ProcessosJudiciaisPage({
       );
       limparFormulario();
       setAba("consultar");
-      await recarregar(busca);
+      if (consultou) await consultar(filtros);
       return;
     }
 
@@ -288,7 +327,7 @@ export default function ProcessosJudiciaisPage({
     setAviso(`Processo ${payload.numeroProcesso} cadastrado com sucesso.`);
     limparFormulario();
     setAba("consultar");
-    await recarregar(busca);
+    if (consultou) await consultar(filtros);
   }
 
   // ── Exclusão ─────────────────────────────────────────────────────────────
@@ -308,7 +347,7 @@ export default function ProcessosJudiciaisPage({
     }
     setAviso(`Processo ${exclusao.numeroProcesso} excluído.`);
     setExclusao(null);
-    await recarregar(busca);
+    if (consultou) await consultar(filtros);
   }
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -360,34 +399,115 @@ export default function ProcessosJudiciaisPage({
       {/* ── ABA 1: CONSULTAR ─────────────────────────────────────────────── */}
       {aba === "consultar" && (
         <div className={styles.bloco}>
-          <div className={styles.barraBusca}>
-            <input
-              className={styles.campoBusca}
-              placeholder="Buscar por paciente, número do processo ou pasta…"
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") recarregar(e.target.value);
-              }}
-            />
-            <button
-              type="button"
-              className={styles.botaoSecundario}
-              onClick={() => recarregar(busca)}
-            >
-              Buscar
-            </button>
-            {podeCriar && (
-              <button type="button" className={styles.botaoPrimario} onClick={abrirNovo}>
-                + Novo Processo
+          {/* Filtros de consulta: nada é listado até uma consulta. */}
+          <div className={styles.filtros}>
+            <div className={styles.filtrosGrid}>
+              <div className={styles.campoFiltro}>
+                <label>Nome ou CPF do paciente</label>
+                <input
+                  value={filtros.paciente}
+                  onChange={(e) => alterarFiltro("paciente", e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") consultar(filtros);
+                  }}
+                  placeholder="Nome ou CPF"
+                  autoComplete="off"
+                />
+              </div>
+              <div className={styles.campoFiltro}>
+                <label>Número do processo</label>
+                <input
+                  value={filtros.numeroProcesso}
+                  onChange={(e) => alterarFiltro("numeroProcesso", e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") consultar(filtros);
+                  }}
+                  placeholder="Número do processo"
+                  autoComplete="off"
+                />
+              </div>
+              <div className={styles.campoFiltro}>
+                <label>Número da pasta</label>
+                <input
+                  value={filtros.numeroPasta}
+                  onChange={(e) => alterarFiltro("numeroPasta", e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") consultar(filtros);
+                  }}
+                  placeholder="Número da pasta"
+                  autoComplete="off"
+                />
+              </div>
+              <div className={styles.campoFiltro}>
+                <label>Especialidade</label>
+                <select
+                  value={filtros.especialidadeId}
+                  onChange={(e) => alterarFiltro("especialidadeId", e.target.value)}
+                >
+                  <option value="">Todas</option>
+                  {especialidades.map((esp) => (
+                    <option key={esp.id} value={String(esp.id)}>
+                      {esp.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className={styles.campoFiltro}>
+                <label>Procedimento</label>
+                <select
+                  value={filtros.procedimentoId}
+                  onChange={(e) => alterarFiltro("procedimentoId", e.target.value)}
+                  disabled={!filtros.especialidadeId}
+                >
+                  <option value="">
+                    {filtros.especialidadeId ? "Todos" : "Selecione a especialidade"}
+                  </option>
+                  {filtrosProcedimentos.map((p) => (
+                    <option key={p.id} value={String(p.id)}>
+                      {p.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className={styles.filtrosAcoes}>
+              <button
+                type="button"
+                className={styles.botaoPrimario}
+                onClick={() => consultar(filtros)}
+                disabled={consultando}
+              >
+                {consultando ? "Filtrando…" : "Filtrar"}
               </button>
+              <button type="button" className={styles.botaoSecundario} onClick={limparFiltros}>
+                Limpar filtros
+              </button>
+              <button
+                type="button"
+                className={styles.botaoSecundario}
+                onClick={() => consultar({}, { todos: true })}
+                disabled={consultando}
+              >
+                Consultar todos
+              </button>
+            </div>
+          </div>
+
+          <div className={styles.resumoConsulta}>
+            {consultou ? (
+              <span>
+                <strong>{total}</strong> {total === 1 ? "registro encontrado" : "registros encontrados"}
+              </span>
+            ) : (
+              <span>Preencha os filtros e clique em Filtrar, ou consulte todos os registros.</span>
             )}
           </div>
 
-          {carregando ? (
+          {!consultou ? null : carregando ? (
             <p className={styles.vazio}>Carregando processos…</p>
           ) : listaFiltrada.length === 0 ? (
-            <p className={styles.vazio}>Nenhum processo cadastrado.</p>
+            <p className={styles.vazio}>Nenhum processo encontrado para os filtros informados.</p>
           ) : (
             <div className={styles.tabelaWrap}>
               <table className={styles.tabela}>

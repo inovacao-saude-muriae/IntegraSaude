@@ -326,6 +326,41 @@ const lista = await chamar(GESTOR, "listarBloqueios", [{ processoId: idA1 }]);
 check("listagem filtra por processo", lista.success && lista.data.length === 1, String(lista.data?.length));
 check("listagem traz paciente/pasta/especialidade", Boolean(lista.data?.[0]?.processo?.pacienteNome && lista.data?.[0]?.processo?.numeroPasta));
 
+// ── 3.1 Filtros de consulta (backend) ────────────────────────────────────
+console.log("\n3.1 Filtros de consulta");
+const semConsulta = await chamar(GESTOR, "listarProcessos", [{}]);
+check("sem filtro e sem 'todos' NÃO carrega a tabela", semConsulta.success && semConsulta.data.length === 0 && semConsulta.semConsulta === true);
+const todosProc = await chamar(GESTOR, "listarProcessos", [{ todos: true }]);
+check("consultar todos traz os processos", todosProc.success && todosProc.data.length >= 3, String(todosProc.data?.length));
+check("consultar todos informa o total", todosProc.total === todosProc.data.length);
+const fNome = await chamar(GESTOR, "listarProcessos", [{ paciente: "TESTE Paciente A" }]);
+check("filtro por nome do paciente", fNome.success && fNome.data.length === 2, String(fNome.data?.length));
+const fCpf = await chamar(GESTOR, "listarProcessos", [{ paciente: "910.000.009-40" }]);
+check("filtro por CPF com máscara", fCpf.success && fCpf.data.length === 2, String(fCpf.data?.length));
+const fProc = await chamar(GESTOR, "listarProcessos", [{ numeroProcesso: `${PFX}-001` }]);
+check("filtro por número do processo", fProc.success && fProc.data.length === 1, String(fProc.data?.length));
+const fPasta = await chamar(GESTOR, "listarProcessos", [{ numeroPasta: "PC-500" }]);
+check("filtro por número da pasta", fPasta.success && fPasta.data.length === 2, String(fPasta.data?.length));
+const fEsp = await chamar(GESTOR, "listarProcessos", [{ especialidadeId: ESP2 }]);
+check("filtro por especialidade", fEsp.success && fEsp.data.length === 1, String(fEsp.data?.length));
+const fProcCat = await chamar(GESTOR, "listarProcessos", [{ especialidadeId: ESP, procedimentoId: PROC }]);
+check("filtro por procedimento dentro da especialidade", fProcCat.success && fProcCat.data.length >= 1);
+const fCombinado = await chamar(GESTOR, "listarProcessos", [
+  { paciente: "TESTE Paciente A", especialidadeId: ESP, procedimentoId: PROC, numeroPasta: "PC-500" },
+]);
+check("filtros combinados (AND)", fCombinado.success && fCombinado.data.length === 1, String(fCombinado.data?.length));
+const fNenhum = await chamar(GESTOR, "listarProcessos", [{ numeroProcesso: `${PFX}-NAO-EXISTE` }]);
+check("consulta sem correspondência devolve vazio", fNenhum.success && fNenhum.data.length === 0 && fNenhum.total === 0);
+
+const bPeriodo = await chamar(GESTOR, "listarBloqueios", [{ dataInicio: "2026-11-18", dataFim: "2026-11-18" }]);
+check("período da data do bloqueio (dia exato)", bPeriodo.success && bPeriodo.data.length === 2, String(bPeriodo.data?.length));
+const bPeriodoVazio = await chamar(GESTOR, "listarBloqueios", [{ dataInicio: "2026-01-01", dataFim: "2026-01-31" }]);
+check("período sem bloqueios devolve vazio", bPeriodoVazio.success && bPeriodoVazio.data.length === 0);
+const bTotal = await chamar(GESTOR, "listarBloqueios", [{ todos: true }]);
+check("consulta de bloqueios informa o valor total", bTotal.success && bTotal.valorTotal === "1358.56", String(bTotal.valorTotal));
+const bPorEsp = await chamar(GESTOR, "listarBloqueios", [{ especialidadeId: ESP }]);
+check("bloqueios filtrados por especialidade", bPorEsp.success && bPorEsp.data.length === 1, String(bPorEsp.data?.length));
+
 // ── 4. Exclusão bloqueada por dependência ────────────────────────────────
 console.log("\n4. Dependências e exclusão");
 const deps = await chamar(GESTOR, "verificarDependenciasProcesso", [idA1]);
@@ -364,11 +399,11 @@ const b7 = await chamar(GESTOR, "criarBloqueio", [{
 }]);
 check("segundo bloqueio criado (outro processo)", b7.success === true, JSON.stringify(b7.error || ""));
 
-const todos = await chamar(GESTOR, "listarBloqueios", [{}]);
-check("listagem traz todos os bloqueios", todos.success && todos.data.length === 2, String(todos.data?.length));
+const todos = await chamar(GESTOR, "listarBloqueios", [{ todos: true }]);
+check("listagem traz todos os bloqueios", todos.success && todos.data.length === 3, String(todos.data?.length));
 check(
   "ordenado do mais recente para o mais antigo",
-  todos.data?.[0]?.dataBloqueio === "2026-11-18" && todos.data?.[1]?.dataBloqueio === "2026-11-10",
+  todos.data?.[0]?.dataBloqueio === "2026-11-18" && todos.data?.[2]?.dataBloqueio === "2026-11-10",
   JSON.stringify(todos.data?.map((b) => b.dataBloqueio)),
 );
 const porNome = await chamar(GESTOR, "listarBloqueios", [{ termo: "TESTE Paciente A" }]);
@@ -396,8 +431,8 @@ const semConfirmar = await chamar(GESTOR, "excluirBloqueio", [b7.data.id, {}]);
 check("exclusão exige confirmação", semConfirmar.success === false);
 const excB = await chamar(GESTOR, "excluirBloqueio", [b7.data.id, { confirmado: true }]);
 check("bloqueio excluído após confirmação", excB.success === true, JSON.stringify(excB.error || ""));
-const restantes = await chamar(GESTOR, "listarBloqueios", [{}]);
-check("tabela reflete a exclusão", restantes.data?.length === 1, String(restantes.data?.length));
+const restantes = await chamar(GESTOR, "listarBloqueios", [{ todos: true }]);
+check("tabela reflete a exclusão", restantes.data?.length === 2, String(restantes.data?.length));
 
 const audB = await db.query(
   "SELECT acao FROM audit_logs WHERE entidade='ProcessoBloqueio' AND user_cpf=$1 ORDER BY id",

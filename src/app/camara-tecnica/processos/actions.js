@@ -229,24 +229,68 @@ function serializar(p) {
 
 // ── 1. Lista / catálogos ───────────────────────────────────────────────────
 
-export async function listarProcessos({ termo = "" } = {}) {
+// Filtros da CONSULTA (backend). Cada campo é opcional e todos se combinam
+// com AND; `todos` só é usado pelo botão "Consultar todos".
+export async function listarProcessos({
+  todos = false,
+  paciente = "",
+  numeroProcesso = "",
+  numeroPasta = "",
+  especialidadeId = null,
+  procedimentoId = null,
+  termo = "",
+} = {}) {
   try {
     await requirePermissao(MODULOS.PROCESSOS, FUNCIONALIDADE, "visualizar");
 
     const busca = texto(termo, 100);
-    const where = busca
-      ? {
-          OR: [
-            { numeroProcesso: { contains: busca, mode: "insensitive" } },
-            { numeroPasta: { contains: busca, mode: "insensitive" } },
-            { pessoa: { nomeCompleto: { contains: busca, mode: "insensitive" } } },
-            { pessoaCpf: { contains: busca.replace(/\D/g, "") } },
-          ],
-        }
-      : {};
+    const nomeOuCpf = texto(paciente, 100);
+    const digitos = nomeOuCpf.replace(/\D/g, "");
+    const numero = texto(numeroProcesso, 100);
+    const pasta = texto(numeroPasta, 50);
+    const espId = inteiroPositivo(especialidadeId);
+    const procId = inteiroPositivo(procedimentoId);
+
+    const and = [];
+    if (busca) {
+      and.push({
+        OR: [
+          { numeroProcesso: { contains: busca, mode: "insensitive" } },
+          { numeroPasta: { contains: busca, mode: "insensitive" } },
+          { pessoa: { nomeCompleto: { contains: busca, mode: "insensitive" } } },
+          { pessoaCpf: { contains: busca.replace(/\D/g, "") } },
+        ],
+      });
+    }
+    if (nomeOuCpf) {
+      and.push({
+        OR: [
+          { pessoa: { nomeCompleto: { contains: nomeOuCpf, mode: "insensitive" } } },
+          ...(digitos.length >= 3 ? [{ pessoaCpf: { contains: digitos } }] : []),
+        ],
+      });
+    }
+    if (numero) {
+      and.push({ numeroProcesso: { contains: numero, mode: "insensitive" } });
+    }
+    if (pasta) {
+      and.push({
+        OR: [
+          { numeroPasta: { contains: pasta, mode: "insensitive" } },
+          { pessoa: { numeroPasta: { contains: pasta, mode: "insensitive" } } },
+        ],
+      });
+    }
+    if (espId) and.push({ especialidadeId: espId });
+    if (procId) and.push({ procedimentoId: procId });
+
+    // Nenhum filtro e sem "Consultar todos": a tabela não é carregada.
+    if (and.length === 0 && !todos) {
+      return { success: true, data: [], total: 0, semConsulta: true };
+    }
 
     const processos = await prisma.processoJudicial.findMany({
-      where,
+      where: and.length ? { AND: and } : {},
       include: {
         pessoa: { select: { nomeCompleto: true, numeroPasta: true } },
         especialidade: { select: { nome: true, ativo: true } },
@@ -256,7 +300,8 @@ export async function listarProcessos({ termo = "" } = {}) {
       take: 500,
     });
 
-    return { success: true, data: processos.map(serializar) };
+    const data = processos.map(serializar);
+    return { success: true, data, total: data.length, semConsulta: false };
   } catch (erro) {
     return responder(erro);
   }
@@ -587,30 +632,91 @@ export async function buscarProcessosParaBloqueio(termo = "") {
   }
 }
 
-export async function listarBloqueios({ processoId = null, termo = "" } = {}) {
+export async function listarBloqueios({
+  todos = false,
+  processoId = null,
+  paciente = "",
+  numeroProcesso = "",
+  numeroPasta = "",
+  especialidadeId = null,
+  procedimentoId = null,
+  dataInicio = "",
+  dataFim = "",
+  termo = "",
+} = {}) {
   try {
     await requirePermissao(MODULOS.PROCESSOS, FUNCIONALIDADE, "visualizar");
 
     const filtro = inteiroPositivo(processoId);
-    // Pesquisa por nome do paciente, CPF, número da pasta ou do processo.
+    // Pesquisa livre (usada pela tabela dentro do formulário).
     const busca = texto(termo, 100);
-    const digitos = busca.replace(/\D/g, "");
-    const porTexto = busca
-      ? {
-          processo: {
-            OR: [
-              { numeroProcesso: { contains: busca, mode: "insensitive" } },
-              { numeroPasta: { contains: busca, mode: "insensitive" } },
-              { pessoa: { nomeCompleto: { contains: busca, mode: "insensitive" } } },
-              { pessoa: { numeroPasta: { contains: busca, mode: "insensitive" } } },
-              ...(digitos ? [{ pessoaCpf: { contains: digitos } }] : []),
-            ],
-          },
-        }
-      : {};
+    const digitosBusca = busca.replace(/\D/g, "");
+    const nomeOuCpf = texto(paciente, 100);
+    const digitos = nomeOuCpf.replace(/\D/g, "");
+    const numero = texto(numeroProcesso, 100);
+    const pasta = texto(numeroPasta, 50);
+    const espId = inteiroPositivo(especialidadeId);
+    const procId = inteiroPositivo(procedimentoId);
+
+    const and = [];
+    if (busca) {
+      and.push({
+        processo: {
+          OR: [
+            { numeroProcesso: { contains: busca, mode: "insensitive" } },
+            { numeroPasta: { contains: busca, mode: "insensitive" } },
+            { pessoa: { nomeCompleto: { contains: busca, mode: "insensitive" } } },
+            { pessoa: { numeroPasta: { contains: busca, mode: "insensitive" } } },
+            ...(digitosBusca ? [{ pessoaCpf: { contains: digitosBusca } }] : []),
+          ],
+        },
+      });
+    }
+    if (nomeOuCpf) {
+      and.push({
+        processo: {
+          OR: [
+            { pessoa: { nomeCompleto: { contains: nomeOuCpf, mode: "insensitive" } } },
+            ...(digitos.length >= 3 ? [{ pessoaCpf: { contains: digitos } }] : []),
+          ],
+        },
+      });
+    }
+    if (numero) {
+      and.push({ processo: { numeroProcesso: { contains: numero, mode: "insensitive" } } });
+    }
+    if (pasta) {
+      and.push({
+        processo: {
+          OR: [
+            { numeroPasta: { contains: pasta, mode: "insensitive" } },
+            { pessoa: { numeroPasta: { contains: pasta, mode: "insensitive" } } },
+          ],
+        },
+      });
+    }
+    if (espId) and.push({ processo: { especialidadeId: espId } });
+    if (procId) and.push({ processo: { procedimentoId: procId } });
+
+    // Período sobre a data do bloqueio (Data CI).
+    const inicio = dataDoFormularioOpcional(dataInicio);
+    const fim = dataDoFormularioOpcional(dataFim);
+    if (inicio || fim) {
+      and.push({
+        dataBloqueio: {
+          ...(inicio ? { gte: inicio } : {}),
+          ...(fim ? { lte: fim } : {}),
+        },
+      });
+    }
+
+    if (and.length === 0 && !todos && !filtro) {
+      return { success: true, data: [], total: 0, valorTotal: "0.00", semConsulta: true };
+    }
+
     const where = {
       ...(filtro ? { processoId: filtro } : {}),
-      ...porTexto,
+      ...(and.length ? { AND: and } : {}),
     };
 
     const bloqueios = await prisma.processoBloqueio.findMany({
@@ -631,10 +737,16 @@ export async function listarBloqueios({ processoId = null, termo = "" } = {}) {
         },
       },
       orderBy: [{ dataBloqueio: "desc" }, { id: "desc" }],
-      take: 300,
+      take: 500,
     });
 
-    return { success: true, data: bloqueios.map(serializarBloqueio) };
+    const data = bloqueios.map(serializarBloqueio);
+    // Valor total dos bloqueios retornados (decimal exato, sem float).
+    const valorTotal = data
+      .reduce((soma, b) => soma + Number(b.valor), 0)
+      .toFixed(2);
+
+    return { success: true, data, total: data.length, valorTotal, semConsulta: false };
   } catch (erro) {
     return responder(erro);
   }
@@ -683,6 +795,13 @@ function dataDoFormulario(bruto) {
     throw falha("Data do bloqueio inválida.");
   }
   return data;
+}
+
+// Data opcional (período de consulta): vazio = sem limite; inválida = erro.
+function dataDoFormularioOpcional(valor) {
+  const t = typeof valor === "string" ? valor.trim() : "";
+  if (!t) return null;
+  return dataDoFormulario(t);
 }
 
 export async function criarBloqueio(dados) {

@@ -487,3 +487,100 @@
   color: #0f172a;
   white-space: nowrap;
 }
+
+/* ── Filtros de consulta (padrão FiltersBar da Regulação) ───────────────── */
+.filtros {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.filtrosGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.875rem;
+}
+
+.campoFiltro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.campoFiltro label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.campoFiltro input,
+.campoFiltro select {
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  color: #0f172a;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.campoFiltro select {
+  cursor: pointer;
+}
+
+.campoFiltro input:focus,
+.campoFiltro select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+}
+
+.campoFiltro select:disabled,
+.campoFiltro input:disabled {
+  background-color: #f1f5f9;
+  color: #94a3b8;
+  border-color: #e2e8f0;
+  cursor: not-allowed;
+}
+
+.filtrosAcoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Resumo da consulta (quantidade e valor total) */
+.resumoConsulta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.25rem;
+  font-size: 0.875rem;
+  color: #475569;
+}
+
+.resumoConsulta strong {
+  color: #0f172a;
+}
+
+/* Período de datas dentro de um campo de filtro. */
+.periodo {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.periodo span {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+/* Número da pasta: largura mínima para não quebrar o cabeçalho. */
+.colPasta {
+  min-width: 96px;
+  white-space: nowrap;
+}
