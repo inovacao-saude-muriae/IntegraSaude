@@ -7,6 +7,8 @@ import { documentoPaciente } from '@/app/regulacao/constants';
 import { mascararTelefone } from '@/lib/telefone';
 import { formatarCpfExibicao } from '@/lib/cpf';
 import SeletorPaciente from '@/components/SeletorPaciente';
+import SituacaoPessoa from '@/components/cadastros/SituacaoPessoa';
+import '@/components/cadastros/padraoCadastro.css';
 import styles from './PacientesJudiciais.module.css';
 
 const MED_VAZIO = { medicamentoId: '', qtdMensal: '', statusMedication: 'Ativo' };
@@ -38,6 +40,7 @@ export default function TabPacientesJudiciais({
 
   const handleSelectPessoa = (p) => {
     if (!p) return handleClear(); // campo editado: descarta a seleção
+    // `p.situacao` vem da pessoa central e é apenas exibido (somente leitura).
     setPessoa(p);
 
     // Se a pessoa já for paciente judicial, carrega processo + medicamentos.
@@ -144,6 +147,11 @@ export default function TabPacientesJudiciais({
               <label>Nome da mãe</label>
               <input type="text" value={pessoa?.nomeMae || ''} disabled readOnly placeholder="—" />
             </div>
+
+            <SituacaoPessoa
+              situacao={pessoa?.situacao}
+              className={`${styles.field} ${styles.colSituacao}`}
+            />
           </div>
         </div>
         {/* FIM DA SEÇÃO 1 */}

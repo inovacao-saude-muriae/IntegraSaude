@@ -6,6 +6,7 @@ import { useConfirm } from '@/components/ConfirmDialog';
 import { documentoPaciente } from '@/app/regulacao/constants';
 import { mascararTelefone } from '@/lib/telefone';
 import SeletorPaciente from '@/components/SeletorPaciente';
+import SituacaoPessoa from '@/components/cadastros/SituacaoPessoa';
 import { formatarCpfExibicao } from '@/lib/cpf';
 import '@/components/cadastros/padraoCadastro.css';
 import styles from './CadastroPacienteJunta.module.css';
@@ -38,6 +39,7 @@ export default function CadastroPacienteJunta({
 
   const handleSelectPessoa = (p) => {
     if (!p) return handleClear(); // campo editado: descarta a seleção
+    // `p.situacao` vem da pessoa central e é apenas exibido (somente leitura).
     setPessoa(p);
     // Pré-carrega dados de Junta já existentes, se vierem na busca.
     const existentes = (p.tipoDeficiencia || '')
@@ -127,6 +129,11 @@ export default function CadastroPacienteJunta({
               <label>Telefone / WhatsApp</label>
               <input type="text" value={mascararTelefone(pessoa?.telefone)} disabled readOnly placeholder="(00) 00000-0000" />
             </div>
+
+            <SituacaoPessoa
+              situacao={pessoa?.situacao}
+              className={`${styles.field} ${styles.colSituacao}`}
+            />
           </div>
         </div>
         {/* FIM DA SEÇÃO 1 */}

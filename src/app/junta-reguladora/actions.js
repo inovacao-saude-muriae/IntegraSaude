@@ -79,6 +79,8 @@ export async function buscarPessoaExistente(termo) {
         cns: p.cns || '',
         nomeCompleto: p.nomeCompleto,
         nome: p.nomeCompleto,
+        // Situação cadastral (fonte única em `pessoa`): apenas exibição.
+        situacao: p.situacao,
         sexo: p.sexo || 'Masculino',
         dataNascimento: toYMD(p.dataNascimento),
         nomeMae: p.nomeMae,

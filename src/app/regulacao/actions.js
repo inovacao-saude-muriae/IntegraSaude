@@ -286,6 +286,7 @@ export async function getAuxiliaryData() {
           cpf: p.cpf,
           cns: p.cns || "",
           nomeCompleto: p.nomeCompleto,
+          situacao: p.situacao,
           nomeMae: p.nomeMae,
           sexo: p.sexo || "",
           telefone: p.telefone,

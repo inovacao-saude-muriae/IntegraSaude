@@ -15,6 +15,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useConfirm } from "@/components/ConfirmDialog";
 import SeletorPaciente from "@/components/SeletorPaciente";
+import SituacaoPessoa from "@/components/cadastros/SituacaoPessoa";
+import "@/components/cadastros/padraoCadastro.css";
 import { formatarCpfExibicao } from "@/lib/cpf";
 import {
   obterCatalogoParaFiltros,
@@ -252,6 +254,7 @@ export default function ProcessosJudiciaisPage({
             nomeCompleto: p.pacienteNome,
             nome: p.pacienteNome,
             numeroPasta: p.numeroPastaPaciente || p.numeroPasta || "",
+            situacao: p.pacienteSituacao || "",
           }
         : null,
     );
@@ -618,12 +621,18 @@ export default function ProcessosJudiciaisPage({
                 value={pacienteSelecionado}
                 onSelect={selecionarPaciente}
                 placeholder="Digite nome ou CPF para buscar…"
+                incluirIndisponiveis
               />
               {form.pacienteCpf && (
                 <span className={styles.dica}>
                   CPF {formatarCpfExibicao(form.pacienteCpf)}
                 </span>
               )}
+            </div>
+
+            {/* Situação cadastral da pessoa central — somente leitura. */}
+            <div className={styles.campoGrande}>
+              <SituacaoPessoa situacao={pacienteSelecionado?.situacao} className={styles.campo} />
             </div>
 
             <div className={styles.linha}>

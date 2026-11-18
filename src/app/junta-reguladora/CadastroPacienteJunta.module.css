@@ -364,7 +364,7 @@
 }
 
 @media (max-width: 900px) {
-  .field.colCpf, .field.colName, .field.colMother, .field.colSmall, .field.colMed,
+  .field.colCpf, .field.colName, .field.colMother, .field.colSmall, .field.colMed, .field.colSituacao,
   .field.colCep, .field.colLogradouro, .field.colNumero, .field.colComplemento,
   .field.colBairro, .field.colCidade, .field.colUf {
     grid-column: span 12;
@@ -409,3 +409,6 @@
 .searchFieldWrapper {
   margin-bottom: 1.25rem;
 }
+
+/* Situação Cadastral (somente leitura) — mesma coluna dos demais campos. */
+.field.colSituacao { grid-column: span 4; }

@@ -18,8 +18,13 @@ const formatarData = (v) => {
 const soDigitos = (v) => String(v || "").replace(/\D/g, "");
 
 // Busca padrão: API de pessoas. A API devolve { success, results }; aceita também { data } e array puro.
-async function buscarPadrao(termo) {
-  const res = await fetch(`/api/pessoas/buscar?termo=${encodeURIComponent(termo)}`);
+// `incluirIndisponiveis`: consulta de HISTÓRICO (processo existente) enxerga
+// também pessoas Inativas/Falecidas; o padrão segue só as ATIVAS.
+async function buscarPadrao(termo, incluirIndisponiveis = false) {
+  const sufixo = incluirIndisponiveis ? "&incluirIndisponiveis=1" : "";
+  const res = await fetch(
+    `/api/pessoas/buscar?termo=${encodeURIComponent(termo)}${sufixo}`,
+  );
   if (!res.ok) return [];
   const data = await res.json();
   const lista = Array.isArray(data) ? data : data?.results ?? data?.data ?? [];
@@ -46,6 +51,7 @@ export default function SeletorPaciente({
   buscaAtiva = true, // false: input simples, sem dropdown
   cpfSelecionado = "", // destaca a linha da pessoa já selecionada
   minCaracteres = 2,
+  incluirIndisponiveis = false, // busca de histórico: mostra Inativo/Falecido
 }) {
   const controlado = texto !== undefined;
   const [termoInterno, setTermoInterno] = useState("");
@@ -112,7 +118,7 @@ export default function SeletorPaciente({
     setBuscando(true);
     timerRef.current = setTimeout(async () => {
       try {
-        const lista = await buscar(consulta);
+        const lista = await buscar(consulta, incluirIndisponiveis);
         if (req === reqRef.current) setResultados(Array.isArray(lista) ? lista : []);
       } catch (error) {
         console.error("Erro ao buscar pacientes:", error);

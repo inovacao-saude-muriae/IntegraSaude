@@ -6,11 +6,14 @@ import { LOCAIS_REALIZACAO } from './constants';
 import { mascararTelefone } from '@/lib/telefone';
 import SeletorPaciente from '@/components/SeletorPaciente';
 import { formatarCpfExibicao } from '@/lib/cpf';
+import SituacaoPessoa from '@/components/cadastros/SituacaoPessoa';
+import '@/components/cadastros/padraoCadastro.css';
 
 export default function NovoPedido({
   newRequest = {
     patientSearch: '',
     patientName: '',
+    situacao: '',
     motherName: '',
     cpf: '',
     susCard: '',
@@ -175,6 +178,11 @@ export default function NovoPedido({
                 className={styles.readOnlyInput}
               />
             </div>
+
+            <SituacaoPessoa
+              situacao={newRequest.situacao}
+              className={`${styles.fieldGroup} ${styles.colSituacao}`}
+            />
 
             <div className={`${styles.fieldGroup} ${styles.colUbsRef}`}>
               <label>UBS de referência</label>

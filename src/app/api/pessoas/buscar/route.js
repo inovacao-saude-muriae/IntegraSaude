@@ -35,8 +35,12 @@ export async function GET(req) {
     // que a busca aceite "910.000.009-40" e "91000000940".
     const digitos = searchTerm.replace(/\D/g, "");
     // Busca de pessoas para NOVOS registros: só situação ATIVA e não unificadas.
+    // `?incluirIndisponiveis=1` libera Inativo/Falecido para quem consulta
+    // HISTÓRICO (processo/bloqueio existente) — o campo Situação Cadastral é
+    // justamente o que informa a indisponibilidade nesses casos.
+    const incluirIndisponiveis = searchParams.get("incluirIndisponiveis") === "1";
     const where = {
-      ...whereSituacaoPessoa("ativos"),
+      ...(incluirIndisponiveis ? {} : whereSituacaoPessoa("ativos")),
       unificadoEmCpf: null,
       OR: [
         { nomeCompleto: { contains: searchTerm, mode: "insensitive" } },
@@ -57,6 +61,8 @@ export async function GET(req) {
         cns: true,
         sexo: true,
         numeroPasta: true,
+        // Situação cadastral (fonte única em `pessoa`): os módulos apenas exibem.
+        situacao: true,
         ubsReferencia: {
           select: {
             id: true,

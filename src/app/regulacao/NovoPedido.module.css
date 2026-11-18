@@ -292,9 +292,12 @@
 
 /* ── Responsividade ── */
 @media (max-width: 900px) {
-  .colName, .colMother, .colCpf, .colSus, .colSmall, .colUbsRef,
+  .colName, .colMother, .colCpf, .colSus, .colSmall, .colUbsRef, .colSituacao,
   .colCep, .colLogradouro, .colNumero, .colComplemento, .colBairro, .colCidade, .colUf,
   .colExamType, .colProcedure, .colLocal, .colDoctor, .colUbs, .colRisk {
     grid-column: span 12;
   }
 }
+
+/* Situação Cadastral (somente leitura) — mesmo grid dos demais campos. */
+.colSituacao { grid-column: span 4; }

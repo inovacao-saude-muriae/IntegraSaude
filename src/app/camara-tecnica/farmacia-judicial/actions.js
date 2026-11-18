@@ -933,6 +933,7 @@ export async function buscarPessoaExistente(termo) {
         p.cpf AS cpf,
         p.cns AS cns,
         p.nome_completo AS "nomeCompleto",
+        p.situacao AS situacao,
         p.sexo AS sexo,
         TO_CHAR(p.data_nascimento, 'YYYY-MM-DD') AS "dataNascimento",
         p.nome_mae AS "nomeMae",

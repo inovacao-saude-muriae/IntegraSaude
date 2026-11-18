@@ -867,3 +867,21 @@
     font-size: 0.82rem;
   }
 }
+
+/* Campo SOMENTE LEITURA "Situação Cadastral" na Identificação do Paciente
+   (Regulação, Farmácia Judicial, Processos Judiciais e Junta Reguladora).
+   Mesma altura, borda e tipografia dos demais campos da seção; a etiqueta
+   interna usa .cadStatusAtivo/.cadStatusInativo/.cadStatusFalecido. */
+.situacaoPessoaCampo {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 42px;
+  padding: 0.4rem 0.85rem;
+  background-color: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  box-sizing: border-box;
+  cursor: default;
+}

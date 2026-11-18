@@ -210,6 +210,8 @@ function serializar(p) {
     status: p.status,
     pacienteCpf: p.pessoaCpf,
     pacienteNome: p.pessoa?.nomeCompleto || "",
+    // Situação cadastral da pessoa central (fonte única): só exibição.
+    pacienteSituacao: p.pessoa?.situacao || "",
     // A pasta vigente é a do PACIENTE; o espelho do processo fica como
     // fallback para processos antigos gravados antes desta regra.
     numeroPastaPaciente: p.pessoa?.numeroPasta || p.numeroPasta || "",
@@ -286,7 +288,7 @@ export async function listarProcessos({
     const processos = await prisma.processoJudicial.findMany({
       where: and.length ? { AND: and } : {},
       include: {
-        pessoa: { select: { nomeCompleto: true, numeroPasta: true } },
+        pessoa: { select: { nomeCompleto: true, numeroPasta: true, situacao: true } },
         especialidade: { select: { nome: true, ativo: true } },
         procedimento: { select: { nome: true, ativo: true } },
       },
@@ -345,7 +347,7 @@ export async function criarProcesso(dados) {
         criadoPor: user.cpf,
         atualizadoPor: user.cpf,
       },
-      include: { pessoa: { select: { nomeCompleto: true, numeroPasta: true } } },
+      include: { pessoa: { select: { nomeCompleto: true, numeroPasta: true, situacao: true } } },
     });
 
     await registrarAuditoria({
@@ -440,7 +442,7 @@ export async function editarProcesso(id, dados) {
         procedimentoNome: procedimento?.nome ?? null,
         atualizadoPor: user.cpf,
       },
-      include: { pessoa: { select: { nomeCompleto: true, numeroPasta: true } } },
+      include: { pessoa: { select: { nomeCompleto: true, numeroPasta: true, situacao: true } } },
     });
 
     await registrarAuditoria({
