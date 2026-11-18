@@ -589,7 +589,7 @@ export function useRegulacaoData(setActiveTab) {
       patientSearch: pessoa.nomeCompleto,
       patientName: pessoa.nomeCompleto,
       // Situação cadastral da pessoa central — somente exibição.
-      situacao: pessoa.situacao || "ATIVO",
+      situacao: pessoa.situacao || "",
       motherName: pessoa.nomeMae || "",
       cpf: pessoa.cpf,
       cns: pessoa.cns || "",
@@ -624,7 +624,7 @@ export function useRegulacaoData(setActiveTab) {
         ...prev,
         patientName: pessoa.nomeCompleto,
         // Situação cadastral da pessoa central — somente exibição.
-        situacao: pessoa.situacao || "ATIVO",
+        situacao: pessoa.situacao || "",
         motherName: pessoa.nomeMae,
         cpf: pessoa.cpf,
         susCard: "",

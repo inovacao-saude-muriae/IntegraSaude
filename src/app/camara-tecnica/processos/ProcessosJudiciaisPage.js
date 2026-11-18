@@ -632,7 +632,7 @@ export default function ProcessosJudiciaisPage({
 
             {/* Situação cadastral da pessoa central — somente leitura. */}
             <div className={styles.campoGrande}>
-              <SituacaoPessoa situacao={pacienteSelecionado?.situacao} className={styles.campo} />
+              <SituacaoPessoa situacao={pacienteSelecionado ? pacienteSelecionado.situacao || "" : ""} className={styles.campo} />
             </div>
 
             <div className={styles.linha}>

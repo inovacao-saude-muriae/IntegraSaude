@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import styles from "./CadastroPessoas.module.css";
+// Etiquetas da situação cadastral (Ativo verde / Inativo cinza / Falecido
+// vermelho) — as MESMAS classes do Cadastro de Pessoas (CSS global).
+import "@/components/cadastros/padraoCadastro.css";
 import { buscarCep } from "@/lib/viacep";
 import { useConfirm, useNotify } from "@/components/ConfirmDialog";
 import BotaoEditar from "@/components/BotaoEditar";
@@ -82,14 +85,6 @@ const FORM_VAZIO = {
   uf: "MG",
   // Situação cadastral (fonte única da Pessoa central).
   situacao: SITUACOES_PESSOA.ATIVO,
-  // Complementares do vínculo CCZ (tabela ccz_tutores) — só na variante tutor.
-  ehTutor: false,
-  rg: "",
-  tutorSexo: "",
-  profissao: "",
-  telefoneSecundario: "",
-  pontoReferencia: "",
-  observacoes: "",
 };
 
 // Preenche o formulário a partir de uma pessoa vinda do banco.
@@ -130,6 +125,9 @@ export default function CadastroPessoas({
   const [erro, setErro] = useState("");
 
   const [form, setForm] = useState(FORM_VAZIO);
+  // Situação carregada do banco (fonte única): base para detectar a transição
+  // escolhida no dropdown de edição.
+  const situacaoInicialRef = useRef(SITUACOES_PESSOA.ATIVO);
   // Modos: "leitura" (campos travados), "novo" (cadastro), "edicao" (editar).
   const [modo, setModo] = useState("leitura");
   const [salvando, setSalvando] = useState(false);
@@ -163,12 +161,14 @@ export default function CadastroPessoas({
   const [conflitoModulos, setConflitoModulos] = useState([]);
 
   const { modalRef: deleteModalRef } = useModalKeyboard(confirmarExclusao, () => setConfirmarExclusao(false));
-  const fecharSituacao = useCallback(() => {
+  // Sem useCallback: os setters são estáveis e o React Compiler cuida da
+  // memoização (um useCallback manual quebrava a otimização).
+  const fecharSituacao = () => {
     if (situacaoSalvando) return;
     setSituacaoModal(null);
     setJustificativa("");
     setSituacaoErro("");
-  }, [situacaoSalvando]);
+  };
   const { modalRef: situacaoModalRef } = useModalKeyboard(Boolean(situacaoModal), fecharSituacao);
 
   // Fecha o modal de conflito (não fecha durante a unificação) e devolve o foco ao campo CPF.
@@ -252,6 +252,7 @@ export default function CadastroPessoas({
   });
 
   const selecionarPessoa = (p) => {
+    situacaoInicialRef.current = normalizarSituacaoPessoa(p.situacao);
     setForm(pessoaParaForm(p));
     setModo("leitura");
     setTermo(p.nomeCompleto || "");
@@ -336,13 +337,31 @@ export default function CadastroPessoas({
     });
     if (!ok) return;
     setSalvando(true);
+    // Transição de situação escolhida na edição (autorização por TRANSIÇÃO no
+    // backend, com auditoria). É feita à parte, ANTES do salvamento dos dados.
+    const situacaoAnterior = normalizarSituacaoPessoa(situacaoInicialRef.current);
+    const transicaoSituacao =
+      modo === "edicao" &&
+      podeAlterarSituacao &&
+      normalizarSituacaoPessoa(form.situacao) !== situacaoAnterior;
+    if (transicaoSituacao) {
+      const resSit = await alterarSituacaoPessoa(form.cpfChave, {
+        situacao: form.situacao,
+        justificativa: `Alteração realizada na edição do cadastro (${situacaoAnterior} → ${normalizarSituacaoPessoa(form.situacao)}).`,
+      });
+      if (!resSit.success) {
+        setSalvando(false);
+        setErro(resSit.error || "Não foi possível alterar a situação cadastral.");
+        return;
+      }
+    }
+
     const payload = {
       ...form,
       cpf: soDigitos(form.cpf),
       telefone: soDigitos(form.telefone),
       cep: soDigitos(form.cep),
       cns: soDigitos(form.cns),
-      telefoneSecundario: soDigitos(form.telefoneSecundario),
       ubsReferenciaId: form.ubsReferenciaId || null,
     };
 
@@ -377,6 +396,7 @@ export default function CadastroPessoas({
 
     if (res.success) {
       setErro("");
+      situacaoInicialRef.current = normalizarSituacaoPessoa(form.situacao);
       const chaveFinal = res.cpf || res.data?.pessoaCpf || payload.cpf;
       const busca = await listarPessoas(chaveFinal, { situacao: "todos" });
       const salva = busca.success
@@ -430,7 +450,10 @@ export default function CadastroPessoas({
       const atualizada = busca.success
         ? busca.data.find((x) => x.cpf === form.cpfChave)
         : null;
-      if (atualizada) setForm(pessoaParaForm(atualizada));
+      if (atualizada) {
+        situacaoInicialRef.current = normalizarSituacaoPessoa(atualizada.situacao);
+        setForm(pessoaParaForm(atualizada));
+      }
       return;
     }
     setSituacaoErro(res.error || "Não foi possível alterar a situação do cadastro.");
@@ -490,19 +513,17 @@ export default function CadastroPessoas({
   };
 
   const pessoaSelecionada = Boolean(form.cpfChave);
+  // Quem pode alterar a situação cadastral (autorização final é do backend, por
+  // TRANSIÇÃO). Sem permissão, o campo continua somente leitura com os botões.
+  const podeAlterarSituacao = podeInativar || podeReativar || podeEditarSituacao;
   const cpfProvisorioAtual = modo === "edicao" && isCpfProvisorio(form.cpfChave);
+  // Título único: tutor e paciente usam o MESMO formulário cadastral.
   const tituloForm =
     modo === "novo"
-      ? variante === "tutor"
-        ? "Novo tutor"
-        : "Novo paciente"
+      ? "Novo cadastro"
       : modo === "edicao"
-        ? variante === "tutor"
-          ? "Editar tutor"
-          : "Editar paciente"
-        : variante === "tutor"
-          ? "Dados do tutor"
-          : "Dados do paciente";
+        ? "Editar cadastro"
+        : "Dados do cadastro";
 
   return (
     <div className={styles.container}>
@@ -668,11 +689,13 @@ export default function CadastroPessoas({
           </div>
           <div className={styles.field}>
             <label htmlFor="situacaoCadastral">Situação cadastral</label>
-            {modo === "novo" ? (
+            {modo === "novo" || podeAlterarSituacao ? (
               <select
                 id="situacaoCadastral"
                 value={form.situacao}
                 onChange={(e) => setForm({ ...form, situacao: e.target.value })}
+                disabled={!editavel}
+                aria-describedby="situacao-hint"
               >
                 {SITUACOES_PESSOA_LISTA.map((v) => (
                   <option key={v} value={v}>
@@ -867,71 +890,6 @@ export default function CadastroPessoas({
           </div>
         </div>
         </div>
-
-        {variante === "tutor" && (
-          <>
-            <div className={styles.formSectionTitle}>Dados complementares do tutor</div>
-            <div className={styles.grid}>
-              <div className={styles.field}>
-                <label htmlFor="rg">RG</label>
-                <input
-                  type="text"
-                  id="rg"
-                  value={form.rg}
-                  maxLength={20}
-                  onChange={(e) => setForm({ ...form, rg: e.target.value })}
-                  disabled={!editavel}
-                />
-              </div>
-              <div className={styles.field}>
-                <label htmlFor="profissao">Profissão</label>
-                <input
-                  type="text"
-                  id="profissao"
-                  value={form.profissao}
-                  maxLength={100}
-                  onChange={(e) => setForm({ ...form, profissao: e.target.value })}
-                  disabled={!editavel}
-                />
-              </div>
-              <div className={styles.field}>
-                <label htmlFor="telefoneSecundario">Telefone secundário</label>
-                <input
-                  type="text"
-                  id="telefoneSecundario"
-                  value={form.telefoneSecundario}
-                  placeholder="(00) 00000-0000"
-                  onChange={(e) =>
-                    setForm({ ...form, telefoneSecundario: maskTelefone(e.target.value) })
-                  }
-                  disabled={!editavel}
-                />
-              </div>
-              <div className={styles.field}>
-                <label htmlFor="pontoReferencia">Ponto de referência</label>
-                <input
-                  type="text"
-                  id="pontoReferencia"
-                  value={form.pontoReferencia}
-                  maxLength={150}
-                  onChange={(e) => setForm({ ...form, pontoReferencia: e.target.value })}
-                  disabled={!editavel}
-                />
-              </div>
-              <div className={`${styles.field} ${styles.colWide}`}>
-                <label htmlFor="observacoesTutor">Observações do tutor</label>
-                <textarea
-                  id="observacoesTutor"
-                  className={styles.textarea}
-                  rows={2}
-                  value={form.observacoes}
-                  onChange={(e) => setForm({ ...form, observacoes: e.target.value })}
-                  disabled={!editavel}
-                />
-              </div>
-            </div>
-          </>
-        )}
 
         <div className={styles.formActions}>
           {modo === "leitura" && pessoaSelecionada && (

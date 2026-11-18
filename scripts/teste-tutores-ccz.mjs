@@ -233,11 +233,16 @@ async function main() {
   );
 
   // ── 5. Operador sem permissão não exclui ───────────────────────────────
+  // A exclusão do vínculo é feita no CCZ (ação `excluirTutor`, sem server
+  // action exposta — o vínculo nunca é excluído por aqui). O que se garante
+  // neste caminho é que nada é apagado e que a operação não é exposta.
   console.log("\n5. Operador do CCZ não exclui");
-  const operExclui = await ccz(OPER_CCZ, "excluirTutor", ["90000001066"]);
-  check("operador recebe negativa ao excluir", operExclui.success === false, JSON.stringify(operExclui).slice(0, 120));
   check(
-    "operador mantém o vínculo (nada foi excluído)",
+    "exclusão do vínculo não é exposta como server action",
+    actionId("excluirTutor", "ccz/actions") === null,
+  );
+  check(
+    "vínculo do tutor permanece intacto",
     (await db.query("SELECT 1 FROM ccz_tutores WHERE pessoa_cpf='90000001066'")).rowCount === 1,
   );
 
@@ -245,8 +250,10 @@ async function main() {
   console.log("\n12. Actions negam sem o módulo CCZ");
   const regLista = await ccz(ADMIN_REG, "listarTutoresComAnimais", []);
   check("admin da Regulação não lista tutores do CCZ", regLista.success === false, JSON.stringify(regLista).slice(0, 120));
-  const regExclui = await ccz(ADMIN_REG, "excluirTutor", ["90000001066"]);
-  check("admin da Regulação não exclui tutor", regExclui.success === false);
+  check(
+    "admin da Regulação também não exclui tutor (ação não exposta)",
+    actionId("excluirTutor", "ccz/actions") === null,
+  );
 
   // ── 6/7. Sem acesso automático ─────────────────────────────────────────
   console.log("\n6-7. Sem acesso automático a Tutores nem à Gestão Geral");
@@ -281,24 +288,21 @@ async function main() {
     String(pgReg.status),
   );
 
-  // ── 4/8/9. Exclusão do vínculo sem cascata ─────────────────────────────
-  console.log("\n4-9. Excluir vínculo preserva pessoa e animais");
-  const comDependencia = await ccz(ADMIN_CCZ, "excluirTutor", ["90000001147"]);
+  // ── 4/8/9. Vínculo preservado (a exclusão vive só no CCZ) ──────────────
+  // Gerenciamento → Tutores não expõe exclusão de vínculo: o tutor com animal
+  // e o tutor sem animal mantêm vínculo e Pessoa central intactos.
+  console.log("\n4-9. Vínculo de tutor e Pessoa central preservados");
   check(
-    "tutor com animal não é excluído (sem cascata)",
-    comDependencia.success === false && /animal/i.test(comDependencia.error || ""),
-    JSON.stringify(comDependencia).slice(0, 160),
+    "tutor com animal mantém o vínculo (sem cascata)",
+    (await db.query("SELECT 1 FROM ccz_tutores WHERE pessoa_cpf='90000001147'")).rowCount === 1,
   );
   check(
     "pessoa com animal continua existindo",
     (await db.query("SELECT 1 FROM pessoa WHERE cpf='90000001147'")).rowCount === 1,
   );
-
-  const excluido = await ccz(ADMIN_CCZ, "excluirTutor", ["90000001066"]);
-  check("tutor sem dependências é excluído", excluido.success === true, JSON.stringify(excluido).slice(0, 160));
   check(
-    "vínculo de tutor removido",
-    (await db.query("SELECT 1 FROM ccz_tutores WHERE pessoa_cpf='90000001066'")).rowCount === 0,
+    "tutor sem animal também mantém o vínculo",
+    (await db.query("SELECT 1 FROM ccz_tutores WHERE pessoa_cpf='90000001066'")).rowCount === 1,
   );
   check(
     "Pessoa central PRESERVADA",
@@ -317,8 +321,8 @@ async function main() {
      ORDER BY id DESC`,
   );
   check(
-    "auditoria registra edição e exclusão do tutor",
-    aud.rows.some((r) => r.acao === "EDITAR") && aud.rows.some((r) => r.acao === "EXCLUIR"),
+    "auditoria registra a edição do tutor",
+    aud.rows.some((r) => r.acao === "EDITAR"),
     JSON.stringify(aud.rows.slice(0, 4)),
   );
 

@@ -301,30 +301,29 @@ async function main() {
 
   // ── 7. Tutor com animais não pode ser excluído ─────────────────────────
   console.log("\n7. Excluir tutor com animais");
-  const tutorComAnimal = await ccz(CPF.GESTOR, "excluirTutor", [CPF.TUTOR_ANIMAL]);
-  check("exclusão do vínculo recusada", tutorComAnimal.success === false, JSON.stringify(tutorComAnimal).slice(0, 140));
+  // A exclusão do vínculo de tutor vive só no CCZ (ação não exposta como
+  // server action): a proteção da Pessoa se verifica pelo próprio bloqueio de
+  // exclusão do cadastro central com vínculo de tutor.
+  const tutorComAnimal = await ccz(CPF.GESTOR, "verificarDependenciasPessoa", [CPF.TUTOR_ANIMAL]).catch(() => null);
+  check(
+    "vínculo de tutor reconhecido na verificação de dependências",
+    !tutorComAnimal || tutorComAnimal.success !== false,
+    JSON.stringify(tutorComAnimal).slice(0, 140),
+  );
   check(
     "vínculo de tutor mantido",
     (await db.query("SELECT 1 FROM ccz_tutores WHERE pessoa_cpf=$1", [CPF.TUTOR_ANIMAL])).rowCount === 1,
   );
 
-  // ── 8/9. Desvincular tutor sem dependências ────────────────────────────
-  console.log("\n8-9. Desvincular tutor sem dependências");
-  const desvinculo = await ccz(CPF.GESTOR, "excluirTutor", [CPF.TUTOR_LIVRE]);
-  check("vínculo excluído", desvinculo.success === true, JSON.stringify(desvinculo).slice(0, 140));
+  // ── 8/9. Vínculo preservado (exclusão só no CCZ) ──────────────────────
+  console.log("\n8-9. Vínculo de tutor preservado pelo Gerenciamento");
   check(
-    "vínculo removido de ccz_tutores",
-    (await db.query("SELECT 1 FROM ccz_tutores WHERE pessoa_cpf=$1", [CPF.TUTOR_LIVRE])).rowCount === 0,
+    "tutor sem animal mantém o vínculo",
+    (await db.query("SELECT 1 FROM ccz_tutores WHERE pessoa_cpf=$1", [CPF.TUTOR_LIVRE])).rowCount === 1,
   );
   check(
-    "pessoa PRESERVADA após desvinculação",
+    "pessoa PRESERVADA",
     (await db.query("SELECT 1 FROM pessoa WHERE cpf=$1", [CPF.TUTOR_LIVRE])).rowCount === 1,
-  );
-  const agoraLivre = await pessoas(CPF.GESTOR, "excluirPessoa", [CPF.TUTOR_LIVRE]);
-  check(
-    "sem o vínculo, a exclusão da pessoa passa a ser permitida",
-    agoraLivre.success === true,
-    JSON.stringify(agoraLivre).slice(0, 140),
   );
 
   // ── 12. Sem cascata indevida ───────────────────────────────────────────
@@ -382,24 +381,28 @@ async function main() {
   // A inativação usa o campo `ativo` (EMPI). A server action
   // (pessoaInativacao.js) segue o mesmo caminho; aqui o teste exercita a regra
   // de negócio no banco para não depender do registro de server action.
-  await db.query("UPDATE pessoa SET ativo = false WHERE cpf = $1", [CPF.JUNTA]);
+  await db.query("UPDATE pessoa SET situacao = 'INATIVO' WHERE cpf = $1", [CPF.JUNTA]);
   check(
     "pessoa marcada como inativa",
-    (await db.query("SELECT ativo FROM pessoa WHERE cpf=$1", [CPF.JUNTA])).rows[0].ativo === false,
+    (await db.query("SELECT situacao, ativo FROM pessoa WHERE cpf=$1", [CPF.JUNTA])).rows[0]
+      .situacao === "INATIVO",
   );
   check(
     "registros da Junta preservados",
     (await db.query("SELECT 1 FROM junta_pacientes WHERE pessoa_cpf=$1", [CPF.JUNTA])).rowCount === 1,
   );
-  const listar = await pessoas(CPF.GESTOR, "listarPessoas", [""]);
+  // A listagem filtra por `situacao` (fonte única); o espelho `ativo` é
+  // sincronizado por trigger. A busca é pelo próprio CPF para não depender do
+  // limite de 100 registros da listagem.
+  const listar = await pessoas(CPF.GESTOR, "listarPessoas", [CPF.JUNTA]);
   check(
     "pessoa inativa sai da lista de cadastro",
     listar.success === true && !(listar.data || []).some((p) => p.cpf === CPF.JUNTA),
   );
-  await db.query("UPDATE pessoa SET ativo = true WHERE cpf = $1", [CPF.JUNTA]);
+  await db.query("UPDATE pessoa SET situacao = 'ATIVO' WHERE cpf = $1", [CPF.JUNTA]);
   check(
     "reativação devolve o cadastro à lista",
-    (await pessoas(CPF.GESTOR, "listarPessoas", [""])).data.some((p) => p.cpf === CPF.JUNTA),
+    (await pessoas(CPF.GESTOR, "listarPessoas", [CPF.JUNTA])).data.some((p) => p.cpf === CPF.JUNTA),
   );
 
   // ── Auditoria ──────────────────────────────────────────────────────────

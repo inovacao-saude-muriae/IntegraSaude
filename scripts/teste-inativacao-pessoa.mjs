@@ -33,6 +33,15 @@ const db = new Client({ connectionString: env.DATABASE_URL });
 const segredo = new TextEncoder().encode(env.JWT_SECRET);
 
 const PESSOAS = { rota: "/gerenciamento/pessoas", arquivo: "gerenciamento/pessoas/actions" };
+
+// `alterarSituacaoPessoa(cpf, { situacao, justificativa })` é a action única:
+// as ações nominais antigas (inativar/reativar/registrarFalecido) foram
+// consolidadas nela. O helper mantém as chamadas legíveis.
+const SITUACAO_POR_ACAO = {
+  inativarPessoa: "INATIVO",
+  reativarPessoa: "ATIVO",
+  registrarFalecido: "FALECIDO",
+};
 const SITUACAO = {
   rota: "/gerenciamento/pessoas",
   arquivo: "gerenciamento/pessoas/pessoaInativacao",
@@ -104,10 +113,15 @@ function actionId(nome, arquivo) {
 
 async function chamar(cpf, nome, args, { rota, arquivo }) {
   const token = await tokenDe(cpf);
-  const id = actionId(nome, arquivo);
+  const id = actionId(SITUACAO_POR_ACAO[nome] ? "alterarSituacaoPessoa" : nome, arquivo);
   if (!id) throw new Error(`server action "${nome}" não encontrada no manifest`);
+  // Ação consolidada: o primeiro argumento recebe a situação de destino.
+  const destino = SITUACAO_POR_ACAO[nome];
+  const payload = destino
+    ? [args[0], { ...(args[1] || {}), situacao: destino }]
+    : args;
   const form = new FormData();
-  form.append("0", JSON.stringify(args));
+  form.append("0", JSON.stringify(payload));
   const r = await fetch(`${BASE}${rota}`, {
     method: "POST",
     headers: {
@@ -251,9 +265,9 @@ async function main() {
 
   // ── 3. Sem permissão para inativar ─────────────────────────────────────
   console.log("\n3. Inativar sem permissão");
-  const semPermInativar = await situacao(CPF.SEM_SITUACAO, "inativarPessoa", [
+  const semPermInativar = await situacao(CPF.SEM_SITUACAO, "alterarSituacaoPessoa", [
     CPF.SEM_ACESSO,
-    { justificativa: JUST },
+    { situacao: "INATIVO", justificativa: JUST },
   ]);
   check("inativação negada sem pessoas:inativar", semPermInativar.success === false);
   check(
@@ -296,18 +310,18 @@ async function main() {
 
   // ── 1. Inativar pessoa ativa ───────────────────────────────────────────
   console.log("\n1. Inativar pessoa ativa");
-  const inativou = await situacao(CPF.GESTOR, "inativarPessoa", [
+  const inativou = await situacao(CPF.GESTOR, "alterarSituacaoPessoa", [
     CPF.SEM_ACESSO,
-    { justificativa: JUST },
+    { situacao: "INATIVO", justificativa: JUST },
   ]);
   check("inativação aceita", inativou.success === true, JSON.stringify(inativou).slice(0, 160));
   check(
     "pessoa.ativo = false",
     (await db.query("SELECT ativo FROM pessoa WHERE cpf=$1", [CPF.SEM_ACESSO])).rows[0].ativo === false,
   );
-  const deNovo = await situacao(CPF.GESTOR, "inativarPessoa", [
+  const deNovo = await situacao(CPF.GESTOR, "alterarSituacaoPessoa", [
     CPF.SEM_ACESSO,
-    { justificativa: JUST },
+    { situacao: "INATIVO", justificativa: JUST },
   ]);
   check("não inativa duas vezes", deNovo.success === false);
 

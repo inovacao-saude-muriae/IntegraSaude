@@ -320,10 +320,15 @@ async function main() {
     pessoaIntacta.rows[0]?.nome_completo === "TST Tutor de Animais",
   );
 
-  const porTutor = await ccz(ADMIN_CCZ, "listarAnimaisDoTutor", [TUTOR_CPF]);
+  // A consulta é feita direto no banco: a action `listarAnimaisDoTutor` não é
+  // exportada como server action (só é usada no servidor).
+  const porTutor = await db.query(
+    "SELECT id FROM ccz_animais WHERE pessoa_cpf = $1",
+    [TUTOR_CPF],
+  );
   check(
     "animal aparece na ficha do tutor",
-    (porTutor.data || []).some((a) => a.id === ANIMAL_ID),
+    porTutor.rows.some((a) => a.id === ANIMAL_ID),
   );
 
   // ══ 8. Edição ══════════════════════════════════════════════════════════

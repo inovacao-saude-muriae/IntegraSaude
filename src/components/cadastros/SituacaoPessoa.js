@@ -16,18 +16,25 @@ import {
 } from "@/lib/situacaoPessoa";
 
 export default function SituacaoPessoa({ situacao, className = "" }) {
+  // Sem pessoa selecionada o campo fica VAZIO (nada de "Ativo" por omissão):
+  // a etiqueta só aparece depois que o paciente é escolhido.
+  const preenchido = Boolean(situacao);
   const valor = normalizarSituacaoPessoa(situacao);
   return (
     <div className={className}>
       <label>Situação Cadastral</label>
       <div
-        key={valor}
+        key={preenchido ? valor : "vazio"}
         className="situacaoPessoaCampo"
         role="status"
-        aria-label={`Situação cadastral: ${rotuloSituacaoPessoa(valor)}`}
+        aria-label={
+          preenchido ? `Situação cadastral: ${rotuloSituacaoPessoa(valor)}` : "Situação cadastral"
+        }
         title="A situação cadastral é alterada apenas no Cadastro de Pessoas."
       >
-        <span className={classeSituacaoPessoa(valor)}>{rotuloSituacaoPessoa(valor)}</span>
+        {preenchido ? (
+          <span className={classeSituacaoPessoa(valor)}>{rotuloSituacaoPessoa(valor)}</span>
+        ) : null}
       </div>
     </div>
   );

@@ -149,7 +149,7 @@ export default function TabPacientesJudiciais({
             </div>
 
             <SituacaoPessoa
-              situacao={pessoa?.situacao}
+              situacao={pessoa ? pessoa.situacao || "" : ""}
               className={`${styles.field} ${styles.colSituacao}`}
             />
           </div>

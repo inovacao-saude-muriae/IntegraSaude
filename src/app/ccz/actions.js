@@ -447,19 +447,9 @@ export async function salvarTutor(dados) {
     }
     const pessoaJaExiste = Boolean(pessoaExistente);
 
-    const dadosTutor = {
-      rg: dados.rg ? String(dados.rg).slice(0, 20) : null,
-      sexo: dados.tutorSexo ? String(dados.tutorSexo).slice(0, 20) : null,
-      profissao: dados.profissao ? String(dados.profissao).slice(0, 100) : null,
-      telefoneSecundario: dados.telefoneSecundario
-        ? soDigitos(dados.telefoneSecundario).slice(0, 20)
-        : null,
-      pontoReferencia: dados.pontoReferencia
-        ? String(dados.pontoReferencia).slice(0, 150)
-        : null,
-      observacoes: dados.observacoes ? String(dados.observacoes) : null,
-    };
-
+    // O formulário do tutor é EXATAMENTE o do paciente (Pessoa central): os
+    // campos complementares de `ccz_tutores` deixaram de ser editados. Os dados
+    // já gravados permanecem na tabela (nada é apagado); só não são tocados.
     // Situação cadastral: gravada apenas na CRIAÇÃO da pessoa (alterá-la exige
     // confirmação e justificativa, em alterarSituacaoPessoa).
     const dadosPessoa = { ...dados };
@@ -468,10 +458,12 @@ export async function salvarTutor(dados) {
     await prisma.$transaction(async (tx) => {
       await upsertPessoaTx(tx, pessoaJaExiste ? dadosPessoa : dados);
       await gravarEnderecoTx(tx, cpf, dados);
+      // Vínculo de tutor: cria só a chave quando ainda não existir; em update
+      // não há campo do formulário a gravar (preserva o que já estava lá).
       await tx.tutor.upsert({
         where: { pessoaCpf: cpf },
-        update: dadosTutor,
-        create: { pessoaCpf: cpf, ...dadosTutor },
+        update: {},
+        create: { pessoaCpf: cpf },
       });
     });
 
