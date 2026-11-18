@@ -132,7 +132,7 @@ async function exigirPessoa(cpfBruto, { permitirIndisponivel = false } = {}) {
   if (pessoa.unificadoEmCpf) {
     throw falha("Este cadastro foi unificado em outro. Selecione o cadastro atual.");
   }
-  // Situação cadastral (fonte única): inativo ou falecido não recebe novo processo.
+  // Situação cadastral (fonte única): falecido não recebe novo processo.
   // No bloqueio a pessoa pode já ter sido inativada depois do processo: o
   // bloqueio é ato administrativo sobre um processo existente, então só o
   // cadastro unificado é impedido.
@@ -318,7 +318,9 @@ export async function criarProcesso(dados) {
   try {
     const user = await requirePermissao(MODULOS.PROCESSOS, FUNCIONALIDADE, "criar");
 
-    const pessoa = await exigirPessoa(dados?.pacienteCpf);
+    // Situação cadastral (fonte única) antes de qualquer outro campo: pessoa
+    // falecida recebe a mensagem única de bloqueio de novos vínculos.
+    const pessoa = await exigirPessoa(dados?.pacienteCpf ?? dados?.cpf ?? dados?.pessoaCpf);
     const numeroProcesso = exigirTexto(dados?.numeroProcesso, "o número do processo", 100);
     const { especialidade, procedimento } = await resolverCatalogos(
       inteiroPositivo(dados?.especialidadeId),

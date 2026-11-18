@@ -22,8 +22,8 @@ import {
 //
 // Permissões próprias do catálogo central, nenhuma herdada por administrador
 // de módulo:
-//   GESTAO · pessoas · inativar  → ATIVO → INATIVO
-//   GESTAO · pessoas · reativar  → INATIVO/FALECIDO → ATIVO
+//   GESTAO · pessoas · editar    → ATIVO → FALECIDO (e correção de legado)
+//   GESTAO · pessoas · reativar  → FALECIDO → ATIVO
 //   GESTAO · pessoas · editar    → registrar/corrigir FALECIDO
 //
 // Nada é apagado: pedidos, prontuários, processos, registros da Farmácia e os
@@ -41,11 +41,10 @@ function lerJustificativa(valor, acao) {
 
 // Permissão exigida para ir da situação atual para a nova.
 function permissaoDaTransicao(anterior, nova) {
+  // Duas situações: ATIVO ↔ FALECIDO. Reativar exige `reativar`; registrar ou
+  // corrigir o falecimento exige `editar`.
   if (nova === SITUACOES_PESSOA.ATIVO) return PERMISSOES.REATIVAR;
-  if (nova === SITUACOES_PESSOA.FALECIDO) return PERMISSOES.EDITAR;
-  return anterior === SITUACOES_PESSOA.FALECIDO
-    ? PERMISSOES.EDITAR
-    : PERMISSOES.INATIVAR;
+  return PERMISSOES.EDITAR;
 }
 
 // Quem ainda pode entrar no sistema com este CPF. Tirar o cadastro de ATIVO não
@@ -82,7 +81,8 @@ export async function alterarSituacaoPessoa(cpf, { situacao, justificativa } = {
       };
     }
 
-    const anterior = normalizarSituacaoPessoa(pessoa.situacao);
+    // Situação gravada (pode ser a legada "Inativo", corrigível aqui).
+    const anterior = String(pessoa.situacao || "").trim().toUpperCase();
     if (anterior === nova) {
       return {
         success: false,

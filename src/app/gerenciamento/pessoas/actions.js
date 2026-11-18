@@ -74,7 +74,9 @@ export async function listarUbs() {
 }
 
 // ── LISTAR / BUSCAR ────────────────────────────────────────────────────────
-// `situacao`: "ativos" (padrão) | "inativos" | "falecidos" | "todos".
+// `situacao`: "ativos" (padrão) | "falecidos" | "todos".
+// Situação cadastral tem DUAS opções (Ativo/Falecido); registros legados com
+// situação "Inativo" continuam aparecendo em "todos" até serem corrigidos.
 // A situação vem da fonte única (pessoa.situacao). Cadastros absorvidos por
 // unificação (unificadoEmCpf preenchido) NUNCA são listados: eles não são
 // "inativos", foram unificados em outro registro.

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { whereSituacaoPessoa } from "@/lib/situacaoPessoa";
 import { usuarioDaSessao, requireAcessoPessoas } from "@/lib/auth";
 import { MODULOS, usuarioTemPermissao } from "@/lib/permissions";
 
@@ -34,13 +33,15 @@ export async function GET(req) {
     // CPF é procurado pelos dígitos (o cadastro único guarda só números), para
     // que a busca aceite "910.000.009-40" e "91000000940".
     const digitos = searchTerm.replace(/\D/g, "");
-    // Busca de pessoas para NOVOS registros: só situação ATIVA e não unificadas.
-    // `?incluirIndisponiveis=1` libera Inativo/Falecido para quem consulta
-    // HISTÓRICO (processo/bloqueio existente) — o campo Situação Cadastral é
-    // justamente o que informa a indisponibilidade nesses casos.
+    // Busca de pessoas não unificadas. `?incluirIndisponiveis=1` também traz as
+    // falecidas (histórico de processo/bloqueio): o campo Situação Cadastral
+    // informa a indisponibilidade e o backend bloqueia o novo vínculo.
     const incluirIndisponiveis = searchParams.get("incluirIndisponiveis") === "1";
+    // Pessoa FALECIDA continua localizável por nome/CPF em todos os módulos:
+    // pesquisa e consulta de histórico são permitidas. O bloqueio de novos
+    // vínculos é decidido depois, pela situação (frontend e backend).
     const where = {
-      ...(incluirIndisponiveis ? {} : whereSituacaoPessoa("ativos")),
+      ...(incluirIndisponiveis ? {} : { NOT: { situacao: "FALECIDO" } }),
       unificadoEmCpf: null,
       OR: [
         { nomeCompleto: { contains: searchTerm, mode: "insensitive" } },

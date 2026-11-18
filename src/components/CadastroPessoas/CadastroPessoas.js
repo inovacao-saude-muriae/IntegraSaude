@@ -57,11 +57,11 @@ const NOMES_MODULOS = {
   CCZ: "CCZ (tutor)",
 };
 
-// Classe do aviso de situação (verde / cinza / vermelho).
+// Classe do aviso de situação (verde / vermelho).
 const classeAvisoSituacao = (situacao) => {
-  const s = normalizarSituacaoPessoa(situacao);
-  if (s === SITUACOES_PESSOA.FALECIDO) return styles.avisoFalecido;
-  if (s === SITUACOES_PESSOA.INATIVO) return styles.avisoInativa;
+  if (normalizarSituacaoPessoa(situacao) === SITUACOES_PESSOA.FALECIDO) {
+    return styles.avisoFalecido;
+  }
   return styles.avisoAtiva;
 };
 
@@ -144,9 +144,9 @@ export default function CadastroPessoas({
   const [confirmarExclusao, setConfirmarExclusao] = useState(false);
   // Filtro de situação cadastral: "todos" | "ativos" | "inativos" | "falecidos".
   const [filtroSituacao, setFiltroSituacao] = useState("todos");
-  // Modal de inativação/reativação: { tipo: "inativar" | "reativar" } | null.
+  // Modal de situação: { tipo: "falecido" | "reativar" } | null.
   const [situacaoModal, setSituacaoModal] = useState(null);
-  // Situação de destino escolhida no seletor (ATIVO/INATIVO/FALECIDO).
+  // Situação de destino escolhida no seletor (ATIVO/FALECIDO).
   const [situacaoDestino, setSituacaoDestino] = useState(SITUACOES_PESSOA.ATIVO);
   const [justificativa, setJustificativa] = useState("");
   const [situacaoErro, setSituacaoErro] = useState("");
@@ -409,18 +409,14 @@ export default function CadastroPessoas({
     }
   };
 
-  // Abre a confirmação para alterar a situação cadastral. `tipo` é o valor de
-  // destino: "inativar" (ATIVO→INATIVO), "falecido" ou "reativar" (→ATIVO).
+  // Abre a confirmação para alterar a situação cadastral. `tipo` é o destino:
+  // "falecido" (ATIVO→FALECIDO) ou "reativar" (FALECIDO→ATIVO).
   const abrirSituacao = (tipo, destino) => {
     setSituacaoErro("");
     setJustificativa("");
     setSituacaoDestino(
       destino ||
-        (tipo === "inativar"
-          ? SITUACOES_PESSOA.INATIVO
-          : tipo === "falecido"
-            ? SITUACOES_PESSOA.FALECIDO
-            : SITUACOES_PESSOA.ATIVO),
+        (tipo === "falecido" ? SITUACOES_PESSOA.FALECIDO : SITUACOES_PESSOA.ATIVO),
     );
     setSituacaoModal({ tipo });
   };
@@ -559,10 +555,8 @@ export default function CadastroPessoas({
             <span className={styles.pillSituacao}>{rotuloSituacaoPessoa(form.situacao)}</span>
             <span>
               {form.situacao === SITUACOES_PESSOA.FALECIDO
-                ? "Pessoa falecida: não são permitidos novos registros assistenciais. Todo o histórico continua consultável e os vínculos (inclusive animais do CCZ) permanecem preservados."
-                : form.situacao === SITUACOES_PESSOA.INATIVO
-                  ? "Cadastro inativo: o histórico continua consultável, mas a pessoa não é usada em novos registros assistenciais."
-                  : "Cadastro ativo e disponível para novos atendimentos."}
+                ? "Pessoa falecida: não são permitidos novos vínculos operacionais. Todo o histórico continua consultável e os vínculos anteriores (inclusive animais do CCZ) permanecem preservados."
+                : "Cadastro ativo e disponível para novos vínculos operacionais."}
               {situacaoInfo?.ultimaAlteracaoSituacao && (
                 <em className={styles.avisoDetalhe}>
                   {" "}
@@ -900,17 +894,6 @@ export default function CadastroPessoas({
               Cancelar
             </button>
           )}
-          {modo === "leitura" && pessoaSelecionada && form.situacao === SITUACOES_PESSOA.ATIVO && podeInativar && (
-            <button
-              type="button"
-              className={styles.btnSecundario}
-              onClick={() => abrirSituacao("inativar")}
-              disabled={salvando}
-              aria-label="Inativar pessoa"
-            >
-              Inativar
-            </button>
-          )}
           {modo === "leitura" && pessoaSelecionada && form.situacao === SITUACOES_PESSOA.ATIVO && podeEditarSituacao && (
             <button
               type="button"
@@ -1049,10 +1032,8 @@ export default function CadastroPessoas({
             </div>
             <p className={styles.modalNota}>
               {situacaoDestino === SITUACOES_PESSOA.FALECIDO
-                ? "Falecido: bloqueia novos registros assistenciais em todos os módulos. Consultas históricas e procedimentos administrativos continuam permitidos, e os vínculos do CCZ (inclusive os animais) são preservados."
-                : situacaoDestino === SITUACOES_PESSOA.INATIVO
-                  ? "Inativo: o cadastro sai das listas de uso, mas não impede o atendimento já registrado. Nada é apagado: pedidos, processos, prontuários, registros da Farmácia e os animais do CCZ continuam intactos."
-                  : "Ativo: o MESMO registro volta a ficar disponível — nenhum cadastro novo é criado — e todos os vínculos existentes são mantidos."}
+                ? "Falecido: impede novos vínculos operacionais em todos os módulos. Pesquisa, consulta de dados e todo o histórico continuam liberados, e os vínculos anteriores (inclusive os animais do CCZ) são preservados."
+                : "Ativo: o MESMO registro volta a ficar disponível — nenhum cadastro novo é criado — e todos os vínculos existentes são mantidos."}
             </p>
             <div className={styles.field}>
               <label htmlFor="justificativa-situacao">
@@ -1068,9 +1049,7 @@ export default function CadastroPessoas({
                 placeholder={
                   situacaoDestino === SITUACOES_PESSOA.FALECIDO
                     ? "Ex.: óbito informado pela família em 12/11/2026."
-                    : situacaoDestino === SITUACOES_PESSOA.INATIVO
-                      ? "Ex.: cadastro duplicado de paciente que já possui registro ativo."
-                      : "Ex.: situação cadastral corrigida após conferência da documentação."
+                    : "Ex.: situação cadastral corrigida após conferência da documentação."
                 }
                 required
                 aria-required="true"

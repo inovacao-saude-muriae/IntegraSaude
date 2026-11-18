@@ -38,8 +38,7 @@ export default function TutoresLista({ onEditar }) {
   const termoDigitos = termo.replace(/\D/g, "");
   const filtrados = tutores.filter((t) => {
     const situacao = String(t.situacao || "ATIVO").toUpperCase();
-    if (filtroSituacao === "ativos" && situacao !== "ATIVO") return false;
-    if (filtroSituacao === "inativos" && situacao !== "INATIVO") return false;
+    if (filtroSituacao === "ativos" && situacao === "FALECIDO") return false;
     if (filtroSituacao === "falecidos" && situacao !== "FALECIDO") return false;
     if (!termoLimpo) return true;
     const nome = (t.nome || "").toLowerCase();

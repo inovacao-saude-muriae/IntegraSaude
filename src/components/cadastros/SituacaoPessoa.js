@@ -11,6 +11,7 @@
 // vermelho), de `src/components/cadastros/padraoCadastro.css`.
 import {
   classeSituacaoPessoa,
+  mensagemPessoaIndisponivel,
   normalizarSituacaoPessoa,
   rotuloSituacaoPessoa,
 } from "@/lib/situacaoPessoa";
@@ -20,6 +21,8 @@ export default function SituacaoPessoa({ situacao, className = "" }) {
   // a etiqueta só aparece depois que o paciente é escolhido.
   const preenchido = Boolean(situacao);
   const valor = normalizarSituacaoPessoa(situacao);
+  // Pessoa falecida: a MESMA mensagem de bloqueio em todos os módulos.
+  const bloqueio = preenchido ? mensagemPessoaIndisponivel(situacao) : null;
   return (
     <div className={className}>
       <label>Situação Cadastral</label>
@@ -36,6 +39,11 @@ export default function SituacaoPessoa({ situacao, className = "" }) {
           <span className={classeSituacaoPessoa(valor)}>{rotuloSituacaoPessoa(valor)}</span>
         ) : null}
       </div>
+      {bloqueio && (
+        <p className="situacaoPessoaAviso" role="alert">
+          {bloqueio}
+        </p>
+      )}
     </div>
   );
 }

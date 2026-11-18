@@ -381,11 +381,13 @@ async function main() {
   // A inativação usa o campo `ativo` (EMPI). A server action
   // (pessoaInativacao.js) segue o mesmo caminho; aqui o teste exercita a regra
   // de negócio no banco para não depender do registro de server action.
-  await db.query("UPDATE pessoa SET situacao = 'INATIVO' WHERE cpf = $1", [CPF.JUNTA]);
+  // Situação cadastral tem DUAS opções (Ativo/Falecido). O afastamento da
+  // lista de uso é o FALECIDO.
+  await db.query("UPDATE pessoa SET situacao = 'FALECIDO' WHERE cpf = $1", [CPF.JUNTA]);
   check(
-    "pessoa marcada como inativa",
+    "pessoa marcada como falecida",
     (await db.query("SELECT situacao, ativo FROM pessoa WHERE cpf=$1", [CPF.JUNTA])).rows[0]
-      .situacao === "INATIVO",
+      .situacao === "FALECIDO",
   );
   check(
     "registros da Junta preservados",
@@ -396,7 +398,7 @@ async function main() {
   // limite de 100 registros da listagem.
   const listar = await pessoas(CPF.GESTOR, "listarPessoas", [CPF.JUNTA]);
   check(
-    "pessoa inativa sai da lista de cadastro",
+    "pessoa falecida sai da lista de cadastro",
     listar.success === true && !(listar.data || []).some((p) => p.cpf === CPF.JUNTA),
   );
   await db.query("UPDATE pessoa SET situacao = 'ATIVO' WHERE cpf = $1", [CPF.JUNTA]);

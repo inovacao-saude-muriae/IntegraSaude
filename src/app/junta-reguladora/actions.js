@@ -31,12 +31,14 @@ export async function buscarPessoaExistente(termo) {
 
     // Termo vazio/curto: lista os primeiros registros (para o dropdown já
     // aparecer ao focar o campo, como na Farmácia Judicial).
-    // Cadastros absorvidos por unificação (ativo=false) ficam fora da busca.
+    // Cadastros absorvidos por unificação ficam fora da busca. Pessoas
+    // FALECIDAS aparecem (pesquisa e consulta permitidas): a nova solicitação
+    // é bloqueada ao selecionar e no backend, com a mensagem única.
     const where =
       termoClean.length === 0
-        ? { ativo: true }
+        ? { unificadoEmCpf: null }
         : {
-            ativo: true,
+            unificadoEmCpf: null,
             OR: [
               { nomeCompleto: { contains: termoClean, mode: 'insensitive' } },
               ...(apenasNumeros.length > 0 ? [{ cpf: { contains: apenasNumeros } }] : []),
@@ -125,10 +127,6 @@ export async function cadastrarPacienteJunta(data) {
     if (!cpfClean || cpfClean.length !== 11) {
       return { success: false, error: 'CPF inválido. Deve conter 11 dígitos.' };
     }
-    if (!tipoDeficiencia?.trim()) {
-      return { success: false, error: 'Informe o tipo de deficiência.' };
-    }
-
     // A pessoa deve estar previamente cadastrada em Gerenciamento > Cadastro de Pessoas.
     const pessoa = await prisma.pessoa.findUnique({
       where: { cpf: cpfClean },
@@ -147,10 +145,14 @@ export async function cadastrarPacienteJunta(data) {
         error: 'Este cadastro foi unificado em outro. Selecione o cadastro principal.',
       };
     }
-    // Situação cadastral (fonte única): inativo ou falecido não abre novo
-    // atendimento na Junta Reguladora; o histórico continua consultável.
+    // Situação cadastral (fonte única): falecido não abre novo atendimento na
+    // Junta Reguladora; o histórico continua consultável.
     const indisponivel = mensagemPessoaIndisponivel(pessoa.situacao);
     if (indisponivel) return { success: false, error: indisponivel };
+
+    if (!tipoDeficiencia?.trim()) {
+      return { success: false, error: 'Informe o tipo de deficiência.' };
+    }
 
     // Transação: apenas dados específicos da Junta (PacienteJunta + vínculos).
     const pacienteJunta = await prisma.$transaction(async (tx) => {

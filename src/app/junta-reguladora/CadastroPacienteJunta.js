@@ -112,6 +112,9 @@ export default function CadastroPacienteJunta({
                 placeholder="Digite nome ou CPF para buscar..."
                 required
                 value={pessoa}
+                // Cadastro único: a busca traz também pessoas falecidas
+                // (pesquisa/consulta). O vínculo novo é bloqueado depois.
+                incluirIndisponiveis
               />
             </div>
             

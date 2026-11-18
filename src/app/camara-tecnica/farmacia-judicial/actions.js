@@ -72,9 +72,6 @@ export async function createPacienteJudicial(data) {
     if (cleanCpf.length !== 11) {
       throw new Error("Selecione uma pessoa válida (CPF com 11 dígitos).");
     }
-    if (!data.numeroPasta || !data.numeroProcesso) {
-      throw new Error("Informe o número da pasta e do processo.");
-    }
 
     const pessoa = await prisma.pessoa.findUnique({
       where: { cpf: cleanCpf },
@@ -88,10 +85,14 @@ export async function createPacienteJudicial(data) {
     if (pessoa.unificadoEmCpf) {
       throw new Error("Este cadastro foi unificado em outro. Selecione o cadastro principal.");
     }
-    // Situação cadastral (fonte única): inativo ou falecido não abre novo
-    // acompanhamento na Farmácia Judicial.
+    // Situação cadastral (fonte única): falecido não abre novo acompanhamento
+    // na Farmácia Judicial.
     const indisponivel = mensagemPessoaIndisponivel(pessoa.situacao);
     if (indisponivel) throw new Error(indisponivel);
+
+    if (!data.numeroPasta || !data.numeroProcesso) {
+      throw new Error("Informe o número da pasta e do processo.");
+    }
 
     const statusDb = normalizarStatusPaciente(data.status);
 

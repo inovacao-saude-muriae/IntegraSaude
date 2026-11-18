@@ -23,54 +23,72 @@
 
 export const SITUACOES_PESSOA = {
   ATIVO: "ATIVO",
-  INATIVO: "INATIVO",
   FALECIDO: "FALECIDO",
 };
 
-/** Lista canônica, na ordem em que aparece nos filtros. */
+/** Lista canônica (as duas situações existentes), na ordem dos formulários. */
 export const SITUACOES_PESSOA_LISTA = [
   SITUACOES_PESSOA.ATIVO,
-  SITUACOES_PESSOA.INATIVO,
   SITUACOES_PESSOA.FALECIDO,
 ];
 
 /** Rótulos de exibição (interface em português). */
 export const SITUACAO_PESSOA_ROTULO = {
   ATIVO: "Ativo",
-  INATIVO: "Inativo",
   FALECIDO: "Falecido",
 };
 
-/** Classe visual da etiqueta: verde / cinza / vermelho. */
+/** Classe visual da etiqueta: verde / vermelho. */
 export const SITUACAO_PESSOA_CLASSE = {
   ATIVO: "cadStatusAtivo",
-  INATIVO: "cadStatusInativo",
   FALECIDO: "cadStatusFalecido",
 };
 
-/** Opções para os filtros de listagem: Todos, Ativos, Inativos e Falecidos. */
+/** Opções para os filtros de listagem: Todos, Ativos e Falecidos. */
 export const FILTROS_SITUACAO_PESSOA = [
   { valor: "todos", rotulo: "Todos" },
   { valor: "ativos", rotulo: "Ativos" },
-  { valor: "inativos", rotulo: "Inativos" },
   { valor: "falecidos", rotulo: "Falecidos" },
 ];
+
+/**
+ * Mensagem ÚNICA exibida quando se tenta vincular uma pessoa falecida a um
+ * novo registro operacional (Regulação, Farmácia, Processos, Junta, CCZ).
+ */
+export const MENSAGEM_PESSOA_FALECIDA =
+  "Pessoa com situação cadastral Falecido. Não é possível realizar novos vínculos.";
 
 export const MIN_JUSTIFICATIVA_SITUACAO = 15;
 export const MAX_JUSTIFICATIVA_SITUACAO = 500;
 
-/** Normaliza para um dos três valores; entrada desconhecida vira ATIVO. */
+/**
+ * Normaliza para um dos dois valores; entrada desconhecida vira ATIVO.
+ * `INATIVO` é valor LEGADO: não é oferecido em nenhum formulário nem filtro,
+ * mas continua reconhecido na leitura para que o registro seja corrigido por
+ * usuário autorizado (nunca migrado automaticamente).
+ */
 export function normalizarSituacaoPessoa(valor) {
   const v = String(valor ?? "").trim().toUpperCase();
-  return SITUACOES_PESSOA_LISTA.includes(v) ? v : SITUACOES_PESSOA.ATIVO;
+  if (v === SITUACOES_PESSOA.FALECIDO) return SITUACOES_PESSOA.FALECIDO;
+  return SITUACOES_PESSOA.ATIVO;
+}
+
+/** Situação legada (Inativo): só para identificação/relatório, nunca para gravar. */
+export const SITUACAO_PESSOA_LEGADA = "INATIVO";
+
+/** O valor gravado é a situação legada "Inativo"? */
+export function situacaoLegada(valor) {
+  return String(valor ?? "").trim().toUpperCase() === SITUACAO_PESSOA_LEGADA;
 }
 
 export function rotuloSituacaoPessoa(valor) {
+  if (situacaoLegada(valor)) return "Inativo (situação legada)";
   return SITUACAO_PESSOA_ROTULO[normalizarSituacaoPessoa(valor)];
 }
 
-/** Classe CSS da etiqueta de situação (verde / cinza / vermelho). */
+/** Classe CSS da etiqueta de situação (verde / vermelho). */
 export function classeSituacaoPessoa(valor) {
+  if (situacaoLegada(valor)) return "cadStatusInativo";
   return SITUACAO_PESSOA_CLASSE[normalizarSituacaoPessoa(valor)];
 }
 
@@ -91,12 +109,7 @@ export function pessoaSelecionavel(situacao) {
  */
 export function mensagemPessoaIndisponivel(situacao) {
   const s = normalizarSituacaoPessoa(situacao);
-  if (s === SITUACOES_PESSOA.FALECIDO) {
-    return "Esta pessoa consta como falecida: não é possível criar novos registros assistenciais. O histórico permanece consultável.";
-  }
-  if (s === SITUACOES_PESSOA.INATIVO) {
-    return "Esta pessoa está com a situação cadastral Inativa: não é possível criar novos registros assistenciais. O histórico permanece consultável.";
-  }
+  if (s === SITUACOES_PESSOA.FALECIDO) return MENSAGEM_PESSOA_FALECIDA;
   return null;
 }
 
@@ -106,8 +119,9 @@ export function mensagemPessoaIndisponivel(situacao) {
  */
 export function whereSituacaoPessoa(filtro) {
   const f = String(filtro ?? "todos").toLowerCase();
-  if (f === "ativos") return { situacao: SITUACOES_PESSOA.ATIVO };
-  if (f === "inativos") return { situacao: SITUACOES_PESSOA.INATIVO };
+  // "Ativos" = pode receber novos vínculos. A situação legada Inativo não é
+  // oferecida, mas seus registros continuam aparecendo em "Todos".
+  if (f === "ativos") return { NOT: { situacao: SITUACOES_PESSOA.FALECIDO } };
   if (f === "falecidos") return { situacao: SITUACOES_PESSOA.FALECIDO };
   return {};
 }

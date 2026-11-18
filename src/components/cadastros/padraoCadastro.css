@@ -872,6 +872,15 @@
    (Regulação, Farmácia Judicial, Processos Judiciais e Junta Reguladora).
    Mesma altura, borda e tipografia dos demais campos da seção; a etiqueta
    interna usa .cadStatusAtivo/.cadStatusInativo/.cadStatusFalecido. */
+/* Aviso de bloqueio exibido junto ao campo quando a pessoa é falecida. */
+.situacaoPessoaAviso {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: #b91c1c;
+  font-weight: 600;
+}
+
 .situacaoPessoaCampo {
   display: flex;
   align-items: center;

@@ -242,7 +242,10 @@ export async function getAuxiliaryData() {
           orderBy: { nome: "asc" },
         }),
         prisma.pessoa.findMany({
-          where: { ativo: true },
+          // Inclui pessoas FALECIDAS: pesquisa e consulta são permitidas; o
+          // bloqueio de novo pedido acontece ao selecionar (frontend) e na
+          // gravação (backend), com a mensagem única.
+          where: { unificadoEmCpf: null },
           include: {
             enderecos: { where: { enderecoAtual: true } },
             ubsReferencia: true,
@@ -388,6 +391,24 @@ export async function createPedidoExame(data) {
   try {
     const user = await requireAcessoModulo(MODULOS.REGULACAO);
 
+    // Situação cadastral (fonte única): o vínculo é verificado ANTES de
+    // qualquer catálogo, para que a pessoa falecida receba a mensagem certa.
+    const pessoaPedido = await prisma.pessoa.findUnique({
+      where: { cpf: String(data.cpf || "") },
+      select: { situacao: true, unificadoEmCpf: true },
+    });
+    if (!pessoaPedido) {
+      return { success: false, error: "Pessoa não encontrada no cadastro único." };
+    }
+    if (pessoaPedido.unificadoEmCpf) {
+      return {
+        success: false,
+        error: "Este cadastro foi unificado em outro. Selecione o cadastro principal.",
+      };
+    }
+    const indisponivel = mensagemPessoaIndisponivel(pessoaPedido.situacao);
+    if (indisponivel) return { success: false, error: indisponivel };
+
     // Disponibilidade operacional validada no servidor: não basta o
     // procedimento estar ativo, o tipo de exame dele também precisa estar.
     const procedimentoPedido = await prisma.procedimento.findUnique({
@@ -410,24 +431,6 @@ export async function createPedidoExame(data) {
       };
     }
 
-    // Situação cadastral da pessoa central (fonte única): cadastro unificado,
-    // inativo ou de pessoa falecida não recebe novos pedidos. O histórico
-    // continua consultável normalmente.
-    const pessoaPedido = await prisma.pessoa.findUnique({
-      where: { cpf: String(data.cpf || "") },
-      select: { situacao: true, unificadoEmCpf: true },
-    });
-    if (!pessoaPedido) {
-      return { success: false, error: "Pessoa não encontrada no cadastro único." };
-    }
-    if (pessoaPedido.unificadoEmCpf) {
-      return {
-        success: false,
-        error: "Este cadastro foi unificado em outro. Selecione o cadastro principal.",
-      };
-    }
-    const indisponivel = mensagemPessoaIndisponivel(pessoaPedido.situacao);
-    if (indisponivel) return { success: false, error: indisponivel };
 
     const newRecord = await prisma.pedidoExame.create({
       data: {

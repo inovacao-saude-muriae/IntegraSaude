@@ -6,10 +6,7 @@ import { registrarAuditoria } from "@/lib/audit";
 import { MODULOS } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { normalizarCpfChave } from "@/lib/cpf";
-import {
-  whereSituacaoPessoa,
-  mensagemPessoaIndisponivel,
-} from "@/lib/situacaoPessoa";
+import { mensagemPessoaIndisponivel } from "@/lib/situacaoPessoa";
 import {
   soDigitos,
   validarCpf,
@@ -72,18 +69,18 @@ export async function buscarPessoasCCZ(termo = "") {
     const termoLimpo = String(termo || "").trim();
     const termoDigitos = soDigitos(termoLimpo);
 
-    // Situação cadastral (fonte única): só pessoas ATIVAS aparecem na busca de
-    // tutores. Cadastros unificados também ficam fora.
+    // Situação cadastral (fonte única): a busca mostra também as pessoas
+    // FALECIDAS (pesquisa e consulta são permitidas); o vínculo novo é
+    // bloqueado depois, com a mensagem única. Unificadas ficam fora.
     const where = termoLimpo
       ? {
-          ...whereSituacaoPessoa("ativos"),
           unificadoEmCpf: null,
           OR: [
             { nomeCompleto: { contains: termoLimpo, mode: "insensitive" } },
             ...(termoDigitos ? [{ cpf: { contains: termoDigitos } }] : []),
           ],
         }
-      : { ...whereSituacaoPessoa("ativos"), unificadoEmCpf: null };
+      : { unificadoEmCpf: null };
 
     const pessoas = await prisma.pessoa.findMany({
       where,
@@ -766,6 +763,38 @@ export async function salvarAnimal(dados) {
       possuiResponsavel === "Sim" && dados.pessoaCpf
         ? normalizarCpfChave(dados.pessoaCpf)
         : null;
+
+    // Situação cadastral (fonte única): pessoa falecida não recebe NOVO animal.
+    // Na edição o vínculo existente é preservado (histórico), por isso a
+    // verificação só acontece na criação e quando o tutor foi alterado.
+    if (pessoaCpf) {
+      const tutorAtual = editando
+        ? (
+            await prisma.animal.findUnique({
+              where: { id },
+              select: { pessoaCpf: true },
+            })
+          )?.pessoaCpf
+        : null;
+      const vinculoNovo = !editando || normalizarCpfChave(tutorAtual || "") !== pessoaCpf;
+      if (vinculoNovo) {
+        const pessoaTutor = await prisma.pessoa.findUnique({
+          where: { cpf: pessoaCpf },
+          select: { situacao: true, unificadoEmCpf: true },
+        });
+        if (!pessoaTutor) {
+          return { success: false, error: "Tutor não encontrado no cadastro único." };
+        }
+        if (pessoaTutor.unificadoEmCpf) {
+          return {
+            success: false,
+            error: "Este cadastro foi unificado em outro. Selecione o cadastro principal.",
+          };
+        }
+        const indisponivel = mensagemPessoaIndisponivel(pessoaTutor.situacao);
+        if (indisponivel) return { success: false, error: indisponivel };
+      }
+    }
 
     // "Qual doença" não tem coluna própria: concatena em observacoes.
     let observacoes = dados.observacoes ? String(dados.observacoes).trim() : "";
