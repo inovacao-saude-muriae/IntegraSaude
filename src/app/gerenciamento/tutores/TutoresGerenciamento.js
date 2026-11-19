@@ -1,9 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import CadastroPessoas from "@/components/CadastroPessoas/CadastroPessoas";
 import { salvarTutor } from "@/app/ccz/actions";
-import styles from "./Tutores.module.css";
 
 // Gerenciamento → Tutores.
 //
@@ -18,30 +16,17 @@ export default function TutoresGerenciamento({
   podeReativarPessoa = false,
   podeEditarPessoa = false,
 }) {
+  // MESMO container, componente e estilos de Gerenciamento > Pacientes:
+  // nenhum wrapper, max-width, padding ou texto adicional aqui. A tela é a
+  // mesma (fonte única `pessoa`); muda apenas o vínculo de tutor do CCZ.
   return (
-    <div className={styles.container}>
-      <CadastroPessoas
-        variante="tutor"
-        salvarTutor={salvarTutor}
-        podeExcluir={podeExcluirPessoa}
-        podeInativar={podeInativarPessoa}
-        podeReativar={podeReativarPessoa}
-        podeEditarSituacao={podeEditarPessoa}
-      />
-
-      <p className={styles.nota}>
-        Os animais vinculados a cada tutor continuam no módulo CCZ.{" "}
-        <Link href="/ccz?tab=ANIMAIS" className={styles.link}>
-          Abrir Animais do CCZ
-        </Link>
-        {podeExcluir ? (
-          <>
-            {" "}
-            — excluir o <strong>vínculo</strong> de tutor é feito na aba Tutores do CCZ,
-            nunca no cadastro da pessoa.
-          </>
-        ) : null}
-      </p>
-    </div>
+    <CadastroPessoas
+      variante="tutor"
+      salvarTutor={salvarTutor}
+      podeExcluir={podeExcluirPessoa}
+      podeInativar={podeInativarPessoa}
+      podeReativar={podeReativarPessoa}
+      podeEditarSituacao={podeEditarPessoa}
+    />
   );
 }

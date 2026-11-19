@@ -22,6 +22,7 @@ export default function Header({ onToggleSidebar }) {
     if (pathname.startsWith("/junta-reguladora")) return "Junta Reguladora";
     if (pathname.startsWith("/ccz")) return "CCZ";
     if (pathname.startsWith("/gerenciamento/pessoas")) return "Cadastro de Pessoas";
+    if (pathname.startsWith("/gerenciamento/tutores")) return "Cadastro de Tutores";
     if (pathname.startsWith("/gerenciamento/medicos")) return "Médicos";
     if (pathname.startsWith("/gerenciamento/ubs")) return "Unidades de Saúde";
     if (pathname.startsWith("/gerenciamento/usuarios")) return "Gerenciar Usuários";

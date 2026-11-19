@@ -28,7 +28,6 @@ import {
 import {
   SITUACOES_PESSOA,
   SITUACOES_PESSOA_LISTA,
-  FILTROS_SITUACAO_PESSOA,
   SITUACAO_PESSOA_ROTULO,
   SITUACAO_PESSOA_CLASSE,
   normalizarSituacaoPessoa,
@@ -142,8 +141,6 @@ export default function CadastroPessoas({
   const [cepLoading, setCepLoading] = useState(false);
   const [cepErro, setCepErro] = useState("");
   const [confirmarExclusao, setConfirmarExclusao] = useState(false);
-  // Filtro de situação cadastral: "todos" | "ativos" | "inativos" | "falecidos".
-  const [filtroSituacao, setFiltroSituacao] = useState("todos");
   // Modal de situação: { tipo: "falecido" | "reativar" } | null.
   const [situacaoModal, setSituacaoModal] = useState(null);
   // Situação de destino escolhida no seletor (ATIVO/FALECIDO).
@@ -183,15 +180,6 @@ export default function CadastroPessoas({
 
   const editavel = modo === "novo" || modo === "edicao";
 
-  // Troca de filtro de situação: recarrega a lista (o backend filtra).
-  const trocarFiltroSituacao = async (valor) => {
-    setFiltroSituacao(valor);
-    setBuscando(true);
-    const res = await listarPessoas(termo.trim(), { situacao: valor });
-    setPessoas(res.success ? res.data : []);
-    setBuscando(false);
-  };
-
   useEffect(() => {
     let ativo = true;
     (async () => {
@@ -228,7 +216,10 @@ export default function CadastroPessoas({
     if (valor.trim().length >= 2) {
       setDropAberto(true);
       setBuscando(true);
-      const res = await listarPessoas(valor.trim(), { situacao: filtroSituacao });
+      // Sem filtro de situação: a busca traz ATIVOS e FALECIDOS (a situação
+      // continua visível no formulário e na tabela, e as regras de vínculo
+      // seguem validadas no backend).
+      const res = await listarPessoas(valor.trim(), { situacao: "todos" });
       setPessoas(res.success ? res.data : []);
       setBuscando(false);
     } else {
@@ -530,19 +521,6 @@ export default function CadastroPessoas({
         <div className={styles.cardHeaderRow}>
           <h2 className={styles.cardHeaderTitle}>{tituloForm}</h2>
           <div className={styles.headerAcoes}>
-            <div className={styles.filtroSituacao} role="group" aria-label="Filtrar por situação cadastral">
-              {FILTROS_SITUACAO_PESSOA.map(({ valor, rotulo }) => (
-                <button
-                  key={valor}
-                  type="button"
-                  onClick={() => trocarFiltroSituacao(valor)}
-                  className={filtroSituacao === valor ? styles.filtroAtivo : styles.filtroBtn}
-                  aria-pressed={filtroSituacao === valor}
-                >
-                  {rotulo}
-                </button>
-              ))}
-            </div>
             <button type="button" className={styles.btnAdicionar} onClick={novoCadastro}>
               Adicionar novo
             </button>

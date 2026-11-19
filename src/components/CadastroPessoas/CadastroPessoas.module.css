@@ -555,35 +555,6 @@
   flex-wrap: wrap;
 }
 
-.filtroSituacao {
-  display: inline-flex;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  overflow: hidden;
-  background: #f8fafc;
-}
-
-.filtroBtn,
-.filtroAtivo {
-  border: 0;
-  background: transparent;
-  padding: 0.35rem 0.7rem;
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: #475569;
-  cursor: pointer;
-}
-
-.filtroBtn:hover {
-  background: #e2e8f0;
-}
-
-.filtroAtivo {
-  background: #1d4ed8;
-  color: #ffffff;
-  font-weight: 600;
-}
-
 .avisoAtiva,
 .avisoFalecido {
   display: flex;
