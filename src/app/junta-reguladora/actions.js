@@ -698,6 +698,7 @@ export async function getProntuarioUnificado(termoBusca) {
       tipo_deficiencia: pacienteJunta?.tipoDeficiencia || 'Não cadastrado na Junta',
       logradouro: end.logradouro || '',
       numero: end.numero || '',
+      complemento: end.complemento || '',
       bairro: end.bairro || '',
       cidade: end.cidade || '',
       uf: end.uf || '',

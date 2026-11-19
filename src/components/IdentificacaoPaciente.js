@@ -23,11 +23,27 @@ const formatarData = (v) => {
   return s;
 };
 
+// Endereço completo do cadastro central (pessoa_endereco): reúne apenas as
+// partes disponíveis, sem inventar dado ausente.
+const formatarEndereco = (p) => {
+  if (p.endereco) return p.endereco;
+  const partes = [];
+  if (p.logradouro) {
+    partes.push(`${p.logradouro}${p.numero ? `, ${p.numero}` : ''}`);
+  }
+  if (p.complemento) partes.push(p.complemento);
+  if (p.bairro) partes.push(p.bairro);
+  const cidadeUf = [p.cidade, p.uf].filter(Boolean).join('/');
+  if (cidadeUf) partes.push(cidadeUf);
+  if (p.cep) partes.push(`CEP ${p.cep}`);
+  return partes.join(' - ');
+};
+
 export default function IdentificacaoPaciente({
   titulo = 'Identificação do Paciente',
   // Busca (SeletorPaciente): controlada por quem usa o componente.
-  buscaLabel = 'Nome completo',
-  buscaPlaceholder = 'Digite nome ou CPF para buscar...',
+  buscaLabel = 'Nome do Paciente',
+  buscaPlaceholder = 'Digite o nome ou CPF para buscar...',
   buscaTexto = '',
   onBuscaTextoChange = () => {},
   onSelect = () => {},
@@ -46,7 +62,8 @@ export default function IdentificacaoPaciente({
       </div>
 
       <div className={styles.formGridStrict}>
-        <div className={`${styles.fieldGroup} ${styles.colName}`}>
+        {/* LINHA 1 — Nome do Paciente (busca) + Situação Cadastral */}
+        <div className={`${styles.fieldGroup} ${styles.colBusca}`}>
           <SeletorPaciente
             label={buscaLabel}
             required
@@ -65,50 +82,12 @@ export default function IdentificacaoPaciente({
           </p>
         </div>
 
-        <div className={`${styles.fieldGroup} ${styles.colMother}`}>
-          <label>Nome da Mãe</label>
-          <input
-            type="text"
-            value={p.nomeMae || ''}
-            readOnly
-            placeholder="Nome da Mãe"
-            className={styles.readOnlyInput}
-          />
-        </div>
+        <SituacaoPessoa
+          situacao={p.situacao || ''}
+          className={`${styles.fieldGroup} ${styles.colSituacao}`}
+        />
 
-        <div className={`${styles.fieldGroup} ${styles.colSmall}`}>
-          <label>Data de nascimento</label>
-          <input
-            type="text"
-            value={formatarData(p.dataNascimento)}
-            readOnly
-            placeholder="dd/mm/aaaa"
-            className={styles.readOnlyInput}
-          />
-        </div>
-
-        <div className={`${styles.fieldGroup} ${styles.colSmall}`}>
-          <label>Sexo</label>
-          <input
-            type="text"
-            value={p.sexo || ''}
-            readOnly
-            placeholder="—"
-            className={styles.readOnlyInput}
-          />
-        </div>
-
-        <div className={`${styles.fieldGroup} ${styles.colSmall}`}>
-          <label>Telefone</label>
-          <input
-            type="text"
-            value={mascararTelefone(p.telefone)}
-            readOnly
-            placeholder="(00) 00000-0000"
-            className={styles.readOnlyInput}
-          />
-        </div>
-
+        {/* LINHA 2 — CPF, CNS, Data de Nascimento e Sexo */}
         <div className={`${styles.fieldGroup} ${styles.colCpf}`}>
           <label>CPF *</label>
           <input
@@ -121,7 +100,7 @@ export default function IdentificacaoPaciente({
         </div>
 
         <div className={`${styles.fieldGroup} ${styles.colSus}`}>
-          <label>Cartão SUS</label>
+          <label>CNS (Cartão SUS)</label>
           <input
             type="text"
             value={p.cns || ''}
@@ -131,19 +110,60 @@ export default function IdentificacaoPaciente({
           />
         </div>
 
-        <SituacaoPessoa
-          situacao={p.situacao || ''}
-          className={`${styles.fieldGroup} ${styles.colSituacao}`}
-        />
-
-        <div className={`${styles.fieldGroup} ${styles.colUbsRef}`}>
-          <label>UBS de referência</label>
+        <div className={`${styles.fieldGroup} ${styles.colNascimento}`}>
+          <label>Data de Nascimento</label>
           <input
             type="text"
-            value={p.ubsReferencia || ''}
+            value={formatarData(p.dataNascimento)}
+            readOnly
+            placeholder="dd/mm/aaaa"
+            className={styles.readOnlyInput}
+          />
+        </div>
+
+        <div className={`${styles.fieldGroup} ${styles.colSexo}`}>
+          <label>Sexo</label>
+          <input
+            type="text"
+            value={p.sexo || ''}
             readOnly
             placeholder="—"
             className={styles.readOnlyInput}
+          />
+        </div>
+
+        {/* LINHA 3 — Nome da Mãe, Telefone e Endereço */}
+        <div className={`${styles.fieldGroup} ${styles.colMother}`}>
+          <label>Nome da Mãe</label>
+          <input
+            type="text"
+            value={p.nomeMae || ''}
+            readOnly
+            placeholder="Nome da Mãe"
+            className={styles.readOnlyInput}
+          />
+        </div>
+
+        <div className={`${styles.fieldGroup} ${styles.colTelefone}`}>
+          <label>Telefone</label>
+          <input
+            type="text"
+            value={mascararTelefone(p.telefone)}
+            readOnly
+            placeholder="(00) 00000-0000"
+            className={styles.readOnlyInput}
+          />
+        </div>
+
+        <div className={`${styles.fieldGroup} ${styles.colEndereco}`}>
+          <label>Endereço</label>
+          <input
+            type="text"
+            value={formatarEndereco(p)}
+            readOnly
+            placeholder="—"
+            className={styles.readOnlyInput}
+            title={formatarEndereco(p)}
           />
         </div>
       </div>

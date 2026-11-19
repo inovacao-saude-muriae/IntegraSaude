@@ -80,19 +80,27 @@
   cursor: not-allowed;
 }
 
-/* Larguras do Grid */
-.colName { grid-column: span 6; }
-.colMother { grid-column: span 6; }
-.colCpf { grid-column: span 4; }
-.colSus { grid-column: span 4; }
-.colSmall { grid-column: span 4; }
-.colUbsRef { grid-column: span 4; }
+/* Larguras do Grid — três linhas fixas, 12 colunas:
+   L1: Nome do Paciente (9) + Situação Cadastral (3)
+   L2: CPF (3) + CNS (3) + Data de Nascimento (3) + Sexo (3)
+   L3: Nome da Mãe (4) + Telefone (3) + Endereço (5)
+   Maior espaço para Nome do Paciente, Nome da Mãe e Endereço. */
+.colBusca { grid-column: span 9; }
+.colSituacao { grid-column: span 3; }
 
-.colSituacao { grid-column: span 4; }
+.colCpf { grid-column: span 3; }
+.colSus { grid-column: span 3; }
+.colNascimento { grid-column: span 3; }
+.colSexo { grid-column: span 3; }
+
+.colMother { grid-column: span 4; }
+.colTelefone { grid-column: span 3; }
+.colEndereco { grid-column: span 5; }
 
 /* ── Responsividade (mesma quebra da Regulação) ── */
 @media (max-width: 900px) {
-  .colName, .colMother, .colCpf, .colSus, .colSmall, .colUbsRef, .colSituacao {
+  .colBusca, .colSituacao, .colCpf, .colSus, .colNascimento, .colSexo,
+  .colMother, .colTelefone, .colEndereco {
     grid-column: span 12;
   }
 }

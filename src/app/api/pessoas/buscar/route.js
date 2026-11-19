@@ -71,6 +71,20 @@ export async function GET(req) {
             cnes: true,
           },
         },
+        // Endereço atual (cadastro central) para o container de identificação.
+        enderecos: {
+          where: { enderecoAtual: true },
+          take: 1,
+          select: {
+            logradouro: true,
+            numero: true,
+            complemento: true,
+            bairro: true,
+            cidade: true,
+            uf: true,
+            cep: true,
+          },
+        },
       },
     });
 

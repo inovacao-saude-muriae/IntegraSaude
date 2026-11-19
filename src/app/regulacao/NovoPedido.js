@@ -85,6 +85,8 @@ export default function NovoPedido({
             chamando handleSelectPatientSuggestion (preenche newRequest). */}
         <IdentificacaoPaciente
           titulo="1. Identificação do Paciente"
+          buscaLabel="Nome do Paciente"
+          buscaPlaceholder="Digite o nome ou CPF para buscar..."
           buscaTexto={newRequest.patientSearch || ''}
           onBuscaTextoChange={(v) =>
             setNewRequest((prev) => ({ ...prev, patientSearch: v }))
@@ -101,6 +103,14 @@ export default function NovoPedido({
             cns: newRequest.susCard,
             situacao: newRequest.situacao,
             ubsReferencia: newRequest.ubsReferencia,
+            // Endereço completo do cadastro central (pessoa_endereco).
+            logradouro: newRequest.logradouro,
+            numero: newRequest.numero,
+            complemento: newRequest.complemento,
+            bairro: newRequest.bairro,
+            cidade: newRequest.cidade,
+            uf: newRequest.uf,
+            cep: newRequest.cep,
           }}
         />
 

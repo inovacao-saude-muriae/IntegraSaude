@@ -415,7 +415,8 @@ export default function ProntuarioRelatorio({ prontuarioData, onBuscar }) {
           os campos e a Situação Cadastral são atualizados automaticamente. */}
       <IdentificacaoPaciente
         titulo="Identificação do Paciente"
-        buscaLabel="Buscar Paciente (Nome ou CPF)"
+        buscaLabel="Nome do Paciente"
+        buscaPlaceholder="Digite o nome ou CPF para buscar..."
         buscaTexto={termo}
         onBuscaTextoChange={setTermo}
         onSelect={handleSelectPessoa}
@@ -433,6 +434,14 @@ export default function ProntuarioRelatorio({ prontuarioData, onBuscar }) {
           situacao: pessoaSelecionada?.situacao || paciente?.situacao || '',
           ubsReferencia:
             pessoaSelecionada?.ubsReferencia?.nome || pessoaSelecionada?.ubsReferencia || '',
+          // Endereço completo do cadastro central (pessoa_endereco).
+          logradouro: pessoaSelecionada?.logradouro || paciente?.logradouro,
+          numero: pessoaSelecionada?.numero || paciente?.numero,
+          complemento: pessoaSelecionada?.complemento || paciente?.complemento,
+          bairro: pessoaSelecionada?.bairro || paciente?.bairro,
+          cidade: pessoaSelecionada?.cidade || paciente?.cidade,
+          uf: pessoaSelecionada?.uf || paciente?.uf,
+          cep: pessoaSelecionada?.cep || paciente?.cep,
         }}
       />
 
