@@ -1,0 +1,396 @@
+/* Aba "Consultar Processos" da Farmácia Judicial — mesmos containers,
+   filtros, tabela e botões dos outros módulos (Processos, Regulação). */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+}
+
+/* Container unificado com fundo branco (padrão das telas de cadastro). */
+.mainWrapper {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -2px rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* ── Filtros ───────────────────────────────────────────────────────────── */
+.filtros {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.filtrosGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.875rem;
+}
+
+.campoFiltro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.campoFiltro label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.campoFiltro input,
+.campoFiltro select {
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  color: #0f172a;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.campoFiltro input:focus,
+.campoFiltro select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+}
+
+.filtrosAcoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ── Botões ────────────────────────────────────────────────────────────── */
+.btnPrimario,
+.btnGhost,
+.btnPerigo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.btnPrimario {
+  background-color: #2563eb;
+  color: #ffffff;
+  border: none;
+}
+
+.btnPrimario:hover { background-color: #1d4ed8; }
+.btnPrimario:disabled { background-color: #93b4f7; cursor: not-allowed; }
+
+.btnGhost {
+  background-color: transparent;
+  color: #475569;
+  border-color: #cbd5e0;
+}
+
+.btnGhost:hover { background-color: #f1f5f9; }
+.btnGhost:disabled { color: #94a3b8; cursor: not-allowed; background-color: #f8fafc; }
+
+.btnPerigo {
+  background-color: #dc2626;
+  color: #ffffff;
+  border: none;
+}
+
+.btnPerigo:hover { background-color: #b91c1c; }
+.btnPerigo:disabled { background-color: #f0a4a4; cursor: not-allowed; }
+
+/* ── Resultados ────────────────────────────────────────────────────────── */
+.resultados {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.resumo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.resumo strong { color: #0f172a; }
+
+.resumoPagina { color: #64748b; }
+
+.tabelaWrapper {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.tabela th {
+  text-align: left;
+  padding: 0.7rem 0.9rem;
+  background-color: #f8fafc;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.tabela td {
+  padding: 0.7rem 0.9rem;
+  color: #1e293b;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.tabela tbody tr:last-child td { border-bottom: none; }
+
+.linhaClicavel {
+  cursor: pointer;
+  outline: none;
+}
+
+.linhaClicavel:hover td { background-color: #f8fafc; }
+.linhaClicavel:focus-visible td { background-color: #eff6ff; }
+
+.tabelaVazia {
+  padding: 1.75rem;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.paginacao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+/* ── Avisos ────────────────────────────────────────────────────────────── */
+.avisoSucesso,
+.avisoErro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.avisoSucesso {
+  background-color: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.avisoErro {
+  background-color: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.avisoSucesso button,
+.avisoErro button {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  color: inherit;
+}
+
+/* ── Visualização completa do processo ─────────────────────────────────── */
+.painelFundo {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 2rem 1rem;
+  overflow-y: auto;
+  background-color: rgba(15, 23, 42, 0.45);
+}
+
+.painelDetalhe {
+  width: min(100%, 1108px);
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 24px 48px -12px rgba(15, 23, 42, 0.35);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 4rem);
+}
+
+.painelTopo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.painelTopo h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.btnFechar {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #64748b;
+}
+
+.btnFechar:hover { color: #0f172a; }
+
+.corpoDetalhe {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.cardSection {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1.25rem;
+}
+
+.sectionHeaderTitle {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #1e293b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 0 0 1rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.grid3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.campoLeitura {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.campoLeitura label {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.campoLeitura input,
+.campoLeitura textarea {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: #1e293b;
+  background-color: #f1f5f9;
+  box-sizing: border-box;
+}
+
+.campoLeituraLargo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 1rem;
+}
+
+.campoLeituraLargo label {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.campoLeituraLargo textarea {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: #1e293b;
+  background-color: #f1f5f9;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.situacaoAtiva {
+  color: #15803d !important;
+  font-weight: 700;
+}
+
+.situacaoInativa {
+  color: #b91c1c !important;
+  font-weight: 700;
+}
+
+.acoesDetalhe {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.vazio {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 900px) {
+  .grid3 { grid-template-columns: 1fr; }
+  .painelFundo { padding: 1rem 0.75rem; }
+  .painelDetalhe { max-height: calc(100vh - 2rem); }
+}

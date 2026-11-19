@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth";
 import { MODULOS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { exigirPessoaAptaParaVinculo } from "@/lib/situacaoPessoaGuard";
 import { registrarAuditoria } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
@@ -1025,5 +1026,248 @@ export async function buscarPessoaExistente(termo) {
   } catch (error) {
     console.error("Erro ao buscar pessoa existente:", error);
     return [];
+  }
+}
+// ==========================================
+// 1b. CONSULTAR PROCESSOS (aba de consulta)
+// ==========================================
+// Filtros: período do cadastro (created_at do servidor), medicamento e
+// Situação na Farmácia Judicial. Consulta e paginação SEMPRE no backend;
+// um processo com vários medicamentos nunca é duplicado (um registro por
+// `farmacia_pacientes`, com os medicamentos agregados).
+const CONSULTA_PAGINA_TAMANHO = 100;
+const FUSO_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+// Data local (UTC-3) → instante UTC do início do dia.
+function diaLocalParaUtc(dia) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dia || "").trim());
+  if (!m) return null;
+  const ms = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return new Date(ms + FUSO_OFFSET_MS);
+}
+
+export async function listarProcessosFarmacia({
+  dataInicio = "",
+  dataFim = "",
+  medicamentoId = "",
+  situacao = "todos",
+  pagina = 1,
+} = {}) {
+  try {
+    await requireAcessoModulo(MODULOS.FARMACIA);
+
+    const inicio = diaLocalParaUtc(dataInicio);
+    // Fim inclusivo: soma 1 dia e usa "<".
+    const fimBase = diaLocalParaUtc(dataFim);
+    const fim = fimBase ? new Date(fimBase.getTime() + 24 * 60 * 60 * 1000) : null;
+    const med = Number(medicamentoId) || null;
+    const sit = String(situacao || "todos").toLowerCase();
+
+    // Condições como fragmentos SQL simples (sem fragmento booleano solto).
+    const condicoes = [];
+    if (inicio) condicoes.push(Prisma.sql`pfj.created_at >= ${inicio}`);
+    if (fim) condicoes.push(Prisma.sql`pfj.created_at < ${fim}`);
+    if (sit === "ativos") condicoes.push(Prisma.sql`UPPER(pfj.status) = 'ATIVO'`);
+    if (sit === "inativos") condicoes.push(Prisma.sql`UPPER(pfj.status) <> 'ATIVO'`);
+    if (med) {
+      condicoes.push(Prisma.sql`EXISTS (
+        SELECT 1 FROM public.farmacia_tratamentos_pacientes tp
+        WHERE tp.paciente_pasta = pfj.numero_pasta AND tp.medicamento_id = ${med}
+      )`);
+    }
+    // Sem nenhum filtro, a condição é verdadeira: devolve todos os registros.
+    const condicao = condicoes.length ? Prisma.join(condicoes, " AND ") : Prisma.sql`TRUE`;
+
+    const tamanho = CONSULTA_PAGINA_TAMANHO;
+    const paginaAtual = Math.max(1, Number(pagina) || 1);
+    const offset = (paginaAtual - 1) * tamanho;
+
+    const contagem = await prisma.$queryRaw`
+      SELECT COUNT(*)::int AS total
+      FROM public.farmacia_pacientes pfj
+      WHERE ${condicao}
+    `;
+    const total = Number(serializeData(contagem)[0]?.total || 0);
+
+    const rows = await prisma.$queryRaw`
+      SELECT
+        pfj.numero_pasta AS "numeroPasta",
+        pfj.numero_processo AS "numeroProcesso",
+        pfj.status AS status,
+        pfj.justificativa_inativacao AS "justificativaInativacao",
+        TO_CHAR(pfj.created_at, 'YYYY-MM-DD') AS "dataCadastro",
+        p.cpf AS cpf,
+        p.nome_completo AS "patientName"
+      FROM public.farmacia_pacientes pfj
+      JOIN public.pessoa p ON pfj.pessoa_cpf = p.cpf
+      WHERE ${condicao}
+      ORDER BY pfj.created_at DESC, pfj.numero_pasta DESC
+      LIMIT ${tamanho} OFFSET ${offset}
+    `;
+
+    return {
+      success: true,
+      registros: serializeData(rows),
+      total,
+      pagina: paginaAtual,
+      tamanho,
+      totalPaginas: Math.max(1, Math.ceil(total / tamanho)),
+    };
+  } catch (error) {
+    console.error("Erro ao consultar processos da Farmácia Judicial:", error);
+    return {
+      success: false,
+      error: error.message || "Erro ao consultar os processos.",
+      registros: [],
+      total: 0,
+      pagina: 1,
+      tamanho: CONSULTA_PAGINA_TAMANHO,
+      totalPaginas: 1,
+    };
+  }
+}
+
+// Detalhe completo do processo (visualização somente leitura, mesmo padrão do
+// formulário de cadastro).
+export async function obterProcessoFarmacia(numeroPasta) {
+  try {
+    await requireAcessoModulo(MODULOS.FARMACIA);
+
+    const pasta = String(numeroPasta || "").trim();
+    if (!pasta) throw new Error("Processo não informado.");
+
+    const rows = serializeData(await prisma.$queryRaw`
+      SELECT
+        pfj.numero_pasta AS "numeroPasta",
+        pfj.numero_processo AS "numeroProcesso",
+        pfj.status AS status,
+        pfj.justificativa_inativacao AS "justificativaInativacao",
+        TO_CHAR(pfj.created_at, 'YYYY-MM-DD') AS "dataCadastro",
+        TO_CHAR(pfj.created_at, 'HH24:MI') AS "horaCadastro",
+        p.cpf AS cpf,
+        p.cns AS cns,
+        p.nome_completo AS "patientName",
+        p.nome_mae AS "motherName",
+        p.telefone AS telefone,
+        p.sexo AS sexo,
+        TO_CHAR(p.data_nascimento, 'YYYY-MM-DD') AS "dataNascimento",
+        ubs.nome AS "ubsReferencia",
+        (SELECT COUNT(*)::int FROM public.farmacia_dispensacoes_medicamentos d
+          WHERE d.paciente_pasta = pfj.numero_pasta) AS "totalDispensacoes"
+      FROM public.farmacia_pacientes pfj
+      JOIN public.pessoa p ON pfj.pessoa_cpf = p.cpf
+      LEFT JOIN public.regula_ubs ubs ON p.ubs_referencia_id = ubs.id
+      WHERE pfj.numero_pasta = ${pasta}
+      LIMIT 1
+    `);
+    const processo = rows[0];
+    if (!processo) throw new Error("Processo não encontrado.");
+
+    // Endereço atual da pessoa (mesma fonte do container de identificação).
+    const endereco = serializeData(await prisma.$queryRaw`
+      SELECT logradouro, numero, complemento, bairro, cidade, uf, cep
+      FROM public.pessoa_endereco
+      WHERE pessoa_cpf = ${processo.cpf} AND endereco_atual = true
+      LIMIT 1
+    `)[0] || null;
+
+    const medicamentos = serializeData(await prisma.$queryRaw`
+      SELECT
+        m.nome, m.tipo, m.dosagem,
+        tp.qtd_prescrita_mensal AS "qtdPrescritaMensal",
+        tp.ativo AS "medicamentoAtivo",
+        TO_CHAR(tp.created_at, 'YYYY-MM-DD') AS "desde"
+      FROM public.farmacia_tratamentos_pacientes tp
+      JOIN public.farmacia_medicamentos m ON tp.medicamento_id = m.id
+      WHERE tp.paciente_pasta = ${pasta}
+      ORDER BY m.nome ASC
+    `);
+
+    return {
+      success: true,
+      processo: { ...processo, ...(endereco || {}), medicamentos },
+    };
+  } catch (error) {
+    console.error("Erro ao carregar o processo da Farmácia Judicial:", error);
+    return { success: false, error: error.message || "Erro ao carregar o processo." };
+  }
+}
+
+// Exclusão permitida apenas quando NÃO há dispensação, movimentação de estoque
+// ou qualquer outro registro histórico vinculado. Nada é apagado em cascata.
+async function dependenciasDoProcessoFarmacia(pasta) {
+  const dispensacoes = serializeData(await prisma.$queryRaw`
+    SELECT COUNT(*)::int AS total FROM public.farmacia_dispensacoes_medicamentos
+    WHERE paciente_pasta = ${pasta}
+  `)[0]?.total || 0;
+  const tratamentos = serializeData(await prisma.$queryRaw`
+    SELECT COUNT(*)::int AS total FROM public.farmacia_tratamentos_pacientes
+    WHERE paciente_pasta = ${pasta}
+  `)[0]?.total || 0;
+  return { dispensacoes: Number(dispensacoes), tratamentos: Number(tratamentos) };
+}
+
+export async function verificarExclusaoProcessoFarmacia(numeroPasta) {
+  try {
+    await requireAcessoModulo(MODULOS.FARMACIA);
+    const deps = await dependenciasDoProcessoFarmacia(String(numeroPasta || "").trim());
+    return { success: true, dependencias: deps, podeExcluir: deps.dispensacoes === 0 };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function excluirProcessoFarmacia(numeroPasta, { confirmado = false } = {}) {
+  try {
+    // Exclusão é ação administrativa do módulo (mesma regra do cadastro).
+    const user = await requireAdminModulo(MODULOS.FARMACIA);
+
+    const pasta = String(numeroPasta || "").trim();
+    if (!pasta) throw new Error("Processo não informado.");
+    if (confirmado !== true) throw new Error("A exclusão precisa ser confirmada.");
+
+    const registro = serializeData(await prisma.$queryRaw`
+      SELECT numero_pasta AS "numeroPasta", pessoa_cpf AS "pessoaCpf",
+             numero_processo AS "numeroProcesso", status
+      FROM public.farmacia_pacientes WHERE numero_pasta = ${pasta} LIMIT 1
+    `)[0];
+    if (!registro) throw new Error("Processo não encontrado.");
+
+    const deps = await dependenciasDoProcessoFarmacia(pasta);
+    if (deps.dispensacoes > 0) {
+      throw new Error(
+        `Este processo possui ${deps.dispensacoes} dispensação(ões) registrada(s) ` +
+          "e não pode ser excluído: o histórico de dispensações e as movimentações " +
+          "de estoque precisam ser preservados. Utilize a Situação Inativo com justificativa.",
+      );
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.tratamentoPaciente.deleteMany({ where: { pacientePasta: pasta } });
+      await tx.pacienteFarmaciaJudicial.delete({ where: { numeroPasta: pasta } });
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "EXCLUIR",
+      modulo: "FARMACIA_JUDICIAL",
+      entidade: "PacienteJudicial",
+      entidadeId: pasta,
+      descricao: `Processo ${registro.numeroProcesso} da pasta ${pasta} excluído`,
+      detalhes: {
+        numeroPasta: pasta,
+        numeroProcesso: registro.numeroProcesso,
+        pacienteCpf: registro.pessoaCpf,
+        situacao: registro.status,
+        medicamentosRemovidos: deps.tratamentos,
+        dispensacoes: deps.dispensacoes,
+      },
+    });
+
+    revalidatePath("/camara-tecnica/farmacia-judicial");
+    return { success: true };
+  } catch (error) {
+    console.error("Erro ao excluir processo da Farmácia Judicial:", error);
+    return { success: false, error: error.message };
   }
 }

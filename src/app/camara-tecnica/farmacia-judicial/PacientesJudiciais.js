@@ -7,6 +7,8 @@ import IdentificacaoPaciente from '@/components/IdentificacaoPaciente';
 import { pessoaAptaParaVinculo } from '@/components/cadastros/SituacaoPessoa';
 import '@/components/cadastros/padraoCadastro.css';
 import styles from './PacientesJudiciais.module.css';
+import ConsultarProcessos from './ConsultarProcessos';
+import { usePermissoesFarmaciaJudicial } from './PermissoesFarmaciaJudicialContext';
 
 const MED_VAZIO = { medicamentoId: '', qtdMensal: '', statusMedication: 'Ativo' };
 
@@ -30,6 +32,10 @@ export default function TabPacientesJudiciais({
   loading,
 }) {
   const confirm = useConfirm();
+  const { podeExcluirProcesso } = usePermissoesFarmaciaJudicial();
+
+  // Abas do módulo: cadastro (padrão) e consulta.
+  const [aba, setAba] = useState('novo');
 
   // Pessoa selecionada no banco (somente leitura aqui — cadastro vive em /pessoas).
   const [pessoa, setPessoa] = useState(null);
@@ -138,6 +144,31 @@ export default function TabPacientesJudiciais({
   return (
     <div className={styles.container}>
       <div className={styles.mainWrapper}>
+        {/* Abas sobre o MESMO painel: Novo Processo (padrão) e Consultar. */}
+        <div className={styles.abas}>
+          <button
+            type="button"
+            className={aba === 'novo' ? styles.abaAtiva : styles.aba}
+            onClick={() => setAba('novo')}
+          >
+            Novo Processo
+          </button>
+          <button
+            type="button"
+            className={aba === 'consultar' ? styles.abaAtiva : styles.aba}
+            onClick={() => setAba('consultar')}
+          >
+            Consultar Processos
+          </button>
+        </div>
+
+        {aba === 'consultar' ? (
+          <ConsultarProcessos
+            catalogo={catalogo}
+            podeExcluir={podeExcluirProcesso === true}
+          />
+        ) : (
+        <>
         {/* SEÇÃO 1: IDENTIFICAÇÃO DO PACIENTE — container ÚNICO e compartilhado
             (mesmo componente, grid e estilos da Regulação e do Prontuário da
             Junta). Campos somente leitura, vindos do cadastro central `pessoa`. */}
@@ -318,6 +349,8 @@ export default function TabPacientesJudiciais({
                 </button>
               </div>
             </form>
+        </>
+        )}
       </div>
     </div>
   );

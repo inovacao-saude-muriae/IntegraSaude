@@ -29,8 +29,14 @@ export default async function FarmaciaJudicialLayout({ children }) {
     (await usuarioEhAdminModulo(ctx.user, MODULOS.REGULACAO)) ||
     (await usuarioEhAdminModulo(ctx.user, MODULOS.JUNTA));
 
+  // Exclusão de processo: só administrador do módulo (requireAdminModulo).
+  const podeExcluirProcesso = await usuarioEhAdminModulo(ctx.user, MODULOS.FARMACIA);
+
   return (
-    <FarmaciaJudicialPermProvider podeGerenciarPessoas={podeGerenciarPessoas}>
+    <FarmaciaJudicialPermProvider
+      podeGerenciarPessoas={podeGerenciarPessoas}
+      podeExcluirProcesso={podeExcluirProcesso}
+    >
       {children}
     </FarmaciaJudicialPermProvider>
   );
