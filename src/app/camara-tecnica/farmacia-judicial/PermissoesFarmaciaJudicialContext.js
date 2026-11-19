@@ -11,16 +11,19 @@ const PermissoesFarmaciaJudicialContext = createContext({
   // Exclusão de processo judicial da Farmácia: ação administrativa do módulo
   // (mesma regra de requireAdminModulo). Backend revalida sempre.
   podeExcluirProcesso: false,
+  // Edição do processo (situação + medicamentos): mesma regra administrativa.
+  podeEditarProcesso: false,
 });
 
 export function FarmaciaJudicialPermProvider({
   podeGerenciarPessoas = false,
   podeExcluirProcesso = false,
+  podeEditarProcesso = false,
   children,
 }) {
   return (
     <PermissoesFarmaciaJudicialContext.Provider
-      value={{ podeGerenciarPessoas, podeExcluirProcesso }}
+      value={{ podeGerenciarPessoas, podeExcluirProcesso, podeEditarProcesso }}
     >
       {children}
     </PermissoesFarmaciaJudicialContext.Provider>

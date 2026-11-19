@@ -4,6 +4,7 @@
 import {
   requireAdminModulo,
   requireAcessoModulo,
+  requirePermissao,
   requireUsuarioAutenticado,
 } from "@/lib/auth";
 import { MODULOS } from "@/lib/permissions";
@@ -90,53 +91,29 @@ export async function createPacienteJudicial(data) {
       throw new Error("Informe o número da pasta e do processo.");
     }
 
-    const statusDb = normalizarStatusPaciente(data.status);
+    // Todo processo NOVO nasce Ativo: a inativação só existe pela edição
+    // (aba Consultar Processos → Editar). Validado aqui, no backend.
+    const statusDb = "ATIVO";
 
-    // Situação ANTERIOR do vínculo (se já existia) para decidir sobre a
-    // justificativa e registrar a transição na auditoria.
+    // Situação ANTERIOR do vínculo (se já existia), apenas para registrar a
+    // transição na auditoria.
     const anterior = await prisma.$queryRaw`
-      SELECT status, justificativa_inativacao AS justificativa
-      FROM public.farmacia_pacientes
+      SELECT status FROM public.farmacia_pacientes
       WHERE numero_pasta = ${data.numeroPasta}
       LIMIT 1
     `;
     const anteriorStatus = (serializeData(anterior)[0]?.status || "").toUpperCase();
-    const jaInativo = anteriorStatus === "INATIVO";
-
-    const justificativa = String(data.justificativaInativacao || "").trim();
-    // Inativar exige justificativa; um vínculo que JÁ está inativo não pode ser
-    // gravado de novo sem justificativa nova.
-    const exigirJustificativa = statusDb === "INATIVO" && !jaInativo;
-    if (exigirJustificativa) {
-      if (justificativa.length < JUSTIFICATIVA_MIN) {
-        throw new Error(
-          "Informe a Justificativa da Inativação (mínimo de 15 caracteres).",
-        );
-      }
-      if (justificativa.length > JUSTIFICATIVA_MAX) {
-        throw new Error(
-          "A Justificativa da Inativação deve ter no máximo 500 caracteres.",
-        );
-      }
-    }
-    // Ao reativar, a justificativa anterior é PRESERVADA (histórico da última
-    // inativação). Só se grava o texto novo quando há uma inativação nova.
-    const justificativaDb = exigirJustificativa ? justificativa : null;
 
     await prisma.$transaction(async (tx) => {
-      // ON CONFLICT: a justificativa só é sobrescrita quando há inativação
-      // nova (COALESCE com a coluna); reativar mantém o histórico anterior.
+      // O cadastro NUNCA muda a situação de um processo existente: a
+      // inativação/reativação acontece apenas na edição (com justificativa).
+      // A justificativa já registrada é preservada (não vai no UPDATE).
       await tx.$executeRaw`
         INSERT INTO public.farmacia_pacientes (numero_pasta, pessoa_cpf, numero_processo, status, justificativa_inativacao)
-        VALUES (${data.numeroPasta}, ${cleanCpf}, ${data.numeroProcesso}, ${statusDb}, ${justificativaDb})
+        VALUES (${data.numeroPasta}, ${cleanCpf}, ${data.numeroProcesso}, ${statusDb}, NULL)
         ON CONFLICT (numero_pasta) DO UPDATE SET
           pessoa_cpf = EXCLUDED.pessoa_cpf,
-          numero_processo = EXCLUDED.numero_processo,
-          status = EXCLUDED.status,
-          justificativa_inativacao = COALESCE(
-            EXCLUDED.justificativa_inativacao,
-            farmacia_pacientes.justificativa_inativacao
-          )
+          numero_processo = EXCLUDED.numero_processo
       `;
 
       await tx.tratamentoPaciente.deleteMany({
@@ -161,46 +138,20 @@ export async function createPacienteJudicial(data) {
       }
     });
 
-    // Transição baseada na situação EFETIVAMENTE gravada (não na anterior):
-    // cobre o primeiro cadastro, a inativação e a reativação.
-    const registroAtual = await prisma.$queryRaw`
-      SELECT status FROM public.farmacia_pacientes
-      WHERE numero_pasta = ${data.numeroPasta} LIMIT 1
-    `;
-    const statusGravado = String(serializeData(registroAtual)[0]?.status || statusDb).toUpperCase();
-    const acaoAuditoria =
-      statusGravado === "INATIVO" && justificativaDb
-        ? "DESATIVAR"
-        : statusGravado === "ATIVO" && anteriorStatus === "INATIVO"
-          ? "REATIVAR"
-          : "SALVAR";
-    const transicao = anteriorStatus !== statusGravado;
     const rotuloSituacao = statusDb === "INATIVO" ? "Inativo" : "Ativo";
-
-    // Na auditoria a justificativa fica marcada na descrição (o texto livre do
-    // motivo é preservado na coluna própria do registro, não no log).
-    // Obrigatória nesta inativação OU preservada de uma inativação anterior.
-    const temJustificativa = exigirJustificativa || Boolean(justificativaDb);
-    const marcaJustificativa = temJustificativa
-      ? " — justificativa da inativação registrada"
-      : "";
 
     await registrarAuditoria({
       user,
-      acao: acaoAuditoria,
+      acao: "SALVAR",
       modulo: "FARMACIA_JUDICIAL",
       entidade: "PacienteJudicial",
       entidadeId: String(data.numeroPasta),
-      descricao: transicao
-        ? `Situação na Farmácia Judicial do paciente da pasta ${data.numeroPasta}: ${anteriorStatus || "—"} → ${statusDb}${marcaJustificativa}`
-        : `Paciente judicial da pasta ${data.numeroPasta} salvo (situação ${rotuloSituacao})`,
+      descricao: `Processo da pasta ${data.numeroPasta} salvo (situação ${rotuloSituacao})`,
       detalhes: {
-        campo: "situacao_farmacia_judicial",
+        campo: "situacao_processo",
         situacao: rotuloSituacao,
         situacaoAnterior: anteriorStatus || null,
-        // Marcador booleano (não é texto livre): o teor do motivo fica apenas
-        // na coluna própria do registro; o log guarda só que houve motivo.
-        motivoRegistrado: temJustificativa,
+        motivoRegistrado: false,
       },
     });
 
@@ -208,6 +159,121 @@ export async function createPacienteJudicial(data) {
     return { success: true };
   } catch (error) {
     console.error("Erro ao cadastrar paciente judicial:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Edição do processo (aba Consultar Processos → Editar): dados do processo,
+// medicamentos e SITUAÇÃO do processo. Inativar exige justificativa (15–500);
+// reativar oculta o campo e PRESERVA o histórico da última inativação.
+export async function editarProcessoFarmacia(data) {
+  try {
+    // Mesma permissão do botão Editar (FARMACIA > Pacientes > editar).
+    const user = await requirePermissao(MODULOS.FARMACIA, "pacientes", "editar");
+
+    const pasta = String(data?.numeroPasta || "").trim();
+    if (!pasta) throw new Error("Processo não informado.");
+
+    const numeroProcesso = String(data?.numeroProcesso || "").trim();
+    if (!numeroProcesso) throw new Error("Informe o número do processo.");
+
+    const atualReg = serializeData(await prisma.$queryRaw`
+      SELECT status, justificativa_inativacao AS "justificativaInativacao"
+      FROM public.farmacia_pacientes WHERE numero_pasta = ${pasta} LIMIT 1
+    `)[0];
+    if (!atualReg) throw new Error("Processo não encontrado.");
+
+    const statusAnterior = normalizarStatusPaciente(atualReg.status);
+    const status = normalizarStatusPaciente(data?.status);
+    const justificativa = String(data?.justificativaInativacao || "").trim();
+
+    // Inativar exige justificativa; um processo que já está inativo sem texto
+    // registrado também precisa informá-la.
+    const inativandoAgora =
+      status === "INATIVO" && statusAnterior !== "INATIVO";
+    const inativoSemJustificativa =
+      status === "INATIVO" && !atualReg.justificativaInativacao;
+    let justificativaDb = atualReg.justificativaInativacao || null;
+    if (inativandoAgora || inativoSemJustificativa) {
+      if (justificativa.length < JUSTIFICATIVA_MIN) {
+        throw new Error(
+          "Informe a Justificativa da Inativação (mínimo de 15 caracteres).",
+        );
+      }
+      if (justificativa.length > JUSTIFICATIVA_MAX) {
+        throw new Error(
+          "A Justificativa da Inativação deve ter no máximo 500 caracteres.",
+        );
+      }
+      justificativaDb = justificativa;
+    }
+
+    const medicamentos = Array.isArray(data?.medicamentos) ? data.medicamentos : null;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`
+        UPDATE public.farmacia_pacientes
+        SET numero_processo = ${numeroProcesso},
+            status = ${status},
+            justificativa_inativacao = ${justificativaDb}
+        WHERE numero_pasta = ${pasta}
+      `;
+
+      if (medicamentos) {
+        await tx.tratamentoPaciente.deleteMany({ where: { pacientePasta: pasta } });
+        for (const med of medicamentos) {
+          if (med.medicamentoId && med.qtdMensal) {
+            await tx.tratamentoPaciente.create({
+              data: {
+                pacientePasta: pasta,
+                medicamentoId: Number(med.medicamentoId),
+                qtdPrescritaMensal: Number(med.qtdMensal),
+                ativo: (med.statusMedication || "Ativo").toUpperCase() === "ATIVO",
+              },
+            });
+          }
+        }
+      }
+    });
+
+    // Transição de situação tem ação própria na auditoria.
+    const acao =
+      statusAnterior !== status
+        ? status === "INATIVO"
+          ? "DESATIVAR"
+          : "REATIVAR"
+        : "EDITAR";
+    const rotulo = status === "INATIVO" ? "Inativo" : "Ativo";
+    const marcaJustificativa =
+      inativandoAgora || inativoSemJustificativa
+        ? " — justificativa da inativação registrada"
+        : "";
+
+    await registrarAuditoria({
+      user,
+      acao,
+      modulo: "FARMACIA_JUDICIAL",
+      entidade: "PacienteJudicial",
+      entidadeId: pasta,
+      descricao:
+        statusAnterior !== status
+          ? `Situação do processo da pasta ${pasta}: ${statusAnterior} → ${status}${marcaJustificativa}`
+          : `Processo da pasta ${pasta} editado (situação ${rotulo})`,
+      detalhes: {
+        campo: statusAnterior !== status ? "situacao_processo" : "processo",
+        numeroProcesso,
+        situacao: rotulo,
+        situacaoAnterior: statusAnterior,
+        motivoRegistrado: Boolean(
+          inativandoAgora || inativoSemJustificativa,
+        ),
+      },
+    });
+
+    revalidatePath("/camara-tecnica/farmacia-judicial");
+    return { success: true };
+  } catch (error) {
+    console.error("Erro ao editar processo da Farmácia Judicial:", error);
     return { success: false, error: error.message };
   }
 }
@@ -1150,6 +1216,7 @@ export async function obterProcessoFarmacia(numeroPasta) {
         p.nome_mae AS "motherName",
         p.telefone AS telefone,
         p.sexo AS sexo,
+        p.situacao AS situacao,
         TO_CHAR(p.data_nascimento, 'YYYY-MM-DD') AS "dataNascimento",
         ubs.nome AS "ubsReferencia",
         (SELECT COUNT(*)::int FROM public.farmacia_dispensacoes_medicamentos d
@@ -1269,5 +1336,35 @@ export async function excluirProcessoFarmacia(numeroPasta, { confirmado = false 
   } catch (error) {
     console.error("Erro ao excluir processo da Farmácia Judicial:", error);
     return { success: false, error: error.message };
+  }
+}
+
+// Dados do formulário de edição: processo + medicamentos vinculados.
+export async function obterProcessoParaEdicao(numeroPasta) {
+  try {
+    await requireAcessoModulo(MODULOS.FARMACIA);
+    const pasta = String(numeroPasta || "").trim();
+    if (!pasta) throw new Error("Processo não informado.");
+
+    const registro = serializeData(await prisma.$queryRaw`
+      SELECT numero_pasta AS "numeroPasta", numero_processo AS "numeroProcesso",
+             status, justificativa_inativacao AS "justificativaInativacao",
+             pessoa_cpf AS "pessoaCpf"
+      FROM public.farmacia_pacientes WHERE numero_pasta = ${pasta} LIMIT 1
+    `)[0];
+    if (!registro) throw new Error("Processo não encontrado.");
+
+    const medicamentos = serializeData(await prisma.$queryRaw`
+      SELECT medicamento_id AS "medicamentoId",
+             qtd_prescrita_mensal AS "qtdMensal",
+             CASE WHEN ativo THEN 'Ativo' ELSE 'Inativo' END AS "statusMedication"
+      FROM public.farmacia_tratamentos_pacientes
+      WHERE paciente_pasta = ${pasta}
+      ORDER BY id ASC
+    `);
+
+    return { success: true, processo: { ...registro, medicamentos } };
+  } catch (error) {
+    return { success: false, error: error.message || "Erro ao carregar o processo." };
   }
 }

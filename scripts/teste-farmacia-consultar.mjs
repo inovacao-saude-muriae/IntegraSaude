@@ -74,7 +74,7 @@ async function chamar(cpf, nome, args) {
 }
 
 const PFX = "TSTFC";
-const CPFS = ["91000000960", "91000000961"];
+const CPFS = ["91000000960", "91000000961", "91000000962"];
 
 async function limpar() {
   await db.query("DELETE FROM farmacia_dispensacoes_medicamentos WHERE paciente_pasta LIKE $1", [`${PFX}%`]);
@@ -111,6 +111,7 @@ await conta(ADMIN, "TESTE Farmacia Consulta", ["FARMACIA"], "ADMIN");
 await conta(SEM_ADMIN, "TESTE Farmacia Operador", ["FARMACIA"], "OPERADOR");
 await pessoa(CPFS[0], "TESTE FC Alfa");
 await pessoa(CPFS[1], "TESTE FC Beta");
+await pessoa(CPFS[2], "TESTE FC Gama");
 const m1 = (await db.query("INSERT INTO farmacia_medicamentos (nome,tipo,dosagem,ativo) VALUES ($1,'Analgésico','500mg',true) RETURNING id", [`${PFX} Dipirona`])).rows[0].id;
 const m2 = (await db.query("INSERT INTO farmacia_medicamentos (nome,tipo,dosagem,ativo) VALUES ($1,'Anti-hipertensivo','50mg',true) RETURNING id", [`${PFX} Losartana`])).rows[0].id;
 await db.query(
@@ -156,6 +157,58 @@ check("detalhe traz paciente", det.processo.patientName === "TESTE FC Beta");
 check("detalhe traz situação e justificativa",
   det.processo.status === "INATIVO" && /decisão judicial/.test(det.processo.justificativaInativacao));
 check("detalhe traz os medicamentos vinculados", det.processo.medicamentos.length === 1);
+
+console.log("\n2.1 Edição do processo (situação + justificativa)");
+const ed = await chamar(ADMIN, "obterProcessoParaEdicao", [`${PFX}-002`]);
+check("edição carrega processo + medicamentos",
+  ed.success === true && ed.processo.numeroProcesso === "5000002-22.2026.8.13.0439" && ed.processo.medicamentos.length === 1);
+check("edição traz a justificativa já registrada", /decisão judicial/.test(ed.processo.justificativaInativacao || ""));
+
+const semJust = await chamar(ADMIN, "editarProcessoFarmacia", [
+  { numeroPasta: `${PFX}-001`, numeroProcesso: "5000001-11.2026.8.13.0439", status: "Inativo", justificativaInativacao: "curta" },
+]);
+check("inativar sem justificativa válida é recusado", semJust.success === false && /Justificativa/i.test(semJust.error || ""), JSON.stringify(semJust));
+
+const longa = "x".repeat(501);
+const justLonga = await chamar(ADMIN, "editarProcessoFarmacia", [
+  { numeroPasta: `${PFX}-001`, numeroProcesso: "5000001-11.2026.8.13.0439", status: "Inativo", justificativaInativacao: longa },
+]);
+check("justificativa acima de 500 é recusada", justLonga.success === false && /500/.test(justLonga.error || ""));
+
+const inativou = await chamar(ADMIN, "editarProcessoFarmacia", [
+  { numeroPasta: `${PFX}-001`, numeroProcesso: "5000001-11.2026.8.13.0439", status: "Inativo",
+    justificativaInativacao: "Processo suspenso por determinação judicial em 19/11/2026." },
+]);
+check("inativar pela edição grava status e justificativa", inativou.success === true, JSON.stringify(inativou.error || ""));
+const aposInativar = (await db.query("SELECT status, justificativa_inativacao AS j FROM farmacia_pacientes WHERE numero_pasta=$1", [`${PFX}-001`])).rows[0];
+check("banco com status INATIVO", aposInativar?.status === "INATIVO" && /determinação judicial/.test(aposInativar.j || ""));
+const audInativou = await db.query("SELECT acao FROM audit_logs WHERE entidade='PacienteJudicial' AND entidade_id=$1", [`${PFX}-001`]);
+check("inativação auditada como DESATIVAR", audInativou.rows.some((r) => r.acao === "DESATIVAR"));
+
+const reativou = await chamar(ADMIN, "editarProcessoFarmacia", [
+  { numeroPasta: `${PFX}-001`, numeroProcesso: "5000001-11.2026.8.13.0439", status: "Ativo", justificativaInativacao: "" },
+]);
+check("reativar pela edição", reativou.success === true, JSON.stringify(reativou.error || ""));
+const aposReativar = (await db.query("SELECT status, justificativa_inativacao AS j FROM farmacia_pacientes WHERE numero_pasta=$1", [`${PFX}-001`])).rows[0];
+check("reativar preserva a justificativa anterior (histórico)",
+  aposReativar?.status === "ATIVO" && /determinação judicial/.test(aposReativar.j || ""));
+const audReativou = await db.query("SELECT acao FROM audit_logs WHERE entidade='PacienteJudicial' AND entidade_id=$1", [`${PFX}-001`]);
+check("reativação auditada como REATIVAR", audReativou.rows.some((r) => r.acao === "REATIVAR"));
+
+const semEdicao = await chamar(SEM_ADMIN, "editarProcessoFarmacia", [
+  { numeroPasta: `${PFX}-001`, numeroProcesso: "5000001-11.2026.8.13.0439", status: "Ativo" },
+]);
+check("operador sem permissão de editar é recusado", semEdicao.success === false);
+
+console.log("\n2.2 Novo processo sempre ATIVO (backend)");
+const novo = await chamar(ADMIN, "createPacienteJudicial", [
+  { cpf: CPFS[2], numeroPasta: `${PFX}-003`, numeroProcesso: "5000003-33.2026.8.13.0439",
+    status: "Inativo", justificativaInativacao: "Tentativa de inativar no cadastro (deve ser ignorada).", medicamentos: [] },
+]);
+check("cadastro aceita e grava ATIVO mesmo recebendo Inativo", novo.success === true, JSON.stringify(novo.error || ""));
+const novoDb = (await db.query("SELECT status, justificativa_inativacao AS j FROM farmacia_pacientes WHERE numero_pasta=$1", [`${PFX}-003`])).rows[0];
+check("processo novo no banco está ATIVO e sem justificativa", novoDb?.status === "ATIVO" && !novoDb.j);
+await db.query("DELETE FROM farmacia_pacientes WHERE numero_pasta=$1", [`${PFX}-003`]);
 
 console.log("\n3. Exclusão protegida");
 const semConf = await chamar(ADMIN, "excluirProcessoFarmacia", [`${PFX}-001`, {}]);

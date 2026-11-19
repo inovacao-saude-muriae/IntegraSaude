@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import {
   getPacientesJudiciais,
   createPacienteJudicial,
+  editarProcessoFarmacia,
   getMedicamentosEEstoque,
   getEstoqueAgrupado,
   getCatalogoMedicamentos,
@@ -160,6 +161,14 @@ function FarmaciaJudicialPageContent() {
     return res;
   };
 
+  // Edição do processo (aba Consultar Processos → Editar): dados, medicamentos
+  // e situação. Recarrega os dados após salvar para refletir em todas as abas.
+  const handleEditarProcesso = async (formData) => {
+    const res = await editarProcessoFarmacia(formData);
+    if (res.success) await reloadData();
+    return res;
+  };
+
   const handleCreateMedicamento = async (formData) => {
     const res = await createMedicamento(formData);
     if (res.success) {
@@ -265,6 +274,7 @@ function FarmaciaJudicialPageContent() {
           pacientes={pacientes}
           catalogo={catalogo}
           onCreatePaciente={handleCreatePaciente}
+          onEditarProcesso={handleEditarProcesso}
           loading={loading}
         />
       )}

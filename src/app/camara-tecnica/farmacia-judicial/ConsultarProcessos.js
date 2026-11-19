@@ -2,16 +2,21 @@
 
 import { useState } from "react";
 import { useConfirm } from "@/components/ConfirmDialog";
+import { formatarCpfExibicao } from "@/lib/cpf";
+import { mascararTelefone } from "@/lib/telefone";
 import {
   listarProcessosFarmacia,
   obterProcessoFarmacia,
+  obterProcessoParaEdicao,
   excluirProcessoFarmacia,
 } from "./actions";
+import EdicaoProcesso from "./EdicaoProcesso";
 import styles from "./ConsultarProcessos.module.css";
 
-// Situação na Farmácia Judicial: operacional (ATIVO/INATIVO). Valores legados
-// fora destes dois são exibidos como Inativo, nunca convertidos no banco.
-const situacaoDe = (v) => (String(v || "").trim().toUpperCase() === "ATIVO" ? "Ativo" : "Inativo");
+// Situação do processo: operacional (ATIVO/INATIVO). Valores legados fora
+// destes dois são exibidos como Inativo, nunca convertidos no banco.
+const situacaoDe = (v) =>
+  String(v || "").trim().toUpperCase() === "ATIVO" ? "Ativo" : "Inativo";
 
 // ISO (yyyy-mm-dd) → dd/mm/aaaa sem passar por Date (evita efeito de fuso).
 const formatarData = (v) => {
@@ -27,12 +32,17 @@ const FILTROS_VAZIOS = {
 };
 
 /**
- * Aba "Consultar Processos" da Farmácia Judicial.
- * Filtros → Filtrar (backend, paginado em 100) → tabela de 3 colunas com a
- * linha inteira clicável → visualização completa (somente leitura) com a
- * exclusão disponível apenas nessa tela e sujeita às permissões.
+ * Aba "Consultar Processos" da Farmácia Judicial — MESMA estrutura da Consulta
+ * dos Procedimentos Cirúrgicos: filtros, Filtrar/Limpar filtros, tabela de 3
+ * colunas com a linha inteira clicável, visualização completa em modal
+ * (somente leitura) com Editar e Excluir.
  */
-export default function ConsultarProcessos({ catalogo = [], podeExcluir = false }) {
+export default function ConsultarProcessos({
+  catalogo = [],
+  podeEditar = false,
+  podeExcluir = false,
+  onSalvarEdicao,
+}) {
   const confirm = useConfirm();
 
   const [filtros, setFiltros] = useState(FILTROS_VAZIOS);
@@ -44,6 +54,9 @@ export default function ConsultarProcessos({ catalogo = [], podeExcluir = false 
   const [detalhe, setDetalhe] = useState(null);
   const [carregandoDetalhe, setCarregandoDetalhe] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
+
+  const [edicao, setEdicao] = useState(null); // { processo, paciente }
+  const [salvandoEdicao, setSalvandoEdicao] = useState(false);
 
   const alterarFiltro = (campo, valor) =>
     setFiltros((f) => ({ ...f, [campo]: valor }));
@@ -65,7 +78,6 @@ export default function ConsultarProcessos({ catalogo = [], podeExcluir = false 
         return;
       }
       setResultado(res);
-      setAviso("");
     } finally {
       setConsultando(false);
     }
@@ -100,6 +112,55 @@ export default function ConsultarProcessos({ catalogo = [], podeExcluir = false 
     }
   }
 
+  async function abrirEdicao() {
+    if (!detalhe) return;
+    setErro("");
+    const res = await obterProcessoParaEdicao(detalhe.numeroPasta);
+    if (!res.success) {
+      setErro(res.error || "Não foi possível abrir o processo para edição.");
+      return;
+    }
+    setEdicao({
+      processo: res.processo,
+      paciente: {
+        // Mesmos nomes de campo que o container único de identificação lê
+        // (IdentificacaoPaciente), inclusive situacao e ubsReferencia.nome.
+        cpf: detalhe.cpf,
+        nomeCompleto: detalhe.patientName,
+        cns: detalhe.cns,
+        nomeMae: detalhe.motherName,
+        telefone: detalhe.telefone,
+        sexo: detalhe.sexo,
+        dataNascimento: detalhe.dataNascimento,
+        situacao: detalhe.situacao,
+        ubsReferencia: detalhe.ubsReferencia,
+        logradouro: detalhe.logradouro,
+        numero: detalhe.numero,
+        complemento: detalhe.complemento,
+        bairro: detalhe.bairro,
+        cidade: detalhe.cidade,
+        uf: detalhe.uf,
+        cep: detalhe.cep,
+      },
+    });
+    setDetalhe(null);
+  }
+
+  async function salvarEdicao(payload) {
+    setSalvandoEdicao(true);
+    const res = await onSalvarEdicao(payload);
+    setSalvandoEdicao(false);
+    if (!res?.success) {
+      setErro(res?.error || "Não foi possível salvar as alterações.");
+      return;
+    }
+    setEdicao(null);
+    setAviso("Processo atualizado com sucesso.");
+    // Atualiza automaticamente a consulta e a visualização do registro.
+    await consultar(resultado?.pagina || 1, filtros);
+    await abrirDetalhe(payload.numeroPasta);
+  }
+
   async function excluir() {
     if (!detalhe) return;
     const ok = await confirm({
@@ -118,8 +179,21 @@ export default function ConsultarProcessos({ catalogo = [], podeExcluir = false 
     }
     setDetalhe(null);
     setAviso("Processo excluído com sucesso.");
-    // Refaz a consulta atual (mantém filtros e página).
     consultar(resultado?.pagina || 1, filtros);
+  }
+
+  // ── Edição: substitui o conteúdo da aba pelo formulário padronizado ──────
+  if (edicao) {
+    return (
+      <EdicaoProcesso
+        processo={edicao.processo}
+        paciente={edicao.paciente}
+        catalogo={catalogo}
+        salvando={salvandoEdicao}
+        onCancelar={() => setEdicao(null)}
+        onSalvar={salvarEdicao}
+      />
+    );
   }
 
   return (
@@ -176,7 +250,7 @@ export default function ConsultarProcessos({ catalogo = [], podeExcluir = false 
               </select>
             </div>
             <div className={styles.campoFiltro}>
-              <label>Situação na Farmácia Judicial</label>
+              <label>Situação do Processo</label>
               <select
                 value={filtros.situacao}
                 onChange={(e) => alterarFiltro("situacao", e.target.value)}
@@ -190,7 +264,7 @@ export default function ConsultarProcessos({ catalogo = [], podeExcluir = false 
 
           <div className={styles.filtrosAcoes}>
             <button type="submit" className={styles.btnPrimario} disabled={consultando}>
-              {consultando ? "Consultando..." : "Filtrar"}
+              {consultando ? "Filtrando…" : "Filtrar"}
             </button>
             <button
               type="button"
@@ -278,10 +352,16 @@ export default function ConsultarProcessos({ catalogo = [], podeExcluir = false 
         )}
       </div>
 
-      {/* ── VISUALIZAÇÃO COMPLETA DO PROCESSO ─────────────────────────────── */}
+      {/* ── VISUALIZAÇÃO COMPLETA (somente leitura) ───────────────────────── */}
       {(carregandoDetalhe || detalhe) && (
-        <div className={styles.painelFundo} role="dialog" aria-modal="true">
-          <div className={styles.painelDetalhe}>
+        <div className={styles.painelFundo} role="presentation" onClick={() => setDetalhe(null)}>
+          <div
+            className={styles.painelDetalhe}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Detalhes do processo"
+            onClick={(e) => e.stopPropagation()}
+          >
             {carregandoDetalhe && !detalhe && (
               <p className={styles.vazio}>Carregando processo...</p>
             )}
@@ -289,7 +369,7 @@ export default function ConsultarProcessos({ catalogo = [], podeExcluir = false 
             {detalhe && (
               <>
                 <div className={styles.painelTopo}>
-                  <h3>Processo {detalhe.numeroProcesso}</h3>
+                  <h3>Detalhes do processo</h3>
                   <button
                     type="button"
                     className={styles.btnFechar}
@@ -311,7 +391,7 @@ export default function ConsultarProcessos({ catalogo = [], podeExcluir = false 
                       </div>
                       <div className={styles.campoLeitura}>
                         <label>CPF</label>
-                        <input readOnly value={detalhe.cpf || "—"} />
+                        <input readOnly value={formatarCpfExibicao(detalhe.cpf) || "—"} />
                       </div>
                       <div className={styles.campoLeitura}>
                         <label>CNS (Cartão SUS)</label>
@@ -327,7 +407,7 @@ export default function ConsultarProcessos({ catalogo = [], podeExcluir = false 
                       </div>
                       <div className={styles.campoLeitura}>
                         <label>Telefone</label>
-                        <input readOnly value={detalhe.telefone || "—"} />
+                        <input readOnly value={mascararTelefone(detalhe.telefone) || "—"} />
                       </div>
                       <div className={styles.campoLeitura}>
                         <label>Nome da Mãe</label>
@@ -371,7 +451,7 @@ export default function ConsultarProcessos({ catalogo = [], podeExcluir = false 
                         <input readOnly value={detalhe.numeroPasta || "—"} />
                       </div>
                       <div className={styles.campoLeitura}>
-                        <label>Situação na Farmácia Judicial</label>
+                        <label>Situação do Processo</label>
                         <input
                           readOnly
                           value={situacaoDe(detalhe.status)}
@@ -447,6 +527,11 @@ export default function ConsultarProcessos({ catalogo = [], podeExcluir = false 
                   >
                     Fechar
                   </button>
+                  {podeEditar && (
+                    <button type="button" className={styles.btnEditar} onClick={abrirEdicao}>
+                      ✎ Editar
+                    </button>
+                  )}
                   {podeExcluir && (
                     <button
                       type="button"

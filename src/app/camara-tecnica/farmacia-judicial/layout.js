@@ -32,10 +32,21 @@ export default async function FarmaciaJudicialLayout({ children }) {
   // Exclusão de processo: só administrador do módulo (requireAdminModulo).
   const podeExcluirProcesso = await usuarioEhAdminModulo(ctx.user, MODULOS.FARMACIA);
 
+  // Edição do processo segue a permissão nominal do catálogo (FARMACIA >
+  // Pacientes > editar), como o botão "Editar" da aba Pacientes. O backend
+  // revalida com a mesma permissão.
+  const podeEditarProcesso = await usuarioTemPermissao(
+    ctx.user,
+    MODULOS.FARMACIA,
+    "pacientes",
+    "editar",
+  );
+
   return (
     <FarmaciaJudicialPermProvider
       podeGerenciarPessoas={podeGerenciarPessoas}
       podeExcluirProcesso={podeExcluirProcesso}
+      podeEditarProcesso={podeEditarProcesso}
     >
       {children}
     </FarmaciaJudicialPermProvider>

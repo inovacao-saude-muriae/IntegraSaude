@@ -1013,3 +1013,27 @@
   color: #ffffff;
   border-color: #4a6fa5;
 }
+
+/* Título da aba ativa (mesmo texto/posição do Novo Processo dos Processos). */
+.tituloAba {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.erroEdicao {
+  padding: 0.7rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background-color: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+/* Mesmo respiro do bloco de identificação: cartão e título não colados. */
+.cardSection .sectionHeaderTitle {
+  display: block;
+  margin: 0 0 0.9rem;
+}

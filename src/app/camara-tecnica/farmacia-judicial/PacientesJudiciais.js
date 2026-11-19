@@ -15,8 +15,8 @@ const MED_VAZIO = { medicamentoId: '', qtdMensal: '', statusMedication: 'Ativo' 
 const PROCESSO_VAZIO = {
   numeroPasta: '',
   numeroProcesso: '',
-  // Situação na Farmácia Judicial (operacional) — não confundir com a
-  // Situação Cadastral da pessoa, exibida somente para leitura acima.
+  // Situação do Processo: TODO processo novo nasce Ativo. A inativação (com
+  // justificativa) acontece apenas na edição, na aba Consultar Processos.
   status: 'Ativo',
   justificativaInativacao: '',
 };
@@ -29,10 +29,11 @@ export default function TabPacientesJudiciais({
   pacientes = [],
   catalogo = [],
   onCreatePaciente,
+  onEditarProcesso,
   loading,
 }) {
   const confirm = useConfirm();
-  const { podeExcluirProcesso } = usePermissoesFarmaciaJudicial();
+  const { podeExcluirProcesso, podeEditarProcesso } = usePermissoesFarmaciaJudicial();
 
   // Abas do módulo: cadastro (padrão) e consulta.
   const [aba, setAba] = useState('novo');
@@ -64,11 +65,12 @@ export default function TabPacientesJudiciais({
     );
 
     if (pacienteExistente) {
+      // A situação do processo já existente é EXIBIDA (somente leitura) e só
+      // muda pela edição; o cadastro não a altera.
       setForm({
         numeroPasta: pacienteExistente.numeroPasta || '',
         numeroProcesso: pacienteExistente.numeroProcesso || '',
         status: normalizarSituacaoFarmacia(pacienteExistente.status),
-        // Justificativa anteriormente registrada (somente leitura do histórico).
         justificativaInativacao: pacienteExistente.justificativaInativacao || '',
       });
       if (pacienteExistente.medicamentosLista?.length > 0) {
@@ -111,11 +113,6 @@ export default function TabPacientesJudiciais({
     if (!form.numeroPasta || !form.numeroProcesso) {
       return alert('Informe o número da pasta e do processo.');
     }
-    // Justificativa obrigatória quando a situação for Inativo.
-    if (form.status === 'Inativo' && form.justificativaInativacao.trim().length < 15) {
-      return alert('Informe a Justificativa da Inativação (mínimo de 15 caracteres).');
-    }
-
     const ok = await confirm({
       title: 'Salvar paciente judicial',
       message: 'Deseja confirmar o cadastro do processo e medicamentos?',
@@ -128,9 +125,8 @@ export default function TabPacientesJudiciais({
       cpf: pessoa.cpf,
       numeroPasta: form.numeroPasta,
       numeroProcesso: form.numeroProcesso,
-      status: form.status,
-      justificativaInativacao:
-        form.status === 'Inativo' ? form.justificativaInativacao.trim() : '',
+      status: 'Ativo',
+      justificativaInativacao: '',
       medicamentos: medicamentosForm.filter((m) => m.medicamentoId && m.qtdMensal),
     };
 
@@ -165,7 +161,9 @@ export default function TabPacientesJudiciais({
         {aba === 'consultar' ? (
           <ConsultarProcessos
             catalogo={catalogo}
+            podeEditar={podeEditarProcesso === true}
             podeExcluir={podeExcluirProcesso === true}
+            onSalvarEdicao={onEditarProcesso}
           />
         ) : (
         <>
@@ -232,47 +230,13 @@ export default function TabPacientesJudiciais({
                     />
                   </div>
                   <div className={styles.fieldGroup}>
-                    <label>Situação na Farmácia Judicial *</label>
-                    <select
-                      value={form.status}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          status: e.target.value,
-                          // Ao voltar para Ativo o campo some e o texto é limpo;
-                          // o histórico da inativação anterior fica no registro.
-                          justificativaInativacao:
-                            e.target.value === 'Ativo' ? '' : form.justificativaInativacao,
-                        })
-                      }
-                      required
-                    >
-                      <option value="Ativo">Ativo</option>
-                      <option value="Inativo">Inativo</option>
-                    </select>
+                    <label>Situação do Processo</label>
+                    <input type="text" value="Ativo" readOnly />
+                    <small className={styles.fieldHint}>
+                      Todo novo processo é registrado como Ativo. A inativação é
+                      feita pela edição, na aba Consultar Processos.
+                    </small>
                   </div>
-
-                  {/* Justificativa: aparece SOMENTE com a situação Inativo. */}
-                  {form.status === 'Inativo' && (
-                    <div className={`${styles.fieldGroup} ${styles.colJustificativa}`}>
-                      <label>Justificativa da Inativação *</label>
-                      <textarea
-                        rows={2}
-                        maxLength={500}
-                        placeholder="Descreva o motivo da inativação na Farmácia Judicial..."
-                        value={form.justificativaInativacao}
-                        onChange={(e) =>
-                          setForm({ ...form, justificativaInativacao: e.target.value })
-                        }
-                        required
-                      />
-                      {form.justificativaInativacao.trim().length < 15 && (
-                        <small className={styles.fieldHint}>
-                          Mínimo de 15 caracteres.
-                        </small>
-                      )}
-                    </div>
-                  )}
                 </div>
               </div>
 
