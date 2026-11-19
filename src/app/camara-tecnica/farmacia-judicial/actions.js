@@ -29,6 +29,7 @@ export async function getPacientesJudiciais() {
         pfj.numero_pasta AS "numeroPasta",
         pfj.numero_processo AS "numeroProcesso",
         pfj.status AS status,
+        pfj.justificativa_inativacao AS "justificativaInativacao",
         p.cpf AS cpf,
         p.cns AS cns,
         p.nome_completo AS "patientName",
@@ -55,12 +56,16 @@ export async function getPacientesJudiciais() {
   }
 }
 
+// Situação na Farmácia Judicial: OPERACIONAL, independente da Situação
+// Cadastral da pessoa (que fica em `pessoa.situacao`). Somente ATIVO/INATIVO.
+// Valores legados gravados fora destes dois (ex.: "ÓBITO") são identificados
+// separadamente — nunca convertidos automaticamente.
 function normalizarStatusPaciente(status) {
-  const st = (status || "").toUpperCase();
-  if (st === "INATIVO") return "INATIVO";
-  if (st === "FALECIDO" || st === "ÓBITO" || st === "OBITO") return "ÓBITO";
-  return "ATIVO";
+  return (status || "").trim().toUpperCase() === "INATIVO" ? "INATIVO" : "ATIVO";
 }
+
+const JUSTIFICATIVA_MIN = 15;
+const JUSTIFICATIVA_MAX = 500;
 
 export async function createPacienteJudicial(data) {
   // CPF provisório (T + 10 dígitos) também é uma chave válida de pessoa.
@@ -86,14 +91,51 @@ export async function createPacienteJudicial(data) {
 
     const statusDb = normalizarStatusPaciente(data.status);
 
+    // Situação ANTERIOR do vínculo (se já existia) para decidir sobre a
+    // justificativa e registrar a transição na auditoria.
+    const anterior = await prisma.$queryRaw`
+      SELECT status, justificativa_inativacao AS justificativa
+      FROM public.farmacia_pacientes
+      WHERE numero_pasta = ${data.numeroPasta}
+      LIMIT 1
+    `;
+    const anteriorStatus = (serializeData(anterior)[0]?.status || "").toUpperCase();
+    const jaInativo = anteriorStatus === "INATIVO";
+
+    const justificativa = String(data.justificativaInativacao || "").trim();
+    // Inativar exige justificativa; um vínculo que JÁ está inativo não pode ser
+    // gravado de novo sem justificativa nova.
+    const exigirJustificativa = statusDb === "INATIVO" && !jaInativo;
+    if (exigirJustificativa) {
+      if (justificativa.length < JUSTIFICATIVA_MIN) {
+        throw new Error(
+          "Informe a Justificativa da Inativação (mínimo de 15 caracteres).",
+        );
+      }
+      if (justificativa.length > JUSTIFICATIVA_MAX) {
+        throw new Error(
+          "A Justificativa da Inativação deve ter no máximo 500 caracteres.",
+        );
+      }
+    }
+    // Ao reativar, a justificativa anterior é PRESERVADA (histórico da última
+    // inativação). Só se grava o texto novo quando há uma inativação nova.
+    const justificativaDb = exigirJustificativa ? justificativa : null;
+
     await prisma.$transaction(async (tx) => {
+      // ON CONFLICT: a justificativa só é sobrescrita quando há inativação
+      // nova (COALESCE com a coluna); reativar mantém o histórico anterior.
       await tx.$executeRaw`
-        INSERT INTO public.farmacia_pacientes (numero_pasta, pessoa_cpf, numero_processo, status)
-        VALUES (${data.numeroPasta}, ${cleanCpf}, ${data.numeroProcesso}, ${statusDb})
+        INSERT INTO public.farmacia_pacientes (numero_pasta, pessoa_cpf, numero_processo, status, justificativa_inativacao)
+        VALUES (${data.numeroPasta}, ${cleanCpf}, ${data.numeroProcesso}, ${statusDb}, ${justificativaDb})
         ON CONFLICT (numero_pasta) DO UPDATE SET
           pessoa_cpf = EXCLUDED.pessoa_cpf,
           numero_processo = EXCLUDED.numero_processo,
-          status = EXCLUDED.status
+          status = EXCLUDED.status,
+          justificativa_inativacao = COALESCE(
+            EXCLUDED.justificativa_inativacao,
+            farmacia_pacientes.justificativa_inativacao
+          )
       `;
 
       await tx.tratamentoPaciente.deleteMany({
@@ -118,13 +160,47 @@ export async function createPacienteJudicial(data) {
       }
     });
 
+    // Transição baseada na situação EFETIVAMENTE gravada (não na anterior):
+    // cobre o primeiro cadastro, a inativação e a reativação.
+    const registroAtual = await prisma.$queryRaw`
+      SELECT status FROM public.farmacia_pacientes
+      WHERE numero_pasta = ${data.numeroPasta} LIMIT 1
+    `;
+    const statusGravado = String(serializeData(registroAtual)[0]?.status || statusDb).toUpperCase();
+    const acaoAuditoria =
+      statusGravado === "INATIVO" && justificativaDb
+        ? "DESATIVAR"
+        : statusGravado === "ATIVO" && anteriorStatus === "INATIVO"
+          ? "REATIVAR"
+          : "SALVAR";
+    const transicao = anteriorStatus !== statusGravado;
+    const rotuloSituacao = statusDb === "INATIVO" ? "Inativo" : "Ativo";
+
+    // Na auditoria a justificativa fica marcada na descrição (o texto livre do
+    // motivo é preservado na coluna própria do registro, não no log).
+    // Obrigatória nesta inativação OU preservada de uma inativação anterior.
+    const temJustificativa = exigirJustificativa || Boolean(justificativaDb);
+    const marcaJustificativa = temJustificativa
+      ? " — justificativa da inativação registrada"
+      : "";
+
     await registrarAuditoria({
       user,
-      acao: "SALVAR",
+      acao: acaoAuditoria,
       modulo: "FARMACIA_JUDICIAL",
       entidade: "PacienteJudicial",
       entidadeId: String(data.numeroPasta),
-      descricao: `Paciente judicial da pasta ${data.numeroPasta} salvo`,
+      descricao: transicao
+        ? `Situação na Farmácia Judicial do paciente da pasta ${data.numeroPasta}: ${anteriorStatus || "—"} → ${statusDb}${marcaJustificativa}`
+        : `Paciente judicial da pasta ${data.numeroPasta} salvo (situação ${rotuloSituacao})`,
+      detalhes: {
+        campo: "situacao_farmacia_judicial",
+        situacao: rotuloSituacao,
+        situacaoAnterior: anteriorStatus || null,
+        // Marcador booleano (não é texto livre): o teor do motivo fica apenas
+        // na coluna própria do registro; o log guarda só que houve motivo.
+        motivoRegistrado: temJustificativa,
+      },
     });
 
     revalidatePath("/camara-tecnica/farmacia-judicial");
@@ -867,15 +943,16 @@ export async function getDashboardMetrics(ano) {
 
     let ativos = 0;
     let inativos = 0;
-    let obitos = 0;
+    // Valores legados fora de ATIVO/INATIVO são IDENTIFICADOS, não somados a
+    // nenhuma das duas situações (nada é convertido automaticamente).
+    let legados = 0;
 
     const formattedPacientes = serializeData(resPacientes);
     formattedPacientes.forEach((row) => {
-      const st = (row.status || "").toUpperCase();
-      if (st === "ATIVO") ativos += Number(row.total);
-      else if (st === "INATIVO") inativos += Number(row.total);
-      else if (st === "ÓBITO" || st === "OBITO") obitos += Number(row.total);
-      else ativos += Number(row.total);
+      const st = String(row.status || "").trim().toUpperCase();
+      if (st === "INATIVO") inativos += Number(row.total);
+      else if (st === "ATIVO") ativos += Number(row.total);
+      else legados += Number(row.total);
     });
 
     const catObj = serializeData(resMedsCat);
@@ -886,7 +963,7 @@ export async function getDashboardMetrics(ano) {
       totalEstoqueUnidades: Number(estObj[0]?.total || 0),
       pacientesAtivos: ativos,
       pacientesInativos: inativos,
-      pacientesObito: obitos,
+      pacientesSituacaoLegada: legados,
       entradasLotes: Number(serializeData(resEntradas)[0]?.lotes || 0),
       entradasUnidades: Number(serializeData(resEntradas)[0]?.unidades || 0),
       dispensacoesRegistros: Number(serializeData(resDispensacoes)[0]?.registros || 0),
@@ -899,7 +976,7 @@ export async function getDashboardMetrics(ano) {
       totalEstoqueUnidades: 0,
       pacientesAtivos: 0,
       pacientesInativos: 0,
-      pacientesObito: 0,
+      pacientesSituacaoLegada: 0,
       entradasLotes: 0,
       entradasUnidades: 0,
       dispensacoesRegistros: 0,

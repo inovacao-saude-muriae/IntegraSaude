@@ -260,7 +260,8 @@
 }
 
 .fieldGroup input,
-.fieldGroup select {
+.fieldGroup select,
+.fieldGroup textarea {
   width: 100%;
   padding: 0.65rem 0.85rem;
   border: 1px solid #e2e8f0;
@@ -613,6 +614,18 @@
   cursor: pointer;
   appearance: auto;
 }
+
+/* Justificativa da inativação: ocupa a linha inteira do grid do processo e
+   aparece somente quando a Situação na Farmácia Judicial é Inativo. */
+.colJustificativa {
+  grid-column: 1 / -1;
+}
+
+.fieldHint {
+  font-size: 0.75rem;
+  color: #b45309;
+}
+
 
 /* ESTILO BLOQUEADO */
 .readOnlyInput {

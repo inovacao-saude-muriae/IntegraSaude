@@ -53,14 +53,15 @@ export default function TabDashboard({
     totalEstoqueUnidades = 0,
     pacientesAtivos = 0,
     pacientesInativos = 0,
-    pacientesObito = 0,
-    entradasLotes = 0,
+      entradasLotes = 0,
     entradasUnidades = 0,
     dispensacoesRegistros = 0,
     dispensacoesUnidades = 0
   } = metrics;
 
-  const totalPacientes = pacientesAtivos + pacientesInativos + pacientesObito;
+  // Situação na Farmácia Judicial: somente Ativos e Inativos (óbito pertence à
+  // Situação Cadastral da pessoa central e não é contado aqui).
+  const totalPacientes = pacientesAtivos + pacientesInativos;
 
   // #7 - Sistema de Alertas de Estoque
   const hoje = new Date();
@@ -293,8 +294,8 @@ export default function TabDashboard({
         {/* STATUS DOS PACIENTES */}
         <div className={styles.panelCard}>
           <div className={styles.panelHeader}>
-            <h3>Status dos Processos Judiciais</h3>
-            <span className={styles.cardSubtitle}>Distribuição por situação dos pacientes cadastrados no período</span>
+            <h3>Situação na Farmácia Judicial</h3>
+            <span className={styles.cardSubtitle}>Distribuição dos pacientes cadastrados no período</span>
           </div>
 
           <div className={styles.statusList}>
@@ -314,7 +315,7 @@ export default function TabDashboard({
             <div className={styles.statusRow}>
               <div className={styles.statusInfo}>
                 <span className={`${styles.statusDot} ${styles.dotInactive}`}></span>
-                <span>Pacientes Inativos / Suspensos</span>
+                <span>Pacientes Inativos</span>
               </div>
               <div className={styles.statusMetrics}>
                 <span className={styles.statusCount}>{pacientesInativos}</span>
@@ -324,18 +325,6 @@ export default function TabDashboard({
               </div>
             </div>
 
-            <div className={styles.statusRow}>
-              <div className={styles.statusInfo}>
-                <span className={`${styles.statusDot} ${styles.dotObito}`}></span>
-                <span>Óbitos Registrados</span>
-              </div>
-              <div className={styles.statusMetrics}>
-                <span className={styles.statusCount}>{pacientesObito}</span>
-                <span className={styles.statusBadgeNeutral}>
-                  {totalPacientes > 0 ? Math.round((pacientesObito / totalPacientes) * 100) : 0}%
-                </span>
-              </div>
-            </div>
           </div>
         </div>
 

@@ -16,8 +16,15 @@ const MED_VAZIO = { medicamentoId: '', qtdMensal: '', statusMedication: 'Ativo' 
 const PROCESSO_VAZIO = {
   numeroPasta: '',
   numeroProcesso: '',
+  // Situação na Farmácia Judicial (operacional) — não confundir com a
+  // Situação Cadastral da pessoa, exibida somente para leitura acima.
   status: 'Ativo',
+  justificativaInativacao: '',
 };
+
+// Situação operacional: só ATIVO e INATIVO (Falecido pertence à Pessoa).
+const normalizarSituacaoFarmacia = (v) =>
+  String(v || '').trim().toUpperCase() === 'INATIVO' ? 'Inativo' : 'Ativo';
 
 export default function TabPacientesJudiciais({
   pacientes = [],
@@ -52,7 +59,9 @@ export default function TabPacientesJudiciais({
       setForm({
         numeroPasta: pacienteExistente.numeroPasta || '',
         numeroProcesso: pacienteExistente.numeroProcesso || '',
-        status: pacienteExistente.status || 'Ativo',
+        status: normalizarSituacaoFarmacia(pacienteExistente.status),
+        // Justificativa anteriormente registrada (somente leitura do histórico).
+        justificativaInativacao: pacienteExistente.justificativaInativacao || '',
       });
       if (pacienteExistente.medicamentosLista?.length > 0) {
         setMedicamentosForm(
@@ -93,6 +102,10 @@ export default function TabPacientesJudiciais({
     if (!form.numeroPasta || !form.numeroProcesso) {
       return alert('Informe o número da pasta e do processo.');
     }
+    // Justificativa obrigatória quando a situação for Inativo.
+    if (form.status === 'Inativo' && form.justificativaInativacao.trim().length < 15) {
+      return alert('Informe a Justificativa da Inativação (mínimo de 15 caracteres).');
+    }
 
     const ok = await confirm({
       title: 'Salvar paciente judicial',
@@ -107,6 +120,8 @@ export default function TabPacientesJudiciais({
       numeroPasta: form.numeroPasta,
       numeroProcesso: form.numeroProcesso,
       status: form.status,
+      justificativaInativacao:
+        form.status === 'Inativo' ? form.justificativaInativacao.trim() : '',
       medicamentos: medicamentosForm.filter((m) => m.medicamentoId && m.qtdMensal),
     };
 
@@ -185,17 +200,47 @@ export default function TabPacientesJudiciais({
                     />
                   </div>
                   <div className={styles.fieldGroup}>
-                    <label>Status do Paciente *</label>
+                    <label>Situação na Farmácia Judicial *</label>
                     <select
                       value={form.status}
-                      onChange={(e) => setForm({ ...form, status: e.target.value })}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          status: e.target.value,
+                          // Ao voltar para Ativo o campo some e o texto é limpo;
+                          // o histórico da inativação anterior fica no registro.
+                          justificativaInativacao:
+                            e.target.value === 'Ativo' ? '' : form.justificativaInativacao,
+                        })
+                      }
                       required
                     >
                       <option value="Ativo">Ativo</option>
                       <option value="Inativo">Inativo</option>
-                      <option value="Falecido">Falecido</option>
                     </select>
                   </div>
+
+                  {/* Justificativa: aparece SOMENTE com a situação Inativo. */}
+                  {form.status === 'Inativo' && (
+                    <div className={`${styles.fieldGroup} ${styles.colJustificativa}`}>
+                      <label>Justificativa da Inativação *</label>
+                      <textarea
+                        rows={2}
+                        maxLength={500}
+                        placeholder="Descreva o motivo da inativação na Farmácia Judicial..."
+                        value={form.justificativaInativacao}
+                        onChange={(e) =>
+                          setForm({ ...form, justificativaInativacao: e.target.value })
+                        }
+                        required
+                      />
+                      {form.justificativaInativacao.trim().length < 15 && (
+                        <small className={styles.fieldHint}>
+                          Mínimo de 15 caracteres.
+                        </small>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

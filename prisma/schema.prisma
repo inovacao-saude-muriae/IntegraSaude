@@ -253,6 +253,10 @@ model PacienteFarmaciaJudicial {
   pessoaCpf      String                   @unique @map("pessoa_cpf") @db.VarChar(11)
   numeroProcesso String                   @map("numero_processo") @db.VarChar(100)
   status         String                   @default("ATIVO") @db.VarChar(20)
+  // Situação na Farmácia Judicial (ATIVO/INATIVO) — operacional, independente
+  // da Situação Cadastral da pessoa. Justificativa obrigatória ao inativar;
+  // preservada como histórico da última inativação após a reativação.
+  justificativaInativacao String?        @map("justificativa_inativacao") @db.VarChar(500)
   createdAt      DateTime?                @default(now()) @map("created_at") @db.Timestamptz(6)
   dispensacoes   DispensacaoMedicamento[]
   pessoa         Pessoa                   @relation(fields: [pessoaCpf], references: [cpf], onDelete: Restrict, onUpdate: Cascade)
