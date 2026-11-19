@@ -459,3 +459,113 @@
   font-size: 0.75rem;
   color: #64748b;
 }
+
+/* ── Card de filtros: MESMO padrão do bloco Identificação do Paciente ────── */
+.cardFiltros {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1.25rem;
+}
+
+.cardFiltrosHeader {
+  margin: 0 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.cardFiltrosHeader h4 {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #1e293b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Duas linhas: busca/medicamento/situação e período/ações. */
+.gridFiltros {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+/* A tabela suspensa da busca precisa de largura para as 3 colunas. */
+.colBuscaRegistro { grid-column: span 7; }
+.colMedicamento { grid-column: span 3; }
+.colSituacaoProcesso { grid-column: span 2; }
+.colPeriodoCadastro { grid-column: span 8; }
+.gridFiltros > .filtrosAcoes {
+  grid-column: span 4;
+  align-self: end;
+  justify-content: flex-end;
+}
+
+/* Campos do card seguem o container de identificação. */
+.gridFiltros .fieldGroup label {
+  font-size: 0.825rem;
+  color: #475569;
+}
+
+.gridFiltros .fieldGroup select,
+.gridFiltros .fieldGroup input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.gridFiltros .fieldGroup input,
+.gridFiltros .fieldGroup select {
+  padding: 0.65rem 0.85rem;
+  font-size: 0.875rem;
+  border-color: #e2e8f0;
+  border-radius: 8px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.btnPrimario {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+/* ── Estado inicial (nenhuma consulta realizada) ───────────────────────── */
+.estadoInicial {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 3.5rem 1rem;
+  text-align: center;
+  color: #64748b;
+}
+
+.estadoInicial svg { color: #cbd5e1; }
+
+.estadoInicial h3 {
+  margin: 0.25rem 0 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #475569;
+}
+
+.estadoInicial p {
+  margin: 0;
+  max-width: 34rem;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+@media (max-width: 900px) {
+  .colBuscaRegistro,
+  .colMedicamento,
+  .colSituacaoProcesso,
+  .colPeriodoCadastro,
+  .gridFiltros > .filtrosAcoes {
+    grid-column: span 12;
+  }
+  .gridFiltros > .filtrosAcoes { justify-content: flex-start; }
+}

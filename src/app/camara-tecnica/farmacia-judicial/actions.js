@@ -1383,3 +1383,37 @@ export async function obterProcessoParaEdicao(numeroPasta) {
     return { success: false, error: error.message || "Erro ao carregar o processo." };
   }
 }
+
+// Busca de processos para a tabela suspensa da consulta (backend, por termo).
+// Devolve UM registro por processo — o paciente pode ter vários processos e
+// cada um aparece em sua própria linha.
+export async function buscarProcessosFarmacia(termo) {
+  try {
+    await requireAcessoModulo(MODULOS.FARMACIA);
+    const t = String(termo || "").trim();
+    if (t.length < 1) return [];
+
+    const like = `%${t}%`;
+    const digitos = t.replace(/\D/g, "");
+    const likeDigitos = digitos ? `%${digitos}%` : null;
+
+    const rows = await prisma.$queryRaw`
+      SELECT pfj.numero_pasta AS "numeroPasta",
+             pfj.numero_processo AS "numeroProcesso",
+             p.nome_completo AS "patientName",
+             p.cpf AS cpf
+      FROM public.farmacia_pacientes pfj
+      JOIN public.pessoa p ON pfj.pessoa_cpf = p.cpf
+      WHERE p.nome_completo ILIKE ${like}
+         OR pfj.numero_processo ILIKE ${like}
+         OR pfj.numero_pasta ILIKE ${like}
+         ${likeDigitos ? Prisma.sql`OR REPLACE(REPLACE(REPLACE(p.cpf,'.',''),'-',''),' ','') ILIKE ${likeDigitos}` : Prisma.sql``}
+      ORDER BY p.nome_completo ASC, pfj.created_at DESC
+      LIMIT 30
+    `;
+    return serializeData(rows);
+  } catch (error) {
+    console.error("Erro ao buscar processos da Farmácia Judicial:", error);
+    return [];
+  }
+}

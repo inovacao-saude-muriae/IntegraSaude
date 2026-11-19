@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { useConfirm } from "@/components/ConfirmDialog";
+import { Filter, SearchX } from "lucide-react";
+import SeletorProcesso from "@/components/SeletorProcesso";
+import { buscarProcessosFarmacia } from "./actions";
 import { formatarCpfExibicao } from "@/lib/cpf";
 import { mascararTelefone } from "@/lib/telefone";
 import {
@@ -32,6 +35,9 @@ const FILTROS_VAZIOS = {
   dataFim: "",
 };
 
+// Busca suspensa da consulta: mesma fonte usada pelo campo "Buscar Registro".
+const buscarProcessos = (termo) => buscarProcessosFarmacia(termo);
+
 /**
  * Aba "Consultar Processos" da Farmácia Judicial — MESMA estrutura da Consulta
  * dos Procedimentos Cirúrgicos: filtros, Filtrar/Limpar filtros, tabela de 3
@@ -47,7 +53,9 @@ export default function ConsultarProcessos({
   const confirm = useConfirm();
 
   const [filtros, setFiltros] = useState(FILTROS_VAZIOS);
-  const [resultado, setResultado] = useState(null); // null = tabela oculta
+  // Registro escolhido na tabela suspensa da busca (um processo por linha).
+  const [processoSelecionado, setProcessoSelecionado] = useState(null);
+  const [resultado, setResultado] = useState(null); // null = nenhuma consulta ainda
   const [consultando, setConsultando] = useState(false);
   const [erro, setErro] = useState("");
   const [aviso, setAviso] = useState("");
@@ -91,9 +99,11 @@ export default function ConsultarProcessos({
     consultar(1, filtros);
   };
 
-  // Limpar filtros: zera os campos E oculta a tabela de resultados.
+  // Limpar filtros: zera os campos, a seleção da busca E oculta os resultados
+  // (a tela volta ao estado inicial "Nenhuma consulta realizada").
   const limpar = () => {
     setFiltros(FILTROS_VAZIOS);
+    setProcessoSelecionado(null);
     setResultado(null);
     setErro("");
     setAviso("");
@@ -219,21 +229,27 @@ export default function ConsultarProcessos({
         )}
 
         {/* ── FILTROS ─────────────────────────────────────────────────────── */}
-        <form className={styles.filtros} onSubmit={filtrar}>
-          <div className={styles.filtrosGrid}>
-            <div className={styles.campoFiltroBusca}>
-              <label>Buscar Registro</label>
-              <input
-                value={filtros.busca}
-                onChange={(e) => alterarFiltro("busca", e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") consultar(1, filtros);
+        <form className={styles.cardFiltros} onSubmit={filtrar}>
+          <div className={styles.cardFiltrosHeader}>
+            <h4>Filtros da Consulta</h4>
+          </div>
+
+          <div className={styles.gridFiltros}>
+            <div className={styles.colBuscaRegistro}>
+              <SeletorProcesso
+                label="Buscar Registro"
+                placeholder="Digite o nome, número do processo ou pasta..."
+                selecionado={processoSelecionado}
+                onSelect={(p) => {
+                  setProcessoSelecionado(p);
+                  // Selecionar no dropdown preenche o filtro do backend.
+                  setFiltros((f) => ({ ...f, busca: p ? p.numeroPasta : "" }));
                 }}
-                placeholder="Digite o nome, número do processo ou número da pasta..."
-                autoComplete="off"
+                buscar={buscarProcessos}
               />
             </div>
-            <div className={styles.campoFiltro}>
+
+            <div className={`${styles.fieldGroup} ${styles.colMedicamento}`}>
               <label>Medicamento</label>
               <select
                 value={filtros.medicamentoId}
@@ -247,7 +263,8 @@ export default function ConsultarProcessos({
                 ))}
               </select>
             </div>
-            <div className={styles.campoFiltro}>
+
+            <div className={`${styles.fieldGroup} ${styles.colSituacaoProcesso}`}>
               <label>Situação do Processo</label>
               <select
                 value={filtros.situacao}
@@ -258,7 +275,8 @@ export default function ConsultarProcessos({
                 <option value="inativos">Inativo</option>
               </select>
             </div>
-            <div className={styles.campoFiltro}>
+
+            <div className={`${styles.fieldGroup} ${styles.colPeriodoCadastro}`}>
               <label>Período do Cadastro</label>
               <div className={styles.periodo}>
                 <input
@@ -276,22 +294,35 @@ export default function ConsultarProcessos({
                 />
               </div>
             </div>
-          </div>
 
-          <div className={styles.filtrosAcoes}>
-            <button type="submit" className={styles.btnPrimario} disabled={consultando}>
-              {consultando ? "Filtrando…" : "Filtrar"}
-            </button>
-            <button
-              type="button"
-              className={styles.btnGhost}
-              onClick={limpar}
-              disabled={consultando}
-            >
-              Limpar filtros
-            </button>
+            <div className={styles.filtrosAcoes}>
+              <button type="submit" className={styles.btnPrimario} disabled={consultando}>
+                <Filter size={16} strokeWidth={2.5} aria-hidden="true" />
+                {consultando ? "Filtrando…" : "Filtrar"}
+              </button>
+              <button
+                type="button"
+                className={styles.btnGhost}
+                onClick={limpar}
+                disabled={consultando}
+              >
+                Limpar filtros
+              </button>
+            </div>
           </div>
         </form>
+
+        {/* ── ESTADO INICIAL: nada é consultado até clicar em Filtrar ─────── */}
+        {!resultado && (
+          <div className={styles.estadoInicial}>
+            <SearchX size={44} strokeWidth={1.5} aria-hidden="true" />
+            <h3>Nenhuma consulta realizada</h3>
+            <p>
+              Selecione os filtros ou clique em Filtrar para consultar todos os
+              processos.
+            </p>
+          </div>
+        )}
 
         {/* ── RESULTADOS (só após consultar) ──────────────────────────────── */}
         {resultado && (
@@ -319,7 +350,7 @@ export default function ConsultarProcessos({
                   {resultado.registros.length === 0 && (
                     <tr>
                       <td colSpan={3} className={styles.tabelaVazia}>
-                        Nenhum processo encontrado para os filtros informados.
+                        Nenhum registro encontrado
                       </td>
                     </tr>
                   )}
