@@ -132,8 +132,11 @@ const todos = await chamar(ADMIN, "listarProcessosFarmacia", [{}]);
 check("sem filtros devolve todos os registros", todos.success === true && contar(todos) === 2, String(contar(todos)));
 check("página de 100 registros", todos.tamanho === 100);
 check("um registro por processo (sem duplicar medicamentos)", contar(todos) === 2, String(contar(todos)));
+// O banco de desenvolvimento acumula registros: a ordem é verificada só
+// entre os processos desta suíte (o mais recente primeiro).
+const daSuite = todos.registros.filter((r) => String(r.numeroPasta).startsWith(PFX));
 check("ordenação do mais recente para o mais antigo",
-  todos.registros[0].numeroPasta === `${PFX}-002`, JSON.stringify(todos.registros.map((r) => r.numeroPasta)));
+  daSuite[0]?.numeroPasta === `${PFX}-002`, JSON.stringify(daSuite.map((r) => r.numeroPasta)));
 
 const hoje = new Date().toISOString().slice(0, 10);
 const semPeriodo = await chamar(ADMIN, "listarProcessosFarmacia", [{ dataInicio: "2020-01-01", dataFim: "2020-12-31" }]);

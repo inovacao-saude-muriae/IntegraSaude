@@ -487,6 +487,9 @@
 .colProcedimento { grid-column: span 3; }
 .colStatus { grid-column: span 2; }
 .colPeriodoCadastro { grid-column: span 8; }
+/* Reserva das colunas do Status quando a tela não tem esse filtro (bloqueios):
+   mantém o período com a mesma largura e as ações na extremidade direita. */
+.colFiltroVazio { grid-column: span 2; }
 
 /* Período do cadastro: UMA linha — data | "até" | data, ambos os campos com a
    mesma altura, largura, borda, raio, padding e ícone de calendário. */
@@ -605,6 +608,7 @@
   .colProcedimento,
   .colStatus,
   .colPeriodoCadastro,
+  .colFiltroVazio,
   .gridFiltros > .filtrosAcoes {
     grid-column: span 12;
   }

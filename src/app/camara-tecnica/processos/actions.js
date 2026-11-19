@@ -802,6 +802,7 @@ export async function listarBloqueios({
   procedimentoId = null,
   dataInicio = "",
   dataFim = "",
+  pagina = 1,
 } = {}) {
   try {
     await requirePermissao(MODULOS.PROCESSOS, FUNCIONALIDADE, "visualizar");
@@ -844,14 +845,17 @@ export async function listarBloqueios({
       });
     }
 
-    if (and.length === 0 && !todos && !filtro) {
-      return { success: true, data: [], total: 0, valorTotal: "0.00", semConsulta: true };
-    }
-
+    // Sem nenhum filtro a consulta devolve TODOS os bloqueios (o estado
+    // inicial da tela é controlado no cliente).
     const where = {
       ...(filtro ? { processoId: filtro } : {}),
       ...(and.length ? { AND: and } : {}),
     };
+
+    // Paginação no backend (100 por página) + total e somatório dos filtrados.
+    const total = await prisma.processoBloqueio.count({ where });
+    const totalPaginas = Math.max(1, Math.ceil(total / CONSULTA_PAGINA_TAMANHO));
+    const paginaAtual = Math.min(Math.max(1, inteiroPositivo(pagina) || 1), totalPaginas);
 
     const bloqueios = await prisma.processoBloqueio.findMany({
       where,
@@ -871,16 +875,29 @@ export async function listarBloqueios({
         },
       },
       orderBy: [{ dataBloqueio: "desc" }, { id: "desc" }],
-      take: 500,
+      skip: (paginaAtual - 1) * CONSULTA_PAGINA_TAMANHO,
+      take: CONSULTA_PAGINA_TAMANHO,
     });
 
     const data = bloqueios.map(serializarBloqueio);
-    // Valor total dos bloqueios retornados (decimal exato, sem float).
-    const valorTotal = data
-      .reduce((soma, b) => soma + Number(b.valor), 0)
-      .toFixed(2);
+    // Valor total de TODOS os bloqueios filtrados (não só da página), em
+    // decimal exato: o somatório é feito no banco.
+    const soma = await prisma.processoBloqueio.aggregate({
+      where,
+      _sum: { valor: true },
+    });
+    const valorTotal = Number(soma._sum?.valor || 0).toFixed(2);
 
-    return { success: true, data, total: data.length, valorTotal, semConsulta: false };
+    return {
+      success: true,
+      data,
+      total,
+      pagina: paginaAtual,
+      totalPaginas,
+      porPagina: CONSULTA_PAGINA_TAMANHO,
+      valorTotal,
+      semConsulta: false,
+    };
   } catch (erro) {
     return responder(erro);
   }
