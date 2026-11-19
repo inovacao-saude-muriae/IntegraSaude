@@ -132,6 +132,18 @@ export default function IdentificacaoPaciente({
           />
         </div>
 
+        {/* UBS de referência fecha a segunda linha (após Sexo). */}
+        <div className={`${styles.fieldGroup} ${styles.colUbsRef}`}>
+          <label>UBS de referência</label>
+          <input
+            type="text"
+            value={p.ubsReferencia || ''}
+            readOnly
+            placeholder="—"
+            className={styles.readOnlyInput}
+          />
+        </div>
+
         {/* LINHA 3 — Nome da Mãe, Telefone e Endereço */}
         <div className={`${styles.fieldGroup} ${styles.colMother}`}>
           <label>Nome da Mãe</label>
