@@ -52,6 +52,41 @@ function exigirTexto(valor, campo, max) {
   return t;
 }
 
+// Situação do PROCESSO: operacional, independente da Situação Cadastral da
+// pessoa. Somente ATIVO/INATIVO; valores legados são lidos sem conversão.
+const JUSTIFICATIVA_MIN = 15;
+const JUSTIFICATIVA_MAX = 500;
+
+const STATUS_PROCESSO = {
+  ATIVO: "ATIVO",
+  INATIVO: "INATIVO",
+};
+
+const STATUS_PROCESSO_ROTULO = { ATIVO: "Ativo", INATIVO: "Inativo" };
+
+// Justificativa obrigatória na TRANSIÇÃO para Inativo (e na edição de um
+// processo que já está inativo sem texto registrado).
+function exigirJustificativaInativacao(valor) {
+  if (typeof valor === "string" && valor.trim().length > JUSTIFICATIVA_MAX) {
+    throw falha(
+      `A Justificativa da Inativação deve ter no máximo ${JUSTIFICATIVA_MAX} caracteres.`,
+    );
+  }
+  const t = texto(valor, JUSTIFICATIVA_MAX);
+  if (t.length < JUSTIFICATIVA_MIN) {
+    throw falha(
+      "Informe a Justificativa da Inativação (mínimo de 15 caracteres).",
+    );
+  }
+  return t;
+}
+
+function normalizarStatusProcesso(valor) {
+  return String(valor || "").trim().toUpperCase() === STATUS_PROCESSO.INATIVO
+    ? STATUS_PROCESSO.INATIVO
+    : STATUS_PROCESSO.ATIVO;
+}
+
 function inteiroPositivo(valor) {
   const n = Number(valor);
   return Number.isSafeInteger(n) && n > 0 ? n : null;
@@ -208,6 +243,8 @@ function serializar(p) {
     numeroProcesso: p.numeroProcesso,
     numeroPasta: p.numeroPasta,
     status: p.status,
+    statusRotulo: STATUS_PROCESSO_ROTULO[p.status] || p.status || "—",
+    justificativaInativacao: p.justificativaInativacao || "",
     pacienteCpf: p.pessoaCpf,
     pacienteNome: p.pessoa?.nomeCompleto || "",
     // Situação cadastral da pessoa central (fonte única): só exibição.
@@ -240,6 +277,7 @@ export async function listarProcessos({
   dataFim = "",
   especialidadeId = null,
   procedimentoId = null,
+  status = "todos",
 } = {}) {
   try {
     await requirePermissao(MODULOS.PROCESSOS, FUNCIONALIDADE, "visualizar");
@@ -263,6 +301,15 @@ export async function listarProcessos({
         ],
       });
     }
+    // Situação do PROCESSO (Todos | Ativos | Inativos): derivada do status.
+    // "Ativos" inclui apenas ATIVO; "Inativos" apenas INATIVO.
+    const statusFiltro = String(status || "todos").toLowerCase();
+    if (statusFiltro === "ativos") {
+      and.push({ OR: [{ status: STATUS_PROCESSO.ATIVO }, { status: null }] });
+    } else if (statusFiltro === "inativos") {
+      and.push({ status: STATUS_PROCESSO.INATIVO });
+    }
+
     if (espId) and.push({ especialidadeId: espId });
     // Procedimento é independente da especialidade nos filtros de consulta.
     if (procId) and.push({ procedimentoId: procId });
@@ -337,6 +384,14 @@ export async function criarProcesso(dados) {
     // A pasta é do PACIENTE: reaproveitada se já existir, cadastrada se não.
     const numeroPasta = await resolverNumeroPasta(dados?.numeroPasta, pessoa);
 
+    // Situação do processo (operacional): Inativo exige justificativa.
+    const status = normalizarStatusProcesso(dados?.status);
+    const justificativaBruta = dados?.justificativaInativacao;
+    const justificativaDb =
+      status === STATUS_PROCESSO.INATIVO
+        ? exigirJustificativaInativacao(justificativaBruta)
+        : null;
+
     const criado = await prisma.processoJudicial.create({
       data: {
         pessoaCpf: pessoa.cpf,
@@ -346,6 +401,8 @@ export async function criarProcesso(dados) {
         procedimentoId: procedimento?.id ?? null,
         especialidadeNome: especialidade?.nome ?? null,
         procedimentoNome: procedimento?.nome ?? null,
+        status,
+        justificativaInativacao: justificativaDb,
         criadoPor: user.cpf,
         atualizadoPor: user.cpf,
       },
@@ -358,13 +415,19 @@ export async function criarProcesso(dados) {
       modulo: MODULO_AUDITORIA,
       entidade: "ProcessoJudicial",
       entidadeId: String(criado.id),
-      descricao: `Processo ${numeroProcesso} cadastrado para ${pessoa.nomeCompleto}`,
+      descricao:
+        `Processo ${numeroProcesso} cadastrado para ${pessoa.nomeCompleto}` +
+        (status === STATUS_PROCESSO.INATIVO
+          ? " — situação Inativo com justificativa registrada"
+          : ""),
       detalhes: {
         numeroProcesso,
         numeroPasta,
         pacienteCpf: pessoa.cpf,
         especialidade: especialidade?.nome || null,
         procedimento: procedimento?.nome || null,
+        situacaoProcesso: STATUS_PROCESSO_ROTULO[status],
+        motivoRegistrado: Boolean(justificativaDb),
       },
     });
 
@@ -409,6 +472,20 @@ export async function editarProcesso(id, dados) {
       );
     }
 
+    // Situação do PROCESSO: independente da Situação Cadastral da pessoa.
+    const statusAtual = normalizarStatusProcesso(atual.status);
+    const status = normalizarStatusProcesso(dados?.status);
+    const justificativaBruta = dados?.justificativaInativacao;
+    // Reativar PRESERVA a justificativa anterior (histórico). Só uma
+    // inativação nova grava texto novo.
+    const inativandoAgora = status === STATUS_PROCESSO.INATIVO && statusAtual !== STATUS_PROCESSO.INATIVO;
+    const jaInativoSemJustificativa =
+      status === STATUS_PROCESSO.INATIVO && !atual.justificativaInativacao;
+    let justificativaDb = atual.justificativaInativacao || null;
+    if (inativandoAgora || jaInativoSemJustificativa) {
+      justificativaDb = exigirJustificativaInativacao(justificativaBruta);
+    }
+
     const alteracoes = {};
     const registrar = (campo, de, para) => {
       if ((de ?? null) !== (para ?? null)) alteracoes[campo] = { de, para };
@@ -426,6 +503,7 @@ export async function editarProcesso(id, dados) {
       atual.procedimentoNome || atual.procedimento?.nome || null,
       procedimento?.nome ?? null,
     );
+    registrar("status", statusAtual, status);
 
     if (Object.keys(alteracoes).length === 0) {
       return { success: true, data: serializar(atual), semAlteracoes: true };
@@ -442,24 +520,42 @@ export async function editarProcesso(id, dados) {
         procedimentoId: procedimento?.id ?? null,
         especialidadeNome: especialidade?.nome ?? null,
         procedimentoNome: procedimento?.nome ?? null,
+        status,
+        justificativaInativacao: justificativaDb,
         atualizadoPor: user.cpf,
       },
       include: { pessoa: { select: { nomeCompleto: true, numeroPasta: true, situacao: true } } },
     });
 
+    // Transição de situação tem ação própria na auditoria; o restante é edição.
+    const acaoAuditoria =
+      statusAtual !== status
+        ? status === STATUS_PROCESSO.INATIVO
+          ? "DESATIVAR"
+          : "REATIVAR"
+        : "EDITAR";
+
     await registrarAuditoria({
       user,
-      acao: "EDITAR",
+      acao: acaoAuditoria,
       modulo: MODULO_AUDITORIA,
       entidade: "ProcessoJudicial",
       entidadeId: String(atual.id),
-      descricao: `Processo ${numeroProcesso} alterado`,
+      descricao:
+        statusAtual !== status
+          ? `Situação do processo ${numeroProcesso}: ${STATUS_PROCESSO_ROTULO[statusAtual]} → ${STATUS_PROCESSO_ROTULO[status]}` +
+            (status === STATUS_PROCESSO.INATIVO
+              ? " — justificativa da inativação registrada"
+              : "")
+          : `Processo ${numeroProcesso} alterado`,
       // `detalhes` aceita apenas primitivos: o diff vai achatado, campo a campo.
       detalhes: {
         numeroProcesso,
         pacienteCpf: pessoa.cpf,
         trocouPaciente,
         camposAlterados: Object.keys(alteracoes).join(", "),
+        situacaoProcesso: STATUS_PROCESSO_ROTULO[status],
+        motivoRegistrado: Boolean(justificativaDb),
         ...Object.fromEntries(
           Object.entries(alteracoes).map(([campo, { de, para }]) => [
             campo,

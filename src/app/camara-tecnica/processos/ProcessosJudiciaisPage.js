@@ -14,8 +14,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useConfirm } from "@/components/ConfirmDialog";
-import SeletorPaciente from "@/components/SeletorPaciente";
-import SituacaoPessoa, { pessoaAptaParaVinculo } from "@/components/cadastros/SituacaoPessoa";
+import IdentificacaoPaciente from "@/components/IdentificacaoPaciente";
+import { pessoaAptaParaVinculo } from "@/components/cadastros/SituacaoPessoa";
 import "@/components/cadastros/padraoCadastro.css";
 import { formatarCpfExibicao } from "@/lib/cpf";
 import {
@@ -39,7 +39,17 @@ const FORM_VAZIO = {
   numeroPasta: "",
   especialidadeId: "",
   procedimentoId: "",
+  // Situação do PROCESSO (operacional) — independe da Situação Cadastral.
+  status: "ATIVO",
+  justificativaInativacao: "",
+  // Texto do campo de busca do container único de identificação.
+  buscaPaciente: "",
 };
+
+// Somente ATIVO/INATIVO; valores legados são exibidos sem conversão.
+const normalizarStatusProcesso = (v) =>
+  String(v || "").trim().toUpperCase() === "INATIVO" ? "INATIVO" : "ATIVO";
+const ROTULO_STATUS_PROCESSO = { ATIVO: "Ativo", INATIVO: "Inativo" };
 
 function dataCurta(iso) {
   if (!iso) return "—";
@@ -106,6 +116,8 @@ export default function ProcessosJudiciaisPage({
     dataFim: "",
     especialidadeId: "",
     procedimentoId: "",
+    // Todos | Ativos | Inativos — situação do PROCESSO.
+    status: "todos",
   };
   // Catálogo dos FILTROS (inclui itens inativos = registros históricos).
   const [catalogoFiltros, setCatalogoFiltros] = useState({
@@ -246,6 +258,10 @@ export default function ProcessosJudiciaisPage({
       numeroPasta: p.numeroPastaPaciente || p.numeroPasta,
       especialidadeId: p.especialidadeId ? String(p.especialidadeId) : "",
       procedimentoId: p.procedimentoId ? String(p.procedimentoId) : "",
+      status: normalizarStatusProcesso(p.status),
+      // Justificativa anteriormente registrada (histórico preservado).
+      justificativaInativacao: p.justificativaInativacao || "",
+      buscaPaciente: p.pacienteNome || "",
     });
     setPacienteSelecionado(
       p.pacienteCpf
@@ -267,7 +283,13 @@ export default function ProcessosJudiciaisPage({
   function selecionarPaciente(pessoa) {
     if (!pessoa) {
       setPacienteSelecionado(null);
-      setForm((f) => ({ ...f, pacienteCpf: "", pacienteNome: "", numeroPasta: "" }));
+      setForm((f) => ({
+        ...f,
+        pacienteCpf: "",
+        pacienteNome: "",
+        numeroPasta: "",
+        buscaPaciente: "",
+      }));
       return;
     }
     // Pasta do paciente: se já existir, vem preenchida e bloqueada (o número é
@@ -277,6 +299,7 @@ export default function ProcessosJudiciaisPage({
     setForm((f) => ({
       ...f,
       pacienteCpf: pessoa.cpf,
+      buscaPaciente: pessoa.nomeCompleto || pessoa.nome || "",
       pacienteNome: pessoa.nomeCompleto || pessoa.nome || "",
       numeroPasta: pastaDoPaciente || (f.pacienteCpf === pessoa.cpf ? f.numeroPasta : ""),
     }));
@@ -299,6 +322,13 @@ export default function ProcessosJudiciaisPage({
     if (!form.numeroProcesso.trim()) return setErro("Informe o número do processo.");
     if (!form.numeroPasta.trim()) return setErro("Informe o número da pasta.");
     if (!form.especialidadeId) return setErro("Selecione a especialidade.");
+    // Justificativa obrigatória quando a situação do processo for Inativo.
+    if (
+      form.status === "INATIVO" &&
+      form.justificativaInativacao.trim().length < 15
+    ) {
+      return setErro("Informe a Justificativa da Inativação (mínimo de 15 caracteres).");
+    }
 
     const trocandoPaciente =
       Boolean(editandoId) && form.pacienteCpf !== cpfOriginal;
@@ -309,6 +339,9 @@ export default function ProcessosJudiciaisPage({
       numeroPasta: form.numeroPasta.trim(),
       especialidadeId: form.especialidadeId || null,
       procedimentoId: form.procedimentoId || null,
+      status: form.status,
+      justificativaInativacao:
+        form.status === "INATIVO" ? form.justificativaInativacao.trim() : "",
     };
 
     if (editandoId) {
@@ -481,6 +514,17 @@ export default function ProcessosJudiciaisPage({
                 </select>
               </div>
               <div className={styles.campoFiltro}>
+                <label>Status do Processo</label>
+                <select
+                  value={filtros.status}
+                  onChange={(e) => alterarFiltro("status", e.target.value)}
+                >
+                  <option value="todos">Todos</option>
+                  <option value="ativos">Ativos</option>
+                  <option value="inativos">Inativos</option>
+                </select>
+              </div>
+              <div className={styles.campoFiltro}>
                 <label>Período do cadastro</label>
                 <div className={styles.periodo}>
                   <input
@@ -547,6 +591,7 @@ export default function ProcessosJudiciaisPage({
                     <th>Nº da Pasta</th>
                     <th>Especialidade</th>
                     <th>Procedimento</th>
+                    <th>Status do Processo</th>
                     <th>Data do Cadastro</th>
                     <th className={styles.colAcoes}>Ações</th>
                   </tr>
@@ -564,6 +609,18 @@ export default function ProcessosJudiciaisPage({
                       <td>{p.numeroPasta}</td>
                       <td>{p.especialidadeNome || "—"}</td>
                       <td>{p.procedimentoNome || "—"}</td>
+                      <td>
+                        <span
+                          className={
+                            normalizarStatusProcesso(p.status) === "INATIVO"
+                              ? styles.statusInativo
+                              : styles.statusAtivo
+                          }
+                          title={p.justificativaInativacao || undefined}
+                        >
+                          {ROTULO_STATUS_PROCESSO[normalizarStatusProcesso(p.status)]}
+                        </span>
+                      </td>
                       <td>{dataCurta(p.dataCadastro)}</td>
                       <td>
                         <div className={styles.acoes}>
@@ -614,101 +671,163 @@ export default function ProcessosJudiciaisPage({
           </h2>
 
           <form onSubmit={salvar} className={styles.formulario}>
-            <div className={styles.campoGrande}>
-              <label className={styles.label}>Paciente vinculado *</label>
-              <SeletorPaciente
-                label=""
-                value={pacienteSelecionado}
+            {/* BLOCO 1 — IDENTIFICAÇÃO DO PACIENTE: mesmo componente, campos e
+                distribuição da Farmácia Judicial (dados da tabela central
+                `pessoa`, somente leitura; só a busca é editável). */}
+            <div className={styles.blocoIdentificacao}>
+              <IdentificacaoPaciente
+                titulo="1. Identificação do Paciente"
+                buscaLabel="Nome do Paciente"
+                buscaPlaceholder="Digite o nome ou CPF para buscar..."
+                buscaTexto={form.buscaPaciente}
+                onBuscaTextoChange={(v) => setForm((f) => ({ ...f, buscaPaciente: v }))}
                 onSelect={selecionarPaciente}
-                placeholder="Digite nome ou CPF para buscar…"
                 incluirIndisponiveis
+                cpfSelecionado={form.pacienteCpf}
+                paciente={
+                  pacienteSelecionado
+                    ? {
+                        nomeMae: pacienteSelecionado.nomeMae,
+                        dataNascimento: pacienteSelecionado.dataNascimento,
+                        sexo: pacienteSelecionado.sexo,
+                        telefone: pacienteSelecionado.telefone,
+                        cpf: pacienteSelecionado.cpf,
+                        cns: pacienteSelecionado.cns,
+                        situacao: pacienteSelecionado.situacao,
+                        ubsReferencia: pacienteSelecionado.ubsReferencia,
+                        logradouro: pacienteSelecionado.logradouro,
+                        numero: pacienteSelecionado.numero,
+                        complemento: pacienteSelecionado.complemento,
+                        bairro: pacienteSelecionado.bairro,
+                        cidade: pacienteSelecionado.cidade,
+                        uf: pacienteSelecionado.uf,
+                        cep: pacienteSelecionado.cep,
+                      }
+                    : null
+                }
               />
-              {form.pacienteCpf && (
-                <span className={styles.dica}>
-                  CPF {formatarCpfExibicao(form.pacienteCpf)}
-                </span>
-              )}
             </div>
 
-            {/* Situação cadastral da pessoa central — somente leitura. */}
-            <div className={styles.campoGrande}>
-              <SituacaoPessoa situacao={pacienteSelecionado ? pacienteSelecionado.situacao || "" : ""} className={styles.campo} />
-            </div>
+            {/* BLOCO 2 — INFORMAÇÕES DO PROCESSO: processo, pasta e situação;
+                especialidade e procedimento; justificativa quando Inativo. */}
+            <div className={styles.cardSection}>
+              <h3 className={styles.sectionHeaderTitle}>INFORMAÇÕES DO PROCESSO</h3>
+              <div className={styles.gridProcesso}>
+                <div className={styles.fieldGroup}>
+                  <label>Número do Processo *</label>
+                  <input
+                    type="text"
+                    value={form.numeroProcesso}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, numeroProcesso: e.target.value }))
+                    }
+                    maxLength={100}
+                    placeholder="Ex: 5001234-56.2026.8.13.0439"
+                    required
+                  />
+                </div>
 
-            <div className={styles.linha}>
-              <div className={styles.campo}>
-                <label className={styles.label}>Número do processo *</label>
-                <input
-                  className={styles.input}
-                  value={form.numeroProcesso}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, numeroProcesso: e.target.value }))
-                  }
-                  maxLength={100}
-                />
-              </div>
-              <div className={styles.campo}>
-                <label className={styles.label}>Número da pasta *</label>
-                <input
-                  className={styles.input}
-                  value={form.numeroPasta}
-                  onChange={(e) => setForm((f) => ({ ...f, numeroPasta: e.target.value }))}
-                  maxLength={50}
-                  readOnly={Boolean(pacienteSelecionado?.numeroPasta)}
-                  placeholder="Número da pasta do paciente"
-                />
-                <span className={styles.dica}>
-                  {pacienteSelecionado?.numeroPasta
-                    ? "O paciente já possui pasta: o número é do paciente e vale para todos os processos dele."
-                    : "A pasta é do paciente: será reaproveitada nos próximos processos dele."}
-                </span>
-              </div>
-            </div>
+                <div className={styles.fieldGroup}>
+                  <label>Número da Pasta *</label>
+                  <input
+                    type="text"
+                    value={form.numeroPasta}
+                    onChange={(e) => setForm((f) => ({ ...f, numeroPasta: e.target.value }))}
+                    maxLength={50}
+                    readOnly={Boolean(pacienteSelecionado?.numeroPasta)}
+                    placeholder="Número da pasta do paciente"
+                  />
+                  <span className={styles.dica}>
+                    {pacienteSelecionado?.numeroPasta
+                      ? "O paciente já possui pasta: o número é do paciente e vale para todos os processos dele."
+                      : "A pasta é do paciente: será reaproveitada nos próximos processos dele."}
+                  </span>
+                </div>
 
-            <div className={styles.linha}>
-              <div className={styles.campo}>
-                <label className={styles.label}>Especialidade *</label>
-                <select
-                  className={styles.select}
-                  value={form.especialidadeId}
-                  onChange={(e) => trocarEspecialidade(e.target.value)}
-                  required
-                >
-                  <option value="">Selecione a especialidade</option>
-                  {especialidades.map((esp) => (
-                    <option key={esp.id} value={String(esp.id)}>
-                      {esp.nome}
+                <div className={styles.fieldGroup}>
+                  <label>Status do Processo *</label>
+                  <select
+                    value={form.status}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        status: e.target.value,
+                        // Ao voltar para Ativo o campo some e o texto é limpo;
+                        // o histórico da inativação anterior fica no registro.
+                        justificativaInativacao:
+                          e.target.value === "ATIVO" ? "" : f.justificativaInativacao,
+                      }))
+                    }
+                    required
+                  >
+                    <option value="ATIVO">Ativo</option>
+                    <option value="INATIVO">Inativo</option>
+                  </select>
+                </div>
+
+                <div className={styles.fieldGroup}>
+                  <label>Especialidade *</label>
+                  <select
+                    value={form.especialidadeId}
+                    onChange={(e) => trocarEspecialidade(e.target.value)}
+                    required
+                  >
+                    <option value="">Selecione a especialidade</option>
+                    {especialidades.map((esp) => (
+                      <option key={esp.id} value={String(esp.id)}>
+                        {esp.nome}
+                      </option>
+                    ))}
+                  </select>
+                  <span className={styles.dica}>
+                    Somente especialidades ativas da Câmara Técnica.
+                  </span>
+                </div>
+
+                <div className={styles.fieldGroup}>
+                  <label>Procedimento</label>
+                  <select
+                    value={form.procedimentoId}
+                    onChange={(e) => setForm((f) => ({ ...f, procedimentoId: e.target.value }))}
+                    disabled={!form.especialidadeId}
+                  >
+                    <option value="">
+                      {form.especialidadeId
+                        ? "Selecione o procedimento"
+                        : "Selecione primeiro a especialidade"}
                     </option>
-                  ))}
-                </select>
-                <span className={styles.dica}>
-                  Somente especialidades ativas da Câmara Técnica.
-                </span>
-              </div>
-              <div className={styles.campo}>
-                <label className={styles.label}>Procedimento</label>
-                <select
-                  className={styles.select}
-                  value={form.procedimentoId}
-                  onChange={(e) => setForm((f) => ({ ...f, procedimentoId: e.target.value }))}
-                  disabled={!form.especialidadeId}
-                >
-                  <option value="">
+                    {procedimentosDaEspecialidade.map((p) => (
+                      <option key={p.id} value={String(p.id)}>
+                        {p.nome}
+                      </option>
+                    ))}
+                  </select>
+                  <span className={styles.dica}>
                     {form.especialidadeId
-                      ? "Selecione o procedimento"
-                      : "Selecione primeiro a especialidade"}
-                  </option>
-                  {procedimentosDaEspecialidade.map((p) => (
-                    <option key={p.id} value={String(p.id)}>
-                      {p.nome}
-                    </option>
-                  ))}
-                </select>
-                <span className={styles.dica}>
-                  {form.especialidadeId
-                    ? "Somente procedimentos ativos vinculados à especialidade."
-                    : "Escolha a especialidade para liberar os procedimentos."}
-                </span>
+                      ? "Somente procedimentos ativos vinculados à especialidade."
+                      : "Escolha a especialidade para liberar os procedimentos."}
+                  </span>
+                </div>
+
+                {/* Terceira linha: aparece SOMENTE com a situação Inativo. */}
+                {form.status === "INATIVO" && (
+                  <div className={`${styles.fieldGroup} ${styles.colJustificativa}`}>
+                    <label>Justificativa da Inativação *</label>
+                    <textarea
+                      rows={2}
+                      maxLength={500}
+                      placeholder="Descreva o motivo da inativação do processo..."
+                      value={form.justificativaInativacao}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, justificativaInativacao: e.target.value }))
+                      }
+                      required
+                    />
+                    {form.justificativaInativacao.trim().length < 15 && (
+                      <span className={styles.dica}>Mínimo de 15 caracteres.</span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -759,8 +878,10 @@ export default function ProcessosJudiciaisPage({
             <dd>{dataCurta(detalhe.dataCadastro)}</dd>
             <dt>Última alteração</dt>
             <dd>{dataCurta(detalhe.atualizadoEm)}</dd>
-            <dt>Situação</dt>
-            <dd>{detalhe.status}</dd>
+            <dt>Status do Processo</dt>
+            <dd>{ROTULO_STATUS_PROCESSO[normalizarStatusProcesso(detalhe.status)]}</dd>
+            <dt>Justificativa da Inativação</dt>
+            <dd>{detalhe.justificativaInativacao || "—"}</dd>
           </dl>
           <div className={styles.acoesForm}>
             <button

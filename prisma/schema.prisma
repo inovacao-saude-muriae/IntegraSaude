@@ -631,7 +631,11 @@ model ProcessoJudicial {
   especialidadeNome String? @map("especialidade_nome") @db.VarChar(150)
   procedimentoNome  String? @map("procedimento_nome") @db.VarChar(150)
 
-  status        String   @default("ATIVO") @db.VarChar(20)
+  // Situação do PROCESSO (ATIVO/INATIVO) — independente da Situação Cadastral
+  // da pessoa. Justificativa obrigatória ao inativar; preservada como histórico
+  // da última inativação após a reativação.
+  status                  String? @default("ATIVO") @db.VarChar(20)
+  justificativaInativacao String? @map("justificativa_inativacao") @db.VarChar(500)
   criadoPor     String?  @map("criado_por") @db.VarChar(11)
   atualizadoPor String?  @map("atualizado_por") @db.VarChar(11)
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)

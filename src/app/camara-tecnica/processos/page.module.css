@@ -617,3 +617,112 @@
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
 }
+
+/* ── Blocos do formulário (mesmos estilos do Novo Processo da Farmácia) ── */
+.cardSection {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1.25rem;
+}
+
+.sectionHeaderTitle {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #1e293b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 0 0 1rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* Linha 1 (3 campos), linha 2 (2 campos) — o 5º ocupa o lugar da 2ª coluna. */
+.gridProcesso {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.fieldGroup label {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.fieldGroup input,
+.fieldGroup select,
+.fieldGroup textarea {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: #1e293b;
+  background-color: #ffffff;
+  outline: none;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.fieldGroup input:focus,
+.fieldGroup select:focus,
+.fieldGroup textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+}
+
+.fieldGroup input:read-only {
+  background-color: #f1f5f9;
+  color: #64748b;
+  border-color: #cbd5e1;
+  cursor: not-allowed;
+}
+
+/* Justificativa: linha inteira, somente quando o Status é Inativo. */
+.colJustificativa {
+  grid-column: 1 / -1;
+}
+
+/* Situação do processo na tabela de resultados */
+.statusAtivo,
+.statusInativo {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.statusAtivo {
+  background-color: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.statusInativo {
+  background-color: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+@media (max-width: 900px) {
+  .gridProcesso {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* BLOCO 1: o container de identificação já é um cartão próprio — aqui só
+   reservamos o espaço do bloco, sem caixa dentro de caixa. */
+.blocoIdentificacao {
+  display: flex;
+  flex-direction: column;
+}
