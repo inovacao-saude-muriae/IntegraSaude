@@ -277,7 +277,7 @@ export default function ConsultarProcessos({
             </div>
 
             <div className={`${styles.fieldGroup} ${styles.colPeriodoCadastro}`}>
-              <label>Período do Cadastro</label>
+              <label>Período do cadastro</label>
               <div className={styles.periodo}>
                 <input
                   type="date"
