@@ -879,11 +879,7 @@
   color: #64748b;
 }
 
-.dataGrid {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: 1rem;
-}
+
 
 .field {
   display: flex;
@@ -896,9 +892,9 @@
 }
 
 /* Larguras do grid de dados do paciente (12 colunas, estilo Novo Pedido) */
-.field.colCpf { grid-column: span 4; }
-.field.colName { grid-column: span 6; }
-.field.colMother { grid-column: span 6; }
+
+
+
 .field.colSmall { grid-column: span 4; }
 .field.colMed { grid-column: span 4; }
 
@@ -928,7 +924,7 @@
 }
 
 @media (max-width: 900px) {
-  .field.colCpf, .field.colName, .field.colMother, .field.colSmall, .field.colMed, .field.colSituacao,
+  .field.colSmall, .field.colMed,
   .field.colCep, .field.colLogradouro, .field.colNumero, .field.colComplemento,
   .field.colBairro, .field.colCidade, .field.colUf {
     grid-column: span 12;
@@ -975,4 +971,4 @@
 }
 
 /* Situação Cadastral (somente leitura) — mesma coluna dos demais campos. */
-.field.colSituacao { grid-column: span 4; }
+

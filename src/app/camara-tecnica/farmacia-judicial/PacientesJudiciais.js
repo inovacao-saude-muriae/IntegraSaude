@@ -3,11 +3,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { buscarPessoaExistente } from './actions';
 import { useConfirm } from '@/components/ConfirmDialog';
-import { documentoPaciente } from '@/app/regulacao/constants';
-import { mascararTelefone } from '@/lib/telefone';
-import { formatarCpfExibicao } from '@/lib/cpf';
-import SeletorPaciente from '@/components/SeletorPaciente';
-import SituacaoPessoa, { pessoaAptaParaVinculo } from '@/components/cadastros/SituacaoPessoa';
+import IdentificacaoPaciente from '@/components/IdentificacaoPaciente';
+import { pessoaAptaParaVinculo } from '@/components/cadastros/SituacaoPessoa';
 import '@/components/cadastros/padraoCadastro.css';
 import styles from './PacientesJudiciais.module.css';
 
@@ -36,19 +33,24 @@ export default function TabPacientesJudiciais({
 
   // Pessoa selecionada no banco (somente leitura aqui — cadastro vive em /pessoas).
   const [pessoa, setPessoa] = useState(null);
+  // Texto do campo de busca do container único de identificação.
+  const [buscaTexto, setBuscaTexto] = useState('');
   const [form, setForm] = useState(PROCESSO_VAZIO);
   const [medicamentosForm, setMedicamentosForm] = useState([{ ...MED_VAZIO }]);
   const [salvando, setSalvando] = useState(false);
 
-  const formatCPF = (cpf) => {
-    if (!cpf) return '';
-    return formatarCpfExibicao(cpf);
+  // Fonte de busca do container: cadastro central (inclui falecidos, cujo
+  // vínculo novo é bloqueado depois, no frontend e no backend).
+  const buscarPessoas = async (termo) => {
+    const lista = await buscarPessoaExistente(termo);
+    return Array.isArray(lista) ? lista : [];
   };
 
   const handleSelectPessoa = (p) => {
     if (!p) return handleClear(); // campo editado: descarta a seleção
     // `p.situacao` vem da pessoa central e é apenas exibido (somente leitura).
     setPessoa(p);
+    setBuscaTexto(p.nomeCompleto || p.nome || '');
 
     // Se a pessoa já for paciente judicial, carrega processo + medicamentos.
     const pacienteExistente = pacientes.find(
@@ -82,6 +84,7 @@ export default function TabPacientesJudiciais({
 
   const handleClear = () => {
     setPessoa(null);
+    setBuscaTexto('');
     setForm(PROCESSO_VAZIO);
     setMedicamentosForm([{ ...MED_VAZIO }]);
   };
@@ -135,43 +138,41 @@ export default function TabPacientesJudiciais({
   return (
     <div className={styles.container}>
       <div className={styles.mainWrapper}>
-        {/* SEÇÃO 1: IDENTIFICAÇÃO DO PACIENTE (estilo Novo Pedido) */}
-        <div className={styles.identSection}>
-          <div className={styles.identHeader}>
-            <h4>1. Identificação do Paciente</h4>
-          </div>
-
-          {/* CAMPOS NOME, CPF E NOME DA MÃE NA MESMA LINHA */}
-          <div className={styles.dataGrid}>
-            <div className={`${styles.field} ${styles.colName}`}>
-              <SeletorPaciente
-                onSelect={handleSelectPessoa}
-                label="Nome completo"
-                placeholder="Digite nome ou CPF para buscar..."
-                required
-                value={pessoa}
-                // Cadastro único: a busca traz também pessoas falecidas
-                // (pesquisa/consulta). O vínculo novo é bloqueado depois.
-                incluirIndisponiveis
-              />
-            </div>
-            
-            <div className={`${styles.field} ${styles.colCpf}`}>
-              <label>CPF</label>
-              <input type="text" value={pessoa ? formatCPF(pessoa.cpf) : ''} disabled readOnly placeholder="000.000.000-00" />
-            </div>
-            
-            <div className={`${styles.field} ${styles.colMother}`}>
-              <label>Nome da mãe</label>
-              <input type="text" value={pessoa?.nomeMae || ''} disabled readOnly placeholder="—" />
-            </div>
-
-            <SituacaoPessoa
-              situacao={pessoa ? pessoa.situacao || "" : ""}
-              className={`${styles.field} ${styles.colSituacao}`}
-            />
-          </div>
-        </div>
+        {/* SEÇÃO 1: IDENTIFICAÇÃO DO PACIENTE — container ÚNICO e compartilhado
+            (mesmo componente, grid e estilos da Regulação e do Prontuário da
+            Junta). Campos somente leitura, vindos do cadastro central `pessoa`. */}
+        <IdentificacaoPaciente
+          titulo="1. Identificação do Paciente"
+          buscaLabel="Nome do Paciente"
+          buscaPlaceholder="Digite o nome ou CPF para buscar..."
+          buscaTexto={buscaTexto}
+          onBuscaTextoChange={setBuscaTexto}
+          onSelect={handleSelectPessoa}
+          buscar={buscarPessoas}
+          incluirIndisponiveis
+          cpfSelecionado={pessoa?.cpf || ''}
+          paciente={
+            pessoa
+              ? {
+                  nomeMae: pessoa.nomeMae,
+                  dataNascimento: pessoa.dataNascimento,
+                  sexo: pessoa.sexo,
+                  telefone: pessoa.telefone,
+                  cpf: pessoa.cpf,
+                  cns: pessoa.cns,
+                  situacao: pessoa.situacao,
+                  ubsReferencia: pessoa.ubsReferencia,
+                  logradouro: pessoa.logradouro,
+                  numero: pessoa.numero,
+                  complemento: pessoa.complemento,
+                  bairro: pessoa.bairro,
+                  cidade: pessoa.cidade,
+                  uf: pessoa.uf,
+                  cep: pessoa.cep,
+                }
+              : null
+          }
+        />
         {/* FIM DA SEÇÃO 1 */}
 
             <form onSubmit={handleSubmit} className={styles.formContainer}>
