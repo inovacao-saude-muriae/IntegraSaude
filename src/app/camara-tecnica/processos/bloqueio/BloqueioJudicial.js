@@ -17,10 +17,11 @@
 // (`podeCriar`); o backend revalida tudo em `criarBloqueio`.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Filter, SearchX } from "lucide-react";
 import { formatarCpfExibicao } from "@/lib/cpf";
 import { mascararTelefone } from "@/lib/telefone";
+import IdentificacaoPaciente from "@/components/IdentificacaoPaciente";
 import { mascararMoeda, formatarMoedaBRL } from "@/lib/moeda";
 import { obterCatalogoParaFiltros } from "../especialidades/actions";
 import { useConfirm } from "@/components/ConfirmDialog";
@@ -74,9 +75,10 @@ export default function BloqueioJudicial({
   const [aba, setAba] = useState("novo");
   // Registro escolhido na busca suspensa (um processo por linha).
   const [processoSelecionado, setProcessoSelecionado] = useState(null);
-  const [termo, setTermo] = useState("");
+  // Paciente escolhido no container de identificação (BLOCO 1).
+  const [paciente, setPaciente] = useState(null);
+  const [buscaPaciente, setBuscaPaciente] = useState("");
   const [resultados, setResultados] = useState([]);
-  const [buscando, setBuscando] = useState(false);
   const [buscou, setBuscou] = useState(false);
   const [processo, setProcesso] = useState(null);
   const [data, setData] = useState(hoje());
@@ -105,7 +107,6 @@ export default function BloqueioJudicial({
   // Edição inline de um bloqueio da tabela.
   const [editando, setEditando] = useState(null);
   const [salvandoEdicao, setSalvandoEdicao] = useState(false);
-  const timer = useRef(null);
 
   // Consulta no backend: os filtros combinam entre si (AND) e a paginação é
   // feita lá (100 por página). Filtrar sem filtro devolve TODOS os bloqueios.
@@ -199,52 +200,27 @@ export default function BloqueioJudicial({
     consultar(filtros, 1);
   }
 
-  // Busca com debounce (nome, CPF ou número do processo).
-  const buscar = useCallback(async (texto) => {
-    const consulta = String(texto || "").trim();
-    if (consulta.length < 2) {
-      setResultados([]);
-      setBuscou(false);
-      return;
-    }
-    setBuscando(true);
-    const res = await buscarProcessosParaBloqueio(consulta);
-    setBuscando(false);
+  // Seleciona o paciente no container: carrega os processos elegíveis e, se
+  // houver um único processo, já o escolhe (bloqueio vinculado a ele).
+  async function selecionarPaciente(p) {
+    setErro("");
+    setPaciente(p);
+    setProcesso(null);
+    setResultados([]);
+    setBuscou(false);
+    if (!p) return;
+    const res = await buscarProcessosParaBloqueio(p.cpf);
+    if (!res.success) return setErro(res.error);
+    const lista = res.data || [];
+    setResultados(lista);
     setBuscou(true);
-    if (!res.success) {
-      setErro(res.error);
-      setResultados([]);
-      return;
-    }
-    setResultados(res.data);
-    // Com um único processo o seletor já vem com ele escolhido.
-    if (res.data.length === 1) {
-      setProcesso(res.data[0]);
-    } else {
-      setProcesso(null);
-    }
-  }, []);
-
-  function aoDigitar(texto) {
-    setTermo(texto);
-    setErro("");
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => buscar(texto), 350);
-  }
-
-  useEffect(() => () => clearTimeout(timer.current), []);
-
-  // Escolhe o processo que receberá o bloqueio. A lista de resultados é
-  // mantida: com vários processos, o dropdown continua disponível.
-  function selecionar(p) {
-    setProcesso(p);
-    setTermo(p.pacienteNome || "");
-    setErro("");
+    if (lista.length === 1) setProcesso(lista[0]);
   }
 
   function limpar() {
+    setPaciente(null);
+    setBuscaPaciente("");
     setProcesso(null);
-    setTermo("");
     setResultados([]);
     setBuscou(false);
     setValor("");
@@ -379,167 +355,167 @@ export default function BloqueioJudicial({
 
         {aba === "novo" && (
           <div className={styles.bloco}>
-        <h2 className={styles.secaoTitulo}>Dados do bloqueio</h2>
+            <h2 className={styles.secaoTitulo}>Dados do bloqueio</h2>
 
-        <form onSubmit={salvar} className={styles.formulario}>
-          <div className={styles.campoGrande}>
-            <label className={styles.label}>Buscar paciente ou processo *</label>
-            <input
-              className={styles.input}
-              placeholder="Nome, CPF ou número do processo judicial…"
-              value={termo}
-              onChange={(e) => aoDigitar(e.target.value)}
-              autoComplete="off"
-            />
-            <span className={styles.dica}>
-              {buscando
-                ? "Buscando…"
-                : processo
-                  ? "Processo selecionado. Altere a busca para escolher outro."
-                  : "Digite ao menos 2 caracteres (nome, CPF ou número do processo)."}
-            </span>
-
-            {/* Lista suspensa com os processos encontrados: o bloqueio é
-                vinculado ao processo escolhido. Com um único processo, ele já
-                vem selecionado. */}
-            {resultados.length > 0 && (
-              <div className={styles.campoGrande} style={{ marginTop: "0.75rem" }}>
-                <label className={styles.label}>Processo para o bloqueio *</label>
-                <select
-                  className={styles.select}
-                  value={processo ? String(processo.id) : ""}
-                  onChange={(e) => {
-                    const alvo = resultados.find((p) => String(p.id) === e.target.value);
-                    if (alvo) selecionar(alvo);
-                  }}
-                  required
-                >
-                  <option value="">
-                    {resultados.length === 1
-                      ? "Selecione o processo"
-                      : `Selecione o processo (${resultados.length} encontrados)`}
-                  </option>
-                  {resultados.map((p) => (
-                    <option key={p.id} value={String(p.id)}>
-                      {`${p.numeroProcesso} · pasta ${p.numeroPastaPaciente || p.numeroPasta || "—"}` +
-                        `${p.especialidadeNome ? ` · ${p.especialidadeNome}` : ""}` +
-                        `${p.procedimentoNome ? ` / ${p.procedimentoNome}` : ""}`}
-                    </option>
-                  ))}
-                </select>
-                <span className={styles.dica}>
-                  {resultados.length === 1
-                    ? "Este paciente possui um único processo: o bloqueio será vinculado a ele."
-                    : "Este paciente possui vários processos: escolha aquele que receberá o bloqueio."}
-                </span>
-              </div>
-            )}
-
-            {buscou && !buscando && resultados.length === 0 && !processo && (
-              <span className={styles.dica}>
-                Nenhum processo encontrado para esta busca.
-              </span>
-            )}
-          </div>
-
-          {processo && (
-            <>
-              <div className={styles.linha}>
-                <div className={styles.campo}>
-                  <label className={styles.label}>Paciente</label>
-                  <input
-                    className={styles.input}
-                    value={processo.pacienteNome}
-                    readOnly
-                    tabIndex={-1}
-                  />
-                </div>
-                <div className={styles.campo}>
-                  <label className={styles.label}>CPF</label>
-                  <input
-                    className={styles.input}
-                    value={formatarCpfExibicao(processo.pacienteCpf)}
-                    readOnly
-                    tabIndex={-1}
-                  />
-                </div>
-              </div>
-
-              <div className={styles.linha}>
-                <div className={styles.campo}>
-                  <label className={styles.label}>Número da pasta</label>
-                  <input
-                    className={styles.input}
-                    value={processo.numeroPastaPaciente || processo.numeroPasta || "—"}
-                    readOnly
-                    tabIndex={-1}
-                  />
-                </div>
-                <div className={styles.campo}>
-                  <label className={styles.label}>Número do processo</label>
-                  <input
-                    className={styles.input}
-                    value={processo.numeroProcesso}
-                    readOnly
-                    tabIndex={-1}
-                  />
-                </div>
-              </div>
-
-              <div className={styles.linha}>
-                <div className={styles.campo}>
-                  <label className={styles.label}>Especialidade</label>
-                  <input
-                    className={styles.input}
-                    value={processo.especialidadeNome || "—"}
-                    readOnly
-                    tabIndex={-1}
-                  />
-                </div>
-                <div className={styles.campo}>
-                  <label className={styles.label}>Procedimento</label>
-                  <input
-                    className={styles.input}
-                    value={processo.procedimentoNome || "—"}
-                    readOnly
-                    tabIndex={-1}
-                  />
-                </div>
-              </div>
-
-              <div className={styles.linha}>
-                <div className={styles.campo}>
-                  <label className={styles.label}>Data do bloqueio *</label>
-                  <input
-                    type="date"
-                    className={styles.input}
-                    value={data}
-                    onChange={(e) => setData(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className={styles.campo}>
-                  <label className={styles.label}>Valor do bloqueio (R$) *</label>
-                  <input
-                    className={styles.input}
-                    value={valor}
-                    onChange={(e) => setValor(mascararMoeda(e.target.value))}
-                    placeholder="0,00"
-                    inputMode="numeric"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className={styles.campoGrande}>
-                <label className={styles.label}>Observação</label>
-                <input
-                  className={styles.input}
-                  value={observacao}
-                  onChange={(e) => setObservacao(e.target.value)}
-                  maxLength={255}
-                  placeholder="Opcional"
+            <form onSubmit={salvar} className={styles.formulario}>
+              {/* BLOCO 1 — IDENTIFICAÇÃO DO PACIENTE: mesmo componente,
+                  campos e distribuição do Novo Processo (dados da tabela
+                  central `pessoa`, somente leitura; só a busca é editável). */}
+              <div className={styles.blocoIdentificacao}>
+                <IdentificacaoPaciente
+                  titulo="1. Identificação do Paciente"
+                  buscaLabel="Nome do Paciente"
+                  buscaPlaceholder="Digite o nome ou CPF para buscar..."
+                  buscaTexto={buscaPaciente}
+                  onBuscaTextoChange={setBuscaPaciente}
+                  onSelect={selecionarPaciente}
+                  incluirIndisponiveis
+                  cpfSelecionado={paciente?.cpf || ""}
+                  paciente={
+                    paciente
+                      ? {
+                          nomeMae: paciente.nomeMae,
+                          dataNascimento: paciente.dataNascimento,
+                          sexo: paciente.sexo,
+                          telefone: paciente.telefone,
+                          cpf: paciente.cpf,
+                          cns: paciente.cns,
+                          situacao: paciente.situacao,
+                          ubsReferencia: paciente.ubsReferencia,
+                          logradouro: paciente.logradouro,
+                          numero: paciente.numero,
+                          complemento: paciente.complemento,
+                          bairro: paciente.bairro,
+                          cidade: paciente.cidade,
+                          uf: paciente.uf,
+                          cep: paciente.cep,
+                        }
+                      : null
+                  }
                 />
+              </div>
+
+              {/* BLOCO 2 — INFORMAÇÕES DO PROCESSO E BLOQUEIO */}
+              <div className={styles.cardSection}>
+                <h3 className={styles.sectionHeaderTitle}>
+                  INFORMAÇÕES DO PROCESSO E BLOQUEIO
+                </h3>
+                <div className={styles.gridProcesso}>
+                  <div className={styles.fieldGroup}>
+                    <label>Número do Processo *</label>
+                    {resultados.length > 1 ? (
+                      <select
+                        value={processo ? String(processo.id) : ""}
+                        onChange={(e) => {
+                          const alvo = resultados.find(
+                            (p) => String(p.id) === e.target.value,
+                          );
+                          setProcesso(alvo || null);
+                        }}
+                        required
+                      >
+                        <option value="">Selecione o processo</option>
+                        {resultados.map((p) => (
+                          <option key={p.id} value={String(p.id)}>
+                            {`${p.numeroProcesso}${
+                              p.especialidadeNome ? ` · ${p.especialidadeNome}` : ""
+                            }${p.procedimentoNome ? ` / ${p.procedimentoNome}` : ""}`}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={processo?.numeroProcesso || ""}
+                        readOnly
+                        placeholder="Selecione o paciente"
+                      />
+                    )}
+                    <span className={styles.dica}>
+                      {!paciente
+                        ? "Selecione o paciente para carregar o processo."
+                        : resultados.length === 0
+                          ? "Nenhum processo elegível para bloqueio."
+                          : resultados.length === 1
+                            ? "Este paciente possui um único processo: o bloqueio será vinculado a ele."
+                            : "Este paciente possui vários processos: escolha aquele que receberá o bloqueio."}
+                    </span>
+                  </div>
+
+                  <div className={styles.fieldGroup}>
+                    <label>Número da Pasta</label>
+                    <input
+                      type="text"
+                      value={
+                        processo
+                          ? processo.numeroPastaPaciente || processo.numeroPasta || ""
+                          : ""
+                      }
+                      readOnly
+                      placeholder="—"
+                    />
+                  </div>
+
+                  <div className={styles.fieldGroup}>
+                    <label>Especialidade</label>
+                    <input
+                      type="text"
+                      value={processo?.especialidadeNome || ""}
+                      readOnly
+                      placeholder="—"
+                    />
+                  </div>
+
+                  <div className={styles.fieldGroup}>
+                    <label>Procedimento</label>
+                    <input
+                      type="text"
+                      value={processo?.procedimentoNome || ""}
+                      readOnly
+                      placeholder="—"
+                    />
+                  </div>
+
+                  <div className={styles.fieldGroup}>
+                    <label>Data do Bloqueio *</label>
+                    <input
+                      type="date"
+                      value={data}
+                      onChange={(e) => setData(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className={styles.fieldGroup}>
+                    <label>Valor do Bloqueio (R$) *</label>
+                    <input
+                      type="text"
+                      value={valor}
+                      onChange={(e) => setValor(mascararMoeda(e.target.value))}
+                      placeholder="0,00"
+                      inputMode="numeric"
+                      required
+                    />
+                  </div>
+
+                  <div className={`${styles.fieldGroup} ${styles.colJustificativa}`}>
+                    <label>Observação</label>
+                    <textarea
+                      rows={2}
+                      maxLength={255}
+                      value={observacao}
+                      onChange={(e) => setObservacao(e.target.value)}
+                      placeholder="Opcional"
+                    />
+                  </div>
+                </div>
+
+                {paciente && buscou && resultados.length === 0 && (
+                  <p className={styles.dica} role="alert">
+                    Este paciente não possui processos elegíveis para bloqueio.
+                    O registro do bloqueio está impedido.
+                  </p>
+                )}
               </div>
 
               <div className={styles.acoesForm}>
@@ -547,7 +523,15 @@ export default function BloqueioJudicial({
                   Cancelar
                 </button>
                 {podeCriar && (
-                  <button type="submit" className={styles.botaoPrimario} disabled={salvando}>
+                  <button
+                    type="submit"
+                    className={styles.botaoPrimario}
+                    disabled={
+                      salvando ||
+                      !processo ||
+                      (buscou && resultados.length === 0)
+                    }
+                  >
                     {salvando ? "Salvando…" : "Registrar bloqueio"}
                   </button>
                 )}
@@ -558,10 +542,7 @@ export default function BloqueioJudicial({
                   Seu perfil consulta processos, mas não registra bloqueios.
                 </span>
               )}
-
-            </>
-          )}
-        </form>
+            </form>
           </div>
         )}
 
