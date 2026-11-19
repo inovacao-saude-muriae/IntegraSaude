@@ -255,9 +255,10 @@ export default function ProcessosJudiciaisPage({
     if (!form.numeroProcesso.trim()) return setErro("Informe o número do processo.");
     if (!form.numeroPasta.trim()) return setErro("Informe o número da pasta.");
     if (!form.especialidadeId) return setErro("Selecione a especialidade.");
-    // Justificativa obrigatória quando a situação do processo for Inativo.
+    // Justificativa obrigatória apenas na EDIÇÃO de um processo Inativo.
     if (
-      form.status === "INATIVO" &&
+      editandoId &&
+      normalizarStatusProcesso(form.status) === "INATIVO" &&
       form.justificativaInativacao.trim().length < 15
     ) {
       return setErro("Informe a Justificativa da Inativação (mínimo de 15 caracteres).");
@@ -272,9 +273,12 @@ export default function ProcessosJudiciaisPage({
       numeroPasta: form.numeroPasta.trim(),
       especialidadeId: form.especialidadeId || null,
       procedimentoId: form.procedimentoId || null,
-      status: form.status,
+      // Cadastro novo: sempre ATIVO, sem justificativa.
+      status: editandoId ? normalizarStatusProcesso(form.status) : "ATIVO",
       justificativaInativacao:
-        form.status === "INATIVO" ? form.justificativaInativacao.trim() : "",
+        editandoId && normalizarStatusProcesso(form.status) === "INATIVO"
+          ? form.justificativaInativacao.trim()
+          : "",
     };
 
     if (editandoId) {
@@ -477,35 +481,47 @@ export default function ProcessosJudiciaisPage({
                     value={form.numeroPasta}
                     onChange={(e) => setForm((f) => ({ ...f, numeroPasta: e.target.value }))}
                     maxLength={50}
+                    // A pasta é do PACIENTE: existindo, vem preenchida e
+                    // bloqueada; sem pasta, o campo é liberado para cadastro.
                     readOnly={Boolean(pacienteSelecionado?.numeroPasta)}
                     placeholder="Número da pasta do paciente"
                   />
                   <span className={styles.dica}>
                     {pacienteSelecionado?.numeroPasta
                       ? "O paciente já possui pasta: o número é do paciente e vale para todos os processos dele."
-                      : "A pasta é do paciente: será reaproveitada nos próximos processos dele."}
+                      : "A pasta é do paciente: será associada a ele ao salvar o primeiro processo."}
                   </span>
                 </div>
 
                 <div className={styles.fieldGroup}>
                   <label>Status do Processo *</label>
-                  <select
-                    value={form.status}
-                    onChange={(e) =>
-                      setForm((f) => ({
-                        ...f,
-                        status: e.target.value,
-                        // Ao voltar para Ativo o campo some e o texto é limpo;
-                        // o histórico da inativação anterior fica no registro.
-                        justificativaInativacao:
-                          e.target.value === "ATIVO" ? "" : f.justificativaInativacao,
-                      }))
-                    }
-                    required
-                  >
-                    <option value="ATIVO">Ativo</option>
-                    <option value="INATIVO">Inativo</option>
-                  </select>
+                  {/* Novo processo nasce SEMPRE Ativo (bloqueado). A mudança
+                      para Inativo acontece só na edição, em Consultar Processos. */}
+                  {editandoId ? (
+                    <select
+                      value={normalizarStatusProcesso(form.status)}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          status: e.target.value,
+                          // Ao voltar para Ativo o campo some e o texto é limpo;
+                          // o histórico da inativação anterior fica no registro.
+                          justificativaInativacao:
+                            e.target.value === "ATIVO" ? "" : f.justificativaInativacao,
+                        }))
+                      }
+                    >
+                      <option value="ATIVO">Ativo</option>
+                      <option value="INATIVO">Inativo</option>
+                    </select>
+                  ) : (
+                    <input type="text" value="Ativo" readOnly disabled aria-readonly="true" />
+                  )}
+                  <span className={styles.dica}>
+                    {editandoId
+                      ? "Ative ou inative o processo; a inativação exige justificativa."
+                      : "Todo processo novo é cadastrado como Ativo."}
+                  </span>
                 </div>
 
                 <div className={styles.fieldGroup}>
@@ -552,8 +568,9 @@ export default function ProcessosJudiciaisPage({
                   </span>
                 </div>
 
-                {/* Terceira linha: aparece SOMENTE com a situação Inativo. */}
-                {form.status === "INATIVO" && (
+                {/* Terceira linha: aparece SOMENTE na edição de um processo
+                    Inativo (no cadastro novo o status é sempre Ativo). */}
+                {Boolean(editandoId) && normalizarStatusProcesso(form.status) === "INATIVO" && (
                   <div className={`${styles.fieldGroup} ${styles.colJustificativa}`}>
                     <label>Justificativa da Inativação *</label>
                     <textarea

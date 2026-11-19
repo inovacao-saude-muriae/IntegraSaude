@@ -230,12 +230,15 @@ async function main() {
     [pessoa.cpf],
   )).rows[0];
   if (outra) {
+    // A pasta é do PACIENTE: o outro paciente pode já ter a dele ou não.
+    const { rows: [pastaOutra] } = await db.query("SELECT numero_pasta FROM pessoa WHERE cpf=$1", [outra.cpf]);
+    const pastaNova = pastaOutra?.numero_pasta || "PASTA-002";
     const semConfirmar = await chamarAction(GESTOR, "editarProcesso", [id, {
-      pacienteCpf: outra.cpf, numeroProcesso: "TESTE-001", 
+      pacienteCpf: outra.cpf, numeroProcesso: "TESTE-001", numeroPasta: pastaNova,
     }]);
     check("troca sem confirmação é recusada", semConfirmar.success === false, semConfirmar.error);
     const confirmada = await chamarAction(GESTOR, "editarProcesso", [id, {
-      pacienteCpf: outra.cpf, numeroProcesso: "TESTE-001", 
+      pacienteCpf: outra.cpf, numeroProcesso: "TESTE-001", numeroPasta: pastaNova,
       confirmarTrocaPaciente: true,
     }]);
     check("troca confirmada é aceita", confirmada.success === true && confirmada.trocouPaciente === true, JSON.stringify(confirmada).slice(0, 140));

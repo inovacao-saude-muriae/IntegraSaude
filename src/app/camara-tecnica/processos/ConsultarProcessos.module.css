@@ -482,9 +482,9 @@
 }
 
 /* A tabela suspensa da busca precisa de largura para as 3 colunas. */
-.colBuscaRegistro { grid-column: span 4; }
+.colBuscaRegistro { grid-column: span 5; }
 .colEspecialidade { grid-column: span 2; }
-.colProcedimento { grid-column: span 2; }
+.colProcedimento { grid-column: span 3; }
 .colStatus { grid-column: span 2; }
 .colPeriodoCadastro { grid-column: span 8; }
 
@@ -609,4 +609,150 @@
     grid-column: span 12;
   }
   .gridFiltros > .filtrosAcoes { justify-content: flex-start; }
+}
+
+/* ── ALINHAMENTO ÚNICO DOS FILTROS ─────────────────────────────────────────
+   Todos os campos da linha (busca suspensa, dropdowns e datas) têm a MESMA
+   altura, o MESMO recuo abaixo do rótulo e o MESMO alinhamento vertical.
+   O espaçamento vem só de `row-gap`: nenhuma célula, rótulo, wrapper ou
+   componente de busca adiciona margem/padding próprios. */
+.cardFiltros {
+  --filtro-altura: 2.5rem;
+  --filtro-padding-x: 0.85rem;
+  --filtro-rotulo-altura: 1.125rem;
+  --filtro-rotulo-gap: 0.5rem;
+}
+
+/* Cada célula é uma grade de 2 linhas: rótulo (altura fixa) e campo. */
+.gridFiltros > * {
+  display: grid;
+  grid-template-rows: var(--filtro-rotulo-altura) var(--filtro-altura);
+  row-gap: var(--filtro-rotulo-gap);
+  align-content: start;
+  min-width: 0;
+}
+
+/* Estruturas internas não acrescentam espaço: o grid da célula já posiciona
+   rótulo e campo, seja um input direto, um select ou a busca suspensa. */
+.gridFiltros > * > label,
+.gridFiltros > * > *,
+.gridFiltros .inputWrapper,
+.gridFiltros .inputContainer {
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.gridFiltros label,
+.gridFiltros .fieldGroup label {
+  display: flex;
+  align-items: center;
+  height: var(--filtro-rotulo-altura);
+  margin: 0;
+  font-size: 0.825rem;
+  font-weight: 600;
+  line-height: var(--filtro-rotulo-altura);
+  color: #475569;
+  white-space: nowrap;
+}
+
+.gridFiltros input,
+.gridFiltros select,
+.gridFiltros input.seletorProcessoInput,
+.gridFiltros .fieldGroup input,
+.gridFiltros .fieldGroup select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: var(--filtro-altura);
+  min-height: var(--filtro-altura);
+  padding: 0 var(--filtro-padding-x);
+  font-family: inherit;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: #1e293b;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+/* Busca suspensa: input e ícones na mesma altura dos demais campos. */
+.gridFiltros :global(.seletorProcessoWrap) {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.gridFiltros :global(.seletorProcessoCampo) {
+  display: block;
+  width: 100%;
+  height: var(--filtro-altura);
+  line-height: 0;
+}
+
+.gridFiltros .input,
+.gridFiltros .input:disabled {
+  display: block;
+  height: var(--filtro-altura);
+  min-height: var(--filtro-altura);
+  padding: 0 3rem 0 var(--filtro-padding-x);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  border-color: #e2e8f0;
+  background-color: #ffffff !important;
+}
+
+.gridFiltros .arrowIcon,
+.gridFiltros .spinner {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Período do cadastro: datas com a largura do conteúdo na mesma linha. */
+.gridFiltros .periodo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: var(--filtro-altura);
+  margin: 0;
+  padding: 0;
+}
+
+.gridFiltros .fieldGroup input[type="date"],
+.gridFiltros .periodo input[type="date"] {
+  flex: 0 0 auto;
+  width: 9.5rem;
+  padding: 0 0.65rem;
+}
+
+.gridFiltros .periodo span {
+  display: flex;
+  align-items: center;
+  height: var(--filtro-altura);
+  line-height: 1;
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+/* Ações na MESMA linha do período (alinhadas com os campos). */
+.gridFiltros > .filtrosAcoes {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  grid-template-rows: none;
+  padding-top: calc(var(--filtro-rotulo-altura) + var(--filtro-rotulo-gap));
+  align-self: end;
+}
+
+.gridFiltros > .filtrosAcoes button {
+  height: var(--filtro-altura);
+  min-height: var(--filtro-altura);
+  padding: 0 1.1rem;
+  line-height: 1.25rem;
 }

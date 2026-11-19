@@ -110,11 +110,11 @@ export default function SeletorProcesso({
     <div className={styles.container}>
       <label className={styles.label}>{label}</label>
 
-      <div className={styles.inputWrapper} ref={dropdownRef}>
-        <div className={styles.inputContainer}>
+      <div className={`${styles.inputWrapper} seletorProcessoWrap`} ref={dropdownRef}>
+        <div className={`${styles.inputContainer} seletorProcessoCampo`}>
           <input
             type="text"
-            className={styles.input}
+            className={`${styles.input} seletorProcessoInput`}
             placeholder={placeholder}
             value={termo}
             onChange={alterar}

@@ -331,18 +331,8 @@ export async function listarProcessos({
       });
     }
 
-    // Nenhum filtro e sem "Consultar todos": a tabela não é carregada.
-    if (and.length === 0 && !todos) {
-      return {
-        success: true,
-        data: [],
-        total: 0,
-        pagina: 1,
-        totalPaginas: 1,
-        porPagina: CONSULTA_PAGINA_TAMANHO,
-        semConsulta: true,
-      };
-    }
+    // Sem nenhum filtro a consulta devolve TODOS os processos (o estado
+    // inicial da tela é controlado no cliente; nada é carregado na abertura).
 
     const where = and.length ? { AND: and } : {};
 
@@ -464,13 +454,10 @@ export async function criarProcesso(dados) {
     // A pasta é do PACIENTE: reaproveitada se já existir, cadastrada se não.
     const numeroPasta = await resolverNumeroPasta(dados?.numeroPasta, pessoa);
 
-    // Situação do processo (operacional): Inativo exige justificativa.
-    const status = normalizarStatusProcesso(dados?.status);
-    const justificativaBruta = dados?.justificativaInativacao;
-    const justificativaDb =
-      status === STATUS_PROCESSO.INATIVO
-        ? exigirJustificativaInativacao(justificativaBruta)
-        : null;
+    // Todo processo NOVO nasce ATIVO (ignora Inativo recebido). A inativação
+    // só existe pela edição, em Consultar Processos, e exige justificativa.
+    const status = STATUS_PROCESSO.ATIVO;
+    const justificativaDb = null;
 
     const criado = await prisma.processoJudicial.create({
       data: {

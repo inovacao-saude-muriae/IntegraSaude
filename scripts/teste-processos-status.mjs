@@ -198,32 +198,20 @@ check("banco sem justificativa", dbP1.rows[0].justificativa_inativacao === null)
 
 // ── 2. Inativo exige justificativa ────────────────────────────────────────
 console.log("\n2. Inativo exige justificativa");
-const semJust = await chamar(GESTOR, "criarProcesso", [
-  base({ numeroProcesso: `${PFX}-002`, status: "INATIVO" }),
-]);
-check("Inativo sem justificativa é recusado", semJust.success === false, JSON.stringify(semJust.error || ""));
-const justCurta = await chamar(GESTOR, "criarProcesso", [
-  base({ numeroProcesso: `${PFX}-003`, status: "INATIVO", justificativaInativacao: "curta" }),
-]);
-check("justificativa curta é recusada", justCurta.success === false);
-const justLonga = await chamar(GESTOR, "criarProcesso", [
-  base({ numeroProcesso: `${PFX}-004`, status: "INATIVO", justificativaInativacao: "x".repeat(501) }),
-]);
-check("justificativa acima de 500 é recusada", justLonga.success === false);
+// Todo processo NOVO nasce ATIVO: o backend ignora Inativo/justificativa.
 const p2 = await chamar(GESTOR, "criarProcesso", [
   base({
-    numeroProcesso: `${PFX}-005`,
+    numeroProcesso: `${PFX}-002`,
     status: "INATIVO",
     justificativaInativacao: "Processo arquivado por decisão judicial em 18/11/2026.",
   }),
 ]);
-check("Inativo com justificativa válida é aceito", p2.success === true, JSON.stringify(p2.error || ""));
-check("status INATIVO gravado", p2.data?.status === "INATIVO", String(p2.data?.status));
-check("justificativa devolvida", /decisão judicial/.test(p2.data?.justificativaInativacao || ""));
+check("cadastro novo ignora Inativo e grava ATIVO", p2.success === true && p2.data?.status === "ATIVO", String(p2.data?.status));
 const dbP2 = await db.query("SELECT status, justificativa_inativacao FROM processos_judiciais WHERE id=$1", [p2.data.id]);
-check("banco grava INATIVO + justificativa", dbP2.rows[0].status === "INATIVO" && /decisão judicial/.test(dbP2.rows[0].justificativa_inativacao));
-check("auditoria de criação marca motivoRegistrado",
-  (await db.query("SELECT 1 FROM audit_logs WHERE entidade='ProcessoJudicial' AND entidade_id=$1 AND detalhes->>'motivoRegistrado'='true'", [String(p2.data.id)])).rowCount === 1);
+check("banco grava ATIVO sem justificativa", dbP2.rows[0].status === "ATIVO" && dbP2.rows[0].justificativa_inativacao === null);
+check("auditoria de criação marca motivoRegistrado=false",
+  (await db.query("SELECT 1 FROM audit_logs WHERE entidade='ProcessoJudicial' AND entidade_id=$1 AND detalhes->>'motivoRegistrado'='false'", [String(p2.data.id)])).rowCount === 1);
+// A inativação passa a existir somente pela EDIÇÃO (seção 3), que exige justificativa.
 
 // ── 3. Edição: inativar, reativar e histórico ─────────────────────────────
 console.log("\n3. Edição do status pelo Editar");
@@ -260,12 +248,14 @@ check("auditoria registra REATIVAR", audReat.rowCount === 1);
 console.log("\n4. Filtro por situação do processo");
 const todos = await chamar(GESTOR, "listarProcessos", [{ todos: true, busca: PFX, status: "todos" }]);
 const ativos = await chamar(GESTOR, "listarProcessos", [{ todos: true, busca: PFX, status: "ativos" }]);
-const inativos = await chamar(GESTOR, "listarProcessos", [{ todos: true, status: "inativos" }]);
+// Nenhum processo da suíte fica Inativo (novo nasce Ativo; a edição reativou):
+// o filtro "Inativos" não devolve nada e "Ativos" devolve os dois.
+const inativos = await chamar(GESTOR, "listarProcessos", [{ todos: true, busca: PFX, status: "inativos" }]);
 check("Todos traz os dois", todos.data?.length === 2, String(todos.data?.length));
-check("Ativos traz apenas ATIVO", ativos.data?.length === 1 && ativos.data[0].status === "ATIVO", JSON.stringify(ativos.data?.map((p) => p.status)));
-check("Inativos traz apenas INATIVO", inativos.data?.length === 1 && inativos.data[0].status === "INATIVO");
-const porNumero = await chamar(GESTOR, "listarProcessos", [{ todos: true, busca: `${PFX}-005` }]);
-check("busca por número mantém o status no resultado", porNumero.data?.[0]?.status === "INATIVO");
+check("Ativos traz apenas ATIVO", ativos.data?.length === 2 && ativos.data.every((p) => p.status === "ATIVO"), JSON.stringify(ativos.data?.map((p) => p.status)));
+check("Inativos não traz processos ativos", (inativos.data || []).every((p) => p.status === "INATIVO"));
+const porNumero = await chamar(GESTOR, "listarProcessos", [{ todos: true, busca: `${PFX}-002` }]);
+check("busca por número devolve o status gravado", porNumero.data?.[0]?.status === "ATIVO", String(porNumero.data?.[0]?.status));
 
 // ── 5. Independência da Situação Cadastral ────────────────────────────────
 console.log("\n5. Independência da Situação Cadastral");
@@ -279,7 +269,7 @@ check("alterar a situação cadastral não altera o status do processo", dbApos.
 const listaApos = await chamar(GESTOR, "listarProcessos", [{ todos: true, busca: PFX, status: "ativos" }]);
 check(
   "filtro de status do processo segue independente",
-  listaApos.data?.length === 1 && listaApos.data[0].status === "ATIVO",
+  listaApos.data?.length === 2 && listaApos.data.every((p) => p.status === "ATIVO"),
   JSON.stringify(listaApos.data?.map((p) => p.status)),
 );
 

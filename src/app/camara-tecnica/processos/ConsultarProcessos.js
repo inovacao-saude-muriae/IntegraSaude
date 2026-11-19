@@ -118,7 +118,8 @@ export default function ConsultarProcessos({
       }
       setResultado({
         registros: res.data || [],
-        total: res.total ?? 0,
+        // "Filtrar" sem nenhum filtro devolve TODOS os processos.
+        total: res.total ?? (res.data || []).length,
         pagina: res.pagina ?? 1,
         totalPaginas: res.totalPaginas ?? 1,
       });
@@ -144,6 +145,7 @@ export default function ConsultarProcessos({
   };
 
   async function abrirDetalhe(id) {
+    setDetalhe(null);
     setCarregandoDetalhe(true);
     setErro("");
     try {

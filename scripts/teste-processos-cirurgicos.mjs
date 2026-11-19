@@ -328,8 +328,9 @@ check("listagem traz paciente/pasta/especialidade", Boolean(lista.data?.[0]?.pro
 
 // ── 3.1 Filtros de consulta (backend) ────────────────────────────────────
 console.log("\n3.1 Filtros de consulta");
-const semConsulta = await chamar(GESTOR, "listarProcessos", [{}]);
-check("sem filtro e sem 'todos' NÃO carrega a tabela", semConsulta.success && semConsulta.data.length === 0 && semConsulta.semConsulta === true);
+// A tela controla o estado inicial; o backend devolve TODOS quando não há filtro.
+const semFiltro = await chamar(GESTOR, "listarProcessos", [{}]);
+check("sem filtro devolve todos os processos", semFiltro.success && semFiltro.data.length >= 3 && semFiltro.total === semFiltro.data.length, String(semFiltro.data?.length));
 const todosProc = await chamar(GESTOR, "listarProcessos", [{ todos: true }]);
 check("consultar todos traz os processos", todosProc.success && todosProc.data.length >= 3, String(todosProc.data?.length));
 check("consultar todos informa o total", todosProc.total === todosProc.data.length);
@@ -366,10 +367,10 @@ const fHoje = await chamar(GESTOR, "listarProcessos", [{ dataInicio: dia, dataFi
 // processos criados por esta suíte (contados no próprio dia local).
 const { rows: criadosHoje } = await db.query(
   `SELECT count(*)::int AS n FROM processos_judiciais
-    WHERE numero_processo LIKE $1
-      AND (created_at AT TIME ZONE 'America/Sao_Paulo')::date = $2::date`,
-  [`${PFX}-%`, dia],
+    WHERE (created_at AT TIME ZONE 'America/Sao_Paulo')::date = $1::date`,
+  [dia],
 );
+// A consulta não filtra por prefixo: o esperado são TODOS os processos do dia.
 const esperadoHoje = criadosHoje[0].n;
 check(
   "período de cadastro inclui os processos de hoje",
