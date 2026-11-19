@@ -495,8 +495,9 @@
 }
 
 .periodo input[type="date"] {
-  flex: 1 1 0;
-  width: 100%;
+  /* Largura = largura natural da data (mm/dd/yyyy + ícone), sem esticar. */
+  flex: 0 0 auto;
+  width: 9.5rem;
   min-width: 0;
   height: 2.5rem;
   padding: 0 0.65rem;
@@ -543,6 +544,13 @@
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
+}
+
+/* Período do cadastro: o bloco NÃO ocupa a coluna inteira — cada data tem a
+   largura do próprio conteúdo (mm/dd/aaaa + ícone de calendário). */
+.gridFiltros .fieldGroup input[type="date"] {
+  width: 9.5rem;
+  flex: 0 0 auto;
 }
 
 .gridFiltros .fieldGroup input,
