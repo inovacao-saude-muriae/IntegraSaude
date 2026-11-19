@@ -750,6 +750,18 @@ function serializarBloqueio(b) {
             b.processo.especialidade?.nome || b.processo.especialidadeNome || "",
           procedimentoNome:
             b.processo.procedimento?.nome || b.processo.procedimentoNome || "",
+          // Dados completos do paciente/processo para a visualização.
+          pacienteCns: b.processo.pessoa?.cns || "",
+          pacienteSexo: b.processo.pessoa?.sexo || "",
+          pacienteNomeMae: b.processo.pessoa?.nomeMae || "",
+          pacienteTelefone: b.processo.pessoa?.telefone || "",
+          pacienteNascimento: b.processo.pessoa?.dataNascimento
+            ? b.processo.pessoa.dataNascimento.toISOString().slice(0, 10)
+            : null,
+          status: b.processo.status || null,
+          dataCadastro: b.processo.createdAt
+            ? b.processo.createdAt.toISOString()
+            : null,
         }
       : null,
   };
@@ -868,7 +880,19 @@ export async function listarBloqueios({
             pessoaCpf: true,
             especialidadeNome: true,
             procedimentoNome: true,
-            pessoa: { select: { nomeCompleto: true, numeroPasta: true } },
+            status: true,
+            createdAt: true,
+            pessoa: {
+              select: {
+                nomeCompleto: true,
+                numeroPasta: true,
+                cns: true,
+                sexo: true,
+                nomeMae: true,
+                telefone: true,
+                dataNascimento: true,
+              },
+            },
             especialidade: { select: { nome: true } },
             procedimento: { select: { nome: true } },
           },

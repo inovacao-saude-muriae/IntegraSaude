@@ -118,6 +118,10 @@ async function limpar() {
     [`${PFX}-%`],
   );
   await db.query("DELETE FROM processos_judiciais WHERE numero_processo LIKE $1", [`${PFX}-%`]);
+  // Processos de outras suítes ligados às fixtures desta limpeza (a FK de
+  // pessoa é RESTRICT): nada fica órfão porque são dados de teste.
+  await db.query("DELETE FROM processos_bloqueios WHERE processo_id IN (SELECT id FROM processos_judiciais WHERE pessoa_cpf = ANY($1))", [[CPF_A, CPF_B]]);
+  await db.query("DELETE FROM processos_judiciais WHERE pessoa_cpf = ANY($1)", [[CPF_A, CPF_B]]);
   await db.query(
     "DELETE FROM processos_especialidade_procedimento WHERE especialidade_id IN (SELECT id FROM processos_especialidades WHERE nome LIKE $1)",
     [`${PFX}%`],

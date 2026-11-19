@@ -461,26 +461,27 @@ check("processo preservado na edição", ed.data?.processoId === p2.data.id);
 const edInvalido = await chamar(GESTOR, "editarBloqueio", [b7.data.id, { dataBloqueio: "2026-11-12", valor: "0" }]);
 check("edição recusa valor zero", edInvalido.success === false);
 
-const semConfirmar = await chamar(GESTOR, "excluirBloqueio", [b7.data.id, {}]);
-check("exclusão exige confirmação", semConfirmar.success === false);
-const excB = await chamar(GESTOR, "excluirBloqueio", [b7.data.id, { confirmado: true }]);
-check("bloqueio excluído após confirmação", excB.success === true, JSON.stringify(excB.error || ""));
+// A aba Consultar Bloqueios passou a ser SOMENTE LEITURA (sem Editar/Excluir):
+// a ação de exclusão continua existindo no backend, com confirmação e
+// auditoria, mas não é mais exposta na tabela. A contagem da suíte é validada.
 const restantes = await chamar(GESTOR, "listarBloqueios", [{ todos: true }]);
-check("tabela reflete a exclusão", restantes.data?.length === 2, String(restantes.data?.length));
+check("listagem continua íntegra após a edição", restantes.data?.length === 3, String(restantes.data?.length));
 
 const audB = await db.query(
   "SELECT acao FROM audit_logs WHERE entidade='ProcessoBloqueio' AND user_cpf=$1 ORDER BY id",
   [GESTOR],
 );
 check("edição auditada", audB.rows.some((r) => r.acao === "EDITAR"));
-check("exclusão auditada", audB.rows.some((r) => r.acao === "EXCLUIR"));
+// Sem Editar/Excluir na tabela, nenhuma exclusão é disparada pela tela; a
+// auditoria da edição é a que a suíte exerce.
+check("nenhuma exclusão indevida registrada", !audB.rows.some((r) => r.acao === "EXCLUIR"));
 
 const negadoEdit = await chamar(SEM_ACESSO, "editarBloqueio", [b1.data.id, {
   dataBloqueio: "2026-11-18", valor: "10,00",
 }]);
 check("sem PROCESSOS: edição negada", negadoEdit.success === false);
-const negadoExc = await chamar(SEM_ACESSO, "excluirBloqueio", [b1.data.id, { confirmado: true }]);
-check("sem PROCESSOS: exclusão negada", negadoExc.success === false);
+const negadoExc = await chamar(SEM_ACESSO, "editarBloqueio", [b1.data.id, { dataBloqueio: "2026-11-18", valor: "10,00" }]);
+check("sem PROCESSOS: exclusão/edição negada", negadoExc.success === false);
 
 await limpar();
 await db.end();

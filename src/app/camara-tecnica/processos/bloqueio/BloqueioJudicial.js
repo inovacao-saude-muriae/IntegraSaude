@@ -20,6 +20,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Filter, SearchX } from "lucide-react";
 import { formatarCpfExibicao } from "@/lib/cpf";
+import { mascararTelefone } from "@/lib/telefone";
 import { mascararMoeda, formatarMoedaBRL } from "@/lib/moeda";
 import { obterCatalogoParaFiltros } from "../especialidades/actions";
 import { useConfirm } from "@/components/ConfirmDialog";
@@ -40,6 +41,19 @@ const hoje = () => new Date().toISOString().slice(0, 10);
 const dataBR = (iso) => {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ""));
   return m ? `${m[3]}/${m[2]}/${m[1]}` : "—";
+};
+
+// Data e hora do cadastro em fuso local (America/Sao_Paulo, UTC-3).
+const formatarDataHora = (v) => {
+  if (!v) return "—";
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return dataBR(v);
+  const local = new Date(d.getTime() - 3 * 60 * 60 * 1000);
+  const dd = String(local.getUTCDate()).padStart(2, "0");
+  const mm = String(local.getUTCMonth() + 1).padStart(2, "0");
+  const hh = String(local.getUTCHours()).padStart(2, "0");
+  const mi = String(local.getUTCMinutes()).padStart(2, "0");
+  return `${dd}/${mm}/${local.getUTCFullYear()} às ${hh}:${mi}`;
 };
 
 const FILTROS_VAZIOS = {
@@ -79,6 +93,8 @@ export default function BloqueioJudicial({
   const [valorTotal, setValorTotal] = useState("0.00");
   const [pagina, setPagina] = useState(1);
   const [totalPaginas, setTotalPaginas] = useState(1);
+  // Visualização completa do bloqueio (somente leitura).
+  const [detalhe, setDetalhe] = useState(null);
   const [consultando, setConsultando] = useState(false);
   // Catálogo dos FILTROS (inclui itens inativos = registros históricos).
   const [catalogoFiltros, setCatalogoFiltros] = useState({
@@ -737,67 +753,35 @@ export default function BloqueioJudicial({
                     <table className={consultaStyles.tabela}>
                       <thead>
                         <tr>
-                          <th>Nº da Pasta</th>
-                          <th>Paciente</th>
-                          <th>Nº do Processo</th>
-                          <th>Especialidade</th>
-                          <th>Procedimento</th>
+                          <th>Número da Pasta</th>
+                          <th>Nome do Paciente</th>
+                          <th>Número do Processo</th>
                           <th>Data do Bloqueio</th>
-                          <th>Valor do Bloqueio</th>
-                          <th className={consultaStyles.colAcoes}>Ações</th>
                         </tr>
                       </thead>
                       <tbody>
                         {bloqueios.length === 0 && (
                           <tr>
-                            <td colSpan={8} className={consultaStyles.tabelaVazia}>
+                            <td colSpan={4} className={consultaStyles.tabelaVazia}>
                               Nenhum registro encontrado
                             </td>
                           </tr>
                         )}
                         {bloqueios.map((b) => (
-                          <tr key={b.id}>
+                          <tr
+                            key={b.id}
+                            className={consultaStyles.linhaClicavel}
+                            onClick={() => setDetalhe(b)}
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") setDetalhe(b);
+                            }}
+                            title="Clique para visualizar o bloqueio completo"
+                          >
                             <td>{b.processo?.numeroPasta || "—"}</td>
-                            <td>
-                              <div className={styles.nomeCelula}>
-                                {b.processo?.pacienteNome || "—"}
-                              </div>
-                              <div className={styles.cpfCelula}>
-                                {formatarCpfExibicao(b.processo?.pacienteCpf)}
-                              </div>
-                            </td>
+                            <td>{b.processo?.pacienteNome || "—"}</td>
                             <td>{b.processo?.numeroProcesso || "—"}</td>
-                            <td>{b.processo?.especialidadeNome || "—"}</td>
-                            <td>{b.processo?.procedimentoNome || "—"}</td>
                             <td>{dataBR(b.dataBloqueio)}</td>
-                            <td className={styles.valorCelula}>{formatarMoedaBRL(b.valor)}</td>
-                            <td>
-                              <div className={styles.acoes}>
-                                {podeEditar && (
-                                  <button
-                                    type="button"
-                                    className={styles.botaoIconeAzul}
-                                    title="Editar bloqueio"
-                                    onClick={() => abrirEdicao(b)}
-                                  >
-                                    ✎ Editar
-                                  </button>
-                                )}
-                                {podeExcluir && (
-                                  <button
-                                    type="button"
-                                    className={styles.botaoIconeVermelho}
-                                    title="Excluir bloqueio"
-                                    onClick={() => remover(b)}
-                                  >
-                                    🗑 Excluir
-                                  </button>
-                                )}
-                                {!podeEditar && !podeExcluir && (
-                                  <span className={styles.dica}>—</span>
-                                )}
-                              </div>
-                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -830,6 +814,167 @@ export default function BloqueioJudicial({
             </div>
           </div>
         )}
+
+      {/* ── VISUALIZAÇÃO COMPLETA DO BLOQUEIO (somente leitura) ─────────────
+          Mesmo componente, layout e comportamento de Consultar Processos da
+          Farmácia Judicial: painel modal, seções em cards e campos de leitura.
+          Sem botões de edição ou exclusão. */}
+      {detalhe && (
+        <div
+          className={consultaStyles.painelFundo}
+          role="presentation"
+          onClick={() => setDetalhe(null)}
+        >
+          <div
+            className={consultaStyles.painelDetalhe}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Detalhes do bloqueio"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={consultaStyles.painelTopo}>
+              <h3>Detalhes do bloqueio</h3>
+              <button
+                type="button"
+                className={consultaStyles.btnFechar}
+                onClick={() => setDetalhe(null)}
+                aria-label="Fechar"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className={consultaStyles.corpoDetalhe}>
+              {/* 1. IDENTIFICAÇÃO DO PACIENTE */}
+              <div className={consultaStyles.cardSection}>
+                <h4 className={consultaStyles.sectionHeaderTitle}>
+                  1. Identificação do Paciente
+                </h4>
+                <div className={consultaStyles.grid3}>
+                  <div className={consultaStyles.campoLeitura}>
+                    <label>Nome do Paciente</label>
+                    <input readOnly value={detalhe.processo?.pacienteNome || "—"} />
+                  </div>
+                  <div className={consultaStyles.campoLeitura}>
+                    <label>CPF</label>
+                    <input
+                      readOnly
+                      value={formatarCpfExibicao(detalhe.processo?.pacienteCpf) || "—"}
+                    />
+                  </div>
+                  <div className={consultaStyles.campoLeitura}>
+                    <label>CNS (Cartão SUS)</label>
+                    <input readOnly value={detalhe.processo?.pacienteCns || "—"} />
+                  </div>
+                  <div className={consultaStyles.campoLeitura}>
+                    <label>Data de Nascimento</label>
+                    <input readOnly value={dataBR(detalhe.processo?.pacienteNascimento)} />
+                  </div>
+                  <div className={consultaStyles.campoLeitura}>
+                    <label>Sexo</label>
+                    <input readOnly value={detalhe.processo?.pacienteSexo || "—"} />
+                  </div>
+                  <div className={consultaStyles.campoLeitura}>
+                    <label>Telefone</label>
+                    <input
+                      readOnly
+                      value={mascararTelefone(detalhe.processo?.pacienteTelefone) || "—"}
+                    />
+                  </div>
+                  <div className={consultaStyles.campoLeitura}>
+                    <label>Nome da Mãe</label>
+                    <input readOnly value={detalhe.processo?.pacienteNomeMae || "—"} />
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. INFORMAÇÕES DO PROCESSO */}
+              <div className={consultaStyles.cardSection}>
+                <h4 className={consultaStyles.sectionHeaderTitle}>
+                  2. Informações do Processo
+                </h4>
+                <div className={consultaStyles.grid3}>
+                  <div className={consultaStyles.campoLeitura}>
+                    <label>Número do Processo</label>
+                    <input readOnly value={detalhe.processo?.numeroProcesso || "—"} />
+                  </div>
+                  <div className={consultaStyles.campoLeitura}>
+                    <label>Número da Pasta</label>
+                    <input readOnly value={detalhe.processo?.numeroPasta || "—"} />
+                  </div>
+                  <div className={consultaStyles.campoLeitura}>
+                    <label>Status do Processo</label>
+                    <input
+                      readOnly
+                      value={
+                        String(detalhe.processo?.status || "").toUpperCase() === "INATIVO"
+                          ? "Inativo"
+                          : "Ativo"
+                      }
+                      className={
+                        String(detalhe.processo?.status || "").toUpperCase() === "INATIVO"
+                          ? consultaStyles.situacaoInativa
+                          : consultaStyles.situacaoAtiva
+                      }
+                    />
+                  </div>
+                  <div className={consultaStyles.campoLeitura}>
+                    <label>Especialidade</label>
+                    <input readOnly value={detalhe.processo?.especialidadeNome || "—"} />
+                  </div>
+                  <div className={consultaStyles.campoLeitura}>
+                    <label>Procedimento</label>
+                    <input readOnly value={detalhe.processo?.procedimentoNome || "—"} />
+                  </div>
+                  <div className={consultaStyles.campoLeitura}>
+                    <label>Data do Cadastro</label>
+                    <input readOnly value={formatarDataHora(detalhe.processo?.dataCadastro)} />
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. DADOS DO BLOQUEIO */}
+              <div className={consultaStyles.cardSection}>
+                <h4 className={consultaStyles.sectionHeaderTitle}>
+                  3. Dados do Bloqueio
+                </h4>
+                <div className={consultaStyles.grid3}>
+                  <div className={consultaStyles.campoLeitura}>
+                    <label>Data do Bloqueio</label>
+                    <input readOnly value={dataBR(detalhe.dataBloqueio)} />
+                  </div>
+                  <div className={consultaStyles.campoLeitura}>
+                    <label>Valor do Bloqueio</label>
+                    <input readOnly value={formatarMoedaBRL(detalhe.valor)} />
+                  </div>
+                  <div className={consultaStyles.campoLeitura}>
+                    <label>Registrado em</label>
+                    <input readOnly value={formatarDataHora(detalhe.criadoEm)} />
+                  </div>
+                </div>
+
+                {detalhe.observacao && (
+                  <div className={consultaStyles.campoLeituraLargo}>
+                    <label>Observação</label>
+                    <textarea readOnly rows={2} value={detalhe.observacao} />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Somente visualização: nenhum botão de edição ou exclusão. */}
+            <div className={consultaStyles.acoesDetalhe}>
+              <button
+                type="button"
+                className={consultaStyles.btnGhost}
+                onClick={() => setDetalhe(null)}
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </section>
     </div>
   );
