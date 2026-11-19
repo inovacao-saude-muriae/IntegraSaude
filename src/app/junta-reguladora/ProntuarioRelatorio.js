@@ -438,59 +438,6 @@ export default function ProntuarioRelatorio({ prontuarioData, onBuscar }) {
 
       {paciente ? (
         <div className={styles.prontuarioBox}>
-          {/* DADOS GERAIS (campos em caixa, estilo formulário) */}
-          <div className={styles.infoCard}>
-            <h4>Dados do Paciente</h4>
-            <div className={styles.dadosGrid}>
-              <div className={styles.campo}>
-                <label>Nome completo</label>
-                <div className={styles.valorBox}>{paciente.nome || '—'}</div>
-              </div>
-              <div className={styles.campo}>
-                <label>Nome da mãe</label>
-                <div className={styles.valorBox}>{paciente.nomeMae || '—'}</div>
-              </div>
-              <div className={styles.campo}>
-                <label>Data de nascimento</label>
-                <div className={styles.valorBox}>
-                  {paciente.data_nascimento
-                    ? new Date(paciente.data_nascimento).toLocaleDateString('pt-BR')
-                    : '—'}
-                </div>
-              </div>
-              <div className={styles.campo}>
-                <label>Sexo</label>
-                <div className={styles.valorBox}>{paciente.sexo || '—'}</div>
-              </div>
-              <div className={styles.campo}>
-                <label>Telefone / WhatsApp</label>
-                <div className={styles.valorBox}>{mascararTelefone(paciente.telefone) || '—'}</div>
-              </div>
-              <div className={styles.campo}>
-                <label>CPF</label>
-                <div className={styles.valorBox}>{formatarCpfExibicao(paciente.cpf) || '—'}</div>
-              </div>
-
-              <div className={`${styles.campo} ${styles.campoFull}`}>
-                <label>Endereço</label>
-                <div className={styles.valorBox}>
-                  {paciente.logradouro
-                    ? `${paciente.logradouro}, ${paciente.numero || 'S/N'} - ${paciente.bairro || ''}${
-                        paciente.cidade ? ` - ${paciente.cidade}` : ''
-                      }${paciente.uf ? `/${paciente.uf}` : ''}${
-                        paciente.cep ? ` - CEP ${paciente.cep}` : ''
-                      }`
-                    : '—'}
-                </div>
-              </div>
-
-              <div className={`${styles.campo} ${styles.campoFull}`}>
-                <label>Diagnóstico / Deficiência</label>
-                <div className={styles.valorBox}>{paciente.tipo_deficiencia || '—'}</div>
-              </div>
-            </div>
-          </div>
-
           {/* SERVIÇOS VINCULADOS */}
           <div className={styles.infoCard}>
             <h4>Serviços onde o Paciente está Ativo</h4>
