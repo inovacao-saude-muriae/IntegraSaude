@@ -139,6 +139,13 @@ const hoje = new Date().toISOString().slice(0, 10);
 const semPeriodo = await chamar(ADMIN, "listarProcessosFarmacia", [{ dataInicio: "2020-01-01", dataFim: "2020-12-31" }]);
 check("período fora do cadastro devolve vazio", semPeriodo.total === 0);
 
+const porNome = await chamar(ADMIN, "listarProcessosFarmacia", [{ busca: "FC Alfa" }]);
+check("busca unificada por nome do paciente", contar(porNome) === 1 && porNome.registros.find((r) => String(r.numeroPasta).startsWith(PFX))?.numeroPasta === `${PFX}-001`);
+const porProcesso = await chamar(ADMIN, "listarProcessosFarmacia", [{ busca: "5000002-22" }]);
+check("busca unificada por número do processo", contar(porProcesso) === 1 && porProcesso.registros.find((r) => String(r.numeroPasta).startsWith(PFX))?.numeroPasta === `${PFX}-002`);
+const porPasta = await chamar(ADMIN, "listarProcessosFarmacia", [{ busca: `${PFX}-001` }]);
+check("busca unificada por número da pasta", contar(porPasta) === 1 && porPasta.registros.find((r) => String(r.numeroPasta).startsWith(PFX))?.numeroPasta === `${PFX}-001`);
+
 const porMed = await chamar(ADMIN, "listarProcessosFarmacia", [{ medicamentoId: m2 }]);
 check("filtro por medicamento devolve só quem usa", contar(porMed) === 1 && porMed.registros.find((r) => String(r.numeroPasta).startsWith(PFX))?.numeroPasta === `${PFX}-001`);
 

@@ -413,3 +413,49 @@
 }
 
 .btnEditar:hover { background-color: #dbeafe; }
+
+/* ── Padrão Consultar Processos (Procedimentos Cirúrgicos) ──────────────── */
+/* Busca unificada ocupa a linha inteira da grade de filtros. */
+.campoFiltroBusca {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  grid-column: 1 / -1;
+}
+
+.campoFiltroBusca label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.campoFiltroBusca input {
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  color: #0f172a;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.campoFiltroBusca input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+}
+
+/* Período do Cadastro: duas datas separadas por "até". */
+.periodo {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.periodo span {
+  font-size: 0.75rem;
+  color: #64748b;
+}

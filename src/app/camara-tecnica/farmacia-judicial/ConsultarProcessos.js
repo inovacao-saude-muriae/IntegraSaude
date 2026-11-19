@@ -25,10 +25,11 @@ const formatarData = (v) => {
 };
 
 const FILTROS_VAZIOS = {
-  dataInicio: "",
-  dataFim: "",
+  busca: "",
   medicamentoId: "",
   situacao: "todos",
+  dataInicio: "",
+  dataFim: "",
 };
 
 /**
@@ -66,10 +67,11 @@ export default function ConsultarProcessos({
     setErro("");
     try {
       const res = await listarProcessosFarmacia({
-        dataInicio: atuais.dataInicio,
-        dataFim: atuais.dataFim,
+        busca: atuais.busca,
         medicamentoId: atuais.medicamentoId,
         situacao: atuais.situacao,
+        dataInicio: atuais.dataInicio,
+        dataFim: atuais.dataFim,
         pagina,
       });
       if (!res.success) {
@@ -219,20 +221,16 @@ export default function ConsultarProcessos({
         {/* ── FILTROS ─────────────────────────────────────────────────────── */}
         <form className={styles.filtros} onSubmit={filtrar}>
           <div className={styles.filtrosGrid}>
-            <div className={styles.campoFiltro}>
-              <label>Data do Cadastro — inicial</label>
+            <div className={styles.campoFiltroBusca}>
+              <label>Buscar Registro</label>
               <input
-                type="date"
-                value={filtros.dataInicio}
-                onChange={(e) => alterarFiltro("dataInicio", e.target.value)}
-              />
-            </div>
-            <div className={styles.campoFiltro}>
-              <label>Data do Cadastro — final</label>
-              <input
-                type="date"
-                value={filtros.dataFim}
-                onChange={(e) => alterarFiltro("dataFim", e.target.value)}
+                value={filtros.busca}
+                onChange={(e) => alterarFiltro("busca", e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") consultar(1, filtros);
+                }}
+                placeholder="Digite o nome, número do processo ou número da pasta..."
+                autoComplete="off"
               />
             </div>
             <div className={styles.campoFiltro}>
@@ -259,6 +257,24 @@ export default function ConsultarProcessos({
                 <option value="ativos">Ativo</option>
                 <option value="inativos">Inativo</option>
               </select>
+            </div>
+            <div className={styles.campoFiltro}>
+              <label>Período do Cadastro</label>
+              <div className={styles.periodo}>
+                <input
+                  type="date"
+                  value={filtros.dataInicio}
+                  onChange={(e) => alterarFiltro("dataInicio", e.target.value)}
+                  aria-label="Data inicial do cadastro"
+                />
+                <span>até</span>
+                <input
+                  type="date"
+                  value={filtros.dataFim}
+                  onChange={(e) => alterarFiltro("dataFim", e.target.value)}
+                  aria-label="Data final do cadastro"
+                />
+              </div>
             </div>
           </div>
 

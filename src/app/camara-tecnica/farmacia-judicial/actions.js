@@ -1113,6 +1113,7 @@ function diaLocalParaUtc(dia) {
 }
 
 export async function listarProcessosFarmacia({
+  busca = "",
   dataInicio = "",
   dataFim = "",
   medicamentoId = "",
@@ -1131,6 +1132,19 @@ export async function listarProcessosFarmacia({
 
     // Condições como fragmentos SQL simples (sem fragmento booleano solto).
     const condicoes = [];
+    // Busca unificada: nome do paciente, número do processo ou número da pasta.
+    const termo = String(busca || "").trim();
+    if (termo) {
+      const like = `%${termo}%`;
+      const digitos = termo.replace(/\D/g, "");
+      const likeDigitos = digitos ? `%${digitos}%` : null;
+      condicoes.push(Prisma.sql`(
+        p.nome_completo ILIKE ${like}
+        OR pfj.numero_processo ILIKE ${like}
+        OR pfj.numero_pasta ILIKE ${like}
+        ${likeDigitos ? Prisma.sql`OR REPLACE(REPLACE(REPLACE(p.cpf,'.',''),'-',''),' ','') ILIKE ${likeDigitos}` : Prisma.sql``}
+      )`);
+    }
     if (inicio) condicoes.push(Prisma.sql`pfj.created_at >= ${inicio}`);
     if (fim) condicoes.push(Prisma.sql`pfj.created_at < ${fim}`);
     if (sit === "ativos") condicoes.push(Prisma.sql`UPPER(pfj.status) = 'ATIVO'`);
@@ -1151,6 +1165,7 @@ export async function listarProcessosFarmacia({
     const contagem = await prisma.$queryRaw`
       SELECT COUNT(*)::int AS total
       FROM public.farmacia_pacientes pfj
+      JOIN public.pessoa p ON pfj.pessoa_cpf = p.cpf
       WHERE ${condicao}
     `;
     const total = Number(serializeData(contagem)[0]?.total || 0);
