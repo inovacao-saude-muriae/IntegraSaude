@@ -359,10 +359,23 @@ const fNenhum = await chamar(GESTOR, "listarProcessos", [{ busca: `${PFX}-NAO-EX
 check("consulta sem correspondência devolve vazio", fNenhum.success && fNenhum.data.length === 0 && fNenhum.total === 0);
 
 // Período de cadastro (created_at gravado pelo servidor).
-const hoje = new Date();
-const dia = hoje.toISOString().slice(0, 10);
+// O dia é o LOCAL (America/Sao_Paulo, UTC-3) — não o dia UTC do servidor.
+const dia = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
 const fHoje = await chamar(GESTOR, "listarProcessos", [{ dataInicio: dia, dataFim: dia }]);
-check("período de cadastro inclui os processos de hoje", fHoje.success && fHoje.data.length >= 3, String(fHoje.data?.length));
+// A paginação é do backend (100/página): o período tem de trazer exatamente os
+// processos criados por esta suíte (contados no próprio dia local).
+const { rows: criadosHoje } = await db.query(
+  `SELECT count(*)::int AS n FROM processos_judiciais
+    WHERE numero_processo LIKE $1
+      AND (created_at AT TIME ZONE 'America/Sao_Paulo')::date = $2::date`,
+  [`${PFX}-%`, dia],
+);
+const esperadoHoje = criadosHoje[0].n;
+check(
+  "período de cadastro inclui os processos de hoje",
+  fHoje.success && esperadoHoje > 0 && fHoje.data.length === esperadoHoje,
+  `${fHoje.data?.length}/${esperadoHoje}`,
+);
 const fFuturo = await chamar(GESTOR, "listarProcessos", [{ dataInicio: "2030-01-01", dataFim: "2030-12-31" }]);
 check("período de cadastro sem registros devolve vazio", fFuturo.success && fFuturo.data.length === 0);
 check("processo traz a data de cadastro do servidor", Boolean(todosProc.data?.[0]?.dataCadastro), JSON.stringify(todosProc.data?.[0]?.dataCadastro));

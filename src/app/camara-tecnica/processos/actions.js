@@ -27,6 +27,8 @@ const FUNCIONALIDADE = "processo_judicial";
 const MODULO_AUDITORIA = "PROCESSOS";
 const ROTA = "/camara-tecnica/processos";
 const ROTA_BLOQUEIO = "/camara-tecnica/processos/bloqueio";
+// Consulta: 100 registros por página (mesmo padrão da Farmácia Judicial).
+const CONSULTA_PAGINA_TAMANHO = 100;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -247,6 +249,7 @@ function serializar(p) {
     justificativaInativacao: p.justificativaInativacao || "",
     pacienteCpf: p.pessoaCpf,
     pacienteNome: p.pessoa?.nomeCompleto || "",
+    telefone: p.pessoa?.telefone || "",
     // Situação cadastral da pessoa central (fonte única): só exibição.
     pacienteSituacao: p.pessoa?.situacao || "",
     // A pasta vigente é a do PACIENTE; o espelho do processo fica como
@@ -278,6 +281,7 @@ export async function listarProcessos({
   especialidadeId = null,
   procedimentoId = null,
   status = "todos",
+  pagina = 1,
 } = {}) {
   try {
     await requirePermissao(MODULOS.PROCESSOS, FUNCIONALIDADE, "visualizar");
@@ -329,24 +333,100 @@ export async function listarProcessos({
 
     // Nenhum filtro e sem "Consultar todos": a tabela não é carregada.
     if (and.length === 0 && !todos) {
-      return { success: true, data: [], total: 0, semConsulta: true };
+      return {
+        success: true,
+        data: [],
+        total: 0,
+        pagina: 1,
+        totalPaginas: 1,
+        porPagina: CONSULTA_PAGINA_TAMANHO,
+        semConsulta: true,
+      };
     }
 
-    const processos = await prisma.processoJudicial.findMany({
-      where: and.length ? { AND: and } : {},
-      include: {
-        pessoa: { select: { nomeCompleto: true, numeroPasta: true, situacao: true } },
-        especialidade: { select: { nome: true, ativo: true } },
-        procedimento: { select: { nome: true, ativo: true } },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 500,
-    });
+    const where = and.length ? { AND: and } : {};
+
+    // Paginação e filtragem no BACKEND (100 registros por página).
+    const pag = Math.max(1, inteiroPositivo(pagina) || 1);
+    const [totalRegistros, processos] = await Promise.all([
+      prisma.processoJudicial.count({ where }),
+      prisma.processoJudicial.findMany({
+        where,
+        include: {
+          pessoa: {
+            select: {
+              nomeCompleto: true,
+              numeroPasta: true,
+              situacao: true,
+              telefone: true,
+            },
+          },
+          especialidade: { select: { nome: true, ativo: true } },
+          procedimento: { select: { nome: true, ativo: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        skip: (pag - 1) * CONSULTA_PAGINA_TAMANHO,
+        take: CONSULTA_PAGINA_TAMANHO,
+      }),
+    ]);
 
     const data = processos.map(serializar);
-    return { success: true, data, total: data.length, semConsulta: false };
+    return {
+      success: true,
+      data,
+      total: totalRegistros,
+      pagina: pag,
+      totalPaginas: Math.max(1, Math.ceil(totalRegistros / CONSULTA_PAGINA_TAMANHO)),
+      porPagina: CONSULTA_PAGINA_TAMANHO,
+      semConsulta: false,
+    };
   } catch (erro) {
     return responder(erro);
+  }
+}
+
+// Busca suspensa "Buscar Registro": um PROCESSO por linha, com o nome do
+// paciente, o número da pasta e o número do processo (mesmo componente da
+// Farmácia Judicial). Nunca carrega tudo: exige ao menos 1 caractere.
+export async function buscarProcessosJudiciais(termo = "") {
+  try {
+    await requirePermissao(MODULOS.PROCESSOS, FUNCIONALIDADE, "visualizar");
+    const t = texto(termo, 100);
+    if (t.length < 1) return [];
+
+    const digitos = t.replace(/\D/g, "");
+    const processos = await prisma.processoJudicial.findMany({
+      where: {
+        OR: [
+          { pessoa: { nomeCompleto: { contains: t, mode: "insensitive" } } },
+          ...(digitos.length >= 3 ? [{ pessoaCpf: { contains: digitos } }] : []),
+          { numeroProcesso: { contains: t, mode: "insensitive" } },
+          { numeroPasta: { contains: t, mode: "insensitive" } },
+          { pessoa: { numeroPasta: { contains: t, mode: "insensitive" } } },
+        ],
+      },
+      select: {
+        id: true,
+        numeroProcesso: true,
+        numeroPasta: true,
+        pessoaCpf: true,
+        pessoa: { select: { nomeCompleto: true, numeroPasta: true } },
+      },
+      orderBy: [{ pessoa: { nomeCompleto: "asc" } }, { createdAt: "desc" }],
+      take: 30,
+    });
+
+    return processos.map((p) => ({
+      id: p.id,
+      numeroProcesso: p.numeroProcesso,
+      // A pasta vigente é a do PACIENTE (espelho do processo como fallback).
+      numeroPasta: p.pessoa?.numeroPasta || p.numeroPasta || "",
+      patientName: p.pessoa?.nomeCompleto || "",
+      cpf: p.pessoaCpf,
+    }));
+  } catch (erro) {
+    console.error("[Processos] erro na busca suspensa:", erro);
+    return [];
   }
 }
 

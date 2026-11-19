@@ -12,8 +12,9 @@
 // operação é revalidada no backend por `requirePermissao`.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useConfirm } from "@/components/ConfirmDialog";
+import ConsultarProcessos from "./ConsultarProcessos";
 import IdentificacaoPaciente from "@/components/IdentificacaoPaciente";
 import { pessoaAptaParaVinculo } from "@/components/cadastros/SituacaoPessoa";
 import "@/components/cadastros/padraoCadastro.css";
@@ -26,7 +27,6 @@ import {
   criarProcesso,
   editarProcesso,
   excluirProcesso,
-  listarProcessos,
   obterProcesso,
   verificarDependenciasProcesso,
 } from "./actions";
@@ -102,37 +102,23 @@ export default function ProcessosJudiciaisPage({
 }) {
   const confirm = useConfirm();
 
-  const [aba, setAba] = useState("consultar");
+  const [aba, setAba] = useState("novo");
   // Catálogo PRÓPRIO da área Processos: cada especialidade já vem com os
   // procedimentos vinculados a ela (nada de Junta Reguladora).
   const [especialidades, setEspecialidades] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
   const [aviso, setAviso] = useState(null);
-  // Filtros da CONSULTA: a tabela só aparece depois de uma consulta.
-  const FILTROS_VAZIOS = {
-    busca: "",
-    dataInicio: "",
-    dataFim: "",
-    especialidadeId: "",
-    procedimentoId: "",
-    // Todos | Ativos | Inativos — situação do PROCESSO.
-    status: "todos",
-  };
   // Catálogo dos FILTROS (inclui itens inativos = registros históricos).
   const [catalogoFiltros, setCatalogoFiltros] = useState({
     especialidades: [],
     procedimentos: [],
     vinculosProcedimentos: {},
   });
-  const [filtros, setFiltros] = useState(FILTROS_VAZIOS);
-  const [consultou, setConsultou] = useState(false);
-  const [total, setTotal] = useState(0);
-  const [consultando, setConsultando] = useState(false);
+  // A consulta (filtros, resultados e paginação) vive em ConsultarProcessos.
 
   // Formulário (novo e edição usam o MESMO estado/componente)
   const [form, setForm] = useState(FORM_VAZIO);
-  const [processos, setProcessos] = useState([]);
   const [editandoId, setEditandoId] = useState(null);
   // CPF do titular no momento em que a edição começou (detecta a troca).
   const [cpfOriginal, setCpfOriginal] = useState("");
@@ -140,25 +126,9 @@ export default function ProcessosJudiciaisPage({
   const [salvando, setSalvando] = useState(false);
 
   // Modais
-  const [detalhe, setDetalhe] = useState(null);
   const [exclusao, setExclusao] = useState(null); // { processo, dependencias, podeExcluir }
 
-  // ── Carga ────────────────────────────────────────────────────────────────
-  // Consulta no backend: os filtros combinam entre si (AND).
-  const consultar = useCallback(async (filtrosConsulta = {}, { todos = false } = {}) => {
-    setConsultando(true);
-    const res = await listarProcessos({ ...filtrosConsulta, todos });
-    setConsultando(false);
-    if (!res.success) {
-      setErro(res.error);
-      return res;
-    }
-    setProcessos(res.data);
-    setTotal(res.total ?? res.data.length);
-    setConsultou(true);
-    return res;
-  }, []);
-
+  // ── Carga do catálogo (especialidades/procedimentos) ─────────────────────
   useEffect(() => {
     let vivo = true;
     (async () => {
@@ -183,43 +153,6 @@ export default function ProcessosJudiciaisPage({
       vivo = false;
     };
   }, []);
-
-  // Procedimentos exibidos no filtro: sem especialidade, TODOS; com
-  // especialidade, apenas os vinculados a ela. O campo nunca é desabilitado.
-  const procedimentosDoFiltro = useMemo(() => {
-    const todos = catalogoFiltros.procedimentos || [];
-    const espId = filtros.especialidadeId;
-    if (!espId) return todos;
-    const vinculados = new Set(
-      catalogoFiltros.vinculosProcedimentos?.[String(espId)] || [],
-    );
-    return todos.filter((p) => vinculados.has(p.id));
-  }, [catalogoFiltros, filtros.especialidadeId]);
-
-  function alterarFiltro(campo, valor) {
-    setFiltros((f) => {
-      const proximo = { ...f, [campo]: valor };
-      // Trocar a especialidade limpa o procedimento incompatível com ela.
-      if (campo === "especialidadeId" && proximo.procedimentoId) {
-        const vinculados = new Set(
-          catalogoFiltros.vinculosProcedimentos?.[String(valor)] || [],
-        );
-        if (valor && !vinculados.has(Number(proximo.procedimentoId))) {
-          proximo.procedimentoId = "";
-        }
-      }
-      return proximo;
-    });
-  }
-
-  function limparFiltros() {
-    setFiltros(FILTROS_VAZIOS);
-    setProcessos([]);
-    setTotal(0);
-    setConsultou(false);
-    setErro("");
-  }
-
 
   const especialidadeAtual = useMemo(
     () => especialidades.find((x) => String(x.id) === String(form.especialidadeId)) || null,
@@ -377,7 +310,6 @@ export default function ProcessosJudiciaisPage({
       );
       limparFormulario();
       setAba("consultar");
-      if (consultou) await consultar(filtros);
       return;
     }
 
@@ -396,7 +328,6 @@ export default function ProcessosJudiciaisPage({
     setAviso(`Processo ${payload.numeroProcesso} cadastrado com sucesso.`);
     limparFormulario();
     setAba("consultar");
-    if (consultou) await consultar(filtros);
   }
 
   // ── Exclusão ─────────────────────────────────────────────────────────────
@@ -416,11 +347,9 @@ export default function ProcessosJudiciaisPage({
     }
     setAviso(`Processo ${exclusao.numeroProcesso} excluído.`);
     setExclusao(null);
-    if (consultou) await consultar(filtros);
   }
 
   // ── Render ───────────────────────────────────────────────────────────────
-  const listaFiltrada = processos;
 
   return (
     <div className={styles.container}>
@@ -431,13 +360,6 @@ export default function ProcessosJudiciaisPage({
         <div className={styles.abas}>
           <button
             type="button"
-            className={aba === "consultar" ? styles.abaAtiva : styles.aba}
-            onClick={() => setAba("consultar")}
-          >
-            Consultar Processos
-          </button>
-          <button
-            type="button"
             className={aba === "novo" ? styles.abaAtiva : styles.aba}
             onClick={() => {
               if (!editandoId) limparFormulario();
@@ -445,6 +367,13 @@ export default function ProcessosJudiciaisPage({
             }}
           >
             {editandoId ? "Editar Processo" : "Novo Processo"}
+          </button>
+          <button
+            type="button"
+            className={aba === "consultar" ? styles.abaAtiva : styles.aba}
+            onClick={() => setAba("consultar")}
+          >
+            Consultar Processos
           </button>
         </div>
 
@@ -465,205 +394,19 @@ export default function ProcessosJudiciaisPage({
         </div>
       )}
 
-      {/* ── ABA 1: CONSULTAR ─────────────────────────────────────────────── */}
+      {/* ── ABA 2: CONSULTAR (mesmo padrão da Farmácia Judicial) ────────── */}
       {aba === "consultar" && (
-        <div className={styles.bloco}>
-          {/* Filtros de consulta: nada é listado até uma consulta. */}
-          <div className={styles.filtros}>
-            <div className={styles.filtrosGrid}>
-              <div className={styles.campoFiltroBusca}>
-                <label>Buscar Registro</label>
-                <input
-                  value={filtros.busca}
-                  onChange={(e) => alterarFiltro("busca", e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") consultar(filtros);
-                  }}
-                  placeholder="Digite o nome, CPF, número do processo ou número da pasta..."
-                  autoComplete="off"
-                />
-              </div>
-              <div className={styles.campoFiltro}>
-                <label>Especialidade</label>
-                <select
-                  value={filtros.especialidadeId}
-                  onChange={(e) => alterarFiltro("especialidadeId", e.target.value)}
-                >
-                  <option value="">Todas</option>
-                  {catalogoFiltros.especialidades.map((esp) => (
-                    <option key={esp.id} value={String(esp.id)}>
-                      {esp.nome}
-                      {esp.ativo === false ? " (inativa)" : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className={styles.campoFiltro}>
-                <label>Procedimento</label>
-                <select
-                  value={filtros.procedimentoId}
-                  onChange={(e) => alterarFiltro("procedimentoId", e.target.value)}
-                >
-                  <option value="">Todos</option>
-                  {procedimentosDoFiltro.map((p) => (
-                    <option key={p.id} value={String(p.id)}>
-                      {p.nome}
-                      {p.ativo === false ? " (inativo)" : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className={styles.campoFiltro}>
-                <label>Status do Processo</label>
-                <select
-                  value={filtros.status}
-                  onChange={(e) => alterarFiltro("status", e.target.value)}
-                >
-                  <option value="todos">Todos</option>
-                  <option value="ativos">Ativos</option>
-                  <option value="inativos">Inativos</option>
-                </select>
-              </div>
-              <div className={styles.campoFiltro}>
-                <label>Período do cadastro</label>
-                <div className={styles.periodo}>
-                  <input
-                    type="date"
-                    value={filtros.dataInicio}
-                    onChange={(e) => alterarFiltro("dataInicio", e.target.value)}
-                    aria-label="Data inicial do cadastro"
-                  />
-                  <span>até</span>
-                  <input
-                    type="date"
-                    value={filtros.dataFim}
-                    onChange={(e) => alterarFiltro("dataFim", e.target.value)}
-                    aria-label="Data final do cadastro"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className={styles.filtrosAcoes}>
-              <button
-                type="button"
-                className={styles.botaoPrimario}
-                onClick={() => consultar(filtros)}
-                disabled={consultando}
-              >
-                {consultando ? "Filtrando…" : "Filtrar"}
-              </button>
-              <button type="button" className={styles.botaoSecundario} onClick={limparFiltros}>
-                Limpar filtros
-              </button>
-              <button
-                type="button"
-                className={styles.botaoSecundario}
-                onClick={() => consultar({}, { todos: true })}
-                disabled={consultando}
-              >
-                Consultar todos
-              </button>
-            </div>
-          </div>
-
-          <div className={styles.resumoConsulta}>
-            {consultou ? (
-              <span>
-                <strong>{total}</strong> {total === 1 ? "registro encontrado" : "registros encontrados"}
-              </span>
-            ) : (
-              <span>Preencha os filtros e clique em Filtrar, ou consulte todos os registros.</span>
-            )}
-          </div>
-
-          {!consultou ? null : carregando ? (
-            <p className={styles.vazio}>Carregando processos…</p>
-          ) : listaFiltrada.length === 0 ? (
-            <p className={styles.vazio}>Nenhum processo encontrado para os filtros informados.</p>
-          ) : (
-            <div className={styles.tabelaWrap}>
-              <table className={styles.tabela}>
-                <thead>
-                  <tr>
-                    <th>Paciente</th>
-                    <th>Nº do Processo</th>
-                    <th>Nº da Pasta</th>
-                    <th>Especialidade</th>
-                    <th>Procedimento</th>
-                    <th>Status do Processo</th>
-                    <th>Data do Cadastro</th>
-                    <th className={styles.colAcoes}>Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {listaFiltrada.map((p) => (
-                    <tr key={p.id}>
-                      <td>
-                        <div className={styles.nomeCelula}>{p.pacienteNome}</div>
-                        <div className={styles.cpfCelula}>
-                          {formatarCpfExibicao(p.pacienteCpf)}
-                        </div>
-                      </td>
-                      <td>{p.numeroProcesso}</td>
-                      <td>{p.numeroPasta}</td>
-                      <td>{p.especialidadeNome || "—"}</td>
-                      <td>{p.procedimentoNome || "—"}</td>
-                      <td>
-                        <span
-                          className={
-                            normalizarStatusProcesso(p.status) === "INATIVO"
-                              ? styles.statusInativo
-                              : styles.statusAtivo
-                          }
-                          title={p.justificativaInativacao || undefined}
-                        >
-                          {ROTULO_STATUS_PROCESSO[normalizarStatusProcesso(p.status)]}
-                        </span>
-                      </td>
-                      <td>{dataCurta(p.dataCadastro)}</td>
-                      <td>
-                        <div className={styles.acoes}>
-                          <button
-                            type="button"
-                            className={styles.botaoIcone}
-                            title="Visualizar"
-                            onClick={() => setDetalhe(p)}
-                          >
-                            👁 Visualizar
-                          </button>
-                          {podeEditar && (
-                            <button
-                              type="button"
-                              className={styles.botaoIconeAzul}
-                              title="Editar"
-                              onClick={() => abrirEdicao(p)}
-                            >
-                              ✎ Editar
-                            </button>
-                          )}
-                          {podeExcluir && (
-                            <button
-                              type="button"
-                              className={styles.botaoIconeVermelho}
-                              title="Excluir"
-                              onClick={() => abrirExclusao(p)}
-                            >
-                              🗑 Excluir
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        <ConsultarProcessos
+          catalogoFiltros={catalogoFiltros}
+          podeEditar={podeEditar}
+          podeExcluir={podeExcluir}
+          onEditar={abrirEdicao}
+          onExcluir={abrirExclusao}
+          onAtualizar={() => setErro("")}
+        />
       )}
 
-      {/* ── ABA 2: NOVO / EDITAR ─────────────────────────────────────────── */}
+      {/* ── ABA 1: NOVO / EDITAR ─────────────────────────────────────────── */}
       {aba === "novo" && (
         <div className={styles.bloco}>
           <h2 className={styles.secaoTitulo}>
@@ -856,43 +599,6 @@ export default function ProcessosJudiciaisPage({
             </div>
           </form>
         </div>
-      )}
-
-      {/* ── Modal: detalhe ───────────────────────────────────────────────── */}
-      {detalhe && (
-        <Modal titulo="Detalhes do processo" onFechar={() => setDetalhe(null)}>
-          <dl className={styles.detalhes}>
-            <dt>Paciente</dt>
-            <dd>
-              {detalhe.pacienteNome} ({formatarCpfExibicao(detalhe.pacienteCpf)})
-            </dd>
-            <dt>Número do processo</dt>
-            <dd>{detalhe.numeroProcesso}</dd>
-            <dt>Número da pasta</dt>
-            <dd>{detalhe.numeroPastaPaciente || detalhe.numeroPasta || "—"}</dd>
-            <dt>Especialidade</dt>
-            <dd>{detalhe.especialidadeNome || "—"}</dd>
-            <dt>Procedimento</dt>
-            <dd>{detalhe.procedimentoNome || "—"}</dd>
-            <dt>Data do cadastro</dt>
-            <dd>{dataCurta(detalhe.dataCadastro)}</dd>
-            <dt>Última alteração</dt>
-            <dd>{dataCurta(detalhe.atualizadoEm)}</dd>
-            <dt>Status do Processo</dt>
-            <dd>{ROTULO_STATUS_PROCESSO[normalizarStatusProcesso(detalhe.status)]}</dd>
-            <dt>Justificativa da Inativação</dt>
-            <dd>{detalhe.justificativaInativacao || "—"}</dd>
-          </dl>
-          <div className={styles.acoesForm}>
-            <button
-              type="button"
-              className={styles.botaoSecundario}
-              onClick={() => setDetalhe(null)}
-            >
-              Fechar
-            </button>
-          </div>
-        </Modal>
       )}
 
       {/* ── Modal: exclusão ──────────────────────────────────────────────── */}
