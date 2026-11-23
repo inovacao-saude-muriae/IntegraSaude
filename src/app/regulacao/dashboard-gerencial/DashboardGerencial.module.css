@@ -1,0 +1,524 @@
+/* Dashboard Gerencial da Regulação — mesmo padrão visual dos dashboards de
+   Processos Judiciais e Farmácia Judicial (container único, cards, painéis,
+   filtros em uma linha e ações à direita na segunda linha). */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+}
+
+.mainWrapper {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -2px rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ── Filtros ───────────────────────────────────────────────────────────── */
+.cardFiltros {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1.25rem;
+}
+
+.cardFiltrosHeader h2 {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #334155;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.gridFiltros {
+  display: grid;
+  grid-template-columns:
+    minmax(9rem, 1.1fr) minmax(11rem, 1.5fr) minmax(6rem, 0.8fr)
+    minmax(15rem, 1.9fr) minmax(15rem, 1.9fr) minmax(8rem, 1fr);
+  gap: 0.875rem;
+  align-items: end;
+}
+
+.campoFiltro,
+.campoPeriodo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.campoFiltro label,
+.rotuloPeriodo {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #475569;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.campoFiltro select,
+.periodo input {
+  height: 40px;
+  box-sizing: border-box;
+  padding: 0 0.625rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background-color: #ffffff;
+  font-size: 0.85rem;
+  color: #0f172a;
+  width: 100%;
+  min-width: 0;
+}
+
+.campoFiltro select:focus,
+.periodo input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.periodo {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.periodo input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ate {
+  font-size: 0.78rem;
+  color: #64748b;
+  flex: 0 0 auto;
+}
+
+.acoesFiltros {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.625rem;
+}
+
+.btnPrimario,
+.btnGhost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 40px;
+  padding: 0 1.25rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.btnPrimario {
+  background-color: #2563eb;
+  color: #ffffff;
+}
+
+.btnPrimario:hover:not(:disabled) {
+  background-color: #1d4ed8;
+}
+
+.btnGhost {
+  background-color: #ffffff;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.btnGhost:hover:not(:disabled) {
+  background-color: #f1f5f9;
+}
+
+.btnPrimario:disabled,
+.btnGhost:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* ── Seções ────────────────────────────────────────────────────────────── */
+.secao {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.secaoTitulo {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.cardsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.875rem;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background-color: #f8fafc;
+  min-width: 0;
+}
+
+.cardTitulo {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.cardValor {
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.cardNota {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.card_pendente {
+  border-left: 3px solid #f59e0b;
+}
+
+.card_ativo {
+  border-left: 3px solid #10b981;
+}
+
+.card_inativo {
+  border-left: 3px solid #ef4444;
+}
+
+.card_financeiro {
+  border-left: 3px solid #2563eb;
+}
+
+.graficosGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.875rem;
+}
+
+.graficosGridUm {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.875rem;
+}
+
+.painel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background-color: #ffffff;
+  min-width: 0;
+}
+
+.painelTopo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.painelTitulo {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.painelNota {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.svgWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  justify-content: center;
+  flex: 1 1 auto;
+}
+
+.svg {
+  width: 100%;
+  max-height: 190px;
+}
+
+.eixoRotulo {
+  font-size: 9px;
+  fill: #94a3b8;
+}
+
+.legenda {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.legenda i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 0.375rem;
+}
+
+.corEntrada {
+  background-color: #2563eb;
+}
+
+.corLiberado {
+  background-color: #10b981;
+}
+
+/* ── Barras horizontais ────────────────────────────────────────────────── */
+.barras {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.barraItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.barraTopo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.barraNome {
+  font-size: 0.82rem;
+  color: #334155;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.barraValor {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.barraTrilho {
+  height: 10px;
+  background-color: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.barraPreenchida {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+/* ── Rosca ─────────────────────────────────────────────────────────────── */
+.roscaWrap {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.rosca {
+  width: 150px;
+  height: 150px;
+  flex: 0 0 auto;
+}
+
+.roscaTotal {
+  font-size: 18px;
+  font-weight: 700;
+  fill: #0f172a;
+}
+
+.roscaRotulo {
+  font-size: 9px;
+  fill: #94a3b8;
+}
+
+.legendaRosca {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+
+.legendaLinha {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: #334155;
+}
+
+.legendaLinha i {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+
+.legendaLinha strong {
+  margin-left: auto;
+  color: #0f172a;
+}
+
+/* ── Insights e estados ────────────────────────────────────────────────── */
+.insights {
+  margin: 0;
+  padding: 0 0 0 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  color: #334155;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.estadoInicial {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 2.5rem 1rem;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.estadoInicial p {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.vazio {
+  padding: 1.5rem 0.5rem;
+  text-align: center;
+  font-size: 0.82rem;
+  color: #94a3b8;
+}
+
+.avisoErro {
+  padding: 0.75rem 1rem;
+  border: 1px solid #fecaca;
+  background-color: #fef2f2;
+  color: #b91c1c;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.spinner {
+  animation: girar 0.9s linear infinite;
+}
+
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.tabelaWrapper {
+  overflow-x: auto;
+}
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.tabela th,
+.tabela td {
+  padding: 0.5rem 0.625rem;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.tabela th {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #64748b;
+  background-color: #f8fafc;
+}
+
+/* ── Responsivo ────────────────────────────────────────────────────────── */
+@media (max-width: 1180px) {
+  .gridFiltros {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .campoPeriodo {
+    grid-column: span 1;
+  }
+}
+
+@media (max-width: 900px) {
+  .graficosGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .mainWrapper {
+    padding: 1rem;
+  }
+  .gridFiltros {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .acoesFiltros {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .btnPrimario,
+  .btnGhost {
+    width: 100%;
+  }
+  .roscaWrap {
+    justify-content: center;
+  }
+}
