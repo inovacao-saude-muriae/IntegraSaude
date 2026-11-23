@@ -400,17 +400,11 @@ export default function DashboardGerencial() {
                   nota="Entrada → liberação"
                 />
                 <Card
-                  titulo="Tempo mediano de espera"
-                  valor={`${nf(ind.tempoMedianoLiberado)} d`}
-                  nota="Entrada → liberação"
-                />
-                <Card
                   titulo="Maior espera pendente"
                   valor={`${nf(ind.maiorEsperaPendente)} d`}
                   nota="Pendente → hoje"
                   variante="card_inativo"
                 />
-                <Card titulo="Pacientes distintos" valor={nf(ind.pacientes)} nota="Com solicitações" />
               </div>
             </section>
 

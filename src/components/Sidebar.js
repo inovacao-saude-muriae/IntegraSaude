@@ -62,13 +62,13 @@ const menuSections = [
           </svg>
         ),
         subItems: [
-          // Dashboard é o primeiro item do menu Regulação (rota própria).
-          { name: "Dashboard", path: "/regulacao/dashboard-gerencial", visivelSe: "REGULACAO" },
           { name: "Novo Pedido", tab: "NOVO_PEDIDO", visivelSe: "REGULACAO" },
           { name: "Lista de Espera", tab: "LISTA_ESPERA", visivelSe: "REGULACAO" },
           { name: "Liberados", tab: "LIBERADOS", visivelSe: "REGULACAO" },
           { name: "Financeiro", tab: "FINANCEIRO", visivelSe: "REGULACAO_ADMIN" },
           { name: "separator", isSeparator: true, visivelSe: "REGULACAO" },
+          // Dashboard: mesmo lugar da Auditoria de Alterações (substitui o antigo).
+          { name: "Dashboard", tab: "DASHBOARD", visivelSe: "REGULACAO" },
           // Auditoria: GESTOR ou ADMIN da Regulação (regra revisada).
           { name: "Auditoria de Alterações", tab: "AUDITORIA", visivelSe: "REGULACAO_ADMIN" },
         ],

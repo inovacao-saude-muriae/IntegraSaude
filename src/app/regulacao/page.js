@@ -8,7 +8,7 @@ import { useRegulacaoData } from "./hooks/useRegulacaoData";
 import { useRegulacaoFilters } from "./hooks/useRegulacaoFilters";
 
 import FiltersBar from "./FiltersBar";
-import Dashboard from "./Dashboard";
+import DashboardGerencial from "./dashboard-gerencial/DashboardGerencial";
 import NovoPedido from "./NovoPedido";
 import ListaEspera from "./ListaEspera";
 import Liberados from "./Liberados";
@@ -96,13 +96,7 @@ function RegulacaoPageContent() {
   return (
     <div className={styles.container}>
 
-      {activeTab === "DASHBOARD" && (
-        <Dashboard
-          requests={data.requests}
-          auxData={data.auxData}
-          setActiveTab={(tab) => handleSetActiveTab(tab)}
-        />
-      )}
+      {activeTab === "DASHBOARD" && <DashboardGerencial />}
 
       {activeTab === "NOVO_PEDIDO" && (
         <NovoPedido
