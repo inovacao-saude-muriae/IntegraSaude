@@ -8,7 +8,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Filter, Loader2, SearchX } from "lucide-react";
+import { Filter, Loader2 } from "lucide-react";
 import styles from "@/app/regulacao/dashboard-gerencial/DashboardGerencial.module.css";
 import { obterDashboardFarmacia, obterFiltrosDashboardFarmacia } from "./actions";
 
@@ -407,23 +407,6 @@ export default function DashboardFarmacia() {
                   />
                 </Painel>
               </div>
-            </section>
-
-            {/* ── 6. INSIGHTS ──────────────────────────────────────────── */}
-            <section className={styles.secao}>
-              <h2 className={styles.secaoTitulo}>Insights da Farmácia Judicial</h2>
-              {dados.insights.length ? (
-                <ul className={styles.insights}>
-                  {dados.insights.map((frase) => (
-                    <li key={frase}>{frase}</li>
-                  ))}
-                </ul>
-              ) : (
-                <div className={styles.estadoInicial}>
-                  <SearchX size={28} />
-                  <p>Sem dados suficientes para gerar insights com os filtros selecionados.</p>
-                </div>
-              )}
             </section>
           </>
         ) : null}

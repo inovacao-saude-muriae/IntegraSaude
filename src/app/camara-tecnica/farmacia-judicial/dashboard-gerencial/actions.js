@@ -337,89 +337,8 @@ export async function obterDashboardFarmacia(filtros = {}) {
           lotes: Number(r.lotes || 0),
         })),
       },
-      insights: montarInsights({
-        indicadores: {
-          processos: Number(c.total || 0),
-          ativos: Number(c.ativos || 0),
-          dispensacoes: Number(c.dispensacoes || 0),
-          zerados: Number(est.zerados || 0),
-          semVinculo: Number(insightsBase[0]?.sem_vinculo || 0),
-        },
-        vinculados,
-        porMedicamento,
-        comprasMedicamento,
-        evolucao,
-        saldos: estoqueCards,
-      }),
     };
   } catch (erro) {
     return responder(erro);
   }
-}
-
-const MESES_LONGOS = [
-  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
-  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
-];
-const rotuloMesLongo = (mes) => {
-  const [ano, m] = String(mes || "").split("-");
-  return `${MESES_LONGOS[Number(m) - 1] || m}/${ano}`;
-};
-
-// Insights determinísticos — frases curtas com números reais.
-function montarInsights({ indicadores, vinculados, porMedicamento, comprasMedicamento, evolucao, saldos }) {
-  const frases = [];
-  const nf = (n) => Number(n || 0).toLocaleString("pt-BR");
-  const brl = (v) =>
-    `R$ ${(Number(v) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-  const topVinculo = vinculados[0];
-  if (topVinculo) {
-    frases.push(
-      `O medicamento ${topVinculo.nome} está vinculado a ${nf(topVinculo.quantidade)} ${topVinculo.quantidade === 1 ? "processo ativo" : "processos ativos"}.`,
-    );
-  }
-
-  const topDisp = porMedicamento[0];
-  if (topDisp) {
-    frases.push(
-      `O medicamento ${topDisp.nome} teve o maior volume dispensado: ${nf(topDisp.quantidade)} ${topDisp.quantidade === 1 ? "unidade" : "unidades"} em ${nf(topDisp.entregas)} ${topDisp.entregas === 1 ? "entrega" : "entregas"}.`,
-    );
-  }
-
-  if (indicadores.zerados > 0) {
-    frases.push(
-      `${nf(indicadores.zerados)} ${indicadores.zerados === 1 ? "medicamento está com saldo zerado" : "medicamentos estão com saldo zerado"} no estoque consolidado.`,
-    );
-  }
-
-  if (evolucao.length >= 2) {
-    const atual = evolucao[evolucao.length - 1];
-    const anterior = evolucao[evolucao.length - 2];
-    if (anterior.quantidade > 0) {
-      const variacao = Math.round(((atual.quantidade - anterior.quantidade) / anterior.quantidade) * 100);
-      frases.push(
-        `Dispensações em ${rotuloMesLongo(atual.mes)}: ${nf(atual.quantidade)}, ${variacao >= 0 ? `aumento de ${variacao}%` : `redução de ${Math.abs(variacao)}%`} sobre ${rotuloMesLongo(anterior.mes)} (${nf(anterior.quantidade)}).`,
-      );
-    } else {
-      frases.push(
-        `Dispensações em ${rotuloMesLongo(atual.mes)}: ${nf(atual.quantidade)}; em ${rotuloMesLongo(anterior.mes)} não houve dispensação.`,
-      );
-    }
-  }
-
-  const topCompra = comprasMedicamento[0];
-  if (topCompra && Number(topCompra.valor) > 0) {
-    frases.push(
-      `O medicamento com maior valor de compras é ${topCompra.nome}: ${brl(topCompra.valor)} em ${nf(topCompra.lotes)} ${topCompra.lotes === 1 ? "lote" : "lotes"}.`,
-    );
-  }
-
-  if (indicadores.semVinculo > 0) {
-    frases.push(
-      `${nf(indicadores.semVinculo)} ${indicadores.semVinculo === 1 ? "processo ativo não possui" : "processos ativos não possuem"} medicamento vinculado.`,
-    );
-  }
-
-  return frases;
 }
