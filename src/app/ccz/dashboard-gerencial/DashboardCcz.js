@@ -403,43 +403,6 @@ export default function DashboardCcz() {
               </div>
             </section>
 
-            {/* ── 7. INSIGHTS GERENCIAIS ───────────────────────────────── */}
-            <section className={styles.secao}>
-              <h2 className={styles.secaoTitulo}>Insights gerenciais</h2>
-              <ul className={styles.insights}>
-                {an.porEspecie.length ? (
-                  <li>
-                    A espécie com mais animais cadastrados é {an.porEspecie[0].nome}, com {nf(an.porEspecie[0].quantidade)} animal(is).
-                  </li>
-                ) : null}
-                {an.bairros.length ? (
-                  <li>
-                    O bairro com mais animais é {an.bairros[0].nome}, com {nf(an.bairros[0].quantidade)} animal(is).
-                  </li>
-                ) : null}
-                <li>
-                  {nf(ind.denunciasPendentes)} denúncia(s) ativa(s) e {nf(ind.denunciasArquivadas)} arquivada(s);
-                  arquivamento não equivale a conclusão.
-                </li>
-                {de.pendentesPorBairro.length ? (
-                  <li>
-                    O bairro com mais denúncias pendentes é {de.pendentesPorBairro[0].nome}, com {nf(de.pendentesPorBairro[0].quantidade)}.
-                  </li>
-                ) : null}
-                <li>
-                  {nf(ind.semTutor)} animal(is) sem tutor vinculado, de {nf(ind.animais)} cadastrado(s).
-                </li>
-                {ac.porTipo.length ? (
-                  <li>
-                    A ação mais registrada é {ac.porTipo[0].nome}, com {nf(ac.porTipo[0].quantidade)} realização(ões).
-                  </li>
-                ) : null}
-                <li>
-                  {nf(ind.casosEsporotricose)} caso(s) de esporotricose, {nf(ind.esporotricoseEncerrados)} encerrado(s)
-                  e {nf(ind.visitasEsporotricose)} visita(s) registrada(s).
-                </li>
-              </ul>
-            </section>
           </>
         ) : null}
       </div>
