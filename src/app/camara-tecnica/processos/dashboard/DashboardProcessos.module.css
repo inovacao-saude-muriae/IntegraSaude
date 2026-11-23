@@ -323,92 +323,98 @@
   }
 }
 
-/* ═══ FILTROS DO DASHBOARD — duas linhas, sem espaços vazios ═══════════════
-   Linha 1: Período do cadastro | Especialidade | Procedimento
-   Linha 2: Status do Processo | Possui Bloqueio | Filtrar + Limpar filtros
-   As alturas (40px), o recuo dos rótulos e o fundo cinza claro continuam
-   vindo de ConsultarProcessos.module.css (mesmo padrão da Farmácia Judicial);
-   aqui só se distribuem as colunas. */
+/* ═══ FILTROS DO DASHBOARD — todos os filtros na 1ª linha, botões na 2ª ═══
+   Linha 1: Período do cadastro | Especialidade | Procedimento | Status |
+            Possui Bloqueio  (largura proporcional ao conteúdo)
+   Linha 2: Filtrar + Limpar filtros, alinhados à direita.
+   Alturas (40px), recuo dos rótulos e fundo cinza claro continuam vindo de
+   ConsultarProcessos.module.css (mesmo padrão da Farmácia Judicial). */
 .gridDashboard {
-  grid-template-columns: repeat(12, 1fr);
+  /* O período (com as duas datas) recebe ~2x o espaço de um filtro; os quatro
+     selects dividem o restante em partes iguais. */
+  grid-template-columns:
+    minmax(13rem, 2fr) minmax(7.5rem, 1fr) minmax(7.5rem, 1fr) minmax(7rem, 1fr) minmax(7rem, 1fr);
   gap: 1rem;
+  align-items: start;
 }
 
-.colPeriodo {
-  grid-column: span 6;
-}
-
-.colEspecialidade {
-  grid-column: span 3;
-}
-
-.colProcedimento {
-  grid-column: span 3;
-}
-
-.colStatus {
-  grid-column: span 4;
-}
-
+.colPeriodo,
+.colEspecialidade,
+.colProcedimento,
+.colStatus,
 .colBloqueio {
-  grid-column: span 4;
+  grid-column: auto;
+  min-width: 0;
 }
 
+/* O período divide a própria coluna entre as duas datas e o "até". */
+.colPeriodo > :global(.periodo) {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.colPeriodo > :global(.periodo) > input[type="date"] {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+}
+
+/* Ações sozinhas na segunda linha, à direita. */
 .acoesDashboard {
-  grid-column: span 4;
-  align-self: end;
-  /* Largura do conteúdo: os botões ficam numa única linha, à direita. */
-  justify-self: end;
+  grid-column: 1 / -1;
+  display: flex;
   flex-wrap: nowrap;
+  align-items: center;
   justify-content: flex-end;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
 }
 
 .acoesDashboard > button {
   white-space: nowrap;
 }
 
-/* O período usa as duas datas com a largura natural, mas encosta o campo no
-   rótulo (o bloco do grid já posiciona rótulo e campo). */
-.colPeriodo > :global(.periodo) {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
-}
+/* Até 1180px a largura não comporta cinco filtros numa linha: período na
+   linha inteira e os 4 selects em 2x2 (nenhum campo espremido). */
+@media (max-width: 1180px) {
+  .gridDashboard {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
 
-@media (max-width: 1100px) {
   .colPeriodo {
-    grid-column: span 12;
+    grid-column: 1 / -1;
   }
 
-  .colEspecialidade,
-  .colProcedimento {
-    grid-column: span 6;
-  }
-
-  .colStatus,
-  .colBloqueio {
-    grid-column: span 6;
-  }
-
-  .acoesDashboard {
-    grid-column: span 12;
-    justify-self: end;
-    justify-content: flex-end;
-  }
-}
-
-@media (max-width: 640px) {
-  .colPeriodo,
   .colEspecialidade,
   .colProcedimento,
   .colStatus,
   .colBloqueio {
-    grid-column: span 12;
+    grid-column: auto;
+  }
+}
+
+/* Abaixo disso, um filtro por linha (sem espremer selects). */
+@media (max-width: 700px) {
+  .gridDashboard {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .gridDashboard {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .colEspecialidade,
+  .colProcedimento,
+  .colStatus,
+  .colBloqueio {
+    grid-column: auto;
   }
 
   .acoesDashboard {
-    justify-self: stretch;
     justify-content: flex-start;
   }
 }
