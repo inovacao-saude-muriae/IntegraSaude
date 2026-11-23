@@ -105,11 +105,12 @@ const menuSections = [
             isNestedDropdown: true,
             visivelSe: "FARMACIA",
             nestedItems: [
+              // Dashboard é o primeiro item da Farmácia Judicial.
+              { name: "Dashboard", subTab: "DASHBOARD" },
               { name: "Novo Processo", subTab: "PACIENTES" },
               { name: "Estoque", subTab: "ESTOQUE" },
               { name: "Dispensação", subTab: "DISPENSACAO" },
               { name: "separator", isSeparator: true },
-              { name: "Dashboard", subTab: "DASHBOARD" },
               { name: "Relatórios", subTab: "RELATORIOS" },
             ],
           },

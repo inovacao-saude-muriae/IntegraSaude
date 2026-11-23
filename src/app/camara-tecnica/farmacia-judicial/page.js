@@ -25,7 +25,7 @@ import {
   getRelatorioSaidaPorMedicamento,
 } from "./actions";
 
-import Dashboard from "./Dashboard";
+import DashboardFarmacia from "./dashboard-gerencial/DashboardFarmacia";
 import PacientesJudiciais from "./PacientesJudiciais";
 import PacientesTab from "./PacientesTab";
 import Medicamentos from "./Medicamentos";
@@ -63,7 +63,6 @@ function FarmaciaJudicialPageContent() {
   const [relatorioSaidaPorMed, setRelatorioSaidaPorMed] = useState([]);
   const [catalogo, setCatalogo] = useState([]);
   const [catalogoCompleto, setCatalogoCompleto] = useState([]);
-  const [metrics, setMetrics] = useState({});
 
   // Função para recarregar dados manualmente após ações (cadastros, dispensações, etc.)
   const reloadData = async () => {
@@ -86,7 +85,6 @@ function FarmaciaJudicialPageContent() {
       setEstoqueAgrupado(agrData || []);
       setCatalogo(catData || []);
       setCatalogoCompleto(catFull || []);
-      setMetrics(metData || {});
       setRelatorioEntradas(entData || []);
       setRelatorioSaidas(saiData || []);
       setRelatorioSaidaPorMed(saiMedData || []);
@@ -123,7 +121,6 @@ function FarmaciaJudicialPageContent() {
           setEstoqueAgrupado(agrData || []);
           setCatalogo(catData || []);
           setCatalogoCompleto(catFull || []);
-          setMetrics(metData || {});
           setRelatorioEntradas(entData || []);
           setRelatorioSaidas(saiData || []);
           setRelatorioSaidaPorMed(saiMedData || []);
@@ -259,15 +256,7 @@ function FarmaciaJudicialPageContent() {
   return (
     <div className={styles.container}>
       {/* ROTEAMENTO DIRETO POR COMPONENTE */}
-      {activeTab === "DASHBOARD" && (
-        <Dashboard
-          metrics={metrics}
-          onNavigate={handleNavigate}
-          loading={loading}
-          medicamentosList={estoqueAgrupado}
-          estoqueLotes={estoqueLotes}
-        />
-      )}
+      {activeTab === "DASHBOARD" && <DashboardFarmacia />}
 
       {activeTab === "PACIENTES" && (
         <PacientesJudiciais
