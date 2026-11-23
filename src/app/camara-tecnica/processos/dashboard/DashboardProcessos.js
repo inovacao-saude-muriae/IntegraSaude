@@ -287,12 +287,6 @@ export default function DashboardProcessos() {
                 valor={`${String(ind.percentualComBloqueio).replace(".", ",")}%`}
               />
               <Card titulo="Valor total dos bloqueios" valor={formatarMoeda(ind.valorTotalBloqueios)} tom="financeiro" />
-              <Card
-                titulo="Valor total dos processos"
-                valor="Não disponível"
-                nota="O banco não registra valor por processo."
-                tom="indisponivel"
-              />
             </div>
 
             {/* ── 3. EVOLUÇÃO MENSAL ───────────────────────────────────────── */}

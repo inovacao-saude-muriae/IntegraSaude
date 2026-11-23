@@ -16,9 +16,8 @@
 //  • Dinheiro   → `SUM(valor)` em NUMERIC(14,2), devolvido como STRING decimal
 //                 (sem float). A formatação em R$ é feita no cliente.
 //
-// Sem valor de processo no banco: o indicador "Valor total dos processos" NÃO
-// é calculado — `processos_judiciais` não tem coluna de valor e nada é
-// inventado nem criado para preenchê-lo.
+// `processos_judiciais` não tem coluna de valor: o dashboard não expõe
+// indicador de valor total dos processos (nada é inventado ou criado).
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { prisma } from "@/lib/prisma";
@@ -222,8 +221,6 @@ export async function obterDashboardProcessos(filtros = {}) {
         percentualComBloqueio:
           totalProcessos > 0 ? Number(((comBloqueio / totalProcessos) * 100).toFixed(1)) : 0,
         valorTotalBloqueios: String(bl.valor_total ?? "0"),
-        // Sem coluna de valor do processo no banco: não calculado.
-        valorTotalProcessos: null,
         totalBloqueios,
         mediaBloqueiosPorProcesso:
           comBloqueio > 0 ? Number((totalBloqueios / comBloqueio).toFixed(2)) : 0,
