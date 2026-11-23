@@ -5,8 +5,8 @@ import { buscarPessoaExistente } from './actions';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { documentoPaciente } from '@/app/regulacao/constants';
 import { mascararTelefone } from '@/lib/telefone';
-import SeletorPaciente from '@/components/SeletorPaciente';
-import SituacaoPessoa, { pessoaAptaParaVinculo } from '@/components/cadastros/SituacaoPessoa';
+import { pessoaAptaParaVinculo } from '@/components/cadastros/SituacaoPessoa';
+import IdentificacaoPaciente from '@/components/IdentificacaoPaciente';
 import { formatarCpfExibicao } from '@/lib/cpf';
 import '@/components/cadastros/padraoCadastro.css';
 import styles from './CadastroPacienteJunta.module.css';
@@ -28,6 +28,8 @@ export default function CadastroPacienteJunta({
 
   // Pessoa selecionada (cadastro em /pessoas). Aqui só se anexa dados da Junta.
   const [pessoa, setPessoa] = useState(null);
+  // Texto da busca do container (controlado pelo componente único).
+  const [buscaTexto, setBuscaTexto] = useState('');
   const [tiposDeficiencia, setTiposDeficiencia] = useState([]);
   const [locaisEncaminhados, setLocaisEncaminhados] = useState([]);
   const [salvando, setSalvando] = useState(false);
@@ -41,6 +43,7 @@ export default function CadastroPacienteJunta({
     if (!p) return handleClear(); // campo editado: descarta a seleção
     // `p.situacao` vem da pessoa central e é apenas exibido (somente leitura).
     setPessoa(p);
+    setBuscaTexto(p.nomeCompleto || p.nome || '');
     // Pré-carrega dados de Junta já existentes, se vierem na busca.
     const existentes = (p.tipoDeficiencia || '')
       .split(',')
@@ -52,6 +55,7 @@ export default function CadastroPacienteJunta({
 
   const handleClear = () => {
     setPessoa(null);
+    setBuscaTexto('');
     setTiposDeficiencia([]);
     setLocaisEncaminhados([]);
   };
@@ -97,49 +101,42 @@ export default function CadastroPacienteJunta({
       <div className="paginaPainel">
         <h2 className={styles.cardTitle}>{titulo}</h2>
 
-        {/* SEÇÃO 1: IDENTIFICAÇÃO DO PACIENTE (estilo Novo Pedido) */}
-        <div className={styles.identSection}>
-          <div className={styles.identHeader}>
-            <h4>1. Identificação do Paciente</h4>
-          </div>
-
-          {/* SELETOR DE PACIENTE E DADOS NA MESMA LINHA */}
-          <div className={styles.dataGrid}>
-            <div className={`${styles.field} ${styles.colName}`}>
-              <SeletorPaciente
-                onSelect={handleSelectPessoa}
-                label="Nome completo"
-                placeholder="Digite nome ou CPF para buscar..."
-                required
-                value={pessoa}
-                // Cadastro único: a busca traz também pessoas falecidas
-                // (pesquisa/consulta). O vínculo novo é bloqueado depois.
-                incluirIndisponiveis
-              />
-            </div>
-            
-            <div className={`${styles.field} ${styles.colCpf}`}>
-              <label>CPF</label>
-              <input type="text" value={pessoa ? formatCPF(pessoa.cpf) : ''} disabled readOnly placeholder="000.000.000-00" />
-            </div>
-            
-            <div className={`${styles.field} ${styles.colMother}`}>
-              <label>Nome da mãe</label>
-              <input type="text" value={pessoa?.nomeMae || ''} disabled readOnly placeholder="—" />
-            </div>
-            
-            <div className={`${styles.field} ${styles.colMed}`}>
-              <label>Telefone / WhatsApp</label>
-              <input type="text" value={mascararTelefone(pessoa?.telefone)} disabled readOnly placeholder="(00) 00000-0000" />
-            </div>
-
-            <SituacaoPessoa
-              situacao={pessoa ? pessoa.situacao || "" : ""}
-              className={`${styles.field} ${styles.colSituacao}`}
-            />
-          </div>
-        </div>
-        {/* FIM DA SEÇÃO 1 */}
+        {/* BLOCO 1 — IDENTIFICAÇÃO DO PACIENTE: container ÚNICO, o mesmo
+            componente e layout da Regulação (Novo Pedido) e da Farmácia
+            Judicial. Dados da tabela central `pessoa`, somente leitura;
+            só a busca é editável. */}
+        <IdentificacaoPaciente
+          titulo="1. Identificação do Paciente"
+          buscaLabel="Nome do Paciente"
+          buscaPlaceholder="Digite o nome ou CPF para buscar..."
+          buscaTexto={buscaTexto}
+          onBuscaTextoChange={setBuscaTexto}
+          onSelect={handleSelectPessoa}
+          buscar={(termo) => buscarPessoaExistente(termo)}
+          incluirIndisponiveis
+          cpfSelecionado={pessoa?.cpf || ''}
+          paciente={
+            pessoa
+              ? {
+                  nomeMae: pessoa.nomeMae,
+                  dataNascimento: pessoa.dataNascimento,
+                  sexo: pessoa.sexo,
+                  telefone: pessoa.telefone,
+                  cpf: pessoa.cpf,
+                  cns: pessoa.cns,
+                  situacao: pessoa.situacao,
+                  ubsReferencia: pessoa.ubsReferencia,
+                  logradouro: pessoa.logradouro,
+                  numero: pessoa.numero,
+                  complemento: pessoa.complemento,
+                  bairro: pessoa.bairro,
+                  cidade: pessoa.cidade,
+                  uf: pessoa.uf,
+                  cep: pessoa.cep,
+                }
+              : null
+          }
+        />
 
         <form onSubmit={handleSubmit} className={styles.formContainer}>
           {/* TIPO DE DEFICIÊNCIA */}
