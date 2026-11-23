@@ -166,8 +166,8 @@ export default function DashboardProcessos() {
             <h4>Filtros do Dashboard</h4>
           </div>
 
-          <div className={consultaStyles.gridFiltros}>
-            <div className={`${consultaStyles.fieldGroup} ${consultaStyles.colPeriodoCadastro}`}>
+          <div className={`${consultaStyles.gridFiltros} ${styles.gridDashboard}`}>
+            <div className={`${consultaStyles.fieldGroup} ${styles.colPeriodo}`}>
               <label>Período do cadastro</label>
               <div className={consultaStyles.periodo}>
                 <input
@@ -186,7 +186,7 @@ export default function DashboardProcessos() {
               </div>
             </div>
 
-            <div className={`${consultaStyles.fieldGroup} ${consultaStyles.colEspecialidade}`}>
+            <div className={`${consultaStyles.fieldGroup} ${styles.colEspecialidade}`}>
               <label>Especialidade</label>
               <select
                 value={filtros.especialidade}
@@ -201,7 +201,7 @@ export default function DashboardProcessos() {
               </select>
             </div>
 
-            <div className={`${consultaStyles.fieldGroup} ${consultaStyles.colProcedimento}`}>
+            <div className={`${consultaStyles.fieldGroup} ${styles.colProcedimento}`}>
               <label>Procedimento</label>
               <select
                 value={filtros.procedimento}
@@ -216,7 +216,7 @@ export default function DashboardProcessos() {
               </select>
             </div>
 
-            <div className={`${consultaStyles.fieldGroup} ${consultaStyles.colStatus}`}>
+            <div className={`${consultaStyles.fieldGroup} ${styles.colStatus}`}>
               <label>Status do Processo</label>
               <select
                 value={filtros.status}
@@ -228,7 +228,7 @@ export default function DashboardProcessos() {
               </select>
             </div>
 
-            <div className={`${consultaStyles.fieldGroup} ${consultaStyles.colFiltroVazio}`}>
+            <div className={`${consultaStyles.fieldGroup} ${styles.colBloqueio}`}>
               <label>Possui Bloqueio</label>
               <select
                 value={filtros.possuiBloqueio}
@@ -240,7 +240,7 @@ export default function DashboardProcessos() {
               </select>
             </div>
 
-            <div className={consultaStyles.filtrosAcoes}>
+            <div className={`${consultaStyles.filtrosAcoes} ${styles.acoesDashboard}`}>
               <button type="submit" className={consultaStyles.btnPrimario} disabled={carregando}>
                 <Filter size={16} strokeWidth={2.5} aria-hidden="true" />
                 {carregando ? "Filtrando…" : "Filtrar"}

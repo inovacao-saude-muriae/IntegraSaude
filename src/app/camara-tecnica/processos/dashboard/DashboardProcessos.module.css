@@ -322,3 +322,93 @@
     grid-column: 1 / -1;
   }
 }
+
+/* ═══ FILTROS DO DASHBOARD — duas linhas, sem espaços vazios ═══════════════
+   Linha 1: Período do cadastro | Especialidade | Procedimento
+   Linha 2: Status do Processo | Possui Bloqueio | Filtrar + Limpar filtros
+   As alturas (40px), o recuo dos rótulos e o fundo cinza claro continuam
+   vindo de ConsultarProcessos.module.css (mesmo padrão da Farmácia Judicial);
+   aqui só se distribuem as colunas. */
+.gridDashboard {
+  grid-template-columns: repeat(12, 1fr);
+  gap: 1rem;
+}
+
+.colPeriodo {
+  grid-column: span 6;
+}
+
+.colEspecialidade {
+  grid-column: span 3;
+}
+
+.colProcedimento {
+  grid-column: span 3;
+}
+
+.colStatus {
+  grid-column: span 4;
+}
+
+.colBloqueio {
+  grid-column: span 4;
+}
+
+.acoesDashboard {
+  grid-column: span 4;
+  align-self: end;
+  /* Largura do conteúdo: os botões ficam numa única linha, à direita. */
+  justify-self: end;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+}
+
+.acoesDashboard > button {
+  white-space: nowrap;
+}
+
+/* O período usa as duas datas com a largura natural, mas encosta o campo no
+   rótulo (o bloco do grid já posiciona rótulo e campo). */
+.colPeriodo > :global(.periodo) {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
+  .colPeriodo {
+    grid-column: span 12;
+  }
+
+  .colEspecialidade,
+  .colProcedimento {
+    grid-column: span 6;
+  }
+
+  .colStatus,
+  .colBloqueio {
+    grid-column: span 6;
+  }
+
+  .acoesDashboard {
+    grid-column: span 12;
+    justify-self: end;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 640px) {
+  .colPeriodo,
+  .colEspecialidade,
+  .colProcedimento,
+  .colStatus,
+  .colBloqueio {
+    grid-column: span 12;
+  }
+
+  .acoesDashboard {
+    justify-self: stretch;
+    justify-content: flex-start;
+  }
+}
