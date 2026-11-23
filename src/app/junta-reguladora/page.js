@@ -11,6 +11,7 @@ import {
 } from "./actions";
 
 import CadastroPacienteJunta from "./CadastroPacienteJunta";
+import ConsultarPedidos from "./ConsultarPedidos";
 import AtendimentoServico from "./AtendimentoServico";
 import AgendaServico from "./AgendaServico";
 import ProntuarioRelatorio from "./ProntuarioRelatorio";
@@ -63,6 +64,8 @@ function JuntaReguladoraPageContent() {
   const [prontuarioData, setProntuarioData] = useState(null);
   const [loadingServico, setLoadingServico] = useState(false);
   const [abaServico, setAbaServico] = useState("ATENDIMENTO");
+  // Aba interna do Cadastro: Novo Pedido (padrão) ou Consultar Pedidos.
+  const [abaPedido, setAbaPedido] = useState("NOVO");
 
   // Reset direto de estado derivado do serviço/aba sem precisar de useEffect
   const [prevServico, setPrevServico] = useState(servicoNomeFormatado);
@@ -175,18 +178,46 @@ function JuntaReguladoraPageContent() {
           Junta / PacienteJunta) para não colidir com as abas existentes. */}
       {activeTab === "PESSOAS" && <PacientesTab />}
 
-      {activeTab === "CADASTRO" && (
-        <CadastroPacienteJunta
-          onCadastrar={handleCadastrarPaciente}
-          titulo="Cadastrar Novo Pedido"
-        />
-      )}
 
       {activeTab === "SERVICOS" && !servicoLiberado && (
         <AcessoNegadoModulo
           modulo={servicoNomeFormatado}
           mensagem="Você não tem acesso a este serviço da Junta Reguladora."
         />
+      )}
+
+      {/* Aba "Cadastro" (Novo Pedido): duas abas internas no MESMO padrão de
+          Consultar Processos da Farmácia Judicial — "Novo Pedido" (padrão) e
+          "Consultar Pedidos". O formulário existente fica integralmente na
+          primeira aba; a consulta é somente leitura. */}
+      {activeTab === "CADASTRO" && (
+        <div className="paginaPainel">
+          <div className="paginaAbas">
+            <button
+              type="button"
+              className={`paginaAba ${abaPedido === "NOVO" ? "paginaAbaAtiva" : ""}`}
+              onClick={() => setAbaPedido("NOVO")}
+            >
+              Novo Pedido
+            </button>
+            <button
+              type="button"
+              className={`paginaAba ${abaPedido === "CONSULTAR" ? "paginaAbaAtiva" : ""}`}
+              onClick={() => setAbaPedido("CONSULTAR")}
+            >
+              Consultar Pedidos
+            </button>
+          </div>
+
+          {abaPedido === "NOVO" ? (
+            <CadastroPacienteJunta
+              onCadastrar={handleCadastrarPaciente}
+              titulo="Cadastrar Novo Pedido"
+            />
+          ) : (
+            <ConsultarPedidos />
+          )}
+        </div>
       )}
 
       {activeTab === "SERVICOS" && servicoLiberado && (

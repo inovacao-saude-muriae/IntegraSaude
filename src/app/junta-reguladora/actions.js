@@ -15,6 +15,7 @@ import {
   MODULOS,
   NIVEIS,
   usuarioEhAdminModulo,
+  usuarioTemPermissao,
 } from '@/lib/permissions';
 
 // Helper para converter BigInt e Objetos Date sem erro de serialização no Next.js
@@ -536,6 +537,335 @@ export async function getEspecialidadesPorServico(servicoNome) {
   } catch (error) {
     console.error('Erro ao buscar especialidades por serviço:', error);
     return [];
+  }
+}
+
+/* ── 5.1 CONSULTAR PEDIDOS (atendimentos da Junta) ─────────────────────────
+ * Mesma estrutura da Consulta de Processos da Farmácia Judicial: filtros no
+ * backend, 100 registros por página, ordenação do mais recente para o mais
+ * antigo e visualização completa somente leitura.
+ *
+ * O PEDIDO da Junta é o atendimento registrado por serviço (junta_atendimentos):
+ * paciente (junta_pacientes → pessoa), serviço (junta_servicos), especialidade,
+ * data do atendimento, situação e profissional responsável.
+ *
+ * Escopo de serviços: quem não é ADMINISTRADOR do módulo JUNTA só consulta os
+ * serviços efetivamente vinculados (mesma regra de `getEspecialidadesPorServico`).
+ * A tabela central `pessoa` não é alterada por estas ações.
+ * ───────────────────────────────────────────────────────────────────────── */
+const PEDIDOS_PAGINA_TAMANHO = 100;
+const FUSO_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+// Situações do pedido — as MESMAS usadas no registro do atendimento.
+const SITUACOES_PEDIDO = {
+  PRESENCA: 'Presença',
+  FALTA: 'Falta',
+  FALTA_JUSTIFICADA: 'Falta justificada',
+};
+
+const rotuloSituacaoPedido = (v) => {
+  const chave = String(v || '').trim().toUpperCase();
+  return SITUACOES_PEDIDO[chave] || chave || '—';
+};
+
+// dd/mm/aaaa a partir de ISO, sem passar por Date (evita efeito de fuso).
+const dataIsoParaBr = (v) => {
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v || ''));
+  return iso ? `${iso[3]}/${iso[2]}/${iso[1]}` : '';
+};
+
+// yyyy-mm-dd válido → Date no início/fim do dia LOCAL (America/Sao_Paulo).
+function diaLocalParaUtcPedido(valor, limite) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(valor || '').trim());
+  if (!m) return null;
+  const base = new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00.000Z`);
+  if (Number.isNaN(base.getTime())) return null;
+  return new Date(
+    base.getTime() - FUSO_OFFSET_MS + (limite === 'fim' ? 24 * 60 * 60 * 1000 - 1 : 0),
+  );
+}
+
+// Ids dos serviços que o vínculo da Junta alcança (null = todos).
+async function idsServicosDoEscopo(user) {
+  if (await usuarioEhAdminModulo(user, MODULOS.JUNTA)) return null;
+  const ids = [];
+  for (const a of user.acessos || []) {
+    if (a.modulo !== MODULOS.JUNTA) continue;
+    if (a.ativo === false) continue;
+    if (a.escopo === 'TODOS') {
+      const todos = await prisma.servico.findMany({ select: { id: true } });
+      return todos.map((s) => s.id);
+    }
+    for (const id of a.servicos || []) {
+      const numero = Number(id);
+      if (Number.isInteger(numero)) ids.push(numero);
+    }
+  }
+  return [...new Set(ids)];
+}
+
+// Catálogo de filtros (serviços e especialidades), respeitando o escopo.
+export async function listarFiltrosPedidosJunta() {
+  try {
+    const user = await requireAcessoModulo(MODULOS.JUNTA);
+    const permitidos = await idsServicosDoEscopo(user);
+    const whereServico = permitidos === null ? {} : { id: { in: permitidos } };
+
+    const [servicos, especialidades] = await Promise.all([
+      prisma.servico.findMany({
+        where: { ...whereServico, ativo: true },
+        orderBy: { nome: 'asc' },
+        select: { id: true, nome: true },
+      }),
+      prisma.especialidade.findMany({
+        where: {
+          ativo: true,
+          servico: { ativo: true, ...(permitidos === null ? {} : { id: { in: permitidos } }) },
+        },
+        orderBy: { nome: 'asc' },
+        select: { id: true, nome: true, servicoId: true },
+      }),
+    ]);
+
+    return serializeData({
+      success: true,
+      servicos,
+      especialidades,
+      situacoes: Object.entries(SITUACOES_PEDIDO).map(([valor, rotulo]) => ({ valor, rotulo })),
+    });
+  } catch (error) {
+    console.error('Erro ao carregar os filtros de pedidos:', error);
+    return { success: false, error: 'Não foi possível carregar os filtros.', servicos: [], especialidades: [], situacoes: [] };
+  }
+}
+
+// Busca suspensa "Buscar Registro": nome ou CPF do paciente.
+export async function buscarPedidosJunta(termo = '') {
+  try {
+    const user = await requireAcessoModulo(MODULOS.JUNTA);
+    const t = String(termo || '').trim().slice(0, 100);
+    if (t.length < 1) return [];
+
+    const permitidos = await idsServicosDoEscopo(user);
+    if (permitidos !== null && permitidos.length === 0) return [];
+
+    const digitos = t.replace(/\D/g, '');
+    const atendimentos = await prisma.juntaAtendimento.findMany({
+      where: {
+        ...(permitidos === null ? {} : { servicoId: { in: permitidos } }),
+        pacienteJunta: {
+          pessoa: {
+            unificadoEmCpf: null,
+            OR: [
+              { nomeCompleto: { contains: t, mode: 'insensitive' } },
+              ...(digitos.length >= 3 ? [{ cpf: { contains: digitos } }] : []),
+            ],
+          },
+        },
+      },
+      include: {
+        servico: { select: { nome: true } },
+        pacienteJunta: { include: { pessoa: { select: { nomeCompleto: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+    });
+
+    return serializeData(
+      atendimentos.map((a) => ({
+        id: a.id,
+        patientName: a.pacienteJunta?.pessoa?.nomeCompleto || '',
+        servicoNome: a.servico?.nome || '',
+        dataCadastro: a.createdAt ? a.createdAt.toISOString().slice(0, 10) : '',
+      })),
+    );
+  } catch (error) {
+    console.error('Erro na busca suspensa de pedidos:', error);
+    return [];
+  }
+}
+
+// Consulta paginada (100 por página) — sem filtros devolve todos do escopo.
+export async function listarPedidosJunta({
+  busca = '',
+  buscaId = null,
+  servicoId = '',
+  especialidadeId = '',
+  situacao = 'todos',
+  dataInicio = '',
+  dataFim = '',
+  pagina = 1,
+} = {}) {
+  try {
+    const user = await requireAcessoModulo(MODULOS.JUNTA);
+    const permitidos = await idsServicosDoEscopo(user);
+    if (permitidos !== null && permitidos.length === 0) {
+      return { success: true, registros: [], total: 0, pagina: 1, totalPaginas: 1, porPagina: PEDIDOS_PAGINA_TAMANHO };
+    }
+
+    const and = [];
+    if (permitidos !== null) and.push({ servicoId: { in: permitidos } });
+
+    // Busca suspensa: o pedido escolhido é o filtro principal; o texto livre
+    // procura no nome e no CPF do paciente.
+    const idSelecionado = Number(buscaId);
+    if (Number.isInteger(idSelecionado) && idSelecionado > 0) {
+      and.push({ id: idSelecionado });
+    } else {
+      const t = String(busca || '').trim().slice(0, 100);
+      if (t) {
+        const digitos = t.replace(/\D/g, '');
+        and.push({
+          pacienteJunta: {
+            pessoa: {
+              OR: [
+                { nomeCompleto: { contains: t, mode: 'insensitive' } },
+                ...(digitos.length >= 3 ? [{ cpf: { contains: digitos } }] : []),
+              ],
+            },
+          },
+        });
+      }
+    }
+
+    const sId = Number(servicoId);
+    if (Number.isInteger(sId) && sId > 0) and.push({ servicoId: sId });
+
+    // Especialidade é independente do serviço: permite buscar por
+    // especialidade sem escolher serviço.
+    const eId = Number(especialidadeId);
+    if (Number.isInteger(eId) && eId > 0) {
+      const esp = await prisma.especialidade.findUnique({
+        where: { id: eId },
+        select: { nome: true, servicoId: true },
+      });
+      if (esp) and.push({ especialidade: esp.nome });
+    }
+
+    const sit = String(situacao || 'todos').toUpperCase();
+    if (SITUACOES_PEDIDO[sit]) and.push({ status: sit });
+
+    const de = diaLocalParaUtcPedido(dataInicio, 'inicio');
+    const ate = diaLocalParaUtcPedido(dataFim, 'fim');
+    if (de || ate) {
+      and.push({ createdAt: { ...(de ? { gte: de } : {}), ...(ate ? { lte: ate } : {}) } });
+    }
+
+    const where = and.length ? { AND: and } : {};
+    const pag = Math.max(1, Number(pagina) || 1);
+
+    const [total, atendimentos] = await Promise.all([
+      prisma.juntaAtendimento.count({ where }),
+      prisma.juntaAtendimento.findMany({
+        where,
+        include: {
+          servico: { select: { nome: true } },
+          pacienteJunta: { include: { pessoa: { select: { nomeCompleto: true, cpf: true } } } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (pag - 1) * PEDIDOS_PAGINA_TAMANHO,
+        take: PEDIDOS_PAGINA_TAMANHO,
+      }),
+    ]);
+
+    return serializeData({
+      success: true,
+      registros: atendimentos.map((a) => ({
+        id: a.id,
+        dataCadastro: a.createdAt ? a.createdAt.toISOString().slice(0, 10) : '',
+        patientName: a.pacienteJunta?.pessoa?.nomeCompleto || '',
+        cpf: a.pacienteJunta?.pessoa?.cpf || '',
+        servicoNome: a.servico?.nome || '',
+        especialidade: a.especialidade || '',
+        situacao: rotuloSituacaoPedido(a.status),
+      })),
+      total,
+      pagina: pag,
+      totalPaginas: Math.max(1, Math.ceil(total / PEDIDOS_PAGINA_TAMANHO)),
+      porPagina: PEDIDOS_PAGINA_TAMANHO,
+    });
+  } catch (error) {
+    console.error('Erro ao consultar pedidos:', error);
+    return { success: false, error: 'Não foi possível consultar os pedidos.' };
+  }
+}
+
+// Visualização completa (somente leitura): paciente + pedido.
+export async function obterPedidoJunta(id) {
+  try {
+    const user = await requireAcessoModulo(MODULOS.JUNTA);
+    const pedidoId = Number(id);
+    if (!Number.isInteger(pedidoId) || pedidoId <= 0) {
+      return { success: false, error: 'Pedido inválido.' };
+    }
+
+    const atendimento = await prisma.juntaAtendimento.findUnique({
+      where: { id: pedidoId },
+      include: {
+        servico: { select: { nome: true } },
+        pacienteJunta: {
+          include: {
+            pessoa: {
+              include: {
+                enderecos: { where: { enderecoAtual: true }, take: 1 },
+                ubsReferencia: { select: { nome: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!atendimento) return { success: false, error: 'Pedido não encontrado.' };
+
+    const permitidos = await idsServicosDoEscopo(user);
+    if (permitidos !== null && !permitidos.includes(atendimento.servicoId)) {
+      return { success: false, error: 'Acesso negado ao serviço deste pedido.' };
+    }
+
+    const pessoa = atendimento.pacienteJunta?.pessoa || {};
+    const endereco = pessoa.enderecos?.[0] || {};
+
+    return serializeData({
+      success: true,
+      data: {
+        id: atendimento.id,
+        // Paciente (tabela central `pessoa`)
+        patientName: pessoa.nomeCompleto || '',
+        cpf: pessoa.cpf || '',
+        cns: pessoa.cns || '',
+        dataNascimento: pessoa.dataNascimento
+          ? new Date(pessoa.dataNascimento).toISOString().slice(0, 10)
+          : '',
+        sexo: pessoa.sexo || '',
+        telefone: pessoa.telefone || '',
+        nomeMae: pessoa.nomeMae || '',
+        situacaoCadastral: pessoa.situacao || '',
+        ubsReferencia: pessoa.ubsReferencia?.nome || '',
+        logradouro: endereco.logradouro || '',
+        numero: endereco.numero || '',
+        complemento: endereco.complemento || '',
+        bairro: endereco.bairro || '',
+        cidade: endereco.cidade || '',
+        uf: endereco.uf || '',
+        cep: endereco.cep || '',
+        tipoDeficiencia: atendimento.pacienteJunta?.tipoDeficiencia || '',
+        // Pedido
+        servicoNome: atendimento.servico?.nome || '',
+        especialidade: atendimento.especialidade || '',
+        dataAtendimento: atendimento.dataAtendimento
+          ? new Date(atendimento.dataAtendimento).toISOString().slice(0, 10)
+          : '',
+        situacao: rotuloSituacaoPedido(atendimento.status),
+        profissionalResponsavel: atendimento.profissionalResponsavel || '',
+        observacao: atendimento.observacao || '',
+        dataCadastro: atendimento.createdAt
+          ? new Date(atendimento.createdAt).toISOString().slice(0, 10)
+          : '',
+      },
+    });
+  } catch (error) {
+    console.error('Erro ao abrir o pedido:', error);
+    return { success: false, error: 'Não foi possível abrir o pedido.' };
   }
 }
 

@@ -97,9 +97,8 @@ export default function CadastroPacienteJunta({
   };
 
   return (
-    <div className="paginaContainer">
-      <div className="paginaPainel">
-        <h2 className={styles.cardTitle}>{titulo}</h2>
+    <>
+      <h2 className={styles.cardTitle}>{titulo}</h2>
 
         {/* BLOCO 1 — IDENTIFICAÇÃO DO PACIENTE: container ÚNICO, o mesmo
             componente e layout da Regulação (Novo Pedido) e da Farmácia
@@ -190,7 +189,6 @@ export default function CadastroPacienteJunta({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </>
   );
 }
