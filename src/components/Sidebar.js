@@ -233,6 +233,7 @@ const menuSections = [
             visivelSe: "CCZ",
             nestedItems: [
               { name: "Esporotricose", path: "/ccz?tab=ESPOROTRICOSE", visivelSe: "CCZ" },
+              { name: "Leishmaniose", path: "/ccz?tab=LEISHMANIOSE", visivelSe: "CCZ" },
             ],
           },
           {

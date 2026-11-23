@@ -16,6 +16,7 @@ import EsporotricoseLista from "./EsporotricoseLista";
 import DenunciasLista from "./DenunciasLista";
 import AgendaCCZ from "./AgendaCCZ";
 import TermosEmBranco from "./TermosEmBranco";
+import LeishmanioseTab from "./LeishmanioseTab";
 import {
   obterAnimal,
   obterProcedimento,
@@ -243,6 +244,10 @@ function CczPageContent() {
         />
       );
     }
+  } else if (activeTab === "LEISHMANIOSE") {
+    // CCZ > Zoonoses > Leishmaniose: abas próprias (Novo Registro /
+    // Consultar Registros) dentro do container principal do módulo.
+    conteudo = <LeishmanioseTab />;
   } else if (activeTab === "ANIMAIS") {
     if (activeSubTab === "LISTA") {
       conteudo = (
@@ -289,8 +294,13 @@ function CczPageContent() {
   // Container principal único (padrão da Lista de Espera da Regulação): engloba
   // as abas (Lista/Novo) e o conteúdo delas. O cabeçalho externo do módulo foi
   // removido — cada tela mantém o próprio título interno.
+  // Leishmaniose tem as próprias abas (Novo Registro / Consultar Registros)
+  // dentro do mesmo container — não recebe as abas Lista/Novo.
   const mostrarAbas =
-    activeTab !== "DASHBOARD" && activeTab !== "AGENDA" && activeTab !== "TERMOS";
+    activeTab !== "DASHBOARD" &&
+    activeTab !== "AGENDA" &&
+    activeTab !== "TERMOS" &&
+    activeTab !== "LEISHMANIOSE";
 
   return (
     <div className="paginaContainer">

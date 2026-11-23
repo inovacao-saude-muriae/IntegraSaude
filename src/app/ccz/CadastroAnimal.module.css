@@ -613,6 +613,17 @@
   color: white;
 }
 
+/* Etapa já concluída: mesmo azul, mais discreta, com marca de conferido. */
+.wizardStep.concluida .stepNumber {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 2px solid #2563eb;
+}
+
+.wizardStep.concluida .stepLabel {
+  color: #1d4ed8;
+}
+
 .wizardStep.skipped .stepNumber {
   background: #f1f5f9;
   color: #94a3b8;

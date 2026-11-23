@@ -68,13 +68,13 @@ model Pessoa {
 
   // Situação cadastral (fonte única entre módulos) e seu espelho técnico.
   situacao              SituacaoCadastral @default(ATIVO)
-  ativo                 Boolean   @default(true)
-  unificadoEmCpf        String?   @map("unificado_em_cpf") @db.VarChar(11)
-  dataUnificacao        DateTime? @map("data_unificacao") @db.Timestamptz(6)
-  unificadoPorUsuarioId String?   @map("unificado_por_usuario_id") @db.VarChar(11)
-  unificadoEm           Pessoa?   @relation("PessoaUnificacao", fields: [unificadoEmCpf], references: [cpf], onDelete: Restrict, onUpdate: Cascade, map: "fk_pessoa_unificado_em")
-  absorvidas            Pessoa[]  @relation("PessoaUnificacao")
-  unificadoPor          User?     @relation("PessoaUnificadaPor", fields: [unificadoPorUsuarioId], references: [cpf], onDelete: SetNull, onUpdate: Cascade, map: "fk_pessoa_unificado_por")
+  ativo                 Boolean           @default(true)
+  unificadoEmCpf        String?           @map("unificado_em_cpf") @db.VarChar(11)
+  dataUnificacao        DateTime?         @map("data_unificacao") @db.Timestamptz(6)
+  unificadoPorUsuarioId String?           @map("unificado_por_usuario_id") @db.VarChar(11)
+  unificadoEm           Pessoa?           @relation("PessoaUnificacao", fields: [unificadoEmCpf], references: [cpf], onDelete: Restrict, onUpdate: Cascade, map: "fk_pessoa_unificado_em")
+  absorvidas            Pessoa[]          @relation("PessoaUnificacao")
+  unificadoPor          User?             @relation("PessoaUnificadaPor", fields: [unificadoPorUsuarioId], references: [cpf], onDelete: SetNull, onUpdate: Cascade, map: "fk_pessoa_unificado_por")
 
   @@index([ativo], map: "idx_pessoa_ativo")
   @@index([situacao], map: "idx_pessoa_situacao")
@@ -249,18 +249,18 @@ model Especialidade {
 }
 
 model PacienteFarmaciaJudicial {
-  numeroPasta    String                   @id @map("numero_pasta") @db.VarChar(50)
-  pessoaCpf      String                   @unique @map("pessoa_cpf") @db.VarChar(11)
-  numeroProcesso String                   @map("numero_processo") @db.VarChar(100)
-  status         String                   @default("ATIVO") @db.VarChar(20)
+  numeroPasta             String                   @id @map("numero_pasta") @db.VarChar(50)
+  pessoaCpf               String                   @unique @map("pessoa_cpf") @db.VarChar(11)
+  numeroProcesso          String                   @map("numero_processo") @db.VarChar(100)
+  status                  String                   @default("ATIVO") @db.VarChar(20)
   // Situação na Farmácia Judicial (ATIVO/INATIVO) — operacional, independente
   // da Situação Cadastral da pessoa. Justificativa obrigatória ao inativar;
   // preservada como histórico da última inativação após a reativação.
-  justificativaInativacao String?        @map("justificativa_inativacao") @db.VarChar(500)
-  createdAt      DateTime?                @default(now()) @map("created_at") @db.Timestamptz(6)
-  dispensacoes   DispensacaoMedicamento[]
-  pessoa         Pessoa                   @relation(fields: [pessoaCpf], references: [cpf], onDelete: Restrict, onUpdate: Cascade)
-  tratamentos    TratamentoPaciente[]
+  justificativaInativacao String?                  @map("justificativa_inativacao") @db.VarChar(500)
+  createdAt               DateTime?                @default(now()) @map("created_at") @db.Timestamptz(6)
+  dispensacoes            DispensacaoMedicamento[]
+  pessoa                  Pessoa                   @relation(fields: [pessoaCpf], references: [cpf], onDelete: Restrict, onUpdate: Cascade)
+  tratamentos             TratamentoPaciente[]
 
   @@map("farmacia_pacientes")
 }
@@ -432,6 +432,7 @@ model Animal {
   tutor                  Tutor?                 @relation(fields: [pessoaCpf], references: [pessoaCpf], onDelete: SetNull, onUpdate: Cascade)
   denuncias              DenunciaCaoAgressivo[]
   esporotricose          Esporotricose[]
+  leishmanioses          Leishmaniose[]
   procedimentos          CadastroProcedimento[]
   termos                 TermoInternacao[]
 
@@ -499,6 +500,137 @@ model DenunciaCaoAgressivo {
   animal             Animal?   @relation(fields: [animalId], references: [id])
 
   @@map("ccz_denuncias")
+}
+
+// ── LEISHMANIOSE (CCZ) ────────────────────────────────────────────────────
+// Ficha de Fiscalização e Acompanhamento de Leishmaniose.
+// Cada linha é UMA fiscalização, com identificador próprio; o mesmo animal pode
+// ter várias. Os dados de identificação do animal e do tutor são COPIADOS no
+// momento do salvamento (snapshot histórico): alterações posteriores nos
+// cadastros centrais não reescrevem fichas já registradas nem seus PDFs.
+model Leishmaniose {
+  id               String   @id @default(uuid()) @db.VarChar(50)
+  animalId         String   @map("animal_id") @db.VarChar(50)
+  pessoaCpf        String?  @map("pessoa_cpf") @db.VarChar(11)
+  dataFiscalizacao DateTime @map("data_fiscalizacao") @db.Date
+  // Usuário autenticado que registrou (nunca editável na ficha).
+  responsavelCpf   String   @map("responsavel_cpf") @db.VarChar(11)
+  responsavelNome  String   @map("responsavel_nome") @db.VarChar(150)
+  responsavelCargo String?  @map("responsavel_cargo") @db.VarChar(150)
+
+  // Snapshot do tutor (Pessoa) na data da fiscalização.
+  tutorNome     String? @map("tutor_nome") @db.VarChar(150)
+  tutorCpf      String? @map("tutor_cpf") @db.VarChar(14)
+  tutorEndereco String? @map("tutor_endereco") @db.VarChar(400)
+  tutorTelefone String? @map("tutor_telefone") @db.VarChar(30)
+  tutorBairro   String? @map("tutor_bairro") @db.VarChar(100)
+
+  // Snapshot do animal na data da fiscalização.
+  animalNome          String? @map("animal_nome") @db.VarChar(100)
+  animalEspecie       String? @map("animal_especie") @db.VarChar(50)
+  animalSexo          String? @map("animal_sexo") @db.VarChar(20)
+  animalIdade         String? @map("animal_idade") @db.VarChar(50)
+  animalRacaPelagem   String? @map("animal_raca_pelagem") @db.VarChar(100)
+  animalIdentificacao String? @map("animal_identificacao") @db.VarChar(20)
+
+  // 3. Condição clínica e tratamento
+  apresentaLesoes    String?   @map("apresenta_lesoes") @db.VarChar(20)
+  quaisLesoes        String?   @map("quais_lesoes")
+  emTratamento       String?   @map("em_tratamento") @db.VarChar(20)
+  tratamentoInicio   DateTime? @map("tratamento_inicio") @db.Date
+  profissionalRef    String?   @map("profissional_ref") @db.VarChar(200)
+  medicamentos       String?   @map("medicamentos")
+  posologiaCorreta   String?   @map("posologia_correta") @db.VarChar(20)
+  interrupcao        String?   @map("interrupcao") @db.VarChar(20)
+  interrupcaoMotivo  String?   @map("interrupcao_motivo")
+  retornoVeterinario String?   @map("retorno_veterinario") @db.VarChar(20)
+  retornoData        DateTime? @map("retorno_data") @db.Date
+
+  // 4. Manejo e biossegurança
+  coleiraRepelente   String? @map("coleira_repelente") @db.VarChar(20)
+  coleiraTroca       String? @map("coleira_troca") @db.VarChar(100)
+  produtosHigiene    String? @map("produtos_higiene")
+  frequenciaHigiene  String? @map("frequencia_higiene") @db.VarChar(100)
+  acessoAreaRural    String? @map("acesso_area_rural") @db.VarChar(20)
+  deslocamento       String? @map("deslocamento") @db.VarChar(20)
+  deslocamentoQuando String? @map("deslocamento_quando") @db.VarChar(150)
+
+  // 5. Outros animais e pessoas na residência
+  outrosAnimais     String? @map("outros_animais") @db.VarChar(20)
+  outrosAnimaisDesc String? @map("outros_animais_desc")
+  outrosComLesoes   String? @map("outros_com_lesoes") @db.VarChar(20)
+  pessoasComLesoes  String? @map("pessoas_com_lesoes") @db.VarChar(20)
+  pessoasOrientadas String? @map("pessoas_orientadas") @db.VarChar(20)
+
+  // 6. Condições do ambiente
+  condicoesSanitarias String? @map("condicoes_sanitarias") @db.VarChar(20)
+  condicoesObs        String? @map("condicoes_obs")
+  riscoDisseminacao   String? @map("risco_disseminacao") @db.VarChar(20)
+  riscoSaudePublica   String? @map("risco_saude_publica") @db.VarChar(20)
+  riscoDescricao      String? @map("risco_descricao")
+
+  // 7. Orientações e comprometimento (tutor)
+  orientZoonose     String? @map("orient_zoonose") @db.VarChar(20)
+  orientTratamento  String? @map("orient_tratamento") @db.VarChar(20)
+  orientColeira     String? @map("orient_coleira") @db.VarChar(20)
+  orientNovasLesoes String? @map("orient_novas_lesoes") @db.VarChar(20)
+  orientObrigacoes  String? @map("orient_obrigacoes") @db.VarChar(20)
+  comprometimento   String? @map("comprometimento") @db.VarChar(20)
+
+  // 8. Conclusão da equipe técnica
+  condutaTutor       String? @map("conduta_tutor") @db.VarChar(30)
+  situacaoGeral      String? @map("situacao_geral") @db.VarChar(80)
+  encAcompanhamento  Boolean @default(false) @map("enc_acompanhamento")
+  encNotificacao     Boolean @default(false) @map("enc_notificacao")
+  encOutrasMedidas   Boolean @default(false) @map("enc_outras_medidas")
+  encOutrasDescricao String? @map("enc_outras_descricao")
+
+  // 9. Assinaturas
+  coordenadorNome  String? @map("coordenador_nome") @db.VarChar(150)
+  coordenadorCargo String? @map("coordenador_cargo") @db.VarChar(150)
+
+  criadoPor String?  @map("criado_por") @db.VarChar(11)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  animal       Animal                    @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  equipe       LeishmanioseEquipe[]
+  veterinarios LeishmanioseVeterinario[]
+
+  @@index([animalId], map: "idx_leish_animal")
+  @@index([dataFiscalizacao], map: "idx_leish_data")
+  @@map("ccz_leishmaniose")
+}
+
+// Integrantes da equipe técnica de cada fiscalização (inclui o responsável,
+// que é gravado com usuarioCpf preenchido e naoRemovivel = true).
+model LeishmanioseEquipe {
+  id             String       @id @default(uuid()) @db.VarChar(50)
+  leishmanioseId String       @map("leishmaniose_id") @db.VarChar(50)
+  ordem          Int          @default(0)
+  nome           String       @db.VarChar(150)
+  cargo          String?      @db.VarChar(150)
+  usuarioCpf     String?      @map("usuario_cpf") @db.VarChar(11)
+  naoRemovivel   Boolean      @default(false) @map("nao_removivel")
+  leishmaniose   Leishmaniose @relation(fields: [leishmanioseId], references: [id], onDelete: Cascade)
+
+  @@index([leishmanioseId], map: "idx_leish_equipe")
+  @@map("ccz_leishmaniose_equipe")
+}
+
+// Médicos veterinários responsáveis e assinantes da ficha.
+model LeishmanioseVeterinario {
+  id             String       @id @default(uuid()) @db.VarChar(50)
+  leishmanioseId String       @map("leishmaniose_id") @db.VarChar(50)
+  ordem          Int          @default(0)
+  nome           String       @db.VarChar(150)
+  registro       String?      @db.VarChar(50)
+  cargo          String?      @db.VarChar(150)
+  principal      Boolean      @default(false)
+  leishmaniose   Leishmaniose @relation(fields: [leishmanioseId], references: [id], onDelete: Cascade)
+
+  @@index([leishmanioseId], map: "idx_leish_vet")
+  @@map("ccz_leishmaniose_veterinarios")
 }
 
 model Esporotricose {
@@ -634,12 +766,12 @@ model ProcessoJudicial {
   // Situação do PROCESSO (ATIVO/INATIVO) — independente da Situação Cadastral
   // da pessoa. Justificativa obrigatória ao inativar; preservada como histórico
   // da última inativação após a reativação.
-  status                  String? @default("ATIVO") @db.VarChar(20)
-  justificativaInativacao String? @map("justificativa_inativacao") @db.VarChar(500)
-  criadoPor     String?  @map("criado_por") @db.VarChar(11)
-  atualizadoPor String?  @map("atualizado_por") @db.VarChar(11)
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  status                  String?  @default("ATIVO") @db.VarChar(20)
+  justificativaInativacao String?  @map("justificativa_inativacao") @db.VarChar(500)
+  criadoPor               String?  @map("criado_por") @db.VarChar(11)
+  atualizadoPor           String?  @map("atualizado_por") @db.VarChar(11)
+  createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   pessoa        Pessoa                 @relation(fields: [pessoaCpf], references: [cpf], onDelete: Restrict, onUpdate: Cascade, map: "fk_processo_pessoa")
   especialidade ProcessoEspecialidade? @relation(fields: [especialidadeId], references: [id], onDelete: SetNull, onUpdate: Cascade, map: "fk_processo_especialidade")

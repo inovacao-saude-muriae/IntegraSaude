@@ -1,0 +1,343 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   LEISHMANIOSE (CCZ) — estilos próprios da tela
+   Os campos, rótulos, cards e botões vêm de CadastroAnimal.module.css
+   (padrão do CCZ). Aqui ficam só os blocos numerados, a busca suspensa de
+   animal e as listas de profissionais/veterinários.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Abas fora do container interno, com respiro entre elas e o formulário
+   (mesmo espaçamento do container de cadastro da Esporotricose). */
+:global(.leishWrapper) {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.bloco {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1.25rem;
+}
+
+.blocoTitulo {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #475569;
+  margin: 0 0 0.9rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* Linhas de campos dentro do bloco (o padrão do CCZ usa grid de 12 colunas).
+   A classe fica no mesmo elemento do bloco (CSS Module), então o layout em
+   colunas é aplicado pelo próprio container. */
+.bloco.grid2,
+.bloco.grid3 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem 1rem;
+  align-items: start;
+}
+
+.bloco.grid3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* O grid do bloco define as colunas: cada campo ocupa uma coluna do bloco,
+   independentemente do span do grid de 12 colunas do módulo base (que vem
+   com hash próprio e por isso é vencido por estas regras mais específicas). */
+.bloco.grid2 > :global([class*="_field"]),
+.bloco.grid3 > :global([class*="_field"]) {
+  grid-column: auto;
+}
+
+.bloco.grid2 > :global([class*="_colLg"]) {
+  grid-column: span 2;
+}
+
+/* Em telas estreitas cada bloco volta a uma única coluna. */
+@media (max-width: 640px) {
+  .bloco.grid2,
+  .bloco.grid3,
+  .grid2,
+  .grid3,
+  .linhaGrid,
+  .linhaGridVet,
+  .linhaGridProf {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .bloco.grid2 > :global([class*="_colFull"]),
+  .bloco.grid3 > :global([class*="_colFull"]),
+  .bloco.grid3 > :global([class*="_colSpan2"]),
+  .bloco.grid2 > :global([class*="_colLg"]),
+  .grid2 > :global([class*="_colFull"]),
+  .grid3 > :global([class*="_colFull"]) {
+    grid-column: auto;
+  }
+}
+
+.bloco.grid2 > :global([class*="_colFull"]),
+.bloco.grid3 > :global([class*="_colFull"]),
+.bloco.grid3 > :global([class*="_colSpan2"]) {
+  grid-column: 1 / -1;
+}
+
+/* Dentro de um bloco em grade de 12 colunas (padrão da Esporotricose) o
+   título ocupa a linha inteira e as margens vêm do próprio bloco. */
+.tituloFull {
+  grid-column: 1 / -1;
+}
+
+/* Campo preenchido automaticamente a partir dos cadastros centrais:
+   cinza mais escuro, indicando que está inativo para edição. */
+.campoInativo,
+input.campoInativo:read-only {
+  background-color: #e2e8f0;
+  color: #475569;
+  cursor: default;
+}
+
+/* Área que ocupa a linha inteira de um bloco em grade de 12 colunas. */
+.colFull {
+  grid-column: 1 / -1;
+}
+
+/* Campo que ocupa duas colunas do bloco em grade. */
+.colSpan2 {
+  grid-column: span 2;
+}
+
+.grid2,
+.grid3 {
+  display: grid;
+  gap: 0.75rem 0.9rem;
+  align-items: start;
+  margin-bottom: 0.75rem;
+}
+
+.grid2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* Grade interna (3 colunas) usada dentro de um bloco: os campos do módulo
+   base vêm com span 3 e precisam voltar a ocupar uma coluna. */
+.grid2 > :global([class*="_field"]),
+.grid3 > :global([class*="_field"]) {
+  grid-column: auto;
+}
+
+.grid2 > :global([class*="_colFull"]),
+.grid3 > :global([class*="_colFull"]) {
+  grid-column: 1 / -1;
+}
+
+.grid2a {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem 0.9rem;
+  align-items: start;
+}
+
+.req {
+  color: #dc2626;
+}
+
+/* ── Busca suspensa de animal ───────────────────────────────────────────── */
+.buscaWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.buscaIcone {
+  position: absolute;
+  left: 0.7rem;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.buscaInput {
+  padding-left: 2.1rem;
+}
+
+.dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 60;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+  max-height: 260px;
+  overflow: auto;
+}
+
+.dropdownInfo {
+  padding: 0.75rem 0.9rem;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.dropdownTabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.dropdownTabela th {
+  text-align: left;
+  padding: 0.55rem 0.75rem;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky;
+  top: 0;
+}
+
+.dropdownTabela td {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+}
+
+.dropdownTabela tbody tr {
+  cursor: pointer;
+}
+
+.dropdownTabela tbody tr:hover {
+  background: #eff6ff;
+}
+
+/* ── Profissionais e veterinários adicionais ────────────────────────────── */
+.linhaAcao {
+  display: flex;
+  justify-content: flex-start;
+  margin: 0.25rem 0 0.75rem;
+}
+
+.linhas {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.linhaGrid {
+  display: grid;
+  grid-template-columns: 2fr 1.2fr auto;
+  gap: 0.6rem;
+  align-items: end;
+}
+
+/* Profissionais adicionais: nome e cargo lado a lado, remover no fim. */
+.linhaGridProf {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 0.75rem 0.9rem;
+  align-items: end;
+}
+
+.linhaGridProf > button {
+  margin-bottom: 0.1rem;
+}
+
+.linhaGridVet {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr auto;
+  gap: 0.6rem;
+  align-items: end;
+  margin-bottom: 0.6rem;
+}
+
+.linhaGrid input,
+.linhaGridVet input {
+  min-width: 0;
+}
+
+.tagVet {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #2563eb;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  white-space: nowrap;
+}
+
+/* ── Encaminhamentos ────────────────────────────────────────────────────── */
+.checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  margin: 0.35rem 0 0.9rem;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  color: #334155;
+  cursor: pointer;
+}
+
+.acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 900px) {
+  .grid3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .linhaGridVet {
+    grid-template-columns: 1fr 1fr auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .grid2,
+  .grid3,
+  .grid2a {
+    grid-template-columns: 1fr;
+  }
+  .linhaGrid,
+  .linhaGridVet {
+    grid-template-columns: 1fr;
+  }
+  .bloco {
+    padding: 1rem;
+  }
+}
+
+/* Aviso quando a etapa não se aplica (animal sem tutor). */
+.aviso {
+  margin: 0;
+  padding: 0.9rem 1rem;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  color: #475569;
+  font-size: 0.9rem;
+}
