@@ -117,18 +117,26 @@ export default function Dashboard({ auxData = {}, setActiveTab }) {
     .map(([cota, d]) => ({ cota, ...d }))
     .sort((a, b) => b.valor - a.valor);
 
-  // ── PRODUTIVIDADE POR MÉDICO REGULADOR ─────────────────────────────────
+  // ── PRODUTIVIDADE DOS REGULADORES ──────────────────────────────────────
+  // SOMENTE a quantidade de pedidos liberados por regulador, no período e com
+  // os filtros aplicados. O responsável é `medico_responsavel_id` (gravado na
+  // liberação), nunca o médico solicitante nem o usuário que cadastrou. Cada
+  // pedido entra UMA vez (uma linha = um pedido liberado, sem JOIN).
   const regMap = {};
   for (const r of liberados) {
+    const chave = r.regulatorDoctorId
+      ? `id:${r.regulatorDoctorId}`
+      : `nome:${(r.regulatorDoctor || "").trim().toLowerCase()}`;
     const nome = r.regulatorDoctor || "— Não informado —";
-    if (!regMap[nome]) regMap[nome] = { qtd: 0, valor: 0 };
-    regMap[nome].qtd += 1;
-    regMap[nome].valor += Number(r.estimatedCost) || 0;
+    if (!regMap[chave]) regMap[chave] = { nome, qtd: 0 };
+    regMap[chave].qtd += 1;
   }
-  const produtividadeReguladores = Object.entries(regMap)
-    .map(([nome, d]) => ({ nome, ...d }))
-    .sort((a, b) => b.qtd - a.qtd)
-    .slice(0, 6);
+  const produtividadeReguladores = Object.values(regMap)
+    .map((d) => ({ nome: d.nome, qtd: d.qtd }))
+    .sort((a, b) => b.qtd - a.qtd || a.nome.localeCompare(b.nome));
+  const maiorProdutividade = produtividadeReguladores.length
+    ? Math.max(...produtividadeReguladores.map((d) => d.qtd))
+    : 0;
 
   // ── DISTRIBUIÇÕES POR RISCO ─────────────────────────────────────────────
   const contarRisco = (lista, cor) => lista.filter((r) => r.classification === cor).length;
@@ -299,16 +307,26 @@ export default function Dashboard({ auxData = {}, setActiveTab }) {
         <div className={styles.panelCard}>
           <div className={styles.panelHeader}>
             <h3>Produtividade dos Reguladores</h3>
-            <span className={styles.cardSubtitle}>Liberações por médico regulador</span>
+            <span className={styles.cardSubtitle}>Pedidos liberados por regulador</span>
           </div>
-          <div className={styles.examTypeList}>
+          <div className={styles.reguladorBarras}>
             {produtividadeReguladores.length === 0 ? (
               <div className={styles.emptyRow}>Nenhuma liberação registrada.</div>
             ) : (
               produtividadeReguladores.map((m) => (
-                <div key={m.nome} className={styles.examTypeRow}>
-                  <span>{m.nome}</span>
-                  <span className={styles.examCountBadge}>{m.qtd} · {brl(m.valor)}</span>
+                <div key={m.nome} className={styles.reguladorBarra}>
+                  <div className={styles.reguladorTopo}>
+                    <span className={styles.reguladorNome} title={m.nome}>{m.nome}</span>
+                    <strong className={styles.reguladorValor}>
+                      {m.qtd} {m.qtd === 1 ? "liberação" : "liberações"}
+                    </strong>
+                  </div>
+                  <div className={styles.reguladorTrilho}>
+                    <div
+                      className={styles.reguladorPreenchido}
+                      style={{ width: `${maiorProdutividade ? (m.qtd / maiorProdutividade) * 100 : 0}%` }}
+                    />
+                  </div>
                 </div>
               ))
             )}
