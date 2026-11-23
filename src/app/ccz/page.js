@@ -3,7 +3,7 @@
 import { Suspense, useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 
-import DashboardCCZ from "./DashboardCCZ";
+import DashboardCCZ from "./dashboard-gerencial/DashboardCcz";
 import CadastroPessoas from "@/components/CadastroPessoas/CadastroPessoas";
 import CadastroAnimal from "./CadastroAnimal";
 import CadastroProcedimento from "./CadastroProcedimento";

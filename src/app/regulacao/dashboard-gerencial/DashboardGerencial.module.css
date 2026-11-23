@@ -66,6 +66,15 @@
   align-items: end;
 }
 
+.gridFiltrosCcz {
+  display: grid;
+  grid-template-columns:
+    minmax(15rem, 1.7fr) minmax(9rem, 1fr) minmax(9rem, 1fr)
+    minmax(8rem, 0.9fr) minmax(10rem, 1.1fr) minmax(10rem, 1.1fr);
+  gap: 0.875rem;
+  align-items: end;
+}
+
 .campoFiltro,
 .campoPeriodo {
   display: flex;
@@ -507,6 +516,7 @@
 @media (max-width: 1180px) {
   .gridFiltros,
   .gridFiltrosJunta,
+  .gridFiltrosCcz,
   .gridFiltrosFarmacia {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

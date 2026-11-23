@@ -233,6 +233,8 @@ const menuSections = [
           </svg>
         ),
         subItems: [
+          // Dashboard é o primeiro item do CCZ.
+          { name: "Dashboard", tab: "DASHBOARD", visivelSe: "CCZ" },
           { name: "Procedimentos", tab: "PROCEDIMENTOS", visivelSe: "CCZ" },
           {
             name: "Zoonoses",
@@ -254,8 +256,6 @@ const menuSections = [
             ],
           },
           { name: "Agenda", tab: "AGENDA", visivelSe: "CCZ" },
-          { name: "separator", isSeparator: true, visivelSe: "CCZ" },
-          { name: "Dashboard", tab: "DASHBOARD", visivelSe: "CCZ" },
         ],
       },
     ],
