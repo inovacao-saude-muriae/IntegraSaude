@@ -1,0 +1,324 @@
+/* Dashboard de Processos Judiciais — cards, gráficos e indicadores.
+   O container, os filtros e os botões vêm de ConsultarProcessos.module.css
+   (mesmo padrão da Consulta da Farmácia Judicial). */
+
+.titulo {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.subtitulo {
+  margin: -0.75rem 0 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+/* ── Cards dos indicadores principais ─────────────────────────────────────── */
+.cardsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 1rem;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  min-width: 0;
+}
+
+.cardTitulo {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.cardValor {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.15;
+}
+
+.cardNota {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.card_ativo .cardValor {
+  color: #15803d;
+}
+
+.card_inativo .cardValor {
+  color: #b91c1c;
+}
+
+.card_financeiro {
+  border-color: #bfdbfe;
+  background-color: #eff6ff;
+}
+
+.card_financeiro .cardValor {
+  color: #1d4ed8;
+}
+
+.card_indisponivel {
+  background-color: #ffffff;
+  border-style: dashed;
+}
+
+.card_indisponivel .cardValor {
+  font-size: 1rem;
+  color: #94a3b8;
+}
+
+/* ── Painéis dos gráficos ─────────────────────────────────────────────────── */
+.painel {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.painelTitulo {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #1e293b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.painelNota {
+  margin: -0.35rem 0 0;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.graficosGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.vazio {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+/* ── Linhas ───────────────────────────────────────────────────────────────── */
+.svgWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.svg {
+  width: 100%;
+  height: auto;
+}
+
+.legenda {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+  color: #475569;
+}
+
+.legenda span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.corProcesso,
+.corBloqueio {
+  display: inline-block;
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.corProcesso {
+  background-color: #2563eb;
+}
+
+.corBloqueio {
+  background-color: #16a34a;
+}
+
+/* ── Barras ───────────────────────────────────────────────────────────────── */
+.barras {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.barraItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 2fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.3rem 0.35rem;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+.barraItem:hover,
+.barraItem:focus-visible {
+  background-color: #f1f5f9;
+  border-color: #e2e8f0;
+  outline: none;
+}
+
+.barraNome {
+  font-size: 0.8rem;
+  color: #334155;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.barraTrilho {
+  display: block;
+  height: 10px;
+  background-color: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.barraPreenchida {
+  display: block;
+  height: 100%;
+  background-color: #2563eb;
+  border-radius: 999px;
+}
+
+.barraValor {
+  font-size: 0.8rem;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+/* ── Rosca ────────────────────────────────────────────────────────────────── */
+.roscaWrap {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.rosca {
+  width: 160px;
+  height: 160px;
+  flex: 0 0 auto;
+}
+
+.legendaRosca {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  color: #334155;
+}
+
+.legendaRosca li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.legendaRosca i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+/* ── Indicadores complementares ───────────────────────────────────────────── */
+.complementares {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.75rem 1.5rem;
+}
+
+.linhaIndicador {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.75rem;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  color: #475569;
+}
+
+.linhaIndicador strong {
+  color: #0f172a;
+  text-align: right;
+}
+
+/* ── Carregando ───────────────────────────────────────────────────────────── */
+.spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid #e2e8f0;
+  border-top-color: #2563eb;
+  animation: girar 0.9s linear infinite;
+}
+
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 900px) {
+  .graficosGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .cardsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .barraItem {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .barraTrilho {
+    grid-column: 1 / -1;
+  }
+}
