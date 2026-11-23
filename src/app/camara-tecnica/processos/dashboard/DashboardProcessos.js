@@ -289,22 +289,21 @@ export default function DashboardProcessos() {
               <Card titulo="Valor total dos bloqueios" valor={formatarMoeda(ind.valorTotalBloqueios)} tom="financeiro" />
             </div>
 
-            {/* ── 3. EVOLUÇÃO MENSAL ───────────────────────────────────────── */}
-            <section className={`${styles.painel} ${styles.painelEvolucao}`}>
-              <h3 className={styles.painelTitulo}>Evolução mensal</h3>
-              <p className={styles.painelNota}>
-                Processos pelo mês do <strong>cadastro</strong>; bloqueios pelo mês da{" "}
-                <strong>data do bloqueio</strong>.
-              </p>
-              {dados.evolucao.length === 0 ? (
-                <p className={styles.vazio}>Sem registros no período.</p>
-              ) : (
-                <GraficoLinhas dados={dados.evolucao} />
-              )}
-            </section>
-
-            {/* ── 4. GRÁFICOS POR PROCEDIMENTO E ESPECIALIDADE ─────────────── */}
+            {/* ── 3. EVOLUÇÃO MENSAL + PROCESSOS POR PROCEDIMENTO (lado a lado) ── */}
             <div className={styles.graficosGrid}>
+              <section className={styles.painel}>
+                <h3 className={styles.painelTitulo}>Evolução mensal</h3>
+                <p className={styles.painelNota}>
+                  Processos pelo mês do <strong>cadastro</strong>; bloqueios pelo mês da{" "}
+                  <strong>data do bloqueio</strong>.
+                </p>
+                {dados.evolucao.length === 0 ? (
+                  <p className={styles.vazio}>Sem registros no período.</p>
+                ) : (
+                  <GraficoLinhas dados={dados.evolucao} />
+                )}
+              </section>
+
               <section className={styles.painel}>
                 <h3 className={styles.painelTitulo}>Processos por procedimento</h3>
                 <GraficoBarras
@@ -317,7 +316,10 @@ export default function DashboardProcessos() {
                   }}
                 />
               </section>
+            </div>
 
+            {/* ── 4. GRÁFICOS POR PROCEDIMENTO E ESPECIALIDADE ─────────────── */}
+            <div className={styles.graficosGrid}>
               <section className={styles.painel}>
                 <h3 className={styles.painelTitulo}>Processos por especialidade</h3>
                 <GraficoBarras

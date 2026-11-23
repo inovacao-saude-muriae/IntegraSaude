@@ -118,11 +118,6 @@
   gap: 0.5rem;
 }
 
-.svg {
-  width: 100%;
-  height: auto;
-}
-
 .legenda {
   display: flex;
   gap: 1.25rem;
@@ -413,15 +408,19 @@
   }
 }
 
-/* Evolução mensal: card mais compacto (altura do gráfico reduzida). */
-.painelEvolucao {
-  padding: 1rem 1.25rem;
+/* Evolução mensal dividindo a linha com Processos por procedimento: o gráfico
+   acompanha a largura e a altura da coluna. */
+.svgWrap {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   gap: 0.5rem;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
-.painelEvolucao .svg {
+.svg {
   display: block;
   width: 100%;
-  max-width: 720px;
-  max-height: 165px;
+  height: auto;
 }
