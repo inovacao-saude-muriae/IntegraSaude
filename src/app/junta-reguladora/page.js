@@ -18,7 +18,7 @@ import ProntuarioRelatorio from "./ProntuarioRelatorio";
 import AcessoNegadoModulo from "@/components/AcessoNegadoModulo";
 import ServicosEspecialidadesTab from "./ServicosEspecialidadesTab";
 import PacientesTab from "./PacientesTab";
-import Dashboard from "./Dashboard";
+import DashboardJunta from "./dashboard-gerencial/DashboardJunta";
 import { usePermissoesJunta } from "./PermissoesJuntaContext";
 import { useNotify } from "@/components/ConfirmDialog";
 
@@ -171,7 +171,7 @@ function JuntaReguladoraPageContent() {
       {/* Sem cabeçalho de módulo: cada aba já traz o próprio título (padrão da
           Farmácia Judicial). Na aba "Novo Pedido" o título é "Cadastrar Novo
           Pedido", como "Novo Processo" na Farmácia. */}
-      {activeTab === "DASHBOARD" && <Dashboard />}
+      {activeTab === "DASHBOARD" && <DashboardJunta />}
 
       {/* Aba "Pacientes": tela GERAL de pessoas (model Pessoa), reaproveitada do
           Gerenciamento. subTab "PESSOAS" é distinto de "CADASTRO" (paciente da

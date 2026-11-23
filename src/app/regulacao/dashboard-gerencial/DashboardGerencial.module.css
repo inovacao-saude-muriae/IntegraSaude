@@ -57,6 +57,15 @@
   align-items: end;
 }
 
+.gridFiltrosJunta {
+  display: grid;
+  grid-template-columns:
+    minmax(10rem, 1.15fr) minmax(10rem, 1.15fr) minmax(8rem, 0.9fr)
+    minmax(11rem, 1.2fr) minmax(15rem, 1.6fr) minmax(15rem, 1.6fr);
+  gap: 0.875rem;
+  align-items: end;
+}
+
 .campoFiltro,
 .campoPeriodo {
   display: flex;
@@ -497,6 +506,7 @@
 /* ── Responsivo ────────────────────────────────────────────────────────── */
 @media (max-width: 1180px) {
   .gridFiltros,
+  .gridFiltrosJunta,
   .gridFiltrosFarmacia {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
