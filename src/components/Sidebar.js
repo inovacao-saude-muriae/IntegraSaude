@@ -115,10 +115,8 @@ const menuSections = [
             ],
           },
           {
-            // Processos Judiciais é um GRUPO de categorias. Hoje há uma:
-            // Procedimentos Cirúrgicos (Novo Processo e Realizar Bloqueio).
-            // Novas categorias entram como outros itens `isNestedDropdown`
-            // dentro de `subItems`, sem alterar a estrutura.
+            // Processos Judiciais é um grupo de 3 subitens diretos, sem nível
+            // intermediário: Novo Processo, Realizar Bloqueio e Dashboard.
             name: "Processos Judiciais",
             tab: "PROCESSOS",
             path: "/camara-tecnica/processos",
@@ -126,22 +124,14 @@ const menuSections = [
             visivelSe: "PROCESSOS",
             nestedItems: [
               {
-                name: "Procedimentos Cirúrgicos",
-                tab: "PROCEDIMENTOS_CIRURGICOS",
+                name: "Novo Processo",
                 path: "/camara-tecnica/processos",
-                isNestedDropdown: true,
-                nestedItems: [
-                  {
-                    name: "Novo Processo",
-                    path: "/camara-tecnica/processos",
-                    visivelSe: "PROCESSOS",
-                  },
-                  {
-                    name: "Realizar Bloqueio",
-                    path: "/camara-tecnica/processos/bloqueio",
-                    visivelSe: "PROCESSOS",
-                  },
-                ],
+                visivelSe: "PROCESSOS",
+              },
+              {
+                name: "Realizar Bloqueio",
+                path: "/camara-tecnica/processos/bloqueio",
+                visivelSe: "PROCESSOS",
               },
               {
                 name: "Dashboard",
