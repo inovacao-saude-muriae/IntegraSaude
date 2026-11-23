@@ -290,7 +290,7 @@ export default function DashboardProcessos() {
             </div>
 
             {/* ── 3. EVOLUÇÃO MENSAL ───────────────────────────────────────── */}
-            <section className={styles.painel}>
+            <section className={`${styles.painel} ${styles.painelEvolucao}`}>
               <h3 className={styles.painelTitulo}>Evolução mensal</h3>
               <p className={styles.painelNota}>
                 Processos pelo mês do <strong>cadastro</strong>; bloqueios pelo mês da{" "}
@@ -407,7 +407,7 @@ function Linha({ rotulo, valor }) {
 // Gráfico de linhas em SVG (sem dependências novas): processos e bloqueios.
 function GraficoLinhas({ dados }) {
   const largura = 760;
-  const altura = 220;
+  const altura = 170;
   const pad = { top: 16, right: 16, bottom: 34, left: 36 };
   const max = Math.max(1, ...dados.map((d) => Math.max(d.processos, d.bloqueios)));
   const passoX =

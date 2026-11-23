@@ -351,15 +351,19 @@
   min-width: 0;
 }
 
-/* Ações sozinhas na segunda linha, à direita. */
-.acoesDashboard {
+/* Ações sozinhas na segunda linha, à ESQUERDA, abaixo das datas. A regra do
+   módulo base (gridFiltros > .filtrosAcoes) é sobrescrita pela classe do grid
+   do dashboard para vencer a especificidade. */
+.gridDashboard > .acoesDashboard {
   grid-column: 1 / -1;
   display: flex;
+  flex-direction: row;
   flex-wrap: nowrap;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 0.5rem;
   padding-top: 0.25rem;
+  align-self: start;
 }
 
 .acoesDashboard > button {
@@ -404,7 +408,20 @@
     grid-column: auto;
   }
 
-  .acoesDashboard {
+  .gridDashboard > .acoesDashboard {
     justify-content: flex-start;
   }
+}
+
+/* Evolução mensal: card mais compacto (altura do gráfico reduzida). */
+.painelEvolucao {
+  padding: 1rem 1.25rem;
+  gap: 0.5rem;
+}
+
+.painelEvolucao .svg {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  max-height: 165px;
 }
