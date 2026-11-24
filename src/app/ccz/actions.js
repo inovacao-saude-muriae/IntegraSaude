@@ -1967,11 +1967,8 @@ export async function listarEsporotricose() {
 }
 
 // ── OBTER UM REGISTRO DE ESPOROTRICOSE (edição / PDF / termo) ───────────────
-// ── CONSULTAR ESPOROTRICOSE (filtros + paginação no backend) ────────────────
-// Padrão da Consulta de Leishmaniose: busca suspensa (nome/ID do animal,
-// nome/CPF do tutor), período da visita, conclusão (Encerrado/Em andamento) e
-// bairro do tutor (pessoa_endereco.endereco_atual). 100 por página, do mais
-// recente para o mais antigo.
+// Conversão de dia local (UTC-3) para o intervalo UTC usado nos filtros de
+// data das consultas do CCZ (animais e esporotricose).
 const ESPORO_PAGINA_TAMANHO = 100;
 const ESPORO_FUSO_OFFSET_MS = 3 * 60 * 60 * 1000;
 
@@ -1983,6 +1980,145 @@ function esporoDiaParaUtc(valor, limite) {
   return new Date(d.getTime() - ESPORO_FUSO_OFFSET_MS + (limite === "fim" ? 86400000 - 1 : 0));
 }
 
+// ── CONSULTAR ANIMAIS (filtros + paginação no backend) ──────────────────────
+// Padrão da Consulta de Leishmaniose/Esporotricose: busca suspensa (nome/ID do
+// animal, espécie, nome/CPF do tutor), período do cadastro, espécie, situação
+// do animal e bairro do tutor. 100 por página, do mais recente ao mais antigo.
+const ANIMAL_PAGINA_TAMANHO = 100;
+
+export async function consultarAnimais(filtros = {}) {
+  try {
+    await requirePermissao(MODULOS.CCZ, "animais", "visualizar");
+
+    // Busca textual em SQL raw: o LIKE do Postgres trata "-" e "/" dos IDs
+    // (ANM-MW0VGH4F, 161/26) como texto comum; o operador `contains` do Prisma
+    // gera um padrão que casa registros indevidos com esses caracteres.
+    const termo = String(filtros.busca || "").trim();
+    const termoDigitos = soDigitos(termo);
+    const AND = [];
+
+    if (termo) {
+      AND.push(Prisma.sql`(
+        a.nome ILIKE '%' || ${termo} || '%'
+        OR a.id ILIKE '%' || ${termo} || '%'
+        OR a.especie ILIKE '%' || ${termo} || '%'
+        OR EXISTS (SELECT 1 FROM public.pessoa p
+                    WHERE p.cpf = a.pessoa_cpf
+                      AND p.nome_completo ILIKE '%' || ${termo} || '%')
+        ${termoDigitos ? Prisma.sql`OR a.pessoa_cpf LIKE '%' || ${termoDigitos} || '%'` : Prisma.empty}
+      )`);
+    }
+
+    const de = esporoDiaParaUtc(filtros.periodoInicio, "inicio");
+    const ate = esporoDiaParaUtc(filtros.periodoFim, "fim");
+    if (de) AND.push(Prisma.sql`a.data_cadastro >= ${de}`);
+    if (ate) AND.push(Prisma.sql`a.data_cadastro <= ${ate}`);
+
+    const especie = String(filtros.especie || "").trim();
+    if (especie) AND.push(Prisma.sql`btrim(a.especie) = ${especie}`);
+
+    // Situação do animal. "SEM_TUTOR" é derivada (não é coluna).
+    const situacao = String(filtros.situacao || "").trim();
+    if (situacao === "SEM_TUTOR") AND.push(Prisma.sql`a.pessoa_cpf IS NULL`);
+    else if (situacao) AND.push(Prisma.sql`a.situacao = ${situacao}`);
+
+    if (filtros.incluirArquivados !== true) {
+      AND.push(Prisma.sql`(a.situacao IS NULL OR a.situacao <> 'Arquivado')`);
+    }
+
+    const bairroFiltro = String(filtros.bairro || "").trim();
+    if (bairroFiltro) {
+      AND.push(Prisma.sql`EXISTS (
+        SELECT 1 FROM public.pessoa_endereco pe
+         WHERE pe.pessoa_cpf = a.pessoa_cpf
+           AND pe.endereco_atual IS TRUE
+           AND lower(btrim(pe.bairro)) = lower(${bairroFiltro}))`);
+    }
+
+    const where = AND.length
+      ? Prisma.sql`WHERE ${Prisma.join(AND, " AND ")}`
+      : Prisma.empty;
+
+    const pagina = Math.max(1, Number(filtros.pagina) || 1);
+    const offset = (pagina - 1) * ANIMAL_PAGINA_TAMANHO;
+
+    const [totalRows, animais] = await Promise.all([
+      prisma.$queryRaw(Prisma.sql`
+        SELECT COUNT(*)::int AS total FROM public.ccz_animais a ${where}`),
+      prisma.$queryRaw(Prisma.sql`
+        SELECT a.id, a.nome, a.especie, a.sexo, a.situacao, a.data_cadastro,
+               p.nome_completo AS tutor_nome,
+               (SELECT btrim(pe.bairro) FROM public.pessoa_endereco pe
+                 WHERE pe.pessoa_cpf = a.pessoa_cpf AND pe.endereco_atual IS TRUE
+                 LIMIT 1) AS bairro
+          FROM public.ccz_animais a
+          LEFT JOIN public.pessoa p ON p.cpf = a.pessoa_cpf
+          ${where}
+         ORDER BY a.data_cadastro DESC NULLS LAST, a.id
+         LIMIT ${ANIMAL_PAGINA_TAMANHO} OFFSET ${offset}`),
+    ]);
+
+    const total = totalRows[0]?.total || 0;
+
+    return {
+      success: true,
+      data: animais.map((a) => ({
+        id: a.id,
+        nome: a.nome || "",
+        especie: a.especie || "",
+        sexo: a.sexo === "F" ? "Fêmea" : "Macho",
+        tutorNome: a.tutor_nome || "",
+        bairro: a.bairro || "",
+        situacao: a.situacao || "",
+        dataCadastro: a.data_cadastro ? new Date(a.data_cadastro).toISOString() : null,
+      })),
+      total,
+      pagina,
+      totalPaginas: Math.max(1, Math.ceil(total / ANIMAL_PAGINA_TAMANHO)),
+    };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao consultar animais (CCZ):", error);
+    return { success: false, error: "Erro ao consultar os animais." };
+  }
+}
+
+// Opções dos filtros: espécies cadastradas e bairros dos tutores.
+export async function obterFiltrosAnimais() {
+  try {
+    await requireAcessoModulo(MODULOS.CCZ);
+    const [especies, bairros] = await Promise.all([
+      prisma.$queryRaw(Prisma.sql`
+        SELECT DISTINCT btrim(especie) AS valor FROM public.ccz_animais
+        WHERE btrim(COALESCE(especie, '')) <> '' ORDER BY 1`),
+      prisma.$queryRaw(Prisma.sql`
+        SELECT DISTINCT btrim(pe.bairro) AS valor
+          FROM public.ccz_animais a
+          JOIN public.pessoa_endereco pe ON pe.pessoa_cpf = a.pessoa_cpf
+         WHERE pe.endereco_atual IS TRUE AND btrim(COALESCE(pe.bairro, '')) <> ''
+         ORDER BY 1`),
+    ]);
+    return {
+      success: true,
+      especies: especies.map((e) => e.valor),
+      bairros: bairros.map((b) => b.valor),
+    };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao obter filtros de animais (CCZ):", error);
+    return { success: false, error: "Erro ao carregar as opções de filtro." };
+  }
+}
+
+// ── CONSULTAR ESPOROTRICOSE (filtros + paginação no backend) ────────────────
+// Padrão da Consulta de Leishmaniose: busca suspensa (nome/ID do animal,
+// nome/CPF do tutor), período da visita, conclusão (Encerrado/Em andamento) e
+// bairro do tutor (pessoa_endereco.endereco_atual). 100 por página, do mais
+// recente para o mais antigo.
 export async function listarEsporotricoseConsulta(filtros = {}) {
   try {
     await requirePermissao(MODULOS.CCZ, "zoonoses", "visualizar");

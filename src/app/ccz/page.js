@@ -5,11 +5,10 @@ import { useSearchParams, useRouter } from "next/navigation";
 
 import DashboardCCZ from "./dashboard-gerencial/DashboardCcz";
 import CadastroPessoas from "@/components/CadastroPessoas/CadastroPessoas";
-import CadastroAnimal from "./CadastroAnimal";
 import CadastroProcedimento from "./CadastroProcedimento";
 import CadastroDenuncia from "./CadastroDenuncia";
 import TutoresLista from "./TutoresLista";
-import AnimaisLista from "./AnimaisLista";
+import AnimaisTab from "./AnimaisTab";
 import ProcedimentosLista from "./ProcedimentosLista";
 import EsporotricoseTab from "./EsporotricoseTab";
 import DenunciasLista from "./DenunciasLista";
@@ -17,7 +16,6 @@ import AgendaCCZ from "./AgendaCCZ";
 import TermosEmBranco from "./TermosEmBranco";
 import LeishmanioseTab from "./LeishmanioseTab";
 import {
-  obterAnimal,
   obterProcedimento,
   salvarTutor,
 } from "./actions";
@@ -85,9 +83,6 @@ function CczPageContent() {
 
   // Estado de edição vindo das listas.
   const [cpfTutorEdicao, setCpfTutorEdicao] = useState("");
-  const [animalEdicao, setAnimalEdicao] = useState(null);
-  const animalIdParam = searchParams.get("id") || "";
-  const [carregandoAnimal, setCarregandoAnimal] = useState(false);
   const [procedimentoEdicao, setProcedimentoEdicao] = useState(null);
   const [carregandoProcedimento, setCarregandoProcedimento] = useState(false);
 
@@ -96,7 +91,6 @@ function CczPageContent() {
     // Ao trocar para Lista, limpar os registros em edição
     if (subTab === "LISTA") {
       setCpfTutorEdicao("");
-      setAnimalEdicao(null);
       setProcedimentoEdicao(null);
     }
     router.push(`/ccz?tab=${tab}&subTab=${subTab}`);
@@ -107,7 +101,6 @@ function CczPageContent() {
     if (activeSubTab !== "CADASTRAR") {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronização inicial/carregamento de dados; comportamento intencional
       setCpfTutorEdicao("");
-      setAnimalEdicao(null);
       setProcedimentoEdicao(null);
     }
   }, [activeTab, activeSubTab]);
@@ -117,43 +110,6 @@ function CczPageContent() {
     setCpfTutorEdicao(cpf);
     irPara("TUTORES", "CADASTRAR");
   };
-
-  // ── Editar animal: carrega o registro e vai para Animais > Cadastrar ──
-  const editarAnimal = async (id) => {
-    setCarregandoAnimal(true);
-    const res = await obterAnimal(id);
-    setCarregandoAnimal(false);
-    if (res.success) {
-      setAnimalEdicao(res.data);
-      irPara("ANIMAIS", "CADASTRAR");
-    }
-  };
-
-  // Link direto de edição (/ccz?tab=ANIMAIS&subTab=CADASTRAR&id=XXX), usado
-  // pela tela de Animais do Gerenciamento: carrega o animal uma única vez.
-  const [idCarregado, setIdCarregado] = useState("");
-  useEffect(() => {
-    if (
-      activeTab !== "ANIMAIS" ||
-      activeSubTab !== "CADASTRAR" ||
-      !animalIdParam ||
-      animalIdParam === idCarregado
-    ) {
-      return;
-    }
-    let ativo = true;
-    (async () => {
-      setCarregandoAnimal(true);
-      const res = await obterAnimal(animalIdParam);
-      if (!ativo) return;
-      setCarregandoAnimal(false);
-      setIdCarregado(animalIdParam);
-      if (res.success) setAnimalEdicao(res.data);
-    })();
-    return () => {
-      ativo = false;
-    };
-  }, [activeTab, activeSubTab, animalIdParam, idCarregado]);
 
   // ── Editar procedimento: carrega o registro e vai para Procedimentos > Cadastrar ──
   const editarProcedimento = async (id) => {
@@ -167,10 +123,6 @@ function CczPageContent() {
   };
 
   // Volta para a lista correspondente após salvar/cancelar edição.
-  const voltarListaAnimais = () => {
-    setAnimalEdicao(null);
-    irPara("ANIMAIS", "LISTA");
-  };
   const voltarListaProcedimentos = () => {
     setProcedimentoEdicao(null);
     irPara("PROCEDIMENTOS", "LISTA");
@@ -217,30 +169,9 @@ function CczPageContent() {
     // Consultar Registros) dentro do container principal do módulo.
     conteudo = <LeishmanioseTab />;
   } else if (activeTab === "ANIMAIS") {
-    if (activeSubTab === "LISTA") {
-      conteudo = (
-        <AnimaisLista
-          onEditar={editarAnimal}
-          podeEditar={permAnimais.editar}
-          podeCriar={permAnimais.criar}
-          onNovo={() => irPara("ANIMAIS", "CADASTRAR")}
-        />
-      );
-    } else if (carregandoAnimal) {
-      conteudo = <p className={styles.subtitle}>Carregando animal...</p>;
-    } else if (!permAnimais.criar) {
-      // Sem permissão de cadastrar/editar animal: a tela continua na consulta.
-      conteudo = <AnimaisLista onEditar={() => {}} />;
-    } else {
-      conteudo = (
-        <CadastroAnimal
-          key={animalEdicao?.id || "novo"}
-          animalInicial={animalEdicao}
-          onSalvo={voltarListaAnimais}
-          onCancelar={voltarListaAnimais}
-        />
-      );
-    }
+    // CCZ > Zoonoses > Animais: abas próprias (Novo Registro / Consultar
+    // Registros) no mesmo padrão da Leishmaniose e da Esporotricose.
+    conteudo = <AnimaisTab podeCriar={permAnimais.criar} />;
   } else {
     // TUTORES (padrão)
     if (activeSubTab === "LISTA") {
@@ -269,7 +200,8 @@ function CczPageContent() {
     activeTab !== "AGENDA" &&
     activeTab !== "TERMOS" &&
     activeTab !== "LEISHMANIOSE" &&
-    activeTab !== "ESPOROTRICOSE";
+    activeTab !== "ESPOROTRICOSE" &&
+    activeTab !== "ANIMAIS";
 
   return (
     <div className="paginaContainer">
