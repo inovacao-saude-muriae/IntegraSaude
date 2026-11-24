@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAcessoModulo, requirePermissao } from "@/lib/auth";
 import { registrarAuditoria } from "@/lib/audit";
 import { MODULOS } from "@/lib/permissions";
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { normalizarCpfChave } from "@/lib/cpf";
 import { mensagemPessoaIndisponivel } from "@/lib/situacaoPessoa";
@@ -1966,6 +1967,121 @@ export async function listarEsporotricose() {
 }
 
 // ── OBTER UM REGISTRO DE ESPOROTRICOSE (edição / PDF / termo) ───────────────
+// ── CONSULTAR ESPOROTRICOSE (filtros + paginação no backend) ────────────────
+// Padrão da Consulta de Leishmaniose: busca suspensa (nome/ID do animal,
+// nome/CPF do tutor), período da visita, conclusão (Encerrado/Em andamento) e
+// bairro do tutor (pessoa_endereco.endereco_atual). 100 por página, do mais
+// recente para o mais antigo.
+const ESPORO_PAGINA_TAMANHO = 100;
+const ESPORO_FUSO_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+function esporoDiaParaUtc(valor, limite) {
+  const t = String(valor || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) return null;
+  const d = new Date(`${t}T00:00:00.000Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  return new Date(d.getTime() - ESPORO_FUSO_OFFSET_MS + (limite === "fim" ? 86400000 - 1 : 0));
+}
+
+export async function listarEsporotricoseConsulta(filtros = {}) {
+  try {
+    await requirePermissao(MODULOS.CCZ, "zoonoses", "visualizar");
+
+    const condicoes = [];
+    const termo = String(filtros.busca || "").trim();
+    if (termo) {
+      const digitos = termo.replace(/\D/g, "");
+      condicoes.push(Prisma.sql`(
+        a.nome ILIKE ${"%" + termo + "%"} OR
+        e.animal_id ILIKE ${"%" + termo + "%"} OR
+        p.nome_completo ILIKE ${"%" + termo + "%"} OR
+        replace(replace(replace(COALESCE(p.cpf, ''), '.', ''), '-', ''), ' ', '') ILIKE ${"%" + digitos + "%"})`);
+    }
+    const de = esporoDiaParaUtc(filtros.periodoInicio, "inicio");
+    const ate = esporoDiaParaUtc(filtros.periodoFim, "fim");
+    if (de) condicoes.push(Prisma.sql`e."dataVisita" >= ${de}`);
+    if (ate) condicoes.push(Prisma.sql`e."dataVisita" <= ${ate}`);
+
+    const conclusao = String(filtros.conclusao || "").trim().toUpperCase();
+    if (conclusao === "ENCERRADO") condicoes.push(Prisma.sql`e.encerrado IS TRUE`);
+    if (conclusao === "EM_ANDAMENTO") condicoes.push(Prisma.sql`e.encerrado IS NOT TRUE`);
+
+    const bairro = String(filtros.bairro || "").trim();
+    if (bairro) {
+      condicoes.push(Prisma.sql`EXISTS (
+        SELECT 1 FROM public.pessoa_endereco pe
+         WHERE pe.pessoa_cpf = p.cpf
+           AND pe.endereco_atual IS TRUE
+           AND lower(btrim(COALESCE(pe.bairro, ''))) = lower(${bairro}))`);
+    }
+
+    const where = condicoes.length ? Prisma.join(condicoes, " AND ") : Prisma.sql`1=1`;
+    const pagina = Math.max(1, Number(filtros.pagina) || 1);
+    const offset = (pagina - 1) * ESPORO_PAGINA_TAMANHO;
+    const base = Prisma.sql`
+      FROM public.ccz_esporotricose e
+      LEFT JOIN public.ccz_animais a ON a.id = e.animal_id
+      LEFT JOIN public.ccz_tutores t ON t.pessoa_cpf = a.pessoa_cpf
+      LEFT JOIN public.pessoa p ON p.cpf = COALESCE(t.pessoa_cpf, a.pessoa_cpf)
+      WHERE ${where}`;
+
+    const [linhas, total] = await Promise.all([
+      prisma.$queryRaw(Prisma.sql`
+        SELECT e.id, e."dataVisita", e.animal_id, e.encerrado, a.nome AS animal_nome, p.nome_completo AS tutor_nome
+        ${base}
+        ORDER BY e."dataVisita" DESC, e.created_at DESC
+        LIMIT ${ESPORO_PAGINA_TAMANHO} OFFSET ${offset}`),
+      prisma.$queryRaw(Prisma.sql`SELECT COUNT(*)::int AS total ${base}`),
+    ]);
+
+    const totalNum = Number(total?.[0]?.total || 0);
+    return {
+      success: true,
+      data: linhas.map((l) => ({
+        id: l.id,
+        dataVisita: l.dataVisita instanceof Date
+          ? l.dataVisita.toISOString().slice(0, 10)
+          : String(l.dataVisita).slice(0, 10),
+        animalId: l.animal_id || "",
+        animalNome: l.animal_nome || "",
+        tutorNome: l.tutor_nome || "",
+        encerrado: Boolean(l.encerrado),
+      })),
+      total: totalNum,
+      pagina,
+      totalPaginas: Math.max(1, Math.ceil(totalNum / ESPORO_PAGINA_TAMANHO)),
+    };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao consultar esporotricose (CCZ):", error);
+    return { success: false, error: "Erro ao consultar os registros de esporotricose." };
+  }
+}
+
+// Opções dos filtros (bairros existentes no cadastro central dos tutores).
+export async function obterFiltrosEsporotricose() {
+  try {
+    await requireAcessoModulo(MODULOS.CCZ);
+    const bairros = await prisma.$queryRaw(Prisma.sql`
+      SELECT DISTINCT btrim(pe.bairro) AS valor
+        FROM public.ccz_esporotricose e
+        JOIN public.ccz_animais a ON a.id = e.animal_id
+        LEFT JOIN public.ccz_tutores t ON t.pessoa_cpf = a.pessoa_cpf
+        JOIN public.pessoa_endereco pe ON pe.pessoa_cpf = COALESCE(t.pessoa_cpf, a.pessoa_cpf)
+       WHERE pe.endereco_atual IS TRUE AND btrim(COALESCE(pe.bairro, '')) <> ''
+       ORDER BY 1`);
+    return { success: true, bairros: bairros.map((b) => b.valor) };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao obter filtros de esporotricose (CCZ):", error);
+    return { success: false, error: "Erro ao carregar as opções de filtro." };
+  }
+}
+
 export async function obterEsporotricose(id) {
   try {
     await requireAcessoModulo(MODULOS.CCZ);

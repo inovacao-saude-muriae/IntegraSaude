@@ -7,12 +7,11 @@ import DashboardCCZ from "./dashboard-gerencial/DashboardCcz";
 import CadastroPessoas from "@/components/CadastroPessoas/CadastroPessoas";
 import CadastroAnimal from "./CadastroAnimal";
 import CadastroProcedimento from "./CadastroProcedimento";
-import CadastroEsporotricose from "./CadastroEsporotricose";
 import CadastroDenuncia from "./CadastroDenuncia";
 import TutoresLista from "./TutoresLista";
 import AnimaisLista from "./AnimaisLista";
 import ProcedimentosLista from "./ProcedimentosLista";
-import EsporotricoseLista from "./EsporotricoseLista";
+import EsporotricoseTab from "./EsporotricoseTab";
 import DenunciasLista from "./DenunciasLista";
 import AgendaCCZ from "./AgendaCCZ";
 import TermosEmBranco from "./TermosEmBranco";
@@ -20,7 +19,6 @@ import LeishmanioseTab from "./LeishmanioseTab";
 import {
   obterAnimal,
   obterProcedimento,
-  obterEsporotricose,
   salvarTutor,
 } from "./actions";
 
@@ -92,8 +90,6 @@ function CczPageContent() {
   const [carregandoAnimal, setCarregandoAnimal] = useState(false);
   const [procedimentoEdicao, setProcedimentoEdicao] = useState(null);
   const [carregandoProcedimento, setCarregandoProcedimento] = useState(false);
-  const [esporoEdicao, setEsporoEdicao] = useState(null);
-  const [carregandoEsporo, setCarregandoEsporo] = useState(false);
 
   // Navega para uma aba/sub-aba preservando o módulo.
   const irPara = (tab, subTab) => {
@@ -102,7 +98,6 @@ function CczPageContent() {
       setCpfTutorEdicao("");
       setAnimalEdicao(null);
       setProcedimentoEdicao(null);
-      setEsporoEdicao(null);
     }
     router.push(`/ccz?tab=${tab}&subTab=${subTab}`);
   };
@@ -114,7 +109,6 @@ function CczPageContent() {
       setCpfTutorEdicao("");
       setAnimalEdicao(null);
       setProcedimentoEdicao(null);
-      setEsporoEdicao(null);
     }
   }, [activeTab, activeSubTab]);
 
@@ -172,17 +166,6 @@ function CczPageContent() {
     }
   };
 
-  // ── Editar esporotricose: carrega o registro e vai para Esporotricose > Cadastrar ──
-  const editarEsporo = async (id) => {
-    setCarregandoEsporo(true);
-    const res = await obterEsporotricose(id);
-    setCarregandoEsporo(false);
-    if (res.success) {
-      setEsporoEdicao(res.data);
-      irPara("ESPOROTRICOSE", "CADASTRAR");
-    }
-  };
-
   // Volta para a lista correspondente após salvar/cancelar edição.
   const voltarListaAnimais = () => {
     setAnimalEdicao(null);
@@ -192,11 +175,6 @@ function CczPageContent() {
     setProcedimentoEdicao(null);
     irPara("PROCEDIMENTOS", "LISTA");
   };
-  const voltarListaEsporo = () => {
-    setEsporoEdicao(null);
-    irPara("ESPOROTRICOSE", "LISTA");
-  };
-
   let conteudo;
   if (activeTab === "DASHBOARD") {
     conteudo = <DashboardCCZ />;
@@ -231,19 +209,9 @@ function CczPageContent() {
       );
     }
   } else if (activeTab === "ESPOROTRICOSE") {
-    if (activeSubTab === "LISTA") {
-      conteudo = <EsporotricoseLista onEditar={editarEsporo} />;
-    } else if (carregandoEsporo) {
-      conteudo = <p className={styles.subtitle}>Carregando esporotricose...</p>;
-    } else {
-      conteudo = (
-        <CadastroEsporotricose
-          key={esporoEdicao?.id || "novo"}
-          registroInicial={esporoEdicao}
-          onSalvo={voltarListaEsporo}
-        />
-      );
-    }
+    // CCZ > Zoonoses > Esporotricose: abas próprias (Novo Registro /
+    // Consultar Registros) no mesmo padrão da Leishmaniose.
+    conteudo = <EsporotricoseTab />;
   } else if (activeTab === "LEISHMANIOSE") {
     // CCZ > Zoonoses > Leishmaniose: abas próprias (Novo Registro /
     // Consultar Registros) dentro do container principal do módulo.
@@ -300,7 +268,8 @@ function CczPageContent() {
     activeTab !== "DASHBOARD" &&
     activeTab !== "AGENDA" &&
     activeTab !== "TERMOS" &&
-    activeTab !== "LEISHMANIOSE";
+    activeTab !== "LEISHMANIOSE" &&
+    activeTab !== "ESPOROTRICOSE";
 
   return (
     <div className="paginaContainer">
