@@ -150,6 +150,11 @@ export async function GET(request, context) {
       descricaoCao: denuncia.descricaoCao,
       relato: denuncia.relato,
       causouRisco: denuncia.causouRisco,
+      tipo: denuncia.tipo,
+      situacao: denuncia.situacao,
+      justificativaInativacao: denuncia.justificativaInativacao,
+      motivoArquivamento: denuncia.motivoArquivamento,
+      arquivadaEm: denuncia.arquivadaEm,
     };
 
     return NextResponse.json(dados);
@@ -170,7 +175,14 @@ export async function PUT(request, context) {
     const { id } = params;
     const dados = await request.json();
 
+    // Campos protegidos: alterados apenas pela regra própria (situação) ou
+    // pelo arquivamento. A edição comum não os toca.
     delete dados.id;
+    delete dados.situacao;
+    delete dados.justificativaInativacao;
+    delete dados.motivoArquivamento;
+    delete dados.arquivadaEm;
+    delete dados.arquivadaPor;
 
     const denuncia = await prisma.denunciaCaoAgressivo.update({
       where: { id },

@@ -61,6 +61,13 @@ function desenharFoto(doc, dataUrl, x, y, largura, altura) {
   }
 }
 
+/** Valor de um campo do detalhe do registro histórico. */
+function valorDetalhe(registro, rotulo) {
+  const item = (registro?.detalhes || []).find((d) => d?.rotulo === rotulo);
+  const v = item?.valor;
+  return v === null || v === undefined || String(v).trim() === "" ? "" : String(v);
+}
+
 export async function gerarHistoricoCompletoPdf(dados) {
   const { animal = {}, tutor = null, historico = [], procedimentos = [] } = dados || {};
 
@@ -137,7 +144,7 @@ export async function gerarHistoricoCompletoPdf(dados) {
     if (tutor.endereco) base.paragrafo("ENDEREÇO COMPLETO", tutor.endereco);
   }
 
-  // ── 4. HISTÓRICO CRONOLÓGICO ───────────────────────────────────────────
+  // ── 4. HISTÓRICO — UMA TABELA POR TIPO DE REGISTRO ─────────────────────
   const registros = Array.isArray(historico) && historico.length
     ? historico
     : (procedimentos || []).map((p, i) => ({
@@ -149,28 +156,140 @@ export async function gerarHistoricoCompletoPdf(dados) {
         resumo: p.descricao || "",
       }));
 
-  base.secao("4. Histórico de Registros");
+  const porData = (a, b) => String(b.data || "").localeCompare(String(a.data || ""));
+  const grupo = (origem) =>
+    registros.filter((r) => r.origem === origem).sort(porData);
 
-  if (!registros.length) {
+  const TIPOS = [
+    {
+      origem: "PROCEDIMENTO",
+      titulo: "4.1 Procedimentos Realizados",
+      vazio: "Nenhum procedimento registrado.",
+      colunas: [
+        { titulo: "Data", largura: 1.1, chave: "data" },
+        { titulo: "Tipo de Procedimento", largura: 2, chave: "tipo" },
+        { titulo: "Situação", largura: 1.2, chave: "situacao" },
+        { titulo: "Responsável", largura: 2.2, chave: "responsavel" },
+        { titulo: "Descrição / Medicação", largura: 3, chave: "descricao" },
+      ],
+      montar: (r) => ({
+        data: formatarData(r.data),
+        tipo: r.titulo || "—",
+        situacao: r.subtitulo || "—",
+        responsavel: valorDetalhe(r, "Veterinário responsável"),
+        descricao: [
+          valorDetalhe(r, "Descrição"),
+          valorDetalhe(r, "Medicação prescrita"),
+        ]
+          .filter((v) => v && v !== "—")
+          .join(" · "),
+      }),
+    },
+    {
+      origem: "ESPOROTRICOSE",
+      titulo: "4.2 Registros de Esporotricose",
+      vazio: "Nenhum registro de esporotricose.",
+      colunas: [
+        { titulo: "Data", largura: 1.1, chave: "data" },
+        { titulo: "Conclusão", largura: 1.3, chave: "conclusao" },
+        { titulo: "Fiscal Responsável", largura: 1.9, chave: "responsavel" },
+        { titulo: "Lesões / Tratamento", largura: 2.4, chave: "clinico" },
+        { titulo: "Conclusão Técnica", largura: 3, chave: "tecnica" },
+      ],
+      montar: (r) => ({
+        data: formatarData(r.data),
+        conclusao: r.subtitulo || "—",
+        responsavel: valorDetalhe(r, "Fiscal responsável"),
+        clinico: [
+          valorDetalhe(r, "Apresenta lesões"),
+          valorDetalhe(r, "Em tratamento veterinário"),
+        ]
+          .filter((v) => v && v !== "—")
+          .join(" · "),
+        tecnica: valorDetalhe(r, "Conclusão técnica") || r.resumo || "",
+      }),
+    },
+    {
+      origem: "LEISHMANIOSE",
+      titulo: "4.3 Fiscalizações de Leishmaniose",
+      vazio: "Nenhuma fiscalização de leishmaniose.",
+      colunas: [
+        { titulo: "Data", largura: 1.1, chave: "data" },
+        { titulo: "Situação Geral", largura: 2, chave: "situacao" },
+        { titulo: "Responsável", largura: 1.9, chave: "responsavel" },
+        { titulo: "Lesões / Tratamento", largura: 2.4, chave: "clinico" },
+        { titulo: "Conduta / Encaminhamentos", largura: 2.8, chave: "conduta" },
+      ],
+      montar: (r) => ({
+        data: formatarData(r.data),
+        situacao: valorDetalhe(r, "Situação geral") || r.subtitulo || "",
+        responsavel: valorDetalhe(r, "Responsável") || valorDetalhe(r, "Responsável pela fiscalização"),
+        clinico: [
+          valorDetalhe(r, "Apresenta lesões"),
+          valorDetalhe(r, "Em tratamento"),
+        ]
+          .filter((v) => v && v !== "—")
+          .join(" · "),
+        conduta: [
+          valorDetalhe(r, "Conduta do tutor"),
+          valorDetalhe(r, "Acompanhamento pelo CCZ"),
+        ]
+          .filter((v) => v && v !== "—")
+          .join(" · "),
+      }),
+    },
+    {
+      origem: "DENUNCIA",
+      titulo: "4.4 Denúncias Vinculadas",
+      vazio: "Nenhuma denúncia vinculada.",
+      colunas: [
+        { titulo: "Data", largura: 1.1, chave: "data" },
+        { titulo: "Situação", largura: 1.3, chave: "situacao" },
+        { titulo: "Localização", largura: 2.2, chave: "local" },
+        { titulo: "Causou Risco", largura: 1.2, chave: "risco" },
+        { titulo: "Relato", largura: 3.2, chave: "relato" },
+      ],
+      montar: (r) => ({
+        data: formatarData(r.data),
+        situacao: r.subtitulo || "—",
+        local: valorDetalhe(r, "Localização"),
+        risco: valorDetalhe(r, "Causou risco"),
+        relato: valorDetalhe(r, "Relato") || r.resumo || "",
+      }),
+    },
+    {
+      origem: "CADASTRO",
+      titulo: "4.5 Outros Acompanhamentos",
+      vazio: "Nenhum outro acompanhamento registrado.",
+      colunas: [
+        { titulo: "Data", largura: 1.1, chave: "data" },
+        { titulo: "Registro", largura: 2.2, chave: "registro" },
+        { titulo: "Situação", largura: 1.3, chave: "situacao" },
+        { titulo: "Tutor no Cadastro", largura: 2.2, chave: "tutor" },
+        { titulo: "Resumo", largura: 3, chave: "resumo" },
+      ],
+      montar: (r) => ({
+        data: formatarData(r.data),
+        registro: r.titulo || "—",
+        situacao: r.subtitulo || "—",
+        tutor: valorDetalhe(r, "Tutor no cadastro"),
+        resumo: r.resumo || "",
+      }),
+    },
+  ];
+
+  let algumRegistro = false;
+  TIPOS.forEach((tipo) => {
+    const lista = grupo(tipo.origem);
+    if (!lista.length) return;
+    algumRegistro = true;
+    base.secao(tipo.titulo);
+    base.tabela(tipo.colunas, lista.map(tipo.montar));
+  });
+
+  if (!algumRegistro) {
+    base.secao("4. Histórico de Registros");
     base.paragrafo("REGISTROS", "Nenhum registro vinculado a este animal.");
-  } else {
-    registros.forEach((r) => {
-      base.linha(
-        "DATA",
-        formatarData(r.data),
-        "TIPO DE REGISTRO",
-        r.tipo || r.titulo || "Registro",
-      );
-      base.linha("DESCRIÇÃO", r.titulo || "—", "SITUAÇÃO", r.subtitulo);
-      if (r.resumo) base.paragrafo("RESUMO", r.resumo);
-
-      (r.detalhes || [])
-        .filter((d) => d && String(d.valor || "").trim() !== "" && d.rotulo !== "Tipo" && d.rotulo !== "Status")
-        .forEach((d) => {
-          if (d.largo) base.paragrafo(d.rotulo, d.valor);
-          else base.linha(d.rotulo, d.valor);
-        });
-    });
   }
 
   // ── EMISSÃO ────────────────────────────────────────────────────────────

@@ -337,6 +337,87 @@ export function criarDocumentoCcz({
     y += 24;
   };
 
+  /**
+   * Tabela de registros históricos.
+   * Cabeçalho azul institucional repetido a cada nova página, bordas discretas,
+   * larguras proporcionais, quebra automática das células e nenhuma linha
+   * cortada entre páginas.
+   *
+   * @param {Array<{titulo:string, largura:number, chave:string, alinhamento?:string}>} colunas
+   * @param {Array<object>} registros
+   */
+  api.tabela = (colunas, registros = []) => {
+    if (!colunas?.length) return;
+    const totalLargura = colunas.reduce((t, c) => t + (c.largura || 1), 0);
+    const larguras = colunas.map((c) => ((c.largura || 1) / totalLargura) * LARGURA_UTIL);
+    const xs = larguras.map((_, i) => MARGEM_X + larguras.slice(0, i).reduce((t, v) => t + v, 0));
+
+    const PAD = 2;
+    const ALTURA_LINHA = 4.2;
+
+    const medirLinha = (registro) => {
+      const celulas = colunas.map((col, i) => {
+        const valor = registro[col.chave];
+        const txt = valor === null || valor === undefined || valor === "" ? "—" : String(valor);
+        return doc.splitTextToSize(txt, larguras[i] - PAD * 2);
+      });
+      const linhas = Math.max(...celulas.map((c) => c.length));
+      return { celulas, altura: linhas * ALTURA_LINHA + PAD * 1.4 };
+    };
+
+    const desenharCabecalho = () => {
+      doc.setFillColor(...AZUL_MEDIO);
+      doc.rect(MARGEM_X, y, LARGURA_UTIL, 6, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.setTextColor(255, 255, 255);
+      colunas.forEach((col, i) => {
+        const alinhamento = col.alinhamento === "right" ? "right" : "left";
+        const x = alinhamento === "right" ? xs[i] + larguras[i] - PAD : xs[i] + PAD;
+        doc.text(String(col.titulo).toUpperCase(), x, y + 3.9, { align: alinhamento });
+      });
+      y += 6;
+    };
+
+    if (y + 12 > api.limiteY()) {
+      doc.addPage();
+      y = MARGEM_X + 2;
+    }
+    desenharCabecalho();
+
+    registros.forEach((registro, indice) => {
+      const { celulas, altura } = medirLinha(registro);
+
+      // A linha nunca é cortada: se não couber, o cabeçalho se repete na nova página.
+      if (y + altura > api.limiteY()) {
+        doc.addPage();
+        y = MARGEM_X + 2;
+        desenharCabecalho();
+      }
+
+      if (indice % 2 === 1) {
+        doc.setFillColor(...CINZA_FUNDO);
+        doc.rect(MARGEM_X, y, LARGURA_UTIL, altura, "F");
+      }
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.6);
+      doc.setTextColor(...CINZA_TEXTO);
+      celulas.forEach((linhas, i) => {
+        const alinhamento = colunas[i].alinhamento === "right" ? "right" : "left";
+        const x = alinhamento === "right" ? xs[i] + larguras[i] - PAD : xs[i] + PAD;
+        doc.text(linhas, x, y + ALTURA_LINHA, { align: alinhamento });
+      });
+
+      doc.setDrawColor(...CINZA_LINHA);
+      doc.setLineWidth(0.2);
+      doc.line(MARGEM_X, y + altura, MARGEM_X + LARGURA_UTIL, y + altura);
+      y += altura;
+    });
+
+    y += 5;
+  };
+
   /** Rodapé institucional + paginação + data de emissão em todas as páginas. */
   api.finalizar = () => {
     const emissao = hoje();

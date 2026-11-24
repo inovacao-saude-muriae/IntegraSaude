@@ -15,6 +15,7 @@ import {
 } from "./actions";
 import TermoInternacao from "./TermoInternacao";
 import { gerarPdfProcedimento } from "./procedimentoPdf";
+import { gerarTermoProcedimentoPdf } from "./termoProcedimentoPdf";
 
 // CCZ > Procedimentos — Consultar Registros
 // Mesmo padrão visual e funcional de Leishmaniose e Esporotricose:
@@ -91,6 +92,24 @@ export default function ConsultarProcedimentos() {
     setFiltros(FILTROS_VAZIOS);
     setResultado(null);
     setErro("");
+  };
+
+  const baixarFicha = async (registro) => {
+    try {
+      await gerarPdfProcedimento(registro);
+    } catch (e) {
+      console.error(e);
+      notify.error("Não foi possível gerar o PDF.");
+    }
+  };
+
+  const gerarTermo = async (registro) => {
+    try {
+      await gerarTermoProcedimentoPdf(registro);
+    } catch (e) {
+      console.error(e);
+      notify.error("Não foi possível gerar o termo.");
+    }
   };
 
   const abrirDetalhe = async (id) => {
@@ -384,9 +403,16 @@ export default function ConsultarProcedimentos() {
                   <button
                     type="button"
                     className={styles.btnPrimario}
-                    onClick={() => gerarPdfProcedimento(detalhe)}
+                    onClick={() => baixarFicha(detalhe)}
                   >
                     <FileDown size={16} /> Gerar PDF
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.btnGhost}
+                    onClick={() => gerarTermo(detalhe)}
+                  >
+                    <FileText size={16} /> Gerar Termo
                   </button>
                   {detalhe.tipo === "Internação" && (
                     <button

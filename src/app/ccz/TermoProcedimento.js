@@ -52,26 +52,40 @@ export default function TermoProcedimento({ procedimento, onFechar }) {
           <div className={styles.secao}>
             <div className={styles.textoExplicativo}>
               <p>
-                Eu, <strong>{procedimento.tutor?.nome || 'Sem tutor'}</strong>
-                {procedimento.tutor?.endereco && (
-                  <>, residente no endereço <strong>{procedimento.tutor.endereco}</strong></>
-                )}, 
-                responsável pelo animal <strong>{procedimento.animal?.nome || procedimento.animalNome || '______________________'}</strong>, 
-                declaro que fui devidamente informado(a) sobre o procedimento de{' '}
-                <strong>{procedimento.tipo || '_________________________________'}</strong> que será realizado.
+                {procedimento.tutor?.nome ? (
+                  <>
+                    Eu, <strong>{procedimento.tutor.nome}</strong>
+                    {procedimento.tutor?.endereco && (
+                      <>, residente no endereço <strong>{procedimento.tutor.endereco}</strong></>
+                    )},
+                    responsável pelo animal{' '}
+                    <strong>{procedimento.animal?.nome || procedimento.animalNome || 'não identificado'}</strong>,
+                    declaro que fui devidamente informado(a) sobre o procedimento de{' '}
+                    <strong>{procedimento.tipo || 'procedimento veterinário'}</strong> que será realizado.
+                  </>
+                ) : (
+                  <>
+                    O Centro de Controle de Zoonoses, em relação ao animal{' '}
+                    <strong>{procedimento.animal?.nome || procedimento.animalNome || 'não identificado'}</strong>,
+                    registra o procedimento de{' '}
+                    <strong>{procedimento.tipo || 'procedimento veterinário'}</strong> a ser realizado.
+                  </>
+                )}
               </p>
               <p>
-                Fui esclarecido(a) quanto aos objetivos, riscos e benefícios do procedimento, 
-                bem como sobre os cuidados necessários no pós-procedimento.
+                {procedimento.tutor?.nome
+                  ? 'Fui esclarecido(a) quanto aos objetivos, riscos e benefícios do procedimento, bem como sobre os cuidados necessários no pós-procedimento.'
+                  : 'Foram esclarecidos os objetivos, riscos e benefícios do procedimento, bem como os cuidados necessários no pós-procedimento.'}
               </p>
               <p>
-                Autorizo a equipe veterinária do CCZ a realizar o procedimento acima mencionado, 
-                estando ciente de que todas as medidas de segurança e bem-estar animal serão 
-                adotadas durante a execução.
+                {procedimento.tutor?.nome
+                  ? 'Autorizo a equipe veterinária do CCZ a realizar o procedimento acima mencionado, estando ciente de que todas as medidas de segurança e bem-estar animal serão adotadas durante a execução.'
+                  : 'A equipe veterinária do CCZ realizará o procedimento acima mencionado adotando todas as medidas de segurança e bem-estar animal durante a execução.'}
               </p>
               <p>
-                Comprometo-me a seguir todas as orientações fornecidas pela equipe veterinária 
-                quanto aos cuidados pós-procedimento e retornos necessários.
+                {procedimento.tutor?.nome
+                  ? 'Comprometo-me a seguir todas as orientações fornecidas pela equipe veterinária quanto aos cuidados pós-procedimento e retornos necessários.'
+                  : 'As orientações quanto aos cuidados pós-procedimento e retornos necessários ficam registradas no prontuário do animal.'}
               </p>
             </div>
           </div>

@@ -361,6 +361,80 @@ export async function arquivarDenuncia(id, motivo) {
   }
 }
 
+// ── ALTERAR SITUAÇÃO DA DENÚNCIA (Ativa / Inativa) ──────────────────────────
+// Situação operacional da denúncia, independente do arquivamento.
+// Ao inativar, a justificativa é obrigatória (15 a 500 caracteres); ela é
+// preservada como histórico da última inativação após a reativação.
+export async function alterarSituacaoDenuncia(id, situacao, justificativa = "") {
+  try {
+    const user = await requirePermissao(MODULOS.CCZ, "denuncias", "editar");
+
+    const denunciaId = String(id || "").trim();
+    if (!denunciaId) return { success: false, error: "ID da denúncia não informado." };
+
+    const nova = String(situacao || "").trim();
+    if (!["Ativa", "Inativa"].includes(nova)) {
+      return { success: false, error: "Situação inválida. Use Ativa ou Inativa." };
+    }
+
+    const denuncia = await prisma.denunciaCaoAgressivo.findUnique({
+      where: { id: denunciaId },
+      select: { id: true, situacao: true },
+    });
+    if (!denuncia) return { success: false, error: "Denúncia não encontrada." };
+
+    const atual = denuncia.situacao === "Inativa" ? "Inativa" : "Ativa";
+    if (atual === nova) {
+      return { success: false, error: `A denúncia já está ${nova.toLowerCase()}.` };
+    }
+
+    let textoJustificativa = null;
+    if (nova === "Inativa") {
+      textoJustificativa = String(justificativa || "").trim();
+      if (textoJustificativa.length < 15) {
+        return {
+          success: false,
+          error: "Informe a justificativa da inativação (mínimo 15 caracteres).",
+        };
+      }
+      if (textoJustificativa.length > 500) {
+        return {
+          success: false,
+          error: "A justificativa deve ter no máximo 500 caracteres.",
+        };
+      }
+    }
+
+    await prisma.denunciaCaoAgressivo.update({
+      where: { id: denunciaId },
+      data: {
+        situacao: nova,
+        // Reativar preserva a justificativa da última inativação.
+        justificativaInativacao: nova === "Inativa" ? textoJustificativa : undefined,
+      },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: nova === "Inativa" ? "DESATIVAR" : "REATIVAR",
+      modulo: "CCZ",
+      entidade: "Denuncia",
+      entidadeId: denunciaId,
+      descricao: `Denúncia ${denunciaId} ${nova === "Inativa" ? "inativada" : "reativada"}`,
+      detalhes: { situacaoAnterior: atual, situacaoNova: nova },
+    });
+
+    revalidatePath("/ccz");
+    return { success: true, data: { id: denunciaId, situacao: nova } };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao alterar situação da denúncia (CCZ):", error);
+    return { success: false, error: "Erro ao alterar a situação da denúncia." };
+  }
+}
+
 // ── SALVAR TUTOR (Pessoa + Endereço + ccz_tutores) ──────────────────────────
 export async function salvarTutor(dados) {
   try {
@@ -1372,7 +1446,8 @@ export async function salvarProcedimento(dados) {
       animalId,
       tipo,
       dataProcedimento,
-      veterinario: dados.veterinario ? String(dados.veterinario).slice(0, 150) : null,
+      // Sem veterinário informado, registra o usuário autenticado responsável.
+      veterinario: String(dados.veterinario || user?.nome || "").slice(0, 150) || null,
       status,
       descricao: dados.descricao ? String(dados.descricao) : null,
       medicacaoPrescrita: dados.medicacaoPrescrita ? String(dados.medicacaoPrescrita) : null,
@@ -1485,9 +1560,11 @@ export async function obterProcedimento(id) {
       const partes = [];
       if (enderecoPrincipal.logradouro) partes.push(enderecoPrincipal.logradouro);
       if (enderecoPrincipal.numero) partes.push(`nº ${enderecoPrincipal.numero}`);
+      if (enderecoPrincipal.complemento) partes.push(enderecoPrincipal.complemento);
       if (enderecoPrincipal.bairro) partes.push(enderecoPrincipal.bairro);
       if (enderecoPrincipal.cidade) partes.push(enderecoPrincipal.cidade);
       if (enderecoPrincipal.uf) partes.push(enderecoPrincipal.uf);
+      if (enderecoPrincipal.cep) partes.push(`CEP ${enderecoPrincipal.cep}`);
       enderecoFormatado = partes.join(", ");
     }
 
@@ -1496,6 +1573,9 @@ export async function obterProcedimento(id) {
       animalId: p.animalId,
       animalNome: p.animal?.nome || "",
       animalEspecie: p.animal?.especie || "",
+      animalSexo: p.animal?.sexo === "F" ? "Fêmea" : p.animal?.sexo === "M" ? "Macho" : "",
+      animalPorte: p.animal?.porte || "",
+      animalIdade: p.animal?.idade || "",
       animalRaca: p.animal?.raca || "",
       animalLabel: `${p.animal?.nome?.trim() || "Sem nome"} (${p.animalId})`,
       tutorNome: tutorPessoa?.nomeCompleto || "",
@@ -1514,6 +1594,12 @@ export async function obterProcedimento(id) {
         nome: p.animal.nome,
         especie: p.animal.especie,
         raca: p.animal.raca,
+        sexo: p.animal.sexo === "F" ? "Fêmea" : p.animal.sexo === "M" ? "Macho" : "",
+        porte: p.animal.porte || "",
+        idade: p.animal.idade || "",
+        racaPelagem: p.animal.racaPelagem || "",
+        possuiIdentificacao: p.animal.possuiIdentificacao || "",
+        situacao: p.animal.situacao || "",
       } : null,
       tutor: tutorPessoa ? {
         nome: tutorPessoa.nomeCompleto,
@@ -2626,9 +2712,11 @@ export async function obterEsporotricose(id) {
       const partes = [];
       if (enderecoPrincipal.logradouro) partes.push(enderecoPrincipal.logradouro);
       if (enderecoPrincipal.numero) partes.push(`nº ${enderecoPrincipal.numero}`);
+      if (enderecoPrincipal.complemento) partes.push(enderecoPrincipal.complemento);
       if (enderecoPrincipal.bairro) partes.push(enderecoPrincipal.bairro);
       if (enderecoPrincipal.cidade) partes.push(enderecoPrincipal.cidade);
       if (enderecoPrincipal.uf) partes.push(enderecoPrincipal.uf);
+      if (enderecoPrincipal.cep) partes.push(`CEP ${enderecoPrincipal.cep}`);
       enderecoFormatado = partes.join(", ");
     }
 
@@ -2731,6 +2819,70 @@ export async function obterEsporotricose(id) {
     }
     console.error("Erro ao obter esporotricose (CCZ):", error);
     return { success: false, error: "Erro ao carregar o registro de esporotricose." };
+  }
+}
+
+// ── EDITAR A CONCLUSÃO DA ESPOROTRICOSE ─────────────────────────────────────
+// A conclusão ("Encerrado" / "Em andamento") é o campo `encerrado` já existente
+// no banco — nenhuma opção nova é criada. A edição atualiza o próprio registro
+// (não cria nova fiscalização), preserva os demais campos e registra usuário,
+// data e hora na auditoria.
+export async function editarConclusaoEsporotricose(id, conclusao) {
+  try {
+    const user = await requirePermissao(MODULOS.CCZ, "zoonoses", "editar");
+
+    const regId = String(id || "").trim();
+    if (!regId) return { success: false, error: "ID não informado." };
+
+    const valor = String(conclusao || "").trim().toUpperCase();
+    if (!["ENCERRADO", "EM_ANDAMENTO"].includes(valor)) {
+      return { success: false, error: "Conclusão inválida." };
+    }
+    const encerrado = valor === "ENCERRADO";
+
+    const registro = await prisma.esporotricose.findUnique({
+      where: { id: regId },
+      select: { id: true, encerrado: true },
+    });
+    if (!registro) {
+      return { success: false, error: "Registro de esporotricose não encontrado." };
+    }
+    if (Boolean(registro.encerrado) === encerrado) {
+      return {
+        success: false,
+        error: `O registro já está como "${encerrado ? "Encerrado" : "Em andamento"}".`,
+      };
+    }
+
+    await prisma.esporotricose.update({
+      where: { id: regId },
+      data: encerrado
+        ? {
+            encerrado: true,
+            dataEncerramento: new Date(),
+            encerradoPor: user?.nome ? String(user.nome).slice(0, 150) : null,
+          }
+        : { encerrado: false, dataEncerramento: null, encerradoPor: null },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: encerrado ? "ENCERRAR" : "REABRIR",
+      modulo: "CCZ",
+      entidade: "Esporotricose",
+      entidadeId: regId,
+      descricao: `Conclusão do registro ${regId} alterada para "${encerrado ? "Encerrado" : "Em andamento"}"`,
+      detalhes: { conclusaoAnterior: registro.encerrado ? "ENCERRADO" : "EM_ANDAMENTO", conclusaoNova: valor },
+    });
+
+    revalidatePath("/ccz");
+    return { success: true, data: { id: regId, encerrado } };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao editar conclusão da esporotricose (CCZ):", error);
+    return { success: false, error: "Erro ao alterar a conclusão do registro." };
   }
 }
 

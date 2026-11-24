@@ -6,6 +6,7 @@ import stylesModal from "./AgendaCCZ.module.css";
 import styles from "./ListaCCZ.module.css";
 import stylesTermo from "./TermoProcedimento.module.css";
 import { gerarTermoDenuncia } from "./denunciasPdf";
+import { alterarSituacaoDenuncia } from "./actions";
 import { useConfirm, useNotify } from "@/components/ConfirmDialog";
 
 const formatarData = (ymd) => (ymd ? ymd.split("-").reverse().join("/") : "-");
@@ -19,6 +20,7 @@ export default function FichaDenuncia({
   // Editar/Excluir. O backend revalida as permissões em qualquer caminho.
   podeEditar = true,
   podeExcluir = true,
+  onSalvo,
 }) {
   const confirm = useConfirm();
   const notify = useNotify();
@@ -29,6 +31,11 @@ export default function FichaDenuncia({
   const [salvando, setSalvando] = useState(false);
   const [form, setForm] = useState({});
   const [mostrandoTermo, setMostrandoTermo] = useState(false);
+  // Situação da denúncia (Ativa/Inativa) — independente do arquivamento.
+  const [editandoSituacao, setEditandoSituacao] = useState(false);
+  const [novaSituacao, setNovaSituacao] = useState("Ativa");
+  const [justificativa, setJustificativa] = useState("");
+  const [salvandoSituacao, setSalvandoSituacao] = useState(false);
 
   useEffect(() => {
     const carregar = async () => {
@@ -82,6 +89,33 @@ export default function FichaDenuncia({
     } finally {
       setSalvando(false);
     }
+  };
+
+  const abrirSituacao = () => {
+    setNovaSituacao(dados.situacao === "Inativa" ? "Inativa" : "Ativa");
+    setJustificativa("");
+    setErro("");
+    setEditandoSituacao(true);
+  };
+
+  const salvarSituacao = async () => {
+    setSalvandoSituacao(true);
+    setErro("");
+    const res = await alterarSituacaoDenuncia(denunciaId, novaSituacao, justificativa);
+    setSalvandoSituacao(false);
+    if (!res.success) {
+      setErro(res.error || "Não foi possível alterar a situação.");
+      return;
+    }
+    const atualizado = await fetch(`/api/ccz/denuncias/${denunciaId}`);
+    if (atualizado.ok) {
+      const data = await atualizado.json();
+      setDados(data);
+      setForm(data);
+    }
+    setEditandoSituacao(false);
+    await notify({ tipo: "sucesso", message: `Denúncia ${novaSituacao.toLowerCase()}.` });
+    onSalvo?.();
   };
 
   if (carregando) {
@@ -151,13 +185,23 @@ export default function FichaDenuncia({
             <div className={stylesTermo.secao}>
               <div className={stylesTermo.textoExplicativo}>
                 <p>
-                  Eu, <strong>{dados.tutor?.nome || 'Sem tutor'}</strong>
-                  {(dados.tutor?.endereco || dados.endereco) && (
-                    <>, residente no endereço <strong>{dados.tutor?.endereco || dados.endereco}</strong></>
-                  )}, 
-                  responsável pelo animal <strong>{dados.animal?.nome || '______________________'}</strong>, 
-                  declaro que fui notificado(a) pela equipe do Centro de Controle de Zoonoses sobre denúncia de 
-                  comportamento agressivo do animal sob minha responsabilidade.
+                  {dados.tutor?.nome ? (
+                    <>
+                      Eu, <strong>{dados.tutor.nome}</strong>
+                      {(dados.tutor?.endereco || dados.endereco) && (
+                        <>, residente no endereço <strong>{dados.tutor?.endereco || dados.endereco}</strong></>
+                      )},
+                      responsável pelo animal <strong>{dados.animal?.nome || 'não identificado'}</strong>,
+                      declaro que fui notificado(a) pela equipe do Centro de Controle de Zoonoses sobre denúncia de
+                      comportamento agressivo do animal sob minha responsabilidade.
+                    </>
+                  ) : (
+                    <>
+                      O Centro de Controle de Zoonoses, em relação ao animal{' '}
+                      <strong>{dados.animal?.nome || 'não identificado'}</strong>, notifica o responsável pelo animal
+                      sobre denúncia de comportamento agressivo, para cumprimento das medidas de controle abaixo.
+                    </>
+                  )}
                 </p>
                 <p>Fui orientado(a) e comprometo-me com os seguintes pontos:</p>
                 <ul style={{ marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem' }}>
@@ -168,15 +212,25 @@ export default function FichaDenuncia({
                   <li>Providenciar atendimento veterinário caso seja identificado comportamento agressivo persistente;</li>
                   <li>Comunicar ao CCZ qualquer incidente envolvendo o animal.</li>
                 </ul>
-                <p>
-                  Estou ciente de que o não cumprimento destas medidas pode resultar em apreensão do animal, 
-                  aplicação de multa e outras sanções previstas na legislação municipal e estadual de proteção 
-                  e controle de animais.
-                </p>
-                <p>
-                  Declaro estar ciente de minhas responsabilidades como tutor e comprometo-me a adotar todas 
-                  as medidas necessárias para garantir a segurança pública.
-                </p>
+                {dados.tutor?.nome ? (
+                  <>
+                    <p>
+                      Estou ciente de que o não cumprimento destas medidas pode resultar em apreensão do animal,
+                      aplicação de multa e outras sanções previstas na legislação municipal e estadual de proteção
+                      e controle de animais.
+                    </p>
+                    <p>
+                      Declaro estar ciente de minhas responsabilidades como tutor e comprometo-me a adotar todas
+                      as medidas necessárias para garantir a segurança pública.
+                    </p>
+                  </>
+                ) : (
+                  <p>
+                    O Centro de Controle de Zoonoses adotará as medidas sanitárias cabíveis previstas na legislação
+                    municipal e estadual de proteção e controle de animais, mantendo o registro da denúncia para
+                    acompanhamento e fiscalização.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -191,10 +245,12 @@ export default function FichaDenuncia({
 
             {/* ASSINATURAS */}
             <div className={stylesTermo.assinaturas}>
-              <div className={stylesTermo.assinatura}>
-                <div className={stylesTermo.linhaAssinatura}></div>
-                <p>Assinatura do Responsável pelo Animal</p>
-              </div>
+              {dados.tutor?.nome && (
+                <div className={stylesTermo.assinatura}>
+                  <div className={stylesTermo.linhaAssinatura}></div>
+                  <p>Assinatura do Responsável pelo Animal</p>
+                </div>
+              )}
 
               <div className={stylesTermo.assinatura}>
                 <div className={stylesTermo.linhaAssinatura}></div>
@@ -394,6 +450,125 @@ export default function FichaDenuncia({
                     </div>
                   )}
                 </div>
+              </div>
+            </section>
+
+            {/* Situação da Denúncia (Ativa / Inativa) */}
+            <section>
+              <h4 style={{
+                fontSize: "0.75rem",
+                fontWeight: "700",
+                color: "#64748b",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                marginBottom: "1rem"
+              }}>
+                Situação da Denúncia
+              </h4>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "1rem", alignItems: "start" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: "600", color: "#475569", marginBottom: "0.25rem" }}>
+                    Situação
+                  </label>
+                  {editandoSituacao ? (
+                    <select
+                      value={novaSituacao}
+                      onChange={(e) => setNovaSituacao(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "0.5rem 0.75rem",
+                        backgroundColor: "#ffffff",
+                        border: "1px solid #cbd5e1",
+                        borderRadius: "6px",
+                        fontSize: "0.875rem",
+                        color: "#1e293b"
+                      }}
+                    >
+                      <option value="Ativa">Ativa</option>
+                      <option value="Inativa">Inativa</option>
+                    </select>
+                  ) : (
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <span className={dados.situacao === "Inativa" ? styles.badgeDanger : styles.badgeSuccess}>
+                        {dados.situacao === "Inativa" ? "Inativa" : "Ativa"}
+                      </span>
+                      {podeEditar && (
+                        <button
+                          type="button"
+                          className={styles.btnGhost}
+                          onClick={abrirSituacao}
+                          style={{ padding: "0.25rem 0.6rem", fontSize: "0.75rem" }}
+                        >
+                          Alterar situação
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {editandoSituacao ? (
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: "600", color: "#475569", marginBottom: "0.25rem" }}>
+                      Justificativa {novaSituacao === "Inativa" ? "*" : ""}
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={justificativa}
+                      onChange={(e) => setJustificativa(e.target.value)}
+                      disabled={novaSituacao !== "Inativa"}
+                      maxLength={500}
+                      placeholder={novaSituacao === "Inativa" ? "Descreva o motivo da inativação (mínimo 15 caracteres)" : "A justificativa é preservada da última inativação"}
+                      style={{
+                        width: "100%",
+                        padding: "0.5rem 0.75rem",
+                        backgroundColor: novaSituacao === "Inativa" ? "#ffffff" : "#f1f5f9",
+                        border: "1px solid #cbd5e1",
+                        borderRadius: "6px",
+                        fontSize: "0.875rem",
+                        color: novaSituacao === "Inativa" ? "#1e293b" : "#64748b",
+                        resize: "vertical",
+                        fontFamily: "inherit"
+                      }}
+                    />
+                    <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", marginTop: "0.5rem" }}>
+                      <button
+                        type="button"
+                        className={styles.btnGhost}
+                        onClick={() => { setEditandoSituacao(false); setErro(""); }}
+                        disabled={salvandoSituacao}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.btnPrimary}
+                        onClick={salvarSituacao}
+                        disabled={salvandoSituacao || (novaSituacao === "Inativa" && justificativa.trim().length < 15)}
+                      >
+                        {salvandoSituacao ? "Salvando..." : "Salvar situação"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  dados.justificativaInativacao && (
+                    <div>
+                      <label style={{ display: "block", fontSize: "0.75rem", fontWeight: "600", color: "#475569", marginBottom: "0.25rem" }}>
+                        Justificativa da última inativação
+                      </label>
+                      <div style={{
+                        padding: "0.5rem 0.75rem",
+                        backgroundColor: "#f8fafc",
+                        border: "1px solid #e2e8f0",
+                        borderRadius: "6px",
+                        fontSize: "0.875rem",
+                        color: "#1e293b"
+                      }}>
+                        {dados.justificativaInativacao}
+                      </div>
+                    </div>
+                  )
+                )}
               </div>
             </section>
 
@@ -752,7 +927,16 @@ export default function FichaDenuncia({
         </div>
 
         <div className={styles.modalFooter}>
-          {!editando ? (
+          {editandoSituacao ? (
+            <button
+              type="button"
+              className={styles.btnGhost}
+              onClick={() => { setEditandoSituacao(false); setErro(""); }}
+              disabled={salvandoSituacao}
+            >
+              Fechar
+            </button>
+          ) : !editando ? (
             <>
               {podeExcluir && (
                 <button 

@@ -327,7 +327,9 @@ export default function ConsultarDenuncias({ tipoDenuncia = "" }) {
                           className={`${filtrosDen.statusDen} ${
                             r.situacao === "Arquivada"
                               ? filtrosDen.statusArquivada
-                              : filtrosDen.statusAtiva
+                              : r.situacao === "Inativa"
+                                ? filtrosDen.statusInativa
+                                : filtrosDen.statusAtiva
                           }`}
                         >
                           {r.situacao || "—"}
@@ -372,6 +374,7 @@ export default function ConsultarDenuncias({ tipoDenuncia = "" }) {
           onExcluir={excluir}
           podeEditar={!!permissoes.editar}
           podeExcluir={!!permissoes.excluir}
+          onSalvo={() => consultar(resultado?.pagina || 1, filtros)}
         />
       )}
     </div>

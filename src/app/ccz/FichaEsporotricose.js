@@ -87,6 +87,7 @@ export default function FichaEsporotricose({ esporotricoseId, onFechar, onEditar
   // sem diálogo de confirmação.
   const handleIncineracao = async (valor) => {
     setSalvandoIncineracao(true);
+    // A action devolve { success, error }; sem o await, `res` era a Promise.
     const res = await registrarIncineracaoEsporotricose(esporotricoseId, valor);
     setSalvandoIncineracao(false);
 
@@ -188,15 +189,25 @@ export default function FichaEsporotricose({ esporotricoseId, onFechar, onEditar
             <div className={stylesTermo.secao}>
               <div className={stylesTermo.textoExplicativo}>
                 <p>
-                  Eu, <strong>{dados.tutor?.nome || 'Sem tutor'}</strong>
-                  {dados.tutor?.endereco && (
-                    <>, residente no endereço <strong>{dados.tutor.endereco}</strong></>
-                  )}, 
-                  responsável pelo animal <strong>{dados.animal?.nome || '______________________'}</strong>, 
-                  declaro que fui devidamente informado(a) pela equipe técnica do Centro de Controle de Zoonoses 
-                  sobre a esporotricose felina, seus riscos à saúde pública e animal, e as medidas de controle necessárias.
+                  {dados.tutor?.nome ? (
+                    <>
+                      Eu, <strong>{dados.tutor.nome}</strong>
+                      {dados.tutor?.endereco && (
+                        <>, residente no endereço <strong>{dados.tutor.endereco}</strong></>
+                      )},
+                      responsável pelo animal <strong>{dados.animal?.nome || 'não identificado'}</strong>,
+                      declaro que fui devidamente informado(a) pela equipe técnica do Centro de Controle de Zoonoses
+                      sobre a esporotricose felina, seus riscos à saúde pública e animal, e as medidas de controle necessárias.
+                    </>
+                  ) : (
+                    <>
+                      O Centro de Controle de Zoonoses, em relação ao animal{' '}
+                      <strong>{dados.animal?.nome || 'não identificado'}</strong>, registra as orientações sobre a
+                      esporotricose felina, seus riscos à saúde pública e animal, e as medidas de controle necessárias.
+                    </>
+                  )}
                 </p>
-                <p>Fui orientado(a) quanto aos seguintes pontos:</p>
+                <p>{dados.tutor?.nome ? 'Fui orientado(a)' : 'Orientações registradas'} quanto aos seguintes pontos:</p>
                 <ul style={{ marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem' }}>
                   <li>A esporotricose é uma doença causada por fungo, transmissível ao ser humano;</li>
                   <li>O animal diagnosticado deve ser tratado conforme orientação veterinária;</li>
@@ -205,8 +216,9 @@ export default function FichaEsporotricose({ esporotricoseId, onFechar, onEditar
                   <li>O acompanhamento veterinário deve ser mantido até a alta clínica.</li>
                 </ul>
                 <p>
-                  Comprometo-me a seguir todas as orientações fornecidas pela equipe do CCZ e a comunicar 
-                  qualquer alteração no estado de saúde do animal.
+                  {dados.tutor?.nome
+                    ? 'Comprometo-me a seguir todas as orientações fornecidas pela equipe do CCZ e a comunicar qualquer alteração no estado de saúde do animal.'
+                    : 'A equipe do CCZ acompanhará o caso até a alta clínica, com registro das orientações no prontuário do animal.'}
                 </p>
               </div>
             </div>
@@ -222,10 +234,12 @@ export default function FichaEsporotricose({ esporotricoseId, onFechar, onEditar
 
             {/* ASSINATURAS */}
             <div className={stylesTermo.assinaturas}>
-              <div className={stylesTermo.assinatura}>
-                <div className={stylesTermo.linhaAssinatura}></div>
-                <p>Assinatura do Responsável pelo Animal</p>
-              </div>
+              {dados.tutor?.nome && (
+                <div className={stylesTermo.assinatura}>
+                  <div className={stylesTermo.linhaAssinatura}></div>
+                  <p>Assinatura do Responsável pelo Animal</p>
+                </div>
+              )}
 
               <div className={stylesTermo.assinatura}>
                 <div className={stylesTermo.linhaAssinatura}></div>

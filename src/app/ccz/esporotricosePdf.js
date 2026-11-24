@@ -20,6 +20,7 @@ import {
   texto,
 } from "./documentoCcz";
 import { obterLogoCcz } from "./logoCcz";
+import { gerarTermoPdf } from "./termoCcz";
 
 const mascararTelefone = (v) => {
   const d = String(v || "").replace(/\D/g, "");
@@ -200,54 +201,22 @@ export async function gerarPdfEsporotricose(data) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TERMO DE VISTORIA / ESPOROTRICOSE — documento formal com assinaturas
+// TERMO DE VISTORIA / ESPOROTRICOSE — usa o MODELO ÚNICO dos termos
+// (termoCcz.js), o mesmo de Gerenciamento > Termos. Havendo tutor, nome e
+// endereço são preenchidos; sem tutor, a linha permanece em branco.
 // ═══════════════════════════════════════════════════════════════════════════
-
-const MESES = [
-  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
-  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
-];
 
 export async function gerarTermoEsporotricose(data) {
   const d = data || {};
-  const nomeTutor = d.tutorNome || "Sem tutor";
-  const nomeAnimal = d.animal?.nome || "__________________________________________________";
-
-  const doc = criarDocumentoCcz({
-    logo: await obterLogoCcz(),
-    titulo: "TERMO DE VISTORIA",
-    subtitulo: "ESPOROTRICOSE",
-    identificacao: `Registro ${texto(d.id)} · ${formatarData(d.dataVisita)}`,
+  const animal = d.animal || {};
+  return gerarTermoPdf("esporotricose", {
+    animal: {
+      id: animal.id || d.animalId,
+      nome: animal.nome,
+      especie: animal.especie,
+    },
+    tutor: d.tutor?.nome ? d.tutor : null,
+    data: d.dataVisita,
+    arquivo: nomeArquivo("termo-esporotricose", d.id),
   });
-
-  let primeiraFrase = `Eu, ${nomeTutor}`;
-  if (d.tutor?.endereco) primeiraFrase += `, residente no endereço ${d.tutor.endereco}`;
-  primeiraFrase += `, responsável pelo animal ${nomeAnimal}, declaro que fui devidamente informado(a) pela equipe técnica do Centro de Controle de Zoonoses sobre a esporotricose felina, seus riscos à saúde pública e animal, e as medidas de controle necessárias.`;
-
-  const corpo = `${primeiraFrase}
-
-Fui orientado(a) quanto aos seguintes pontos:
-
-• A esporotricose é uma doença causada por fungo, transmissível ao ser humano;
-• O animal diagnosticado deve ser tratado conforme orientação veterinária;
-• É necessário manter o animal em ambiente adequado, evitando o contato com outros animais e pessoas vulneráveis;
-• Os cuidados de higiene e manejo são fundamentais para prevenir a disseminação da doença;
-• O acompanhamento veterinário deve ser mantido até a alta clínica.
-
-Comprometo-me a seguir todas as orientações fornecidas pela equipe do CCZ e a comunicar qualquer alteração no estado de saúde do animal.`;
-
-  doc.paragrafo("DECLARAÇÃO", corpo);
-
-  const agora = new Date();
-  doc.paragrafo(
-    "LOCAL E DATA",
-    `Muriaé, ${String(agora.getDate()).padStart(2, "0")} de ${MESES[agora.getMonth()]} de ${agora.getFullYear()}.`,
-  );
-
-  doc.secao("Assinaturas");
-  doc.assinatura(nomeTutor, "Assinatura do Responsável pelo Animal");
-  doc.assinatura("", "Veterinário Responsável");
-
-  doc.finalizar();
-  return doc.doc.save(nomeArquivo("termo-esporotricose", d.id));
 }

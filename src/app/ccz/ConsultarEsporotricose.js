@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Filter, SearchX, FileDown } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Filter, SearchX, FileDown, FileText, Pencil } from "lucide-react";
 import styles from "../camara-tecnica/processos/ConsultarProcessos.module.css";
 // Badges originais da antiga Lista (CCZ) — cores preservadas por classificação.
 import stylesLista from "./ListaCCZ.module.css";
@@ -10,8 +10,9 @@ import {
   listarEsporotricoseConsulta,
   obterFiltrosEsporotricose,
   obterEsporotricose,
+  editarConclusaoEsporotricose,
 } from "./actions";
-import { gerarPdfEsporotricose } from "./esporotricosePdf";
+import { gerarPdfEsporotricose, gerarTermoEsporotricose } from "./esporotricosePdf";
 
 // CCZ > Zoonoses > Esporotricose — Consultar Registros
 // Mesmo padrão visual e funcional de Leishmaniose > Consultar Registros
@@ -81,7 +82,40 @@ export default function ConsultarEsporotricose() {
     setErro("");
   };
 
+  // Edição da Conclusão (Encerrado / Em andamento) — o mesmo campo já
+  // existente no formulário; nenhuma opção nova é criada.
+  const [editandoConclusao, setEditandoConclusao] = useState(false);
+  const [novaConclusao, setNovaConclusao] = useState("EM_ANDAMENTO");
+  const [salvandoConclusao, setSalvandoConclusao] = useState(false);
+  const [podeEditar, setPodeEditar] = useState(false);
+  const permissoesLidas = useRef(false);
+
+  const salvarConclusao = async () => {
+    setSalvandoConclusao(true);
+    const res = await editarConclusaoEsporotricose(detalhe.id, novaConclusao);
+    setSalvandoConclusao(false);
+    if (!res.success) {
+      notify.error(res.error || "Não foi possível alterar a conclusão.");
+      return;
+    }
+    const atualizado = await obterEsporotricose(detalhe.id);
+    if (atualizado.success) setDetalhe(atualizado.data);
+    setEditandoConclusao(false);
+    notify.success("Conclusão atualizada.");
+    consultar(resultado?.pagina || 1, filtros);
+  };
+
   const abrirDetalhe = async (id) => {
+    if (!permissoesLidas.current) {
+      try {
+        const r = await fetch("/api/me", { cache: "no-store" });
+        const data = r.ok ? await r.json() : null;
+        setPodeEditar(Boolean((data?.user?.permissoes || []).includes("zoonoses:editar")));
+      } catch {
+        // fail-closed: sem contexto, a ficha fica somente leitura
+      }
+      permissoesLidas.current = true;
+    }
     setCarregandoDetalhe(true);
     setDetalhe(null);
     const res = await obterEsporotricose(id);
@@ -90,12 +124,21 @@ export default function ConsultarEsporotricose() {
     else notify.error(res?.error || "Registro não encontrado.");
   };
 
-  const baixarPdf = (registro) => {
+  const baixarPdf = async (registro) => {
     try {
-      gerarPdfEsporotricose(registro);
+      await gerarPdfEsporotricose(registro);
     } catch (e) {
       console.error(e);
       notify.error("Não foi possível gerar o PDF.");
+    }
+  };
+
+  const gerarTermo = async (registro) => {
+    try {
+      await gerarTermoEsporotricose(registro);
+    } catch (e) {
+      console.error(e);
+      notify.error("Não foi possível gerar o termo.");
     }
   };
 
@@ -294,7 +337,7 @@ export default function ConsultarEsporotricose() {
         <div
           className={styles.painelFundo}
           role="presentation"
-          onClick={() => setDetalhe(null)}
+          onClick={() => { setDetalhe(null); setEditandoConclusao(false); }}
         >
           <div
             className={styles.painelDetalhe}
@@ -314,7 +357,7 @@ export default function ConsultarEsporotricose() {
                   <button
                     type="button"
                     className={styles.btnFechar}
-                    onClick={() => setDetalhe(null)}
+                    onClick={() => { setDetalhe(null); setEditandoConclusao(false); }}
                     aria-label="Fechar"
                   >
                     ×
@@ -325,11 +368,24 @@ export default function ConsultarEsporotricose() {
                   <Bloco titulo="1. Informações da Visita" css={styles}>
                     <Campo label="Data da Visita" valor={formatarData(detalhe.dataVisita)} css={styles} />
                     <Campo label="Fiscal Responsável" valor={detalhe.fiscalResponsavel} css={styles} />
-                    <Campo
-                      label="Conclusão"
-                      valor={detalhe.encerrado ? "Encerrado" : "Em andamento"}
-                      css={styles}
-                    />
+                    <div className={styles.fieldGroup}>
+                      <label>Conclusão</label>
+                      {editandoConclusao ? (
+                        <select
+                          value={novaConclusao}
+                          onChange={(e) => setNovaConclusao(e.target.value)}
+                        >
+                          <option value="EM_ANDAMENTO">Em andamento</option>
+                          <option value="ENCERRADO">Encerrado</option>
+                        </select>
+                      ) : (
+                        <div className={styles.campoLeitura}>
+                          <span className={detalhe.encerrado ? stylesLista.badgeDanger : stylesLista.badgeSuccess}>
+                            {detalhe.encerrado ? "Encerrado" : "Em andamento"}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                     <Campo label="Encerrado por" valor={detalhe.encerradoPor} css={styles} />
                   </Bloco>
 
@@ -430,7 +486,46 @@ export default function ConsultarEsporotricose() {
                   <button
                     type="button"
                     className={styles.btnGhost}
-                    onClick={() => setDetalhe(null)}
+                    onClick={() => gerarTermo(detalhe)}
+                  >
+                    <FileText size={16} /> Gerar Termo
+                  </button>
+                  {podeEditar && !editandoConclusao && (
+                    <button
+                      type="button"
+                      className={styles.btnGhost}
+                      onClick={() => {
+                        setNovaConclusao(detalhe.encerrado ? "ENCERRADO" : "EM_ANDAMENTO");
+                        setEditandoConclusao(true);
+                      }}
+                    >
+                      <Pencil size={16} /> Editar
+                    </button>
+                  )}
+                  {editandoConclusao && (
+                    <>
+                      <button
+                        type="button"
+                        className={styles.btnGhost}
+                        onClick={() => setEditandoConclusao(false)}
+                        disabled={salvandoConclusao}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.btnPrimario}
+                        onClick={salvarConclusao}
+                        disabled={salvandoConclusao}
+                      >
+                        {salvandoConclusao ? "Salvando..." : "Salvar"}
+                      </button>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    className={styles.btnGhost}
+                    onClick={() => { setDetalhe(null); setEditandoConclusao(false); }}
                   >
                     Fechar
                   </button>

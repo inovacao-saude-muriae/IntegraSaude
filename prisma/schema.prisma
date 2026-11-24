@@ -493,9 +493,14 @@ model DenunciaCaoAgressivo {
   animalId           String?   @map("animal_id") @db.VarChar(50)
   causouRisco        String?   @default("Não") @map("causou_risco") @db.VarChar(10)
   tipo               String    @default("AGRESSIVO") @map("tipo") @db.VarChar(20)
+  // Situação da denúncia: Ativa | Inativa. Independente do ARQUIVAMENTO
+  // (motivoArquivamento/arquivadaEm), que é outra coisa.
+  // Justificativa obrigatória ao inativar; preservada como histórico da última
+  // inativação após a reativação.
+  situacao               String    @default("Ativa") @db.VarChar(20)
+  justificativaInativacao String?  @map("justificativa_inativacao") @db.VarChar(500)
   // Arquivamento: a denúncia não é apagada — sai das listagens operacionais
   // e continua rastreável (histórico, investigação, relatórios).
-  situacao           String    @default("Ativa") @db.VarChar(20)
   motivoArquivamento String?   @map("motivo_arquivamento")
   arquivadaEm        DateTime? @map("arquivada_em") @db.Timestamptz(6)
   arquivadaPor       String?   @map("arquivada_por") @db.VarChar(150)
