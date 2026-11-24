@@ -803,6 +803,10 @@ export async function salvarAnimal(dados) {
       sexo,
       porte: String(dados.porte).slice(0, 20),
       idade: dados.idade ? String(dados.idade).slice(0, 50) : null,
+      racaPelagem: dados.racaPelagem?.trim()
+        ? String(dados.racaPelagem).trim().slice(0, 100)
+        : null,
+      possuiIdentificacao: dados.possuiIdentificacao === "Sim" ? "Sim" : "Não",
       castrado: dados.castrado === "Sim" ? "Sim" : "Não",
       doencaCronica: dados.doencaCronica === "Sim" ? "Sim" : "Não",
       sintomasVomitoDiarreia: dados.sintomasVomitoDiarreia === "Sim" ? "Sim" : "Não",

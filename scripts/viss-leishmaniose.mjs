@@ -166,6 +166,28 @@ async function main() {
   const alerta = await page.locator('[class*="alertErro"]').innerText().catch(() => "(sem alerta)");
   log.push(`   alerta: ${alerta}`);
 
+  const marcar = async (rotuloParcial, opcao) => {
+    const rotulos = page.locator("label");
+    const total = await rotulos.count();
+    for (let i = 0; i < total; i += 1) {
+      const t = (await rotulos.nth(i).innerText()).trim();
+      if (!t.includes(rotuloParcial)) continue;
+      const campo = rotulos.nth(i).locator("xpath=following::select[1]");
+      if ((await campo.count()) === 0) continue;
+      const valores = await campo.locator("option").allInnerTexts();
+      if (!valores.includes(opcao)) return;
+      await campo.selectOption({ label: opcao });
+      await page.waitForTimeout(200);
+      return;
+    }
+  };
+
+  // Raça/Pelagem e identificação vêm do cadastro central do animal.
+  await db.query(
+    `UPDATE ccz_animais SET raca_pelagem = 'SRD, pelo curto', possui_identificacao = 'Sim' WHERE id = $1`,
+    [ANIMAL],
+  );
+
   passo("3. Selecionar animal com tutor");
   const busca = page.getByPlaceholder("Digite o nome, o ID CCZ ou o tutor do animal...");
   await busca.click();
@@ -184,91 +206,79 @@ async function main() {
   await page.getByPlaceholder("Cargo ou função").last().fill("Agente de Endemias");
   await page.screenshot({ path: `${OUT}/2-etapa1-preenchida-1440.png`, fullPage: true });
 
-  passo("5. Próximo → Etapa 2 (Tratamento)");
-  await page.getByRole("button", { name: /Próximo/ }).click();
-  await page.waitForTimeout(800);
-  corpo = await page.locator("body").innerText();
-  log.push(`   Etapa 2 visível: ${corpo.includes("CONDIÇÃO CLÍNICA E TRATAMENTO")}`);
-  log.push(`   dados preservados (animal): ${await page.evaluate(() => document.body.innerText.includes("ZZTESTE REX"))}`);
-  await page.screenshot({ path: `${OUT}/3-etapa2-1440.png`, fullPage: true });
-
-  const marcar = async (rotuloParcial, opcao) => {
-    const rotulos = page.locator("label");
-    const total = await rotulos.count();
-    for (let i = 0; i < total; i += 1) {
-      const t = (await rotulos.nth(i).innerText()).trim();
-      if (!t.includes(rotuloParcial)) continue;
-      const campo = rotulos.nth(i).locator("xpath=following::select[1]");
-      if ((await campo.count()) === 0) continue;
-      const valores = await campo.locator("option").allInnerTexts();
-      if (!valores.includes(opcao)) return;
-      await campo.selectOption({ label: opcao });
-      await page.waitForTimeout(200);
-      return;
-    }
-  };
-
+  // Tratamento faz parte da Etapa 1 (Identificação e Tratamento)
   await marcar("Ainda apresenta lesões", "Sim");
   await marcar("tratamento veterinário contínuo", "Sim");
   await marcar("retorno ou revisão", "Sim");
   await page.waitForTimeout(400);
   corpo = await page.locator("body").innerText();
   log.push(`   condicionais abriram: ${corpo.includes("Quais lesões?") && corpo.includes("Medicamentos prescritos")}`);
-  await page.screenshot({ path: `${OUT}/4-etapa2-preenchida-1440.png`, fullPage: true });
+  await page.screenshot({ path: `${OUT}/2-etapa1-tratamento-1440.png`, fullPage: true });
 
-  passo("6. Voltar para Etapa 1 e conferir preservação");
-  await page.getByRole("button", { name: /Anterior/ }).click();
-  await page.waitForTimeout(700);
+  passo("5. Próximo → Etapa 2 (Manejo)");
+  await page.getByRole("button", { name: /Próximo/ }).click();
+  await page.waitForTimeout(800);
   corpo = await page.locator("body").innerText();
-  log.push(`   animal preservado: ${corpo.includes("ZZTESTE REX")}`);
-  log.push(`   profissional preservado: ${corpo.includes("ZZTESTE PROFISSIONAL EXTRA")}`);
+  log.push(`   Etapa 2 visível: ${corpo.includes("MANEJO E BIOSSEGURANÇA")}`);
+  log.push(`   dados preservados (animal): ${corpo.includes("ZZTESTE Rex")}`);
+  await page.screenshot({ path: `${OUT}/3-etapa2-1440.png`, fullPage: true });
 
-  passo("7. Etapa 3 (Manejo)");
-  await page.getByRole("button", { name: /Próximo/ }).click();
-  await page.waitForTimeout(500);
-  await page.getByRole("button", { name: /Próximo/ }).click();
-  await page.waitForTimeout(700);
-  corpo = await page.locator("body").innerText();
-  log.push(`   Etapa 3 visível: ${corpo.includes("MANEJO E BIOSSEGURANÇA") && corpo.includes("CONDIÇÕES DO AMBIENTE")}`);
   await marcar("coleira repelente", "Sim");
   await marcar("áreas periurbanas", "Não");
   await marcar("outros animais no domicílio", "Não");
   await marcar("Condições sanitárias", "Regulares");
   await marcar("risco de disseminação", "Sim");
-  await page.screenshot({ path: `${OUT}/5-etapa3-1440.png`, fullPage: true });
+  await page.screenshot({ path: `${OUT}/3-etapa2-manejo-1440.png`, fullPage: true });
 
-  passo("8. Etapa 4 (Orientações)");
+  passo("6. Voltar para Etapa 1 e conferir preservação");
+  await page.getByRole("button", { name: /Anterior/ }).click();
+  await page.waitForTimeout(700);
+  corpo = await page.locator("body").innerText();
+  log.push(`   animal preservado: ${corpo.includes("ZZTESTE Rex")}`);
+  log.push(`   profissional preservado: ${corpo.includes("ZZTESTE Profissional Extra")}`);
+  log.push(`   tratamento na etapa 1: ${corpo.includes("CONDIÇÃO CLÍNICA E TRATAMENTO")}`);
+  log.push(`   campos cadastrais fora da tela: raça=${!corpo.includes("Raça/Pelagem")} identificação=${!corpo.includes("Possui identificação")}`);
   await page.getByRole("button", { name: /Próximo/ }).click();
   await page.waitForTimeout(700);
   corpo = await page.locator("body").innerText();
-  log.push(`   Etapa 4 visível: ${corpo.includes("ORIENTAÇÕES E COMPROMETIMENTO")}`);
+  log.push(`   voltou para a Etapa 2: ${corpo.includes("MANEJO E BIOSSEGURANÇA")}`);
+
+  passo("7. Etapa 3 (Orientações)");
+  await page.getByRole("button", { name: /Próximo/ }).click();
+  await page.waitForTimeout(700);
+  corpo = await page.locator("body").innerText();
+  log.push(`   Etapa 3 visível: ${corpo.includes("ORIENTAÇÕES E COMPROMETIMENTO")}`);
   await marcar("zoonose", "Sim");
   await marcar("demonstra comprometimento", "Parcialmente");
-  await page.screenshot({ path: `${OUT}/6-etapa4-1440.png`, fullPage: true });
+  await page.screenshot({ path: `${OUT}/4-etapa3-orientacoes-1440.png`, fullPage: true });
 
-  passo("9. Etapa 5 (Conclusão) — botão Salvar Registro");
+  passo("8. Etapa 4 (Conclusão) — botão Salvar Registro");
   await page.getByRole("button", { name: /Próximo/ }).click();
   await page.waitForTimeout(700);
   corpo = await page.locator("body").innerText();
-  log.push(`   Etapa 5 visível: ${corpo.includes("CONCLUSÃO DA EQUIPE TÉCNICA")}`);
+  log.push(`   Etapa 4 visível: ${corpo.includes("CONCLUSÃO DA EQUIPE TÉCNICA")}`);
+  log.push(`   sem bloco de assinaturas no formulário: ${!corpo.includes("ASSINATURAS E RESPONSÁVEIS TÉCNICOS")}`);
   log.push(`   botão Salvar Registro: ${await page.getByRole("button", { name: /Salvar Registro/ }).count()}`);
   log.push(`   botão Próximo ausente: ${(await page.getByRole("button", { name: /Próximo/ }).count()) === 0}`);
   await marcar("Conduta do tutor", "Parcialmente adequada");
   await marcar("Situação geral", "Risco à saúde pública, encaminhamentos necessários");
-  await page.getByPlaceholder("Nome completo do médico veterinário").count();
-  await page.getByRole("button", { name: /Adicionar veterinário/i }).click();
-  await page.waitForTimeout(300);
-  await page.getByPlaceholder("Nome completo do médico veterinário").fill("ZZTESTE Vet Um");
-  await page.getByPlaceholder("Registro profissional (CRMV)").fill("CRMV-MG 1234");
-  await page.getByPlaceholder("Cargo ou função").last().fill("Médico Veterinário do CCZ");
-  await page.screenshot({ path: `${OUT}/7-etapa5-1440.png`, fullPage: true });
+  await page.screenshot({ path: `${OUT}/5-etapa4-conclusao-1440.png`, fullPage: true });
 
-  passo("10. Salvar Registro");
+  passo("9. Salvar Registro");
   await page.getByRole("button", { name: /Salvar Registro/ }).click();
   await page.waitForTimeout(3500);
   corpo = await page.locator("body").innerText();
   log.push(`   erro na tela: ${await page.locator('[class*="alertErro"]').count() ? await page.locator('[classFor="alertErro"]').innerText().catch(() => "?") : "nenhum"}`);
   log.push(`   voltou para Etapa 1 limpo: ${corpo.includes("INFORMAÇÕES DA FISCALIZAÇÃO") && !corpo.includes("ZZTESTE Rex —")}`);
+
+  const doAnimal = (
+    await db.query(
+      `SELECT animal_raca_pelagem, animal_identificacao FROM ccz_leishmaniose
+        WHERE animal_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [ANIMAL],
+    )
+  ).rows[0];
+  log.push(`   snapshot do cadastro do animal: ${JSON.stringify(doAnimal)}`);
 
   const salvo = (
     await db.query(
@@ -281,7 +291,7 @@ async function main() {
   ).rows;
   log.push(`   registro no banco: ${JSON.stringify(salvo)}`);
 
-  passo("11. Consultar Registros");
+  passo("10. Consultar Registros");
   await page.getByRole("button", { name: /Consultar Registros/ }).click();
   await page.waitForTimeout(1200);
   await page.getByRole("button", { name: /^Filtrar$/i }).click();
@@ -290,7 +300,7 @@ async function main() {
   log.push(`   tabela: ${tabela.replace(/\n/g, " | ")}`);
   await page.screenshot({ path: `${OUT}/8-consulta-1440.png`, fullPage: true });
 
-  passo("12. Detalhe + PDF");
+  passo("11. Detalhe + PDF");
   const linha = page.locator("tbody tr").filter({ hasText: "ZZTESTE Rex" }).first();
   if ((await linha.count()) > 0) {
     await linha.click();
@@ -312,7 +322,7 @@ async function main() {
     await page.waitForTimeout(900);
   }
 
-  passo("13. Animal sem tutor");
+  passo("12. Animal sem tutor");
   await page.getByRole("button", { name: /Novo Registro/ }).click();
   await page.waitForTimeout(1000);
   const busca2 = page.getByPlaceholder("Digite o nome, o ID CCZ ou o tutor do animal...");
@@ -323,16 +333,16 @@ async function main() {
   await page.waitForTimeout(900);
   corpo = await page.locator("body").innerText();
   log.push(`   bloco de tutor oculto: ${!corpo.includes("IDENTIFICAÇÃO DO TUTOR")}`);
-  for (let i = 0; i < 3; i += 1) {
+  for (let i = 0; i < 2; i += 1) {
     await page.getByRole("button", { name: /Próximo/ }).click();
     await page.waitForTimeout(700);
   }
   corpo = await page.locator("body").innerText();
-  log.push(`   Etapa 4 sem tutor: ${corpo.includes("Animal sem tutor vinculado")}`);
+  log.push(`   Etapa 3 sem tutor: ${corpo.includes("Animal sem tutor vinculado")}`);
   await page.getByRole("button", { name: /Próximo/ }).click();
   await page.waitForTimeout(700);
   corpo = await page.locator("body").innerText();
-  log.push(`   Etapa 5 sem tutor: sem conduta do tutor = ${!corpo.includes("Conduta do tutor")}`);
+  log.push(`   Etapa 4 sem tutor: sem conduta do tutor = ${!corpo.includes("Conduta do tutor")}`);
   await page.screenshot({ path: `${OUT}/10-etapa5-sem-tutor-1440.png`, fullPage: true });
   await page.getByRole("button", { name: /Salvar Registro/ }).click();
   await page.waitForTimeout(3000);
@@ -345,7 +355,7 @@ async function main() {
   ).rows;
   log.push(`   fiscalização sem tutor: ${JSON.stringify(salvo2)}`);
 
-  passo("14. Mobile 390px");
+  passo("13. Mobile 390px");
   await page.setViewportSize({ width: 390, height: 900 });
   await page.waitForTimeout(800);
   await page.screenshot({ path: `${OUT}/11-mobile-390.png`, fullPage: true });

@@ -19,6 +19,8 @@ const FORM_VAZIO = {
   sexo: "",
   porte: "",
   idade: "",
+  racaPelagem: "",
+  possuiIdentificacao: "Não",
   possuiResponsavel: "Não",
   pessoaCpf: "",
   castrado: "Não",
@@ -499,6 +501,32 @@ export default function CadastroAnimal({ animalInicial = null, onSalvo, onCancel
                 <option value="Grande">Grande</option>
                 <option value="Médio">Médio</option>
                 <option value="Pequeno">Pequeno</option>
+              </select>
+            </div>
+
+            {/* Raça/Pelagem */}
+            <div className={`${styles.field} ${styles.colMd}`}>
+              <label>Raça/Pelagem</label>
+              <input
+                type="text"
+                value={form.racaPelagem || ""}
+                onChange={(e) => atualizar("racaPelagem", e.target.value)}
+                placeholder="Ex: SRD, curta"
+                maxLength={100}
+                disabled={camposDesabilitados}
+              />
+            </div>
+
+            {/* Possui identificação (coleira, chip ou outro) */}
+            <div className={`${styles.field} ${styles.colSm}`}>
+              <label>Possui identificação?</label>
+              <select
+                value={form.possuiIdentificacao || "Não"}
+                onChange={(e) => atualizar("possuiIdentificacao", e.target.value)}
+                disabled={camposDesabilitados}
+              >
+                <option value="Não">Não</option>
+                <option value="Sim">Sim</option>
               </select>
             </div>
 

@@ -145,10 +145,9 @@ export async function buscarAnimaisLeishmaniose(termo = "") {
           sexo: a.sexo === "F" ? "Fêmea" : a.sexo === "M" ? "Macho" : "",
           idade: a.idade || "",
           porte: a.porte || "",
-          // O cadastro central não tem raça/pelagem nem identificação (coleira
-          // ou chip): a ficha registra esses dados da fiscalização.
-          racaPelagem: "",
-          identificacao: "",
+          // Raça/Pelagem e identificação vêm do cadastro central do animal.
+          racaPelagem: a.racaPelagem || "",
+          identificacao: a.possuiIdentificacao || "",
           temTutor: Boolean(pessoa),
           tutor: pessoa
             ? {
@@ -266,8 +265,10 @@ export async function salvarLeishmaniose(dados = {}) {
       animalEspecie: animal.especie || null,
       animalSexo: animal.sexo === "F" ? "Fêmea" : animal.sexo === "M" ? "Macho" : animal.sexo || null,
       animalIdade: animal.idade || null,
-      animalRacaPelagem: opcional(dados.animalRacaPelagem),
-      animalIdentificacao: SIM_NAO(dados.animalIdentificacao, ["Sim", "Não"]),
+      // Raça/Pelagem e identificação são dados cadastrais: vêm sempre do
+      // cadastro central do animal (nunca editáveis na fiscalização).
+      animalRacaPelagem: opcional(animal.racaPelagem),
+      animalIdentificacao: SIM_NAO(animal.possuiIdentificacao, ["Sim", "Não"]),
 
       // 3. Condição clínica
       apresentaLesoes: SIM_NAO(dados.apresentaLesoes, ["Sim", "Não"]),

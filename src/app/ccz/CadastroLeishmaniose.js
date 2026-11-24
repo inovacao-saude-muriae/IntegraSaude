@@ -77,7 +77,7 @@ const FORM_VAZIO = {
   encNotificacao: false,
   encOutrasMedidas: false,
   encOutrasDescricao: "",
-  // 10. Assinaturas
+  // Equipe técnica (as assinaturas ficam exclusivamente no PDF)
   coordenadorNome: "",
   coordenadorCargo: "",
   equipe: [],
@@ -87,11 +87,10 @@ const FORM_VAZIO = {
 const SIM_NAO = ["Sim", "Não"];
 
 const ETAPAS = [
-  { numero: 1, label: "Identificação" },
-  { numero: 2, label: "Tratamento" },
-  { numero: 3, label: "Manejo" },
-  { numero: 4, label: "Orientações" },
-  { numero: 5, label: "Conclusão" },
+  { numero: 1, label: "Identificação e Tratamento" },
+  { numero: 2, label: "Manejo" },
+  { numero: 3, label: "Orientações" },
+  { numero: 4, label: "Conclusão" },
 ];
 
 function SimNao({ label, valor, onChange, opcoes = SIM_NAO, obrigatorio = false }) {
@@ -217,24 +216,6 @@ export default function CadastroLeishmaniose({ registroInicial = null, onSalvo }
   const removerProfissional = (i) =>
     setForm((prev) => ({ ...prev, equipe: prev.equipe.filter((_, idx) => idx !== i) }));
 
-  const adicionarVeterinario = () =>
-    setForm((prev) => ({
-      ...prev,
-      veterinarios: [...prev.veterinarios, { nome: "", registro: "", cargo: "" }],
-    }));
-  const alterarVeterinario = (i, campo, valor) =>
-    setForm((prev) => ({
-      ...prev,
-      veterinarios: prev.veterinarios.map((l, idx) =>
-        idx === i ? { ...l, [campo]: valor } : l,
-      ),
-    }));
-  const removerVeterinario = (i) =>
-    setForm((prev) => ({
-      ...prev,
-      veterinarios: prev.veterinarios.filter((_, idx) => idx !== i),
-    }));
-
   // Usuário cujo cargo indica veterinário: usa o mesmo nome no campo do
   // Médico Veterinário do CCZ. Nunca presumido pela simples autenticação.
   const cargoVeterinario = /veterin/i.test(cargoUsuario);
@@ -334,7 +315,7 @@ export default function CadastroLeishmaniose({ registroInicial = null, onSalvo }
           ))}
         </div>
 
-      {/* ══ ETAPA 1: IDENTIFICAÇÃO ══ */}
+      {/* ══ ETAPA 1: IDENTIFICAÇÃO E TRATAMENTO ══ */}
       {etapa === 1 && (
         <>
           <section className={`${leish.bloco} ${leish.grid3}`}>
@@ -495,35 +476,9 @@ export default function CadastroLeishmaniose({ registroInicial = null, onSalvo }
               )}
             </div>
 
-            {/* Dados da fiscalização (ID CCZ, Espécie, Sexo, Idade e Porte
-                continuam no estado e são recuperados do cadastro do animal
-                para o PDF, sem aparecer na tela). */}
-            <div className={leish.colFull}>
-              <div className={leish.grid2}>
-                <div className={styles.field}>
-                  <label>Raça/Pelagem</label>
-                  <input
-                    value={form.animalRacaPelagem}
-                    onChange={(e) => atualizar("animalRacaPelagem", e.target.value)}
-                    placeholder="Informado na fiscalização"
-                  />
-                </div>
-                <div className={`${styles.field} ${leish.colFull}`}>
-                  <label>Possui identificação (coleira ou chip)?</label>
-                  <select
-                    value={form.animalIdentificacao || ""}
-                    onChange={(e) => atualizar("animalIdentificacao", e.target.value)}
-                  >
-                    <option value="">Selecione...</option>
-                    {SIM_NAO.map((o) => (
-                      <option key={o} value={o}>
-                        {o}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
+            {/* Os dados cadastrais do animal (ID CCZ, espécie, sexo, idade,
+                porte, raça/pelagem e identificação) não aparecem aqui: são
+                recuperados do cadastro central na gravação, para o PDF. */}
           </section>
 
           {form.temTutor && form.tutor && (
@@ -547,12 +502,8 @@ export default function CadastroLeishmaniose({ registroInicial = null, onSalvo }
               </div>
             </section>
           )}
-        </>
-      )}
 
-      {/* ══ ETAPA 2: TRATAMENTO ══ */}
-      {etapa === 2 && (
-        <section className={leish.bloco}>
+          <section className={leish.bloco}>
           <h3 className={leish.blocoTitulo}>Condição Clínica e Tratamento</h3>
           <div className={leish.grid3}>
             <SimNao
@@ -646,11 +597,12 @@ export default function CadastroLeishmaniose({ registroInicial = null, onSalvo }
               </div>
             )}
           </div>
-        </section>
+          </section>
+        </>
       )}
 
-      {/* ══ ETAPA 3: MANEJO ══ */}
-      {etapa === 3 && (
+      {/* ══ ETAPA 2: MANEJO ══ */}
+      {etapa === 2 && (
         <>
           <section className={leish.bloco}>
             <h3 className={leish.blocoTitulo}>Manejo e Biossegurança</h3>
@@ -790,8 +742,8 @@ export default function CadastroLeishmaniose({ registroInicial = null, onSalvo }
         </>
       )}
 
-      {/* ══ ETAPA 4: ORIENTAÇÕES ══ */}
-      {etapa === 4 && (
+      {/* ══ ETAPA 3: ORIENTAÇÕES ══ */}
+      {etapa === 3 && (
         <section className={leish.bloco}>
           <h3 className={leish.blocoTitulo}>Orientações e Comprometimento</h3>
           {form.temTutor ? (
@@ -836,8 +788,8 @@ export default function CadastroLeishmaniose({ registroInicial = null, onSalvo }
         </section>
       )}
 
-      {/* ══ ETAPA 5: CONCLUSÃO ══ */}
-      {etapa === 5 && (
+      {/* ══ ETAPA 4: CONCLUSÃO ══ */}
+      {etapa === 4 && (
         <>
           <section className={leish.bloco}>
             <h3 className={leish.blocoTitulo}>Conclusão da Equipe Técnica</h3>
@@ -903,82 +855,12 @@ export default function CadastroLeishmaniose({ registroInicial = null, onSalvo }
             )}
           </section>
 
-          <section className={leish.bloco}>
-            <h3 className={leish.blocoTitulo}>Assinaturas e Responsáveis Técnicos</h3>
-
-            <div className={leish.grid3}>
-              <div className={styles.field}>
-                <label>Responsável pela Fiscalização</label>
-                <input value={responsavel.nome || "—"} readOnly />
-              </div>
-              <div className={styles.field}>
-                <label>Coordenador e Responsável Técnico</label>
-                <input
-                  value={form.coordenadorNome}
-                  onChange={(e) => atualizar("coordenadorNome", e.target.value)}
-                />
-              </div>
-              <div className={styles.field}>
-                <label>Cargo/Função do Coordenador</label>
-                <input
-                  value={form.coordenadorCargo}
-                  onChange={(e) => atualizar("coordenadorCargo", e.target.value)}
-                />
-              </div>
-            </div>
-
-            {veterinariosComUsuario.length > 0 && (
-              <div className={leish.linhaGrid}>
-                <input value={responsavel.nome} readOnly />
-                <input value="Registro não informado" readOnly />
-                <span className={leish.tagVet}>Médico Veterinário do CCZ</span>
-              </div>
-            )}
-
-            <div className={leish.linhaAcao}>
-              <button
-                type="button"
-                className={styles.btnAdicionar}
-                onClick={adicionarVeterinario}
-              >
-                <Plus size={16} aria-hidden="true" /> Adicionar veterinário
-              </button>
-            </div>
-
-            {form.veterinarios.map((v, i) => (
-              <div className={leish.linhaGridVet} key={`vet-${i}`}>
-                <input
-                  placeholder="Nome completo do médico veterinário"
-                  value={v.nome}
-                  onChange={(e) => alterarVeterinario(i, "nome", e.target.value)}
-                />
-                <input
-                  placeholder="Registro profissional (CRMV)"
-                  value={v.registro}
-                  onChange={(e) => alterarVeterinario(i, "registro", e.target.value)}
-                />
-                <input
-                  placeholder="Cargo ou função"
-                  value={v.cargo}
-                  onChange={(e) => alterarVeterinario(i, "cargo", e.target.value)}
-                />
-                <button
-                  type="button"
-                  className={styles.btnRemover}
-                  onClick={() => removerVeterinario(i)}
-                  title="Remover veterinário"
-                >
-                  <Trash2 size={16} aria-hidden="true" />
-                </button>
-              </div>
-            ))}
-          </section>
         </>
       )}
 
         {/* ── NAVEGAÇÃO ENTRE ETAPAS ── */}
         <div className={styles.wizardActions}>
-        <div>
+          <div>
           {etapa > 1 && (
             <button type="button" className={styles.btnGhost} onClick={voltar} disabled={salvando}>
               ← Anterior

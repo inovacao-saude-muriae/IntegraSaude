@@ -417,6 +417,8 @@ model Animal {
   sexo                   String                 @db.Char(1)
   porte                  String                 @db.VarChar(20)
   idade                  String?                @db.VarChar(50)
+  racaPelagem            String?                @map("raca_pelagem") @db.VarChar(100)
+  possuiIdentificacao    String?                @default("Não") @map("possui_identificacao") @db.VarChar(10)
   castrado               String?                @default("Não") @db.VarChar(10)
   doencaCronica          String?                @default("Não") @map("doenca_cronica") @db.VarChar(10)
   sintomasVomitoDiarreia String?                @default("Não") @map("sintomas_vomito_diarreia") @db.VarChar(10)

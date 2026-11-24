@@ -98,6 +98,15 @@
   grid-column: 1 / -1;
 }
 
+/* O indicador de etapas usa o mesmo componente da Esporotricose; aqui só
+   reduzimos a escala do rótulo porque os nomes são mais longos. */
+:global(.leishWrapper) :global([class*="_stepLabel"]) {
+  font-size: 0.8rem;
+  line-height: 1.2;
+  text-align: center;
+  max-width: 12rem;
+}
+
 /* Campo preenchido automaticamente a partir dos cadastros centrais:
    cinza mais escuro, indicando que está inativo para edição. */
 .campoInativo,
