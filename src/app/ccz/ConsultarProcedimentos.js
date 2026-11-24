@@ -14,6 +14,7 @@ import {
   obterProcedimento,
 } from "./actions";
 import TermoInternacao from "./TermoInternacao";
+import { gerarPdfProcedimento } from "./procedimentoPdf";
 
 // CCZ > Procedimentos — Consultar Registros
 // Mesmo padrão visual e funcional de Leishmaniose e Esporotricose:
@@ -380,6 +381,13 @@ export default function ConsultarProcedimentos() {
                 </div>
 
                 <div className={styles.acoesDetalhe}>
+                  <button
+                    type="button"
+                    className={styles.btnPrimario}
+                    onClick={() => gerarPdfProcedimento(detalhe)}
+                  >
+                    <FileDown size={16} /> Gerar PDF
+                  </button>
                   {detalhe.tipo === "Internação" && (
                     <button
                       type="button"

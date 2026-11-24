@@ -6,7 +6,7 @@ import stylesModal from "./AgendaCCZ.module.css";
 import styles from "./ListaCCZ.module.css";
 import stylesTermo from "./TermoProcedimento.module.css";
 import { obterEsporotricose, excluirEsporotricose, encerrarEsporotricose, reabrirEsporotricose, registrarIncineracaoEsporotricose } from "./actions";
-import { gerarTermoEsporotricose } from "./esporotricosePdf";
+import { gerarPdfEsporotricose, gerarTermoEsporotricose } from "./esporotricosePdf";
 import { useConfirm, useNotify } from "@/components/ConfirmDialog";
 
 const formatarData = (ymd) => (ymd ? ymd.split("-").reverse().join("/") : "-");
@@ -248,7 +248,7 @@ export default function FichaEsporotricose({ esporotricoseId, onFechar, onEditar
               Fechar
             </button>
             <button 
-              onClick={() => {
+              onClick={async () => {
                 // Adicionar nome do tutor e dados se existir
                 const dadosComTutor = {
                   ...dados,
@@ -256,7 +256,7 @@ export default function FichaEsporotricose({ esporotricoseId, onFechar, onEditar
                   tutor: dados.tutor || null,
                   animal: dados.animal || null
                 };
-                gerarTermoEsporotricose(dadosComTutor);
+                await gerarTermoEsporotricose(dadosComTutor);
                 setMostrandoTermo(false);
               }} 
               className={stylesTermo.btnBaixar}
@@ -818,10 +818,11 @@ export default function FichaEsporotricose({ esporotricoseId, onFechar, onEditar
               type="button"
               className={styles.btnGhost}
               onClick={() => {
-                onBaixarFicha?.(dados.id);
+                if (onBaixarFicha) onBaixarFicha(dados.id);
+                else gerarPdfEsporotricose(dados);
               }}
             >
-              Baixar Ficha
+              Gerar PDF
             </button>
             <button 
               type="button"

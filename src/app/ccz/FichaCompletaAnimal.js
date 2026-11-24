@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import styles from "./ListaCCZ.module.css";
-import { obterHistoricoCompleto } from "./actions";
+import { obterFichaCompleta } from "./actions";
 import { gerarHistoricoCompletoPdf } from "./historicoAnimalPdf";
 
 export default function FichaCompletaAnimal({ animalId, onFechar }) {
@@ -13,7 +13,7 @@ export default function FichaCompletaAnimal({ animalId, onFechar }) {
   const carregar = async () => {
     setCarregando(true);
     setErro("");
-    const res = await obterHistoricoCompleto(animalId);
+    const res = await obterFichaCompleta(animalId);
     if (res.success) {
       setDados(res.data);
     } else {
@@ -45,9 +45,13 @@ export default function FichaCompletaAnimal({ animalId, onFechar }) {
     return partes.length > 0 ? partes.join(", ") : "-";
   };
 
-  const baixarPDF = () => {
+  const baixarPDF = async () => {
     if (!dados) return;
-    gerarHistoricoCompletoPdf(dados);
+    try {
+      await gerarHistoricoCompletoPdf(dados);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   if (carregando) {

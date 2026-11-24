@@ -10,7 +10,8 @@
 // As assinaturas ficam em espaço livre para assinatura manual.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import jsPDF from "jspdf";
+import { criarDocumentoCcz } from "./documentoCcz";
+import { obterLogoCcz } from "./logoCcz";
 
 const MARGEM_X = 15;
 const LARGURA_UTIL = 180;
@@ -39,121 +40,22 @@ const valor = (v) => {
   return t === "" ? "—" : t;
 };
 
-export function gerarPdfLeishmaniose(registro) {
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const paginaAltura = doc.internal.pageSize.getHeight();
-  const rodapeY = paginaAltura - 12;
-  let y = 15;
-
-  const novaPaginaSePreciso = (altura = 10) => {
-    if (y + altura > paginaAltura - 20) {
-      doc.addPage();
-      y = 18;
-    }
-  };
-
-  // ── CABEÇALHO INSTITUCIONAL ────────────────────────────────────────────
-  try {
-    doc.addImage("/img/logo/logo-ccz.png", "PNG", MARGEM_X, y, 18, 18);
-  } catch {
-    /* sem imagem o documento continua válido */
-  }
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.setTextColor(15, 23, 42);
-  doc.text("PREFEITURA MUNICIPAL DE MURIAÉ", MARGEM_X + 22, y + 5);
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.text("Secretaria Municipal de Saúde", MARGEM_X + 22, y + 10);
-  doc.text("Centro de Controle de Zoonoses", MARGEM_X + 22, y + 14.5);
-  doc.setFontSize(8);
-  doc.setTextColor(100, 116, 139);
-  doc.text("CEP 36880-000 — Muriaé/MG", MARGEM_X + 22, y + 19);
-
-  y += 24;
-  doc.setDrawColor(15, 23, 42);
-  doc.setLineWidth(0.4);
-  doc.line(MARGEM_X, y, MARGEM_X + LARGURA_UTIL, y);
-  y += 7;
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
-  doc.setTextColor(15, 23, 42);
-  doc.text("FICHA DE FISCALIZAÇÃO E ACOMPANHAMENTO", MARGEM_X + LARGURA_UTIL / 2, y, {
-    align: "center",
+export async function gerarPdfLeishmaniose(registro) {
+  const base = criarDocumentoCcz({
+    logo: await obterLogoCcz(),
+    titulo: "FICHA DE FISCALIZAÇÃO E ACOMPANHAMENTO",
+    subtitulo: "LEISHMANIOSE",
+    identificacao: `Registro ${valor(registro.id)} · Fiscalização de ${formatarData(registro.dataFiscalizacao)}`,
+    nota: "Verificar as condições de manejo e tratamento de animal positivo para Leishmaniose, com foco na avaliação do risco à saúde pública e da responsabilidade do(a) tutor(a) quanto aos cuidados com o animal e o cumprimento das orientações sanitárias e terapêuticas passadas pelo Médico Veterinário.",
   });
-  y += 6;
-  doc.setFontSize(11);
-  doc.text("LEISHMANIOSE", MARGEM_X + LARGURA_UTIL / 2, y, { align: "center" });
-  y += 7;
 
-  // ── FINALIDADE ─────────────────────────────────────────────────────────
-  doc.setFont("helvetica", "italic");
-  doc.setFontSize(7.5);
-  doc.setTextColor(71, 85, 105);
-  const finalidade = doc.splitTextToSize(
-    "Verificar as condições de manejo e tratamento de animal positivo para Leishmaniose, com foco na avaliação do risco à saúde pública e da responsabilidade do(a) tutor(a) quanto aos cuidados com o animal e o cumprimento das orientações sanitárias e terapêuticas passadas pelo Médico Veterinário.",
-    LARGURA_UTIL - 6,
-  );
-  const alturaFinalidade = finalidade.length * 3.4 + 4;
-  doc.setFillColor(248, 250, 252);
-  doc.setDrawColor(226, 232, 240);
-  doc.rect(MARGEM_X, y, LARGURA_UTIL, alturaFinalidade, "FD");
-  doc.text(finalidade, MARGEM_X + 3, y + 4.5);
-  y += alturaFinalidade + 7;
-
-  // ── TÍTULO DE SEÇÃO ────────────────────────────────────────────────────
-  const secao = (titulo) => {
-    novaPaginaSePreciso(14);
-    doc.setFillColor(15, 23, 42);
-    doc.rect(MARGEM_X, y, LARGURA_UTIL, 6.5, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8.5);
-    doc.setTextColor(255, 255, 255);
-    doc.text(titulo.toUpperCase(), MARGEM_X + 3, y + 4.6);
-    y += 9;
-  };
-
-  // Linha rótulo/valor em duas colunas.
-  const linha = (rotulo1, valor1, rotulo2, valor2) => {
-    novaPaginaSePreciso(11);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7);
-    doc.setTextColor(100, 116, 139);
-    doc.text(rotulo1, MARGEM_X, y);
-    if (rotulo2) doc.text(rotulo2, MARGEM_X + 92, y);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(15, 23, 42);
-    doc.text(doc.splitTextToSize(valor(valor1), 86)[0], MARGEM_X, y + 4.5);
-    if (rotulo2) {
-      doc.text(doc.splitTextToSize(valor(valor2), 86)[0], MARGEM_X + 92, y + 4.5);
-    }
-    doc.setDrawColor(226, 232, 240);
-    doc.setLineWidth(0.2);
-    doc.line(MARGEM_X, y + 6.5, MARGEM_X + LARGURA_UTIL, y + 6.5);
-    y += 10;
-  };
-
-  // Bloco de texto com quebra automática de linha.
-  const paragrafo = (rotulo, texto, alturaMinima = 0) => {
-    const conteudo = texto ? doc.splitTextToSize(valor(texto), LARGURA_UTIL - 6) : ["—"];
-    const altura = Math.max(alturaMinima, conteudo.length * 4 + 9);
-    novaPaginaSePreciso(altura + 2);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7);
-    doc.setTextColor(100, 116, 139);
-    doc.text(rotulo, MARGEM_X, y);
-    doc.setFillColor(248, 250, 252);
-    doc.setDrawColor(226, 232, 240);
-    doc.rect(MARGEM_X, y + 2.5, LARGURA_UTIL, altura - 2.5, "FD");
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8.5);
-    doc.setTextColor(30, 41, 59);
-    doc.text(conteudo, MARGEM_X + 3, y + 7.5);
-    y += altura + 4;
-  };
+  const doc = base.doc;
+  const paginaAltura = base.paginaAltura;
+  const novaPaginaSePreciso = base.novaPagina;
+  const secao = base.secao;
+  const linha = base.linha;
+  const paragrafo = base.paragrafo;
+  let y = base.y;
 
   // ── 1. IDENTIFICAÇÃO DO RESPONSÁVEL PELO ANIMAL ────────────────────────
   if (registro.tutorNome) {
@@ -335,25 +237,11 @@ export function gerarPdfLeishmaniose(registro) {
   });
   y += 4;
 
+  // Assinaturas em espaço livre para assinatura manual.
   const assinatura = (nome, funcao, registroProf) => {
-    novaPaginaSePreciso(24);
-    doc.setDrawColor(100, 116, 139);
-    doc.setLineWidth(0.3);
-    doc.line(MARGEM_X + 20, y + 10, MARGEM_X + 110, y + 10);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8.5);
-    doc.setTextColor(15, 23, 42);
-    doc.text(valor(nome), MARGEM_X + 65, y + 14.5, { align: "center" });
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
-    doc.setTextColor(100, 116, 139);
-    doc.text(
-      `${funcao}${registroProf ? ` — ${registroProf}` : ""}`,
-      MARGEM_X + 65,
-      y + 18.5,
-      { align: "center" },
-    );
-    y += 24;
+    base.y = y;
+    base.assinatura(nome, funcao, registroProf);
+    y = base.y;
   };
 
   if (registro.tutorNome) {
@@ -378,25 +266,8 @@ export function gerarPdfLeishmaniose(registro) {
     null,
   );
 
-  // ── RODAPÉ EM TODAS AS PÁGINAS ─────────────────────────────────────────
-  const total = doc.internal.getNumberOfPages();
-  for (let p = 1; p <= total; p += 1) {
-    doc.setPage(p);
-    doc.setDrawColor(226, 232, 240);
-    doc.setLineWidth(0.2);
-    doc.line(MARGEM_X, rodapeY - 3, MARGEM_X + LARGURA_UTIL, rodapeY - 3);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
-    doc.setTextColor(148, 163, 184);
-    doc.text(
-      `Ficha de Fiscalização e Acompanhamento — Leishmaniose · CCZ Muriaé/MG`,
-      MARGEM_X,
-      rodapeY + 1,
-    );
-    doc.text(`Página ${p} de ${total}`, MARGEM_X + LARGURA_UTIL, rodapeY + 1, {
-      align: "right",
-    });
-  }
+  base.y = y;
+  base.finalizar();
 
   const nomeArquivo = `leishmaniose-${(registro.animalNome || registro.animalId || "ficha")
     .toString()

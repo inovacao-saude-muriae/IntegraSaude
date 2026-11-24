@@ -81,9 +81,9 @@ export default function ConsultarLeishmaniose() {
     else notify.error(res?.error || "Fiscalização não encontrada.");
   };
 
-  const baixarPdf = (registro) => {
+  const baixarPdf = async (registro) => {
     try {
-      gerarPdfLeishmaniose(registro);
+      await gerarPdfLeishmaniose(registro);
     } catch (e) {
       console.error(e);
       notify.error("Não foi possível gerar o PDF.");

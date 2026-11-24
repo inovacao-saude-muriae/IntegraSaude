@@ -107,21 +107,12 @@ export default function FichaAnimalCompleta({
     };
   }, [animalId]);
 
-  const baixarPdf = () => {
+  const baixarPdf = async () => {
     if (!dados) return;
-    gerarHistoricoCompletoPdf({
+    await gerarHistoricoCompletoPdf({
       animal: dados.animal,
       tutor: dados.tutor,
-      procedimentos: dados.historico
-        .filter((h) => h.tipo === "PROCEDIMENTO")
-        .map((h) => ({
-          tipo: h.titulo,
-          status: h.subtitulo,
-          dataProcedimento: h.data,
-          descricao: h.resumo,
-        })),
-      denuncias: [],
-      esporotricose: [],
+      historico: dados.historico || [],
     });
   };
 
