@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Filter, SearchX, FileDown } from "lucide-react";
 import styles from "../camara-tecnica/processos/ConsultarProcessos.module.css";
+// Badges originais da antiga Lista (CCZ) — cores preservadas por classificação.
+import stylesLista from "./ListaCCZ.module.css";
 import { useNotify } from "@/components/ConfirmDialog";
 import {
   listarEsporotricoseConsulta,
@@ -247,7 +249,15 @@ export default function ConsultarEsporotricose() {
                       <td>{r.animalNome || "Sem nome"}</td>
                       <td>{r.animalId || "—"}</td>
                       <td>{r.tutorNome || "Sem tutor"}</td>
-                      <td>{CONCLUSAO_LABEL[r.encerrado ? "ENCERRADO" : "EM_ANDAMENTO"]}</td>
+                      <td>
+                        <span
+                          className={
+                            r.encerrado ? stylesLista.badgeDanger : stylesLista.badgeSuccess
+                          }
+                        >
+                          {CONCLUSAO_LABEL[r.encerrado ? "ENCERRADO" : "EM_ANDAMENTO"]}
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
