@@ -193,7 +193,7 @@ export default function ConsultarProcedimentos() {
               </div>
             </div>
 
-            <div className={styles.filtrosAcoes}>
+            <div className={`${styles.filtrosAcoes} ${filtrosProc.acoesProc}`}>
               <button type="submit" className={styles.btnPrimario} disabled={consultando}>
                 <Filter size={16} strokeWidth={2.5} aria-hidden="true" />
                 {consultando ? "Filtrando…" : "Filtrar"}

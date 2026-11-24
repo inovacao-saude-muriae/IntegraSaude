@@ -83,16 +83,22 @@ const pos = await page.evaluate(() => {
   const botoes = acoes ? [...acoes.querySelectorAll("button")] : [];
   const r = (el) => el.getBoundingClientRect();
   const campos = [...card.querySelectorAll('[class*="_fieldGroup"]')];
-  // "Última linha": o topo dos botões fica abaixo da base de TODOS os campos.
-  const baseCampos = Math.max(...campos.map((c) => r(c).bottom));
+  // Mesma linha dos campos (padrão Esporotricose): os botões ficam na faixa
+  // vertical do período, alinhados ao canto direito do container.
+  const periodo = card.querySelector('[class*="colProcPeriodo"]');
+  const faixa = periodo ? r(periodo) : null;
+  const cardR = r(card);
   return {
-    acoesAbaixoDosCampos: r(acoes).top >= baseCampos - 2,
+    acoesNaFaixaDoPeriodo: faixa
+      ? r(acoes).top >= faixa.top - 2 && r(acoes).bottom <= faixa.bottom + 2
+      : false,
+    acoesNoCantoDireito: Math.round(cardR.right - r(acoes).right) <= 24,
     distanciaDireita: Math.round(r(card).right - r(botoes[botoes.length - 1]).right),
     botoes: botoes.map((b) => b.innerText.trim()),
     alturas: [...new Set(campos.map((c) => Math.round(r(c.querySelector("input,select")).height)))],
   };
 });
-marcar(`   12. botões na última linha, à direita: ${pos.acoesAbaixoDosCampos} | distância da borda: ${pos.distanciaDireita}px`);
+marcar(`   12. botões na faixa do período: ${pos.acoesNaFaixaDoPeriodo} | no canto direito: ${pos.acoesNoCantoDireito}`);
 marcar(`   botões: ${JSON.stringify(pos.botoes)} | alturas dos campos: ${JSON.stringify(pos.alturas)}`);
 await page.screenshot({ path: `${OUT}/2-filtros-1440.png` });
 

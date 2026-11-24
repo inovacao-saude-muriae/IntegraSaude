@@ -664,22 +664,24 @@
 
 /* ── FILTROS DA CONSULTA (galeria) ────────────────────────────────────────── */
 /* Linha 1: Buscar (5) + Espécie (2) + Sexo (2) + Porte (3).
-   Linha 2: Situação (2) + Bairro (2) + Período (8) — datas à esquerda.
-   Linha 3: Filtrar + Limpar filtros, à direita. */
+   Linha 2: Situação (2) + Bairro (2) + Período (4) + botões (4), à direita —
+   mesma posição da Esporotricose. */
 .colBuscaAnimais { grid-column: span 5; }
 .colEspecieAnimais { grid-column: span 2; }
 .colSexoAnimais { grid-column: span 2; }
 .colPorteAnimais { grid-column: span 3; }
 .colSituacaoAnimais { grid-column: span 2; }
 .colBairroAnimais { grid-column: span 2; }
-.colPeriodoCadastroAnimais { grid-column: span 8; }
+.colPeriodoCadastroAnimais { grid-column: span 4; }
+
+.colPeriodoCadastroAnimais .periodo {
+  flex: 0 1 auto;
+  width: fit-content;
+  max-width: 100%;
+}
 
 /* O período ocupa a linha inteira para a esquerda: cada data tem a largura do
    próprio conteúdo e o "até" fica entre elas (sem esticar pela célula). */
-.colPeriodoCadastroAnimais .periodo {
-  justify-content: flex-start;
-}
-
 /* O campo de período é uma coluna flex; com 8 colunas a célula estica as datas
    por padrão. Envolve o conteúdo em uma linha própria de largura natural. */
 .gridFiltrosAnimais .colPeriodoCadastroAnimais {
@@ -690,9 +692,9 @@
   flex: 0 0 auto;
 }
 
-/* Botões sozinhos na última linha do container, alinhados à direita. */
+/* Botões na mesma linha do período, no canto direito do container. */
 .gridFiltrosAnimais > .filtrosAcoes {
-  grid-column: 1 / -1;
+  grid-column: span 4;
   justify-content: flex-end;
   padding-top: 0;
 }

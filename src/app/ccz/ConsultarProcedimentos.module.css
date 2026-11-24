@@ -3,8 +3,8 @@
    Farmácia, a Junta, a Leishmaniose, a Esporotricose e os Animais), por isso os
    ajustes ficam aqui, sem alterar as outras telas.
    Linha 1: Buscar (5) + Tipo (4) + Situação (3).
-   Linha 2: Responsável (5) + Período do Procedimento (7).
-   Linha 3: Filtrar + Limpar filtros, sozinhos, à direita do container. */
+   Linha 2: Responsável (4) + Período do Procedimento (4) + botões (4), à
+   direita — mesma posição da Esporotricose. */
 .gridFiltrosProc {
   grid-template-columns: repeat(12, minmax(0, 1fr));
 }
@@ -22,28 +22,43 @@
 }
 
 .gridFiltrosProc > .colProcResponsavel {
-  grid-column: span 5;
+  grid-column: span 4;
 }
 
 .gridFiltrosProc > .colProcPeriodo {
-  grid-column: span 7;
+  /* O período é coluna flex: o campo de datas mantém a largura natural. */
+  min-width: 0;
+}
+
+.gridFiltrosProc > .colProcPeriodo .periodo {
+  flex: 0 1 auto;
+  width: fit-content;
+  max-width: 100%;
 }
 
 /* O período é uma coluna flex: as datas mantêm a largura do próprio conteúdo
    e o "até" fica entre elas, sem esticar pela célula. */
-.gridFiltrosProc > .colProcPeriodo .periodo {
-  justify-content: flex-start;
-}
-
 .gridFiltrosProc > .colProcPeriodo .periodo > * {
   flex: 0 0 auto;
 }
 
-/* Botões na última linha, alinhados à direita. */
-.gridFiltrosProc > .filtrosAcoes {
-  grid-column: 1 / -1;
+/* Botões na mesma linha do período, no canto direito do container — mesma
+   posição da Esporotricose. A regra do CSS base (.gridFiltros > .filtrosAcoes)
+   usa seletor de filho e tem a mesma especificidade, por isso as ações recebem
+   classe própria; e os botões não quebram linha (grid-template-rows: none). */
+.gridFiltrosProc > .acoesProc {
+  grid-column: span 4;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  grid-template-rows: none;
+  align-self: end;
   justify-content: flex-end;
-  padding-top: 0;
+  padding-top: calc(var(--filtro-rotulo-altura) + var(--filtro-rotulo-gap));
+}
+
+.gridFiltrosProc > .colProcPeriodo {
+  grid-column: span 4;
 }
 
 @media (max-width: 900px) {
