@@ -4,8 +4,15 @@ import { useState, useEffect, useRef } from "react";
 import styles from "./CadastroAnimal.module.css";
 import { useConfirm, useNotify } from "@/components/ConfirmDialog";
 import { documentoPaciente } from "@/app/regulacao/constants";
-import { buscarPessoasCCZ, salvarAnimal, buscarAnimaisCCZ, obterAnimal } from "./actions";
+import {
+  buscarPessoasCCZ,
+  salvarAnimal,
+  buscarAnimaisCCZ,
+  obterAnimal,
+  excluirAnimal,
+} from "./actions";
 import { compressImage } from "@/lib/imageCompression";
+import { Trash2 } from "lucide-react";
 import SituacaoPessoa, { pessoaAptaParaVinculo } from "@/components/cadastros/SituacaoPessoa";
 import "@/components/cadastros/padraoCadastro.css";
 
@@ -35,11 +42,17 @@ const FORM_VAZIO = {
   dataDevolucao: "",
 };
 
-export default function CadastroAnimal({ animalInicial = null, onSalvo, onCancelar }) {
+export default function CadastroAnimal({
+  animalInicial = null,
+  onSalvo,
+  onCancelar,
+  podeExcluir = false,
+}) {
   const confirm = useConfirm();
   const notify = useNotify();
 
   const editando = Boolean(animalInicial?.id);
+  const [excluindo, setExcluindo] = useState(false);
   const [modoEdicao, setModoEdicao] = useState(editando);
   const [animalCarregado, setAnimalCarregado] = useState(animalInicial);
   const [form, setForm] = useState(animalInicial || FORM_VAZIO);
@@ -313,6 +326,29 @@ export default function CadastroAnimal({ animalInicial = null, onSalvo, onCancel
   const doencaDesabilitada = camposDesabilitados || form.doencaCronica !== "Sim";
   const tratamentoDesabilitado = camposDesabilitados || form.emTratamento !== "Sim";
   const tutorDesabilitado = camposDesabilitados || form.possuiResponsavel !== "Sim";
+
+  // Exclusão: só para quem tem a permissão e só quando o backend não encontrar
+  // nenhum registro vinculado (procedimentos, esporotricose, leishmaniose,
+  // denúncias). O backend revalida no momento da exclusão.
+  const excluirAnimalAtual = async () => {
+    if (!animalCarregado?.id || !podeExcluir) return;
+    const ok = await confirm({
+      title: "Excluir animal",
+      message: `Excluir o animal "${animalCarregado.nome || "sem nome"}" (ID CCZ: ${animalCarregado.id})?\n\nEsta ação é definitiva e só é permitida quando não existe nenhum registro vinculado.`,
+      confirmText: "Excluir",
+    });
+    if (!ok) return;
+    setExcluindo(true);
+    const res = await excluirAnimal(animalCarregado.id);
+    setExcluindo(false);
+    if (res.success) {
+      await notify({ tipo: "sucesso", message: "Animal excluído." });
+      if (onSalvo) onSalvo();
+      else if (onCancelar) onCancelar();
+    } else {
+      await notify({ tipo: "erro", message: res.error || "Erro ao excluir o animal." });
+    }
+  };
 
   return (
     <div className={styles.container}>
@@ -755,6 +791,17 @@ export default function CadastroAnimal({ animalInicial = null, onSalvo, onCancel
         </div>
 
         <div className={styles.formActions}>
+          {!editando && !modoEdicao && animalCarregado && podeExcluir && (
+            <button
+              type="button"
+              className={styles.btnPerigo}
+              onClick={excluirAnimalAtual}
+              disabled={excluindo}
+            >
+              <Trash2 size={16} aria-hidden="true" />
+              {excluindo ? "Excluindo..." : "Excluir Animal"}
+            </button>
+          )}
           {!editando && !modoEdicao && animalCarregado && (
             <button
               type="button"

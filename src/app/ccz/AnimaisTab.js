@@ -10,7 +10,11 @@ import FichaAnimalCompleta from "./FichaAnimalCompleta";
 // CCZ > Zoonoses > Animais
 // Mesmo padrão da Leishmaniose/Esporotricose: duas abas internas no container
 // do módulo. 1. Novo Registro (padrão) / 2. Consultar Registros.
-export default function AnimaisTab({ podeCriar = true, podeEditar = false, onEditar = null }) {
+export default function AnimaisTab({
+  podeCriar = true,
+  podeEditar = false,
+  podeExcluir = false,
+}) {
   const [aba, setAba] = useState("NOVO");
   // A ficha é renderizada aqui (fora da aba) para continuar montada enquanto o
   // formulário de edição abre — clicar em "Editar" não pode fechar a ficha
@@ -55,6 +59,7 @@ export default function AnimaisTab({ podeCriar = true, podeEditar = false, onEdi
         <CadastroAnimal
           key={editando}
           animalInicial={animalEdicao}
+          podeExcluir={podeExcluir}
           onSalvo={() => {
             setEditando(null);
             setAnimalEdicao(null);
@@ -68,7 +73,12 @@ export default function AnimaisTab({ podeCriar = true, podeEditar = false, onEdi
           }}
         />
       ) : aba === "NOVO" && podeCriar ? (
-        <CadastroAnimal key={chaveNova} onSalvo={aposSalvar} onCancelar={() => setAba("CONSULTAR")} />
+        <CadastroAnimal
+          key={chaveNova}
+          podeExcluir={podeExcluir}
+          onSalvo={aposSalvar}
+          onCancelar={() => setAba("CONSULTAR")}
+        />
       ) : (
         <ConsultarAnimais onAbrirFicha={setFichaId} />
       )}

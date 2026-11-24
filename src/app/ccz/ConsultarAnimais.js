@@ -134,8 +134,8 @@ export default function ConsultarAnimais({ onAbrirFicha = null }) {
             <h4>Filtros da Consulta</h4>
           </div>
 
-          <div className={styles.gridFiltros}>
-            <div className={`${styles.fieldGroup} ${styles.colBuscaRegistro}`}>
+          <div className={`${styles.gridFiltros} ${galeria.gridFiltrosAnimais}`}>
+            <div className={`${styles.fieldGroup} ${galeria.colBuscaAnimais}`}>
               <label>Buscar Registro</label>
               <input
                 value={filtros.busca}
@@ -144,7 +144,7 @@ export default function ConsultarAnimais({ onAbrirFicha = null }) {
               />
             </div>
 
-            <div className={`${styles.fieldGroup} ${styles.colEspecialidade}`}>
+            <div className={`${styles.fieldGroup} ${galeria.colEspecieAnimais}`}>
               <label>Espécie</label>
               <select
                 value={filtros.especie}
@@ -159,7 +159,7 @@ export default function ConsultarAnimais({ onAbrirFicha = null }) {
               </select>
             </div>
 
-            <div className={`${styles.fieldGroup} ${styles.colEspecialidade}`}>
+            <div className={`${styles.fieldGroup} ${galeria.colSexoAnimais}`}>
               <label>Sexo</label>
               <select
                 value={filtros.sexo}
@@ -173,7 +173,7 @@ export default function ConsultarAnimais({ onAbrirFicha = null }) {
               </select>
             </div>
 
-            <div className={`${styles.fieldGroup} ${styles.colEspecialidade}`}>
+            <div className={`${styles.fieldGroup} ${galeria.colPorteAnimais}`}>
               <label>Porte</label>
               <select
                 value={filtros.porte}
@@ -187,7 +187,7 @@ export default function ConsultarAnimais({ onAbrirFicha = null }) {
               </select>
             </div>
 
-            <div className={`${styles.fieldGroup} ${styles.colStatus}`}>
+            <div className={`${styles.fieldGroup} ${galeria.colSituacaoAnimais}`}>
               <label>Situação do Animal</label>
               <select
                 value={filtros.situacao}
@@ -201,7 +201,7 @@ export default function ConsultarAnimais({ onAbrirFicha = null }) {
               </select>
             </div>
 
-            <div className={`${styles.fieldGroup} ${styles.colEspecialidade}`}>
+            <div className={`${styles.fieldGroup} ${galeria.colBairroAnimais}`}>
               <label>Bairro</label>
               <select
                 value={filtros.bairro}
@@ -216,7 +216,9 @@ export default function ConsultarAnimais({ onAbrirFicha = null }) {
               </select>
             </div>
 
-            <div className={`${styles.fieldGroup} ${styles.colPeriodoCadastro}`}>
+            {/* Coluna 8–12: o período fica na linha dos campos e os botões
+                caem sozinhos na última linha, alinhados à direita. */}
+            <div className={`${styles.fieldGroup} ${galeria.colPeriodoCadastroAnimais}`}>
               <label>Período do Cadastro</label>
               <div className={styles.periodo}>
                 <input

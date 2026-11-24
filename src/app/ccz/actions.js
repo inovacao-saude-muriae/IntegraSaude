@@ -253,6 +253,7 @@ export async function excluirAnimal(id) {
         esporotricose: { select: { id: true } },
         leishmanioses: { select: { id: true } },
         denuncias: { select: { id: true } },
+        termos: { select: { id: true } },
       },
     });
 
@@ -263,6 +264,7 @@ export async function excluirAnimal(id) {
       { nome: "registro(s) de esporotricose", qtd: animal.esporotricose?.length || 0 },
       { nome: "fiscalização(ões) de leishmaniose", qtd: animal.leishmanioses?.length || 0 },
       { nome: "denúncia(s)", qtd: animal.denuncias?.length || 0 },
+      { nome: "termo(s) de internação", qtd: animal.termos?.length || 0 },
     ].filter((r) => r.qtd > 0);
 
     if (registros.length > 0) {

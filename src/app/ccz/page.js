@@ -29,7 +29,11 @@ function CczPageContent() {
   // Permissões efetivas de Animais (CCZ › Animais) vêm de /api/me, que decide
   // no servidor. A tela só mostra "Novo" e o botão Editar para quem pode; o
   // backend (salvarAnimal) revalida com requirePermissao.
-  const [permAnimais, setPermAnimais] = useState({ criar: false, editar: false });
+  const [permAnimais, setPermAnimais] = useState({
+    criar: false,
+    editar: false,
+    excluir: false,
+  });
   // Situação cadastral da pessoa central: mesmas permissões da Gestão Geral,
   // calculadas no servidor (/api/me) — a tela só exibe; o backend revalida.
   const [permSituacao, setPermSituacao] = useState({
@@ -47,7 +51,13 @@ function CczPageContent() {
         // Lista plana: ["animais:criar", "animais:editar", ...] do módulo CCZ.
         const lista = data?.user?.permissoes || [];
         const pode = (p) => lista.includes(`animais:${p}`);
-        if (ativo) setPermAnimais({ criar: pode("criar"), editar: pode("editar") });
+        if (ativo) {
+          setPermAnimais({
+            criar: pode("criar"),
+            editar: pode("editar"),
+            excluir: pode("excluir"),
+          });
+        }
         const podePessoa = (p) => lista.includes(`pessoas:${p}`);
         if (ativo) {
           setPermSituacao({
@@ -174,7 +184,11 @@ function CczPageContent() {
     // A ficha individual oferece "Editar" apenas com a permissão do módulo;
     // o formulário é o mesmo cadastro de animal (key remonta com o registro).
     conteudo = (
-      <AnimaisTab podeCriar={permAnimais.criar} podeEditar={permAnimais.editar} />
+      <AnimaisTab
+          podeCriar={permAnimais.criar}
+          podeEditar={permAnimais.editar}
+          podeExcluir={permAnimais.excluir}
+        />
     );
   } else {
     // TUTORES (padrão)
