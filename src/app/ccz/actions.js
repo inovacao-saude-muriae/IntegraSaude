@@ -2446,6 +2446,140 @@ export async function obterFiltrosProcedimentos() {
   }
 }
 
+// ── DENÚNCIAS (CCZ) ──────────────────────────────────────────────────────
+// Consulta paginada no backend (100 por página), no padrão das demais telas do
+// CCZ. Uma linha = uma denúncia; o tipo (agressivo/doente) é filtro, não tela.
+const DENUNCIA_PAGINA_TAMANHO = 100;
+const DENUNCIA_FUSO_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+// Data (YMD) → Date UTC do início do dia local (UTC-3).
+function denunciaDiaParaUtc(dia, modo) {
+  const valor = String(dia || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(valor)) return null;
+  const [a, m, d] = valor.split("-").map(Number);
+  const base = Date.UTC(a, m - 1, d);
+  if (Number.isNaN(base)) return null;
+  return modo === "fim"
+    ? new Date(base + 24 * 60 * 60 * 1000 - 1 + DENUNCIA_FUSO_OFFSET_MS)
+    : new Date(base + DENUNCIA_FUSO_OFFSET_MS);
+}
+
+export async function listarDenunciasConsulta(filtros = {}) {
+  try {
+    await requireAcessoModulo(MODULOS.CCZ);
+
+    const condicoes = [];
+
+    // Busca unificada: ID, nome/ID do animal, descrição, relato, logradouro e
+    // bairro. d = ccz_denuncias, a = ccz_animais.
+    const termo = String(filtros.busca || "").trim();
+    if (termo) {
+      condicoes.push(Prisma.sql`(
+        d.id ILIKE ${"%" + termo + "%"}
+        OR a.nome ILIKE ${"%" + termo + "%"}
+        OR d.animal_id ILIKE ${"%" + termo + "%"}
+        OR d.descricao_cao ILIKE ${"%" + termo + "%"}
+        OR d.relato ILIKE ${"%" + termo + "%"}
+        OR d.logradouro ILIKE ${"%" + termo + "%"}
+        OR d.bairro ILIKE ${"%" + termo + "%"}
+      )`);
+    }
+
+    const bairro = String(filtros.bairro || "").trim();
+    if (bairro) condicoes.push(Prisma.sql`btrim(COALESCE(d.bairro, '')) = ${bairro}`);
+
+    const situacao = String(filtros.situacao || "").trim();
+    if (situacao) condicoes.push(Prisma.sql`btrim(COALESCE(d.situacao, '')) = ${situacao}`);
+
+    const risco = String(filtros.causouRisco || "").trim();
+    if (risco) condicoes.push(Prisma.sql`btrim(COALESCE(d.causou_risco, '')) = ${risco}`);
+
+    // "dataDenuncia" é o nome real da coluna (camelCase): exige aspas.
+    const de = denunciaDiaParaUtc(filtros.periodoInicio, "inicio");
+    if (de) condicoes.push(Prisma.sql`d."dataDenuncia" >= ${de}`);
+    const ate = denunciaDiaParaUtc(filtros.periodoFim, "fim");
+    if (ate) condicoes.push(Prisma.sql`d."dataDenuncia" <= ${ate}`);
+
+    const where = condicoes.length ? Prisma.join(condicoes, " AND ") : Prisma.sql`1=1`;
+    const pagina = Math.max(1, Number(filtros.pagina) || 1);
+    const offset = (pagina - 1) * DENUNCIA_PAGINA_TAMANHO;
+
+    const base = Prisma.sql`
+      FROM public.ccz_denuncias d
+      LEFT JOIN public.ccz_animais a ON a.id = d.animal_id
+      WHERE ${where}`;
+
+    const [linhas, total] = await Promise.all([
+      prisma.$queryRaw(Prisma.sql`
+        SELECT d.id, d."dataDenuncia" AS data_denuncia, d.tipo, d.situacao,
+               d.bairro, d.logradouro, d.numero, d.causou_risco,
+               d.animal_id, a.nome AS animal_nome
+        ${base}
+        ORDER BY d."dataDenuncia" DESC NULLS LAST, d.id
+        LIMIT ${DENUNCIA_PAGINA_TAMANHO} OFFSET ${offset}`),
+      prisma.$queryRaw(Prisma.sql`SELECT COUNT(*)::int AS total ${base}`),
+    ]);
+
+    const totalNum = Number(total?.[0]?.total || 0);
+    return {
+      success: true,
+      data: linhas.map((l) => ({
+        id: l.id,
+        dataDenuncia: l.data_denuncia instanceof Date
+          ? l.data_denuncia.toISOString().slice(0, 10)
+          : String(l.data_denuncia || "").slice(0, 10),
+        tipo: l.tipo || "",
+        situacao: l.situacao || "",
+        bairro: l.bairro || "",
+        logradouro: l.logradouro || "",
+        numero: l.numero || "",
+        causouRisco: l.causou_risco || "",
+        animalId: l.animal_id || "",
+        animalNome: l.animal_nome || "",
+      })),
+      total: totalNum,
+      pagina,
+      totalPaginas: Math.max(1, Math.ceil(totalNum / DENUNCIA_PAGINA_TAMANHO)),
+    };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao consultar denúncias (CCZ):", error);
+    return { success: false, error: "Erro ao consultar as denúncias." };
+  }
+}
+
+// Opções dos filtros — vêm dos valores REALMENTE gravados no cadastro.
+export async function obterFiltrosDenuncias() {
+  try {
+    await requireAcessoModulo(MODULOS.CCZ);
+    const [bairros, situacoes, riscos] = await Promise.all([
+      prisma.$queryRaw(Prisma.sql`
+        SELECT DISTINCT btrim(bairro) AS valor FROM public.ccz_denuncias
+         WHERE btrim(COALESCE(bairro, '')) <> '' ORDER BY 1`),
+      prisma.$queryRaw(Prisma.sql`
+        SELECT DISTINCT btrim(situacao) AS valor FROM public.ccz_denuncias
+         WHERE btrim(COALESCE(situacao, '')) <> '' ORDER BY 1`),
+      prisma.$queryRaw(Prisma.sql`
+        SELECT DISTINCT btrim(causou_risco) AS valor FROM public.ccz_denuncias
+         WHERE btrim(COALESCE(causou_risco, '')) <> '' ORDER BY 1`),
+    ]);
+    return {
+      success: true,
+      bairros: bairros.map((t) => t.valor),
+      situacoes: situacoes.map((t) => t.valor),
+      riscos: riscos.map((t) => t.valor),
+    };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao obter filtros de denúncias (CCZ):", error);
+    return { success: false, error: "Erro ao carregar as opções de filtro." };
+  }
+}
+
 export async function obterEsporotricose(id) {
   try {
     await requireAcessoModulo(MODULOS.CCZ);

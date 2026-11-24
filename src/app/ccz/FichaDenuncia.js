@@ -10,7 +10,16 @@ import { useConfirm, useNotify } from "@/components/ConfirmDialog";
 
 const formatarData = (ymd) => (ymd ? ymd.split("-").reverse().join("/") : "-");
 
-export default function FichaDenuncia({ denunciaId, onFechar, onEditar, onExcluir }) {
+export default function FichaDenuncia({
+  denunciaId,
+  onFechar,
+  onEditar,
+  onExcluir,
+  // A consulta padronizada é somente leitura: lá a ficha não oferece
+  // Editar/Excluir. O backend revalida as permissões em qualquer caminho.
+  podeEditar = true,
+  podeExcluir = true,
+}) {
   const confirm = useConfirm();
   const notify = useNotify();
   const [dados, setDados] = useState(null);
@@ -745,26 +754,28 @@ export default function FichaDenuncia({ denunciaId, onFechar, onEditar, onExclui
         <div className={styles.modalFooter}>
           {!editando ? (
             <>
-              <button 
-                type="button"
-                className={styles.btnGhost}
-                onClick={async () => {
-                  const ok = await confirm({
-                    title: "Excluir denúncia",
-                    message: `Deseja excluir a denúncia ${dados.id}? Esta ação não pode ser desfeita.`,
-                    confirmText: "Excluir",
-                  });
-                  if (!ok) return;
-                  onExcluir?.(dados.id);
-                  onFechar();
-                }}
-                style={{ 
-                  color: "#dc2626",
-                  borderColor: "#fca5a5"
-                }}
-              >
-                Excluir
-              </button>
+              {podeExcluir && (
+                <button 
+                  type="button"
+                  className={styles.btnGhost}
+                  onClick={async () => {
+                    const ok = await confirm({
+                      title: "Excluir denúncia",
+                      message: `Deseja excluir a denúncia ${dados.id}? Esta ação não pode ser desfeita.`,
+                      confirmText: "Excluir",
+                    });
+                    if (!ok) return;
+                    onExcluir?.(dados.id);
+                    onFechar();
+                  }}
+                  style={{ 
+                    color: "#dc2626",
+                    borderColor: "#fca5a5"
+                  }}
+                >
+                  Excluir
+                </button>
+              )}
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button 
                   type="button"
@@ -773,13 +784,15 @@ export default function FichaDenuncia({ denunciaId, onFechar, onEditar, onExclui
                 >
                   Gerar Termo
                 </button>
-                <button 
-                  type="button"
-                  className={styles.btnPrimary}
-                  onClick={() => setEditando(true)}
-                >
-                  Editar
-                </button>
+                {podeEditar && (
+                  <button 
+                    type="button"
+                    className={styles.btnPrimary}
+                    onClick={() => setEditando(true)}
+                  >
+                    Editar
+                  </button>
+                )}
               </div>
             </>
           ) : (

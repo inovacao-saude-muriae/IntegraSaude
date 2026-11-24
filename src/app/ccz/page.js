@@ -5,12 +5,11 @@ import { useSearchParams, useRouter } from "next/navigation";
 
 import DashboardCCZ from "./dashboard-gerencial/DashboardCcz";
 import CadastroPessoas from "@/components/CadastroPessoas/CadastroPessoas";
-import CadastroDenuncia from "./CadastroDenuncia";
 import TutoresLista from "./TutoresLista";
 import AnimaisTab from "./AnimaisTab";
 import ProcedimentosTab from "./ProcedimentosTab";
 import EsporotricoseTab from "./EsporotricoseTab";
-import DenunciasLista from "./DenunciasLista";
+import DenunciasTab from "./DenunciasTab";
 import AgendaCCZ from "./AgendaCCZ";
 import TermosEmBranco from "./TermosEmBranco";
 import LeishmanioseTab from "./LeishmanioseTab";
@@ -82,8 +81,6 @@ function CczPageContent() {
   // Define LISTA como padrão para abas que têm Lista/Cadastrar
   const tabsComLista = [
     "ESPOROTRICOSE",
-    "DENUNCIA_AGRESSIVO",
-    "DENUNCIA_DOENTE",
     "TUTORES",
     "ANIMAIS",
   ];
@@ -143,17 +140,11 @@ function CczPageContent() {
   } else if (activeTab === "TERMOS") {
     conteudo = <TermosEmBranco />;
   } else if (activeTab === "DENUNCIA_AGRESSIVO") {
-    if (activeSubTab === "LISTA") {
-      conteudo = <DenunciasLista tipo="AGRESSIVO" />;
-    } else {
-      conteudo = <CadastroDenuncia tipo="AGRESSIVO" />;
-    }
+    // CCZ > Denúncias: abas próprias (Novo Registro / Consultar Registros),
+    // no mesmo padrão de Procedimentos, Animais, Esporotricose e Leishmaniose.
+    conteudo = <DenunciasTab tipo="AGRESSIVO" />;
   } else if (activeTab === "DENUNCIA_DOENTE") {
-    if (activeSubTab === "LISTA") {
-      conteudo = <DenunciasLista tipo="DOENTE" />;
-    } else {
-      conteudo = <CadastroDenuncia tipo="DOENTE" />;
-    }
+    conteudo = <DenunciasTab tipo="DOENTE" />;
   } else if (activeTab === "PROCEDIMENTOS") {
     // CCZ > Procedimentos: abas próprias (Novo Registro / Consultar Registros),
     // no mesmo padrão da Leishmaniose e da Esporotricose. O formulário de
@@ -217,7 +208,9 @@ function CczPageContent() {
     activeTab !== "LEISHMANIOSE" &&
     activeTab !== "ESPOROTRICOSE" &&
     activeTab !== "PROCEDIMENTOS" &&
-    activeTab !== "ANIMAIS";
+    activeTab !== "ANIMAIS" &&
+    activeTab !== "DENUNCIA_AGRESSIVO" &&
+    activeTab !== "DENUNCIA_DOENTE";
 
   return (
     <div className="paginaContainer">

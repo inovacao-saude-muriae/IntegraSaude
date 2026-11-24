@@ -138,6 +138,9 @@
 
 .resumoPagina { color: #64748b; }
 
+/* Complemento discreto na mesma célula (ex.: ID do animal após o nome). */
+.celulaSecundaria { color: #64748b; font-size: 0.8125rem; }
+
 .tabelaWrapper {
   overflow-x: auto;
   border: 1px solid #e2e8f0;

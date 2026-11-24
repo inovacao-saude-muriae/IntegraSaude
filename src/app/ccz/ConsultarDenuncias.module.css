@@ -1,0 +1,131 @@
+/* CCZ > Denúncias — ajustes do grid de filtros.
+   O CSS base vem de ConsultarProcessos.module.css (compartilhado com a
+   Farmácia, a Junta, a Leishmaniose, a Esporotricose, os Animais e os
+   Procedimentos), por isso os ajustes ficam aqui, sem alterar as outras telas.
+   Linha 1: Buscar Registro (5) + Causou Risco (2) + Bairro (2) + Situação (3).
+   Linha 2: Período da Denúncia (8) + botões (4), à direita — mesma posição
+   da Esporotricose. Em Animal doente o filtro "Causou Risco" não existe e a
+   busca ocupa o espaço dele. */
+.gridFiltrosDen {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
+.gridFiltrosDen > .colDenBusca {
+  grid-column: span 6;
+}
+
+/* Com o filtro Causou Risco (Animal agressivo) a busca cede espaço. */
+.gridFiltrosDen:has(> .colDenRisco) > .colDenBusca {
+  grid-column: span 5;
+}
+
+.gridFiltrosDen > .colDenRisco {
+  grid-column: span 2;
+  min-width: 0;
+}
+
+.gridFiltrosDen > .colDenBairro {
+  grid-column: span 3;
+}
+
+.gridFiltrosDen:has(> .colDenRisco) > .colDenBairro {
+  grid-column: span 2;
+}
+
+.gridFiltrosDen > .colDenSituacao {
+  grid-column: span 3;
+}
+
+.gridFiltrosDen > .colDenPeriodo {
+  grid-column: span 8;
+  min-width: 0;
+}
+
+.gridFiltrosDen > .colDenPeriodo .periodo {
+  flex: 0 1 auto;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.gridFiltrosDen > .colDenPeriodo .periodo > * {
+  flex: 0 0 auto;
+}
+
+/* Botões na mesma linha do período, no canto direito do container. A regra do
+   CSS base (.gridFiltros > .filtrosAcoes) usa seletor de filho e tem a mesma
+   especificidade, por isso as ações recebem classe própria; e os botões não
+   quebram linha. */
+.gridFiltrosDen > .acoesDen {
+  grid-column: span 4;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  grid-template-rows: none;
+  align-self: end;
+  justify-content: flex-end;
+  padding-top: calc(var(--filtro-rotulo-altura) + var(--filtro-rotulo-gap));
+}
+
+@media (max-width: 900px) {
+  .gridFiltrosDen > .colDenBusca,
+  .gridFiltrosDen > .colDenRisco,
+  .gridFiltrosDen > .colDenBairro,
+  .gridFiltrosDen > .colDenSituacao,
+  .gridFiltrosDen > .colDenPeriodo {
+    grid-column: span 6;
+  }
+
+  .gridFiltrosDen > .acoesDen {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    padding-top: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .gridFiltrosDen > .colDenBusca,
+  .gridFiltrosDen > .colDenRisco,
+  .gridFiltrosDen > .colDenBairro,
+  .gridFiltrosDen > .colDenSituacao,
+  .gridFiltrosDen > .colDenPeriodo {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Situação da denúncia na tabela (mesmas cores da Lista original). */
+.statusDen {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.statusAtiva {
+  background-color: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.statusArquivada {
+  background-color: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+/* Risco causado — leitura rápida na tabela. */
+.riscoSim {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.riscoNao {
+  background-color: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}

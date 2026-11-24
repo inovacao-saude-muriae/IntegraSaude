@@ -35,7 +35,7 @@ const ROTULOS_POR_TIPO = {
   },
 };
 
-export default function CadastroDenuncia({ tipo = "AGRESSIVO" }) {
+export default function CadastroDenuncia({ tipo = "AGRESSIVO", onSalvo }) {
   const notify = useNotify();
 
   const rotulos = ROTULOS_POR_TIPO[tipo] || ROTULOS_POR_TIPO.AGRESSIVO;
@@ -165,6 +165,7 @@ export default function CadastroDenuncia({ tipo = "AGRESSIVO" }) {
       // Limpar formulário
       setForm(FORM_VAZIO);
       setAnimalNome("");
+      if (onSalvo) onSalvo();
     } else {
       setErro(resultado.erro || "Erro ao registrar denúncia");
     }
