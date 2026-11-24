@@ -1,12 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Filter, SearchX } from "lucide-react";
+import { Filter, SearchX, User, PawPrint, Cat, Dog } from "lucide-react";
 import styles from "../camara-tecnica/processos/ConsultarProcessos.module.css";
-// Badges originais da Lista do CCZ — cores preservadas por situação.
-import stylesLista from "./ListaCCZ.module.css";
+import galeria from "./AnimaisGaleria.module.css";
 import { consultarAnimais, obterFiltrosAnimais } from "./actions";
-import FichaCompletaAnimal from "./FichaCompletaAnimal";
 
 // CCZ > Zoonoses > Animais — Consultar Registros
 // Mesmo padrão visual e funcional de Leishmaniose/Esporotricose > Consultar
@@ -17,9 +15,24 @@ const FILTROS_VAZIOS = {
   periodoInicio: "",
   periodoFim: "",
   especie: "",
+  sexo: "",
+  porte: "",
   situacao: "",
   bairro: "",
 };
+
+const SEXOS = [
+  { value: "", label: "Todos" },
+  { value: "M", label: "Macho" },
+  { value: "F", label: "Fêmea" },
+];
+
+const PORTES = [
+  { value: "", label: "Todos" },
+  { value: "Pequeno", label: "Pequeno" },
+  { value: "Médio", label: "Médio" },
+  { value: "Grande", label: "Grande" },
+];
 
 const SITUACOES = [
   { value: "", label: "Todas" },
@@ -27,7 +40,6 @@ const SITUACOES = [
   { value: "Adotado", label: "Adotado" },
   { value: "Devolvido", label: "Devolvido" },
   { value: "SEM_TUTOR", label: "Sem tutor" },
-  { value: "Arquivado", label: "Arquivado" },
 ];
 
 const formatarData = (iso) => {
@@ -38,21 +50,27 @@ const formatarData = (iso) => {
 
 const badgeSituacao = (situacao) => {
   if (!situacao) return null;
-  if (situacao === "Adotado") return { css: stylesLista.badgeSuccess, texto: "Adotado" };
-  if (situacao === "Devolvido") return { css: stylesLista.badgeWarning, texto: "Devolvido" };
-  if (situacao === "Arquivado") return { css: stylesLista.badgeDanger, texto: "Arquivado" };
-  if (situacao === "CCZ") return { css: stylesLista.badgeInfo, texto: "No CCZ" };
-  return { css: stylesLista.badgeInfo, texto: situacao };
+  if (situacao === "Adotado") return { css: galeria.badgeAdotado, texto: "Adotado" };
+  if (situacao === "Devolvido") return { css: galeria.badgeDevolvido, texto: "Devolvido" };
+  if (situacao === "CCZ") return { css: galeria.badgeCcz, texto: "No CCZ" };
+  return { css: galeria.badgeCcz, texto: situacao };
 };
 
-export default function ConsultarAnimais() {
+// Imagem padrão discreta por espécie (sem inventar fotografia real).
+const IconeEspecie = ({ especie, size = 34 }) => {
+  const e = String(especie || "").toLowerCase();
+  if (e.startsWith("fel")) return <Cat size={size} strokeWidth={1.5} aria-hidden="true" />;
+  if (e.startsWith("can")) return <Dog size={size} strokeWidth={1.5} aria-hidden="true" />;
+  return <PawPrint size={size} strokeWidth={1.5} aria-hidden="true" />;
+};
+
+export default function ConsultarAnimais({ onAbrirFicha = null }) {
   const [filtros, setFiltros] = useState(FILTROS_VAZIOS);
   const [resultado, setResultado] = useState(null);
   const [consultando, setConsultando] = useState(false);
   const [erro, setErro] = useState("");
   const [opcoes, setOpcoes] = useState({ especies: [], bairros: [] });
 
-  const [historicoId, setHistoricoId] = useState(null);
 
   useEffect(() => {
     let ativo = true;
@@ -92,9 +110,11 @@ export default function ConsultarAnimais() {
     setErro("");
   };
 
-  // Ficha completa (somente leitura) do animal selecionado — o próprio
-  // componente carrega o histórico e trata o erro.
-  const abrirHistorico = (id) => setHistoricoId(id);
+  // A ficha completa é montada pelo AnimaisTab (fora das abas), para não ser
+  // desmontada quando o formulário de edição abre.
+  const abrirFicha = (id) => {
+    if (onAbrirFicha) onAbrirFicha(id);
+  };
 
   return (
     <div className={styles.container}>
@@ -134,6 +154,34 @@ export default function ConsultarAnimais() {
                 {opcoes.especies.map((esp) => (
                   <option key={esp} value={esp}>
                     {esp}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className={`${styles.fieldGroup} ${styles.colEspecialidade}`}>
+              <label>Sexo</label>
+              <select
+                value={filtros.sexo}
+                onChange={(e) => alterarFiltro("sexo", e.target.value)}
+              >
+                {SEXOS.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className={`${styles.fieldGroup} ${styles.colEspecialidade}`}>
+              <label>Porte</label>
+              <select
+                value={filtros.porte}
+                onChange={(e) => alterarFiltro("porte", e.target.value)}
+              >
+                {PORTES.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
                   </option>
                 ))}
               </select>
@@ -229,53 +277,69 @@ export default function ConsultarAnimais() {
               </span>
             </div>
 
-            <div className={styles.tabelaWrapper}>
-              <table className={styles.tabela}>
-                <thead>
-                  <tr>
-                    <th>Data do Cadastro</th>
-                    <th>Nome do Animal</th>
-                    <th>ID CCZ</th>
-                    <th>Espécie</th>
-                    <th>Nome do Tutor</th>
-                    <th>Bairro</th>
-                    <th>Situação</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {resultado.data.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className={styles.tabelaVazia}>
-                        Nenhum registro encontrado
-                      </td>
-                    </tr>
-                  )}
-                  {resultado.data.map((a) => {
-                    const badge = badgeSituacao(a.situacao);
-                    return (
-                      <tr
-                        key={a.id}
-                        className={styles.linhaClicavel}
-                        onClick={() => abrirHistorico(a.id)}
-                        tabIndex={0}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") abrirHistorico(a.id);
-                        }}
-                        title="Clique para ver a ficha completa do animal"
-                      >
-                        <td>{formatarData(a.dataCadastro)}</td>
-                        <td>{a.nome || "Sem nome"}</td>
-                        <td>{a.id}</td>
-                        <td>{a.especie || "—"}</td>
-                        <td>{a.tutorNome || "Sem tutor"}</td>
-                        <td>{a.bairro || "—"}</td>
-                        <td>{badge ? <span className={badge.css}>{badge.texto}</span> : "—"}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            {resultado.data.length === 0 ? (
+              <div className={styles.tabelaVazia} style={{ borderRadius: 10 }}>
+                Nenhum registro encontrado
+              </div>
+            ) : (
+              <div className={galeria.galeria}>
+                {resultado.data.map((a) => {
+                  const badge = badgeSituacao(a.situacao);
+                  return (
+                    <button
+                      key={a.id}
+                      type="button"
+                      className={galeria.card}
+                      onClick={() => abrirFicha(a.id)}
+                      aria-label={`Abrir a ficha de ${a.nome || a.id}`}
+                    >
+                      <span className={galeria.cardFoto}>
+                        {a.fotoUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={a.fotoUrl}
+                            alt={a.nome ? `Foto de ${a.nome}` : "Foto do animal"}
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span className={galeria.cardSemFoto}>
+                            <IconeEspecie especie={a.especie} />
+                            <span>{a.especie || "Sem foto"}</span>
+                          </span>
+                        )}
+                      </span>
+                      <span className={galeria.cardCorpo}>
+                        <span className={galeria.cardNome}>{a.nome || "Sem nome"}</span>
+                        <span className={galeria.cardId}>ID CCZ: {a.id}</span>
+                        <span className={galeria.cardLinha}>
+                          {a.especie && (
+                            <span className={galeria.tag}>
+                              <IconeEspecie especie={a.especie} size={12} />
+                              {a.especie}
+                            </span>
+                          )}
+                          {a.sexo && (
+                            <span className={`${galeria.tag} ${galeria.tagNeutra}`}>{a.sexo}</span>
+                          )}
+                          {a.porte && (
+                            <span className={`${galeria.tag} ${galeria.tagNeutra}`}>
+                              Porte {a.porte}
+                            </span>
+                          )}
+                          {badge && (
+                            <span className={`${galeria.badge} ${badge.css}`}>{badge.texto}</span>
+                          )}
+                        </span>
+                        <span className={galeria.cardTutor}>
+                          <User size={13} aria-hidden="true" />
+                          {a.tutorNome || "Sem tutor vinculado"}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             <div className={styles.paginacao}>
               <button
@@ -301,14 +365,6 @@ export default function ConsultarAnimais() {
           </div>
         )}
       </div>
-
-      {/* ── FICHA COMPLETA (somente leitura) ─────────────────────────────── */}
-      {historicoId && (
-        <FichaCompletaAnimal
-          animalId={historicoId}
-          onFechar={() => setHistoricoId(null)}
-        />
-      )}
     </div>
   );
 }

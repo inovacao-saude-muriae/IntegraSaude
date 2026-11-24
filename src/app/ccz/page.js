@@ -171,7 +171,11 @@ function CczPageContent() {
   } else if (activeTab === "ANIMAIS") {
     // CCZ > Zoonoses > Animais: abas próprias (Novo Registro / Consultar
     // Registros) no mesmo padrão da Leishmaniose e da Esporotricose.
-    conteudo = <AnimaisTab podeCriar={permAnimais.criar} />;
+    // A ficha individual oferece "Editar" apenas com a permissão do módulo;
+    // o formulário é o mesmo cadastro de animal (key remonta com o registro).
+    conteudo = (
+      <AnimaisTab podeCriar={permAnimais.criar} podeEditar={permAnimais.editar} />
+    );
   } else {
     // TUTORES (padrão)
     if (activeSubTab === "LISTA") {

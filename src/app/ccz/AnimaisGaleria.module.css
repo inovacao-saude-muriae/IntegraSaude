@@ -1,0 +1,681 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   CCZ > Animais — galeria de cards e ficha individual
+   Identidade visual do IntegraSaúde: azul institucional, fundo branco,
+   blocos cinza muito claro, bordas discretas e espaçamento uniforme.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── GALERIA ─────────────────────────────────────────────────────────────── */
+.galeria {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.25rem;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+}
+
+.card:hover,
+.card:focus-visible {
+  border-color: #bfdbfe;
+  box-shadow: 0 10px 22px -12px rgba(15, 42, 74, 0.35);
+  transform: translateY(-2px);
+  outline: none;
+}
+
+.cardFoto {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #f1f5f9;
+  overflow: hidden;
+}
+
+.cardFoto img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+/* Imagem padrão discreta por espécie — sem inventar fotografia real. */
+.cardSemFoto {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  color: #94a3b8;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+}
+
+.cardSemFoto svg {
+  color: #cbd5e1;
+}
+
+.cardSemFoto span {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.cardCorpo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.85rem 0.95rem 1rem;
+}
+
+.cardNome {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #0f2a4a;
+  margin: 0;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardId {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.cardLinha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  white-space: nowrap;
+}
+
+.tagNeutra {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #e2e8f0;
+}
+
+.cardTutor {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  color: #475569;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 0.55rem;
+  margin-top: 0.15rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardTutor svg {
+  flex: 0 0 auto;
+  color: #94a3b8;
+}
+
+/* Badges de situação — mesmas cores da Lista do CCZ. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.badgeAdotado {
+  background: #d1fae5;
+  color: #065f46;
+  border-color: #6ee7b7;
+}
+
+.badgeDevolvido {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fcd34d;
+}
+
+.badgeArquivado {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+
+.badgeCcz {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+/* ── FICHA INDIVIDUAL ────────────────────────────────────────────────────── */
+.fichaFundo {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 2rem 1rem;
+}
+
+.ficha {
+  width: min(100%, 1108px);
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 24px 48px -20px rgba(15, 42, 74, 0.45);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.fichaTopo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.fichaTopoTitulo {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f2a4a;
+  margin: 0;
+}
+
+.fichaTopoAcoes {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.btnPrimario,
+.btnSecundario {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.btnPrimario {
+  background: #1d4ed8;
+  color: #ffffff;
+  border: 1px solid #1d4ed8;
+}
+
+.btnPrimario:hover {
+  background: #1e40af;
+  border-color: #1e40af;
+}
+
+.btnSecundario {
+  background: #ffffff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.btnSecundario:hover {
+  background: #eff6ff;
+}
+
+.btnFechar {
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  color: #64748b;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.btnFechar:hover {
+  background: #f1f5f9;
+  color: #0f2a4a;
+}
+
+.fichaCorpo {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  overflow-y: auto;
+  max-height: calc(100vh - 8rem);
+}
+
+/* Cabeçalho da ficha */
+.cabecalho {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+  padding: 1.25rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.cabecalhoFoto {
+  flex: 0 0 168px;
+  width: 168px;
+  height: 168px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+}
+
+.cabecalhoFoto img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cabecalhoInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.cabecalhoNome {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f2a4a;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.cabecalhoSub {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.cabecalhoTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+}
+
+/* Blocos da ficha */
+.bloco {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 1.15rem 1.25rem 1.25rem;
+}
+
+.blocoTitulo {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0f2a4a;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 0 0 0.9rem 0;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.blocoTitulo svg {
+  color: #2563eb;
+}
+
+.gridCampos {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem 1rem;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.campo label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.campoValor {
+  font-size: 0.88rem;
+  color: #1e293b;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  word-break: break-word;
+}
+
+.campoLargo {
+  grid-column: 1 / -1;
+}
+
+.avisoSemTutor {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem 1rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+/* Histórico */
+.listaHistorico {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.itemHistorico {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  text-align: left;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 0.75rem 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.itemHistorico:hover {
+  background: #f8fafc;
+  border-color: #bfdbfe;
+}
+
+.itemIcone {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.itemIconeLeish {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.itemIconeEsporo {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.itemConteudo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.itemBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.itemBadgeLeish {
+  background: #fef3c7;
+  color: #b45309;
+  border-color: #fcd34d;
+}
+
+.itemBadgeEsporo {
+  background: #ede9fe;
+  color: #6d28d9;
+  border-color: #ddd6fe;
+}
+
+.itemTitulo {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #1e293b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemResumo {
+  font-size: 0.78rem;
+  color: #64748b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemData {
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.vazio {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  color: #64748b;
+  font-size: 0.85rem;
+  background: #f8fafc;
+}
+
+/* Detalhe de um registro do histórico */
+.detalheFundo {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 1rem;
+}
+
+.detalhe {
+  width: min(100%, 720px);
+  max-height: calc(100vh - 4rem);
+  background: #ffffff;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.detalheTopo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.detalheTopoTitulo {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f2a4a;
+  margin: 0;
+}
+
+.detalheCorpo {
+  padding: 1.25rem;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem 1rem;
+}
+
+.detalheVazio {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+/* Carregando / erro */
+.estadoFicha {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 3rem 1rem;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.erro {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-size: 0.85rem;
+}
+
+/* ── RESPONSIVO ──────────────────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .gridCampos {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .galeria {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+
+  .gridCampos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cabecalho {
+    flex-direction: column;
+  }
+
+  .cabecalhoFoto {
+    flex: 0 0 auto;
+    width: 100%;
+    height: 200px;
+  }
+}
+
+@media (max-width: 640px) {
+  .fichaFundo {
+    padding: 0;
+  }
+
+  .ficha {
+    border-radius: 0;
+    min-height: 100%;
+  }
+
+  .fichaCorpo {
+    padding: 1rem;
+    max-height: none;
+  }
+
+  .fichaTopo {
+    padding: 0.85rem 1rem;
+  }
+
+  .galeria {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.85rem;
+  }
+
+  .gridCampos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .detalheCorpo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cabecalhoNome {
+    font-size: 1.25rem;
+  }
+}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import styles from "./ListaCCZ.module.css";
-import { listarAnimais, excluirAnimal, arquivarAnimal } from "./actions";
+import { listarAnimais, excluirAnimal } from "./actions";
 import FichaAnimal from "./FichaAnimal";
 import FichaCompletaAnimal from "./FichaCompletaAnimal";
 import { useNotify } from "@/components/ConfirmDialog";
@@ -31,15 +31,13 @@ export default function AnimaisLista({
   const [filtroSituacao, setFiltroSituacao] = useState(""); // chave do dropdown de situação
   const [fichaId, setFichaId] = useState(null); // id do animal com ficha aberta
   const [fichaCompletaId, setFichaCompletaId] = useState(null); // id do animal com ficha completa aberta
-  const [incluirArquivados, setIncluirArquivados] = useState(false); // mostra também os arquivados
 
   // Carrega a lista no servidor combinando busca textual + filtro de situação.
-  const carregar = useCallback(async (termoBusca, filtro, verArquivados) => {
+  const carregar = useCallback(async (termoBusca, filtro) => {
     setCarregando(true);
     const res = await listarAnimais({
       termo: termoBusca,
       filtroSituacao: filtro,
-      incluirArquivados: verArquivados,
     });
     setAnimais(res.success ? res.data : []);
     setCarregando(false);
@@ -49,31 +47,18 @@ export default function AnimaisLista({
   // debounce para evitar uma consulta a cada tecla).
   useEffect(() => {
     const t = setTimeout(() => {
-      carregar(termo, filtroSituacao, incluirArquivados);
+      carregar(termo, filtroSituacao);
     }, 300);
     return () => clearTimeout(t);
-  }, [termo, filtroSituacao, incluirArquivados, carregar]);
+  }, [termo, filtroSituacao, carregar]);
 
-  // Arquivar é a saída padrão: sai da lista de trabalho, fica no banco com
-  // motivo, data e autor. Excluir é permissão excepcional.
-  const handleArquivar = async (id) => {
-    const motivo = window.prompt(
-      "Arquivar este animal?\n\nInforme o motivo (mínimo 5 caracteres):",
-    );
-    if (motivo === null) return;
-    const res = await arquivarAnimal(id, motivo);
-    if (res.success) {
-      await notify({ tipo: "sucesso", message: "Animal arquivado." });
-      await carregar(termo, filtroSituacao, incluirArquivados);
-    } else {
-      await notify({ tipo: "erro", message: res.error || "Erro ao arquivar animal" });
-    }
-  };
-
+  // Excluir é permissão excepcional: o backend recusa quando existir qualquer
+  // registro vinculado (procedimentos, esporotricose, leishmaniose, denúncias
+  // ou termos), preservando o histórico. Não há mais arquivamento de animal.
   const handleExcluir = async (id) => {
     const res = await excluirAnimal(id);
     if (res.success) {
-      await carregar(termo, filtroSituacao, incluirArquivados);
+      await carregar(termo, filtroSituacao);
     } else {
       await notify({ tipo: "erro", message: res.error || "Erro ao excluir animal" });
     }
@@ -109,23 +94,6 @@ export default function AnimaisLista({
                 </option>
               ))}
             </select>
-            <label
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                fontSize: 12.5,
-                color: "#475569",
-                fontWeight: 600,
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={incluirArquivados}
-                onChange={(e) => setIncluirArquivados(e.target.checked)}
-              />
-              Mostrar arquivados
-            </label>
             <input
               type="text"
               className={styles.buscaInput}
@@ -264,7 +232,6 @@ export default function AnimaisLista({
             if (podeEditar && onEditar) onEditar(id);
           }}
           onExcluir={handleExcluir}
-          onArquivar={handleArquivar}
         />
       )}
 

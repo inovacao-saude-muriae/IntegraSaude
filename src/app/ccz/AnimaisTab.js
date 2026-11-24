@@ -3,13 +3,23 @@
 import { useState } from "react";
 import { ClipboardPlus, Search } from "lucide-react";
 import CadastroAnimal from "./CadastroAnimal";
+import { obterAnimal } from "./actions";
 import ConsultarAnimais from "./ConsultarAnimais";
+import FichaAnimalCompleta from "./FichaAnimalCompleta";
 
 // CCZ > Zoonoses > Animais
 // Mesmo padrão da Leishmaniose/Esporotricose: duas abas internas no container
 // do módulo. 1. Novo Registro (padrão) / 2. Consultar Registros.
-export default function AnimaisTab({ podeCriar = true }) {
+export default function AnimaisTab({ podeCriar = true, podeEditar = false, onEditar = null }) {
   const [aba, setAba] = useState("NOVO");
+  // A ficha é renderizada aqui (fora da aba) para continuar montada enquanto o
+  // formulário de edição abre — clicar em "Editar" não pode fechar a ficha
+  // antes de o animal ser carregado.
+  const [fichaId, setFichaId] = useState(null);
+  // Id do animal em edição: a ficha carrega o registro e o formulário abre
+  // dentro da aba, sem remontar a galeria.
+  const [editando, setEditando] = useState(null);
+  const [animalEdicao, setAnimalEdicao] = useState(null);
   const [chaveNova, setChaveNova] = useState(0);
 
   const aposSalvar = () => {
@@ -40,10 +50,43 @@ export default function AnimaisTab({ podeCriar = true }) {
         </button>
       </div>
 
-      {aba === "NOVO" && podeCriar ? (
+      {/* Edição pela ficha: o formulário substitui a galeria, mantendo as abas. */}
+      {editando ? (
+        <CadastroAnimal
+          key={editando}
+          animalInicial={animalEdicao}
+          onSalvo={() => {
+            setEditando(null);
+            setAnimalEdicao(null);
+            setChaveNova((k) => k + 1);
+            setAba("CONSULTAR");
+          }}
+          onCancelar={() => {
+            setEditando(null);
+            setAnimalEdicao(null);
+            setAba("CONSULTAR");
+          }}
+        />
+      ) : aba === "NOVO" && podeCriar ? (
         <CadastroAnimal key={chaveNova} onSalvo={aposSalvar} onCancelar={() => setAba("CONSULTAR")} />
       ) : (
-        <ConsultarAnimais />
+        <ConsultarAnimais onAbrirFicha={setFichaId} />
+      )}
+
+      {fichaId && (
+        <FichaAnimalCompleta
+          animalId={fichaId}
+          onFechar={() => setFichaId(null)}
+          podeEditar={podeEditar}
+          onEditar={async (id) => {
+            setFichaId(null);
+            const res = await obterAnimal(id);
+            if (res?.success) {
+              setAnimalEdicao(res.data);
+              setEditando(id);
+            }
+          }}
+        />
       )}
     </div>
   );
