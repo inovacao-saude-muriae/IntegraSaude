@@ -5,11 +5,10 @@ import { useSearchParams, useRouter } from "next/navigation";
 
 import DashboardCCZ from "./dashboard-gerencial/DashboardCcz";
 import CadastroPessoas from "@/components/CadastroPessoas/CadastroPessoas";
-import CadastroProcedimento from "./CadastroProcedimento";
 import CadastroDenuncia from "./CadastroDenuncia";
 import TutoresLista from "./TutoresLista";
 import AnimaisTab from "./AnimaisTab";
-import ProcedimentosLista from "./ProcedimentosLista";
+import ProcedimentosTab from "./ProcedimentosTab";
 import EsporotricoseTab from "./EsporotricoseTab";
 import DenunciasLista from "./DenunciasLista";
 import AgendaCCZ from "./AgendaCCZ";
@@ -82,7 +81,6 @@ function CczPageContent() {
   
   // Define LISTA como padrão para abas que têm Lista/Cadastrar
   const tabsComLista = [
-    "PROCEDIMENTOS",
     "ESPOROTRICOSE",
     "DENUNCIA_AGRESSIVO",
     "DENUNCIA_DOENTE",
@@ -132,10 +130,10 @@ function CczPageContent() {
     }
   };
 
-  // Volta para a lista correspondente após salvar/cancelar edição.
+  // Volta ao estado neutro após salvar/cancelar a edição aberta pela Agenda.
+  // A aba Procedimentos tem abas próprias (Novo Registro / Consultar Registros).
   const voltarListaProcedimentos = () => {
     setProcedimentoEdicao(null);
-    irPara("PROCEDIMENTOS", "LISTA");
   };
   let conteudo;
   if (activeTab === "DASHBOARD") {
@@ -157,19 +155,18 @@ function CczPageContent() {
       conteudo = <CadastroDenuncia tipo="DOENTE" />;
     }
   } else if (activeTab === "PROCEDIMENTOS") {
-    if (activeSubTab === "LISTA") {
-      conteudo = <ProcedimentosLista onEditar={editarProcedimento} />;
-    } else if (carregandoProcedimento) {
-      conteudo = <p className={styles.subtitle}>Carregando procedimento...</p>;
-    } else {
-      conteudo = (
-        <CadastroProcedimento
-          key={procedimentoEdicao?.id || "novo"}
-          registroInicial={procedimentoEdicao}
-          onSalvo={voltarListaProcedimentos}
-        />
-      );
-    }
+    // CCZ > Procedimentos: abas próprias (Novo Registro / Consultar Registros),
+    // no mesmo padrão da Leishmaniose e da Esporotricose. O formulário de
+    // cadastro é o mesmo (registroInicial mantém a edição vinda da Agenda).
+    conteudo = carregandoProcedimento ? (
+      <p className={styles.subtitle}>Carregando procedimento...</p>
+    ) : (
+      <ProcedimentosTab
+        key={procedimentoEdicao?.id || "novo-procedimento"}
+        registroInicial={procedimentoEdicao}
+        onSalvo={voltarListaProcedimentos}
+      />
+    );
   } else if (activeTab === "ESPOROTRICOSE") {
     // CCZ > Zoonoses > Esporotricose: abas próprias (Novo Registro /
     // Consultar Registros) no mesmo padrão da Leishmaniose.
@@ -219,6 +216,7 @@ function CczPageContent() {
     activeTab !== "TERMOS" &&
     activeTab !== "LEISHMANIOSE" &&
     activeTab !== "ESPOROTRICOSE" &&
+    activeTab !== "PROCEDIMENTOS" &&
     activeTab !== "ANIMAIS";
 
   return (

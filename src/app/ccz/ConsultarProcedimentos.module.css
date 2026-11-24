@@ -1,0 +1,67 @@
+/* CCZ > Procedimentos — ajustes do grid de filtros.
+   O CSS base vem de ConsultarProcessos.module.css (compartilhado com a
+   Farmácia, a Junta, a Leishmaniose, a Esporotricose e os Animais), por isso os
+   ajustes ficam aqui, sem alterar as outras telas.
+   Linha 1: Buscar (5) + Tipo (4) + Situação (3).
+   Linha 2: Responsável (5) + Período do Procedimento (7).
+   Linha 3: Filtrar + Limpar filtros, sozinhos, à direita do container. */
+.gridFiltrosProc {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
+.gridFiltrosProc > .colProcBusca {
+  grid-column: span 5;
+}
+
+.gridFiltrosProc > .colProcTipo {
+  grid-column: span 4;
+}
+
+.gridFiltrosProc > .colProcSituacao {
+  grid-column: span 3;
+}
+
+.gridFiltrosProc > .colProcResponsavel {
+  grid-column: span 5;
+}
+
+.gridFiltrosProc > .colProcPeriodo {
+  grid-column: span 7;
+}
+
+/* O período é uma coluna flex: as datas mantêm a largura do próprio conteúdo
+   e o "até" fica entre elas, sem esticar pela célula. */
+.gridFiltrosProc > .colProcPeriodo .periodo {
+  justify-content: flex-start;
+}
+
+.gridFiltrosProc > .colProcPeriodo .periodo > * {
+  flex: 0 0 auto;
+}
+
+/* Botões na última linha, alinhados à direita. */
+.gridFiltrosProc > .filtrosAcoes {
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  padding-top: 0;
+}
+
+@media (max-width: 900px) {
+  .gridFiltrosProc > .colProcBusca,
+  .gridFiltrosProc > .colProcTipo,
+  .gridFiltrosProc > .colProcSituacao,
+  .gridFiltrosProc > .colProcResponsavel,
+  .gridFiltrosProc > .colProcPeriodo {
+    grid-column: span 6;
+  }
+}
+
+@media (max-width: 640px) {
+  .gridFiltrosProc > .colProcBusca,
+  .gridFiltrosProc > .colProcTipo,
+  .gridFiltrosProc > .colProcSituacao,
+  .gridFiltrosProc > .colProcResponsavel,
+  .gridFiltrosProc > .colProcPeriodo {
+    grid-column: 1 / -1;
+  }
+}

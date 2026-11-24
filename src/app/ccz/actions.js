@@ -2320,6 +2320,132 @@ export async function obterFiltrosEsporotricose() {
   }
 }
 
+// ── PROCEDIMENTOS: CONSULTA PAGINADA NO BACKEND ─────────────────────────────
+// Mesmo padrão de Esporotricose/Leishmaniose: filtros combinados por AND,
+// 100 por página, mais recente primeiro. O termo é comparado com ILIKE para
+// não casar registros indevidos quando o ID tem "-" ou "/" (mesmo motivo de
+// consultarAnimais).
+const PROCEDIMENTO_PAGINA_TAMANHO = 100;
+
+export async function listarProcedimentosConsulta(filtros = {}) {
+  try {
+    await requireAcessoModulo(MODULOS.CCZ);
+
+    const condicoes = [];
+    const termo = String(filtros.busca || "").trim();
+    if (termo) {
+      const digitos = termo.replace(/\D/g, "");
+      // p = ccz_procedimentos, a = ccz_animais, pp = pessoa (tutor)
+      const partes = [
+        Prisma.sql`a.nome ILIKE ${"%" + termo + "%"}`,
+        Prisma.sql`p.id ILIKE ${"%" + termo + "%"}`,
+        Prisma.sql`p.animal_id ILIKE ${"%" + termo + "%"}`,
+        Prisma.sql`pp.nome_completo ILIKE ${"%" + termo + "%"}`,
+      ];
+      if (digitos) {
+        partes.push(Prisma.sql`replace(replace(replace(COALESCE(pp.cpf, ''), '.', ''), '-', ''), ' ', '') ILIKE ${"%" + digitos + "%"}`);
+      }
+      condicoes.push(Prisma.sql`(${Prisma.join(partes, " OR ")})`);
+    }
+
+    const tipo = String(filtros.tipo || "").trim();
+    if (tipo) condicoes.push(Prisma.sql`btrim(COALESCE(p.tipo, '')) = ${tipo}`);
+
+    const responsavel = String(filtros.responsavel || "").trim();
+    if (responsavel) condicoes.push(Prisma.sql`btrim(COALESCE(p.veterinario, '')) = ${responsavel}`);
+
+    const status = String(filtros.status || "").trim();
+    if (status) condicoes.push(Prisma.sql`btrim(COALESCE(p.status, '')) = ${status}`);
+
+    const de = esporoDiaParaUtc(filtros.periodoInicio, "inicio");
+    const ate = esporoDiaParaUtc(filtros.periodoFim, "fim");
+    // data_procedimento é DATE: comparar com a data local (YYYY-MM-DD), sem fuso.
+    const diaInicio = String(filtros.periodoInicio || "").trim();
+    const diaFim = String(filtros.periodoFim || "").trim();
+    if (de && /^\d{4}-\d{2}-\d{2}$/.test(diaInicio)) {
+      condicoes.push(Prisma.sql`p.data_procedimento >= ${diaInicio}::date`);
+    }
+    if (ate && /^\d{4}-\d{2}-\d{2}$/.test(diaFim)) {
+      condicoes.push(Prisma.sql`p.data_procedimento <= ${diaFim}::date`);
+    }
+
+    const where = condicoes.length ? Prisma.join(condicoes, " AND ") : Prisma.sql`1=1`;
+    const pagina = Math.max(1, Number(filtros.pagina) || 1);
+    const offset = (pagina - 1) * PROCEDIMENTO_PAGINA_TAMANHO;
+    const base = Prisma.sql`
+      FROM public.ccz_procedimentos p
+      LEFT JOIN public.ccz_animais a ON a.id = p.animal_id
+      LEFT JOIN public.pessoa pp ON pp.cpf = a.pessoa_cpf
+      WHERE ${where}`;
+
+    const [linhas, total] = await Promise.all([
+      prisma.$queryRaw(Prisma.sql`
+        SELECT p.id, p.data_procedimento, p.animal_id, p.tipo, p.status, p.veterinario,
+               a.nome AS animal_nome, pp.nome_completo AS tutor_nome
+        ${base}
+        ORDER BY p.data_procedimento DESC NULLS LAST, p.created_at DESC, p.id
+        LIMIT ${PROCEDIMENTO_PAGINA_TAMANHO} OFFSET ${offset}`),
+      prisma.$queryRaw(Prisma.sql`SELECT COUNT(*)::int AS total ${base}`),
+    ]);
+
+    const totalNum = Number(total?.[0]?.total || 0);
+    return {
+      success: true,
+      data: linhas.map((l) => ({
+        id: l.id,
+        dataProcedimento: l.data_procedimento instanceof Date
+          ? l.data_procedimento.toISOString().slice(0, 10)
+          : String(l.data_procedimento || "").slice(0, 10),
+        animalId: l.animal_id || "",
+        animalNome: l.animal_nome || "",
+        tutorNome: l.tutor_nome || "",
+        tipo: l.tipo || "",
+        status: l.status || "",
+        veterinario: l.veterinario || "",
+      })),
+      total: totalNum,
+      pagina,
+      totalPaginas: Math.max(1, Math.ceil(totalNum / PROCEDIMENTO_PAGINA_TAMANHO)),
+    };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao consultar procedimentos (CCZ):", error);
+    return { success: false, error: "Erro ao consultar os procedimentos." };
+  }
+}
+
+// Opções dos filtros — vêm dos valores REALMENTE gravados no cadastro.
+export async function obterFiltrosProcedimentos() {
+  try {
+    await requireAcessoModulo(MODULOS.CCZ);
+    const [tipos, responsaveis, situacoes] = await Promise.all([
+      prisma.$queryRaw(Prisma.sql`
+        SELECT DISTINCT btrim(tipo) AS valor FROM public.ccz_procedimentos
+         WHERE btrim(COALESCE(tipo, '')) <> '' ORDER BY 1`),
+      prisma.$queryRaw(Prisma.sql`
+        SELECT DISTINCT btrim(veterinario) AS valor FROM public.ccz_procedimentos
+         WHERE btrim(COALESCE(veterinario, '')) <> '' ORDER BY 1`),
+      prisma.$queryRaw(Prisma.sql`
+        SELECT DISTINCT btrim(status) AS valor FROM public.ccz_procedimentos
+         WHERE btrim(COALESCE(status, '')) <> '' ORDER BY 1`),
+    ]);
+    return {
+      success: true,
+      tipos: tipos.map((t) => t.valor),
+      responsaveis: responsaveis.map((t) => t.valor),
+      situacoes: situacoes.map((t) => t.valor),
+    };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao obter filtros de procedimentos (CCZ):", error);
+    return { success: false, error: "Erro ao carregar as opções de filtro." };
+  }
+}
+
 export async function obterEsporotricose(id) {
   try {
     await requireAcessoModulo(MODULOS.CCZ);
