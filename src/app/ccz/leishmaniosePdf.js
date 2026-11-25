@@ -253,32 +253,27 @@ export async function gerarPdfLeishmaniose(registro) {
   });
   base.y += 4;
 
-  // Assinaturas em espaço livre para assinatura manual.
-  const assinatura = (nome, funcao, registroProf) => {
-    base.assinatura(nome, funcao, registroProf);
-  };
+  // Assinaturas em espaço livre para assinatura manual, LADO A LADO.
+  const veterinarios = registro.veterinarios?.length ? registro.veterinarios : [];
 
+  const assinaturas = [];
   if (registro.tutorNome) {
-    assinatura(registro.tutorNome, "Tutor(a) do animal", null);
+    assinaturas.push({ nome: registro.tutorNome, funcao: "Tutor(a) do animal" });
   }
-
-  const veterinarios = registro.veterinarios?.length
-    ? registro.veterinarios
-    : [];
-
   veterinarios.forEach((v, i) => {
-    assinatura(
-      v.nome,
-      v.cargo || (i === 0 ? "Médico(a) Veterinário(a) do CCZ" : "Médico(a) Veterinário(a)"),
-      v.registro,
-    );
+    assinaturas.push({
+      nome: v.nome,
+      funcao:
+        v.cargo || (i === 0 ? "Médico(a) Veterinário(a) do CCZ" : "Médico(a) Veterinário(a)"),
+      registro: v.registro,
+    });
+  });
+  assinaturas.push({
+    nome: registro.coordenadorNome,
+    funcao: registro.coordenadorCargo || "Coordenador(a) e Responsável Técnico(a)",
   });
 
-  assinatura(
-    registro.coordenadorNome,
-    registro.coordenadorCargo || "Coordenador(a) e Responsável Técnico(a)",
-    null,
-  );
+  base.assinaturas(assinaturas);
 
   base.finalizar();
 

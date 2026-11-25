@@ -322,6 +322,53 @@ export function criarDocumentoCcz({
   };
 
   /** Linha de assinatura com nome e função. */
+  /**
+   * Bloco de assinaturas LADO A LADO: cada linha tem meia largura útil, com
+   * nome em destaque acima da linha e a função em cinza abaixo. Aceita de 1 a
+   * 2 assinaturas; as que não couberem abrem uma nova linha abaixo.
+   *
+   * @param {Array<{nome, funcao, registro}>} itens
+   */
+  api.assinaturas = (itens = []) => {
+    const lista = itens.filter(Boolean);
+    if (!lista.length) return;
+
+    const LARGURA_ASSINATURA = (LARGURA_UTIL - 20) / 2;
+    const ALTURA_BLOCO = 22;
+    const xColunas = [MARGEM_X, MARGEM_X + LARGURA_ASSINATURA + 20];
+
+    for (let i = 0; i < lista.length; i += 2) {
+      api.novaPagina(ALTURA_BLOCO + 4);
+      const topo = y;
+      lista.slice(i, i + 2).forEach((item, coluna) => {
+        const x = xColunas[coluna];
+        const centroAssinatura = x + LARGURA_ASSINATURA / 2;
+
+        doc.setDrawColor(100, 116, 139);
+        doc.setLineWidth(0.3);
+        doc.line(x, topo + 8, x + LARGURA_ASSINATURA, topo + 8);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8.5);
+        doc.setTextColor(...AZUL);
+        doc.text(texto(item.nome), centroAssinatura, topo + 12.5, { align: "center" });
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(...CINZA_ROTULO);
+        const descricao = `${item.funcao || ""}${item.registro ? ` — ${item.registro}` : ""}`;
+        doc.text(
+          doc.splitTextToSize(descricao, LARGURA_ASSINATURA - 2),
+          centroAssinatura,
+          topo + 16.5,
+          { align: "center" },
+        );
+      });
+      y = topo + ALTURA_BLOCO;
+    }
+  };
+
+  /** Assinatura isolada (largura total) — mantida para os demais documentos. */
   api.assinatura = (nome, funcao, registroProf = "") => {
     api.novaPagina(26);
     doc.setDrawColor(100, 116, 139);
