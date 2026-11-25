@@ -53,6 +53,22 @@ const ITENS_DENUNCIA = [
   "Comunicar ao CCZ qualquer incidente envolvendo o animal.",
 ];
 
+const ITENS_CUIDADOS_LEISHMANIOSE = [
+  "Manter o animal domiciliado e sem acesso à rua durante o tratamento até alta médica;",
+  "Impedir o contato do animal com outras pessoas;",
+  "Administrar o tratamento terapêutico conforme orientação médica veterinária;",
+  "Utilizar luvas e EPI's para fazer o tratamento do animal;",
+  "Não abandonar ou recusar fazer o tratamento terapêutico do animal;",
+  "Passar todas informações pertinentes ao prognóstico do animal aos veterinários do CCZ;",
+  "Quando solicitado, levar o animal para acompanhamento do tratamento e controle da doença;",
+  "Se necessário, solicitar a visita técnica para acompanhamento e monitoramento da doença.",
+];
+
+const ITENS_LEIS_LEISHMANIOSE = [
+  "Lei Estadual nº 13.317/1999, Código de Saúde do Estado de Minas Gerais, Art. 38.",
+  "Lei Municipal nº 7163/2024, normas para criação de animais, Art. 20-M, Art. 20-L, Art. 20-F, Art. 12, Art. 14, Art. 16 e Art. 17.",
+];
+
 // ── MODELOS ────────────────────────────────────────────────────────────────
 // Cada modelo define: título, subtítulo, parágrafos e a linha de assinatura
 // do responsável pelo animal (que some quando o animal não tem tutor).
@@ -88,6 +104,40 @@ export const MODELOS_TERMO = {
     assinaturaResponsavel: "Assinatura do Responsável pelo Animal",
     assinaturaVeterinario: "Veterinário Responsável",
     arquivo: "termo-esporotricose",
+  },
+
+  leishmaniose: {
+    tipo: "leishmaniose",
+    nome: "Protocolo de Monitoramento Zoonoses — Termo de Responsabilidade",
+    titulo: "PROTOCOLO DE MONITORAMENTO ZOONOSES",
+    subtitulo: "FICHA DE ATENDIMENTO E TERMO DE RESPONSABILIDADE",
+    cabecalho: {
+      linhas: [
+        { texto: "PREFEITURA MUNICIPAL DE MURIAÉ", negrito: true, tamanho: 11 },
+        { texto: "SECRETARIA DE SAÚDE MUNICIPAL", tamanho: 9 },
+        { texto: "CENTRO DE CONTROLE DE ZOONOSES", negrito: true, tamanho: 9.5 },
+        { texto: "CEP: 36880-000, MURIAÉ, MG", tamanho: 7.5, cinza: true },
+        { texto: "Telefone: 32 98832-5309", tamanho: 7.5, cinza: true },
+      ],
+    },
+    paragrafos: ({ tutor, animal }) => [
+      "**ÁREA DE CIÊNCIA DE RESPONSABILIDADE PERANTE AOS CUIDADOS E ORIENTAÇÕES MÉDICAS:**",
+      `EU, ${preencher(tutor?.nome)} CPF (${preencher(tutor?.cpf, 22)})`,
+      `RESIDENTE ${preencher(tutor?.endereco)}`,
+      `RESPONSÁVEL PELO ANIMAL: ${preencher(animal?.nome)}`,
+      "**ESTOU CIENTE E FUI ORIENTADO QUE DEVO:**",
+      ...ITENS_CUIDADOS_LEISHMANIOSE.map((i) => `• ${i}`),
+      "**ESTOU CIENTE E FUI ORIENTADO TAMBÉM SOBRE AS LEIS PERTINENTES AO CONTROLE DE ZOONOSES E RESPONSABILIDADES DO TUTOR PERANTE O ANIMAL:**",
+      ...ITENS_LEIS_LEISHMANIOSE.map((i) => `• ${i}`),
+      "**POR FIM, ESTOU CIENTE QUE O TRATAMENTO E CONTROLE DA DOENÇA SÃO DE MINHA RESPONSABILIDADE, SEGUINDO TODAS AS ORIENTAÇÕES QUE ME FORAM FORNECIDAS.**",
+    ],
+    // Termo administrativo: as duas assinaturas ficam SEMPRE impressas, em
+    // linhas empilhadas, com os espaços preservados para preenchimento manual.
+    assinaturasEmpilhadas: [
+      "Assinatura do Responsável",
+      "Assinatura e carimbo Médico Veterinário",
+    ],
+    arquivo: "protocolo-monitoramento-zoonoses",
   },
 
   denuncia: {
@@ -153,6 +203,7 @@ export async function gerarTermoPdf(tipo, dados = {}) {
     logo: await obterLogoCcz(),
     titulo: modelo.titulo,
     subtitulo: modelo.subtitulo,
+    cabecalho: modelo.cabecalho,
   });
   const { doc } = base;
   let y = base.y + 4;
@@ -203,12 +254,14 @@ export async function gerarTermoPdf(tipo, dados = {}) {
   };
 
   modelo.paragrafos({ tutor, animal, dados: registro }).forEach((p) => {
-    if (String(p).startsWith("• ")) itemLista(String(p).slice(2));
-    else paragrafo(p);
+    const t = String(p);
+    if (t.startsWith("• ")) itemLista(t.slice(2));
+    else if (t.startsWith("**")) paragrafo(t.replace(/\*\*/g, ""), { negrito: true });
+    else paragrafo(t);
   });
 
   // ── LOCAL E DATA ────────────────────────────────────────────────────────
-  y += 6;
+  y += modelo.assinaturasEmpilhadas ? 6 : 6;
   novaPagina(14);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
@@ -239,10 +292,28 @@ export async function gerarTermoPdf(tipo, dados = {}) {
     }
   };
 
-  if (tutor || emBranco) {
-    assinatura(xEsquerda, modelo.assinaturaResponsavel, tutor?.nome || "");
+  if (modelo.assinaturasEmpilhadas) {
+    // Linhas de assinatura empilhadas e centralizadas (termo administrativo).
+    const larguraAssinatura = 90;
+    const xCentro = MARGEM + (LARGURA - larguraAssinatura) / 2;
+    y += 2;
+    modelo.assinaturasEmpilhadas.forEach((rotulo, i) => {
+      if (i > 0) y += 10;
+      novaPagina(24);
+      doc.setDrawColor(120, 130, 145);
+      doc.setLineWidth(0.3);
+      doc.line(xCentro, y, xCentro + larguraAssinatura, y);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text(rotulo, MARGEM + LARGURA / 2, y + 4.5, { align: "center" });
+    });
+  } else {
+    if (tutor || emBranco) {
+      assinatura(xEsquerda, modelo.assinaturaResponsavel, tutor?.nome || "");
+    }
+    assinatura(xDireita, modelo.assinaturaVeterinario, registro?.veterinario || "");
   }
-  assinatura(xDireita, modelo.assinaturaVeterinario, registro?.veterinario || "");
 
   base.finalizar();
   const arquivo = dados.arquivo || `${modelo.arquivo}${emBranco ? "" : "-preenchido"}.pdf`;

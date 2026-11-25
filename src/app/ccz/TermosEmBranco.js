@@ -22,6 +22,12 @@ const TERMOS_DISPONIVEIS = [
     nome: 'Termo de Compromisso e Responsabilidade',
     descricao: 'Termo para denúncias de comportamento agressivo de animais',
     tipo: 'denuncia'
+  },
+  {
+    id: 5,
+    nome: 'Protocolo de Monitoramento Zoonoses',
+    descricao: 'Ficha de atendimento e termo de responsabilidade (Leishmaniose)',
+    tipo: 'leishmaniose'
   }
 ];
 

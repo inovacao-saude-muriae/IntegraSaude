@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Filter, SearchX, FileDown, Ban } from "lucide-react";
+import { Filter, SearchX, FileDown, Ban, FileText } from "lucide-react";
 import styles from "../camara-tecnica/processos/ConsultarProcessos.module.css";
 import { useNotify } from "@/components/ConfirmDialog";
 import { useConfirm } from "@/components/ConfirmDialog";
@@ -12,6 +12,7 @@ import {
   encerrarCasoLeishmaniose,
 } from "./leishmanioseActions";
 import { gerarPdfLeishmaniose } from "./leishmaniosePdf";
+import { gerarTermoLeishmaniose } from "./termoLeishmaniosePdf";
 
 const FILTROS_VAZIOS = {
   busca: "",
@@ -133,6 +134,15 @@ export default function ConsultarLeishmaniose() {
     const atualizado = await obterLeishmaniose(detalhe.id);
     if (atualizado?.success) setDetalhe(atualizado.data);
     if (resultado) await consultar(resultado.pagina, filtros);
+  };
+
+  const baixarTermo = async (registro) => {
+    try {
+      await gerarTermoLeishmaniose(registro);
+    } catch (e) {
+      console.error(e);
+      await notify({ tipo: "erro", message: "Não foi possível gerar o termo." });
+    }
   };
 
   const baixarPdf = async (registro) => {
@@ -559,6 +569,13 @@ export default function ConsultarLeishmaniose() {
                     onClick={() => baixarPdf(detalhe)}
                   >
                     <FileDown size={16} /> Gerar PDF
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.btnGhost}
+                    onClick={() => baixarTermo(detalhe)}
+                  >
+                    <FileText size={16} /> Gerar Termo
                   </button>
                   <button
                     type="button"

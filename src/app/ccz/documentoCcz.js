@@ -82,6 +82,9 @@ export const nomeArquivo = (prefixo, ...partes) => {
  * @param {string} opcoes.titulo    Título do documento (ex.: "FICHA DE PROCEDIMENTO")
  * @param {string} [opcoes.subtitulo] Linha secundária do título
  * @param {string} [opcoes.identificacao] Linha de identificação do registro
+ * @param {object} [opcoes.cabecalho] Substitui as linhas institucionais padrão:
+ *   { linhas: [{ texto, negrito, tamanho, cinza }] } — usado pelos documentos
+ *   que têm redação oficial própria (Protocolo de Monitoramento Zoonoses).
  * @param {string} [opcoes.nota]    Texto corrido de finalidade (opcional)
  * @param {string} [opcoes.rodape]  Texto do rodapé (padrão: documentos do CCZ)
  * @param {string} [opcoes.logo]    Data URL otimizada da logomarca (obterLogoCcz)
@@ -90,6 +93,7 @@ export function criarDocumentoCcz({
   titulo,
   subtitulo = "",
   identificacao = "",
+  cabecalho = null,
   nota = "",
   logo = null,
   rodape = "Centro de Controle de Zoonoses · Secretaria Municipal de Saúde · Prefeitura Municipal de Muriaé/MG",
@@ -112,25 +116,40 @@ export function criarDocumentoCcz({
     }
   }
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.setTextColor(...AZUL);
-  doc.text("PREFEITURA MUNICIPAL DE MURIAÉ", blocoTextoX, y + 6);
+  if (cabecalho?.linhas?.length) {
+    // Redação institucional própria do documento, mantendo a mesma estrutura
+    // (logomarca à esquerda, bloco de texto à direita, linha divisória).
+    let yy = y + 5;
+    cabecalho.linhas.forEach((l) => {
+      doc.setFont("helvetica", l.negrito ? "bold" : "normal");
+      doc.setFontSize(l.tamanho || 8.5);
+      if (l.cinza) doc.setTextColor(...CINZA_ROTULO);
+      else doc.setTextColor(...AZUL);
+      doc.text(String(l.texto || ""), blocoTextoX, yy);
+      yy += (l.tamanho || 8.5) * 0.55 + 1.2;
+    });
+    y += Math.max(logoAltura, yy - y - 2) + 3;
+  } else {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(...AZUL);
+    doc.text("PREFEITURA MUNICIPAL DE MURIAÉ", blocoTextoX, y + 6);
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.text("SECRETARIA MUNICIPAL DE SAÚDE", blocoTextoX, y + 11.5);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text("SECRETARIA MUNICIPAL DE SAÚDE", blocoTextoX, y + 11.5);
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9.5);
-  doc.text("CENTRO DE CONTROLE DE ZOONOSES", blocoTextoX, y + 17);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9.5);
+    doc.text("CENTRO DE CONTROLE DE ZOONOSES", blocoTextoX, y + 17);
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(7.5);
-  doc.setTextColor(...CINZA_ROTULO);
-  doc.text("CEP 36880-000 — Muriaé/MG", blocoTextoX, y + 21);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...CINZA_ROTULO);
+    doc.text("CEP 36880-000 — Muriaé/MG", blocoTextoX, y + 21);
 
-  y += logoAltura + 3;
+    y += logoAltura + 3;
+  }
   // Linha divisória do cabeçalho: 1px (0.25 mm) em azul institucional.
   doc.setDrawColor(...AZUL);
   doc.setLineWidth(ESPESSURA_LINHA_CABECALHO);
