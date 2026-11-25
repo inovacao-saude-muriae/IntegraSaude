@@ -577,21 +577,28 @@
   background: #f8fafc;
 }
 
-/* Detalhe de um registro do histórico */
+/* Detalhe de um registro do histórico — modal SOBRE a ficha do animal.
+   Estrutura igual à da ficha: começa abaixo do header global (60px) e a
+   altura útil vem do próprio container (flex + min-height: 0), com a
+   rolagem só no corpo. Assim o título e o botão Fechar nunca saem da tela
+   e nada fica escondido atrás do header. */
 .detalheFundo {
   position: fixed;
-  inset: 0;
+  top: var(--header-height, 60px);
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 950;
   background: rgba(15, 23, 42, 0.5);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: 1.5rem 1rem;
 }
 
 .detalhe {
   width: min(100%, 720px);
-  max-height: calc(100vh - 4rem);
+  max-height: 100%;
   background: #ffffff;
   border-radius: 12px;
   display: flex;
@@ -617,7 +624,10 @@
 
 .detalheCorpo {
   padding: 1.25rem;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.85rem 1rem;
@@ -787,6 +797,19 @@
 @media (max-width: 640px) {
   .fichaFundo {
     padding: 0.75rem 0.5rem;
+  }
+
+  .detalheFundo {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .detalhe {
+    max-height: 100%;
+    border-radius: 10px;
+  }
+
+  .detalheTopo {
+    padding: 0.85rem 1rem;
   }
 
   .ficha {

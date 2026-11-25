@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   X,
   PawPrint,
@@ -109,6 +109,31 @@ export default function FichaAnimalCompleta({
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
   const [registro, setRegistro] = useState(null);
+  // Abrir o detalhe de um atendimento movia a rolagem da ficha (o foco ia
+  // para o elemento clicado). Guardamos a posição e a devolvemos ao fechar,
+  // para a ficha continuar exatamente onde estava.
+  const corpoRef = useRef(null);
+  const rolagemRef = useRef(0);
+
+  // O detalhe abre sobre a ficha sem deslocar a rolagem dela: a posição é
+  // capturada no mouse down (antes de o foco mexer na rolagem), o foco do
+  // clique é neutralizado e a posição é reposta ao fechar o detalhe.
+  const registrarPosicao = () => {
+    const alvo = corpoRef.current;
+    if (alvo) rolagemRef.current = alvo.scrollTop;
+  };
+
+  const abrirRegistro = (item) => setRegistro(item);
+
+  const fecharRegistro = () => {
+    const alvo = rolagemRef.current;
+    setRegistro(null);
+    [0, 120, 400].forEach((atraso) =>
+      setTimeout(() => {
+        if (corpoRef.current) corpoRef.current.scrollTop = alvo;
+      }, atraso),
+    );
+  };
 
   useEffect(() => {
     let ativo = true;
@@ -186,7 +211,7 @@ export default function FichaAnimalCompleta({
         )}
 
         {!carregando && !erro && dados && (
-          <div className={styles.fichaCorpo}>
+          <div className={styles.fichaCorpo} ref={corpoRef}>
             {/* ── CABEÇALHO ─────────────────────────────────────────────── */}
             <div className={styles.cabecalho}>
               <div className={styles.cabecalhoFoto}>
@@ -302,7 +327,11 @@ export default function FichaAnimalCompleta({
                         key={h.chave}
                         type="button"
                         className={styles.itemHistorico}
-                        onClick={() => setRegistro(h)}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          registrarPosicao();
+                        }}
+                        onClick={() => abrirRegistro(h)}
                       >
                         <span className={`${styles.itemIcone} ${cfg.css || ""}`}>
                           <Icone size={18} aria-hidden="true" />
@@ -340,7 +369,7 @@ export default function FichaAnimalCompleta({
           className={styles.detalheFundo}
           onClick={(e) => {
             e.stopPropagation();
-            setRegistro(null);
+            fecharRegistro();
           }}
         >
           <div className={styles.detalhe} onClick={(e) => e.stopPropagation()}>
@@ -351,7 +380,7 @@ export default function FichaAnimalCompleta({
               <button
                 type="button"
                 className={styles.btnFechar}
-                onClick={() => setRegistro(null)}
+                onClick={fecharRegistro}
                 aria-label="Fechar detalhe"
               >
                 <X size={16} aria-hidden="true" />
