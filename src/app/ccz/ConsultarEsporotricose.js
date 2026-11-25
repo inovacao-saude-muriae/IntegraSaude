@@ -95,13 +95,13 @@ export default function ConsultarEsporotricose() {
     const res = await editarConclusaoEsporotricose(detalhe.id, novaConclusao);
     setSalvandoConclusao(false);
     if (!res.success) {
-      notify.error(res.error || "Não foi possível alterar a conclusão.");
+      await notify({ tipo: "erro", message: res.error || "Não foi possível alterar a conclusão." });
       return;
     }
+    setEditandoConclusao(false);
     const atualizado = await obterEsporotricose(detalhe.id);
     if (atualizado.success) setDetalhe(atualizado.data);
-    setEditandoConclusao(false);
-    notify.success("Conclusão atualizada.");
+    await notify({ tipo: "sucesso", message: "Conclusão atualizada." });
     consultar(resultado?.pagina || 1, filtros);
   };
 
@@ -121,7 +121,7 @@ export default function ConsultarEsporotricose() {
     const res = await obterEsporotricose(id);
     setCarregandoDetalhe(false);
     if (res?.success) setDetalhe(res.data);
-    else notify.error(res?.error || "Registro não encontrado.");
+    else await notify({ tipo: "erro", message: res?.error || "Registro não encontrado." });
   };
 
   const baixarPdf = async (registro) => {
@@ -129,7 +129,7 @@ export default function ConsultarEsporotricose() {
       await gerarPdfEsporotricose(registro);
     } catch (e) {
       console.error(e);
-      notify.error("Não foi possível gerar o PDF.");
+      await notify({ tipo: "erro", message: "Não foi possível gerar o PDF." });
     }
   };
 
@@ -138,7 +138,7 @@ export default function ConsultarEsporotricose() {
       await gerarTermoEsporotricose(registro);
     } catch (e) {
       console.error(e);
-      notify.error("Não foi possível gerar o termo.");
+      await notify({ tipo: "erro", message: "Não foi possível gerar o termo." });
     }
   };
 

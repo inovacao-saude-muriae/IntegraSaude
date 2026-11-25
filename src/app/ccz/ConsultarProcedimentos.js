@@ -99,7 +99,7 @@ export default function ConsultarProcedimentos() {
       await gerarPdfProcedimento(registro);
     } catch (e) {
       console.error(e);
-      notify.error("Não foi possível gerar o PDF.");
+      await notify({ tipo: "erro", message: "Não foi possível gerar o PDF." });
     }
   };
 
@@ -108,7 +108,7 @@ export default function ConsultarProcedimentos() {
       await gerarTermoProcedimentoPdf(registro);
     } catch (e) {
       console.error(e);
-      notify.error("Não foi possível gerar o termo.");
+      await notify({ tipo: "erro", message: "Não foi possível gerar o termo." });
     }
   };
 
@@ -118,7 +118,7 @@ export default function ConsultarProcedimentos() {
     const res = await obterProcedimento(id);
     setCarregandoDetalhe(false);
     if (res?.success) setDetalhe(res.data);
-    else notify.error(res?.error || "Procedimento não encontrado.");
+    else await notify({ tipo: "erro", message: res?.error || "Procedimento não encontrado." });
   };
 
   return (

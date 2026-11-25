@@ -78,7 +78,7 @@ export default function ConsultarLeishmaniose() {
     const res = await obterLeishmaniose(id);
     setCarregandoDetalhe(false);
     if (res?.success) setDetalhe(res.data);
-    else notify.error(res?.error || "Fiscalização não encontrada.");
+    else await notify({ tipo: "erro", message: res?.error || "Fiscalização não encontrada." });
   };
 
   const baixarPdf = async (registro) => {
@@ -86,7 +86,7 @@ export default function ConsultarLeishmaniose() {
       await gerarPdfLeishmaniose(registro);
     } catch (e) {
       console.error(e);
-      notify.error("Não foi possível gerar o PDF.");
+      await notify({ tipo: "erro", message: "Não foi possível gerar o PDF." });
     }
   };
 
