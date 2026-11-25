@@ -2784,7 +2784,12 @@ export async function obterEsporotricose(id) {
       outrasMedidasDescricao: r.outrasMedidasDescricao || "",
       encerrado: Boolean(r.encerrado),
       dataEncerramento: r.dataEncerramento ? r.dataEncerramento.toISOString() : null,
+      dataEncerramentoYmd: r.dataEncerramento
+        ? dateParaYMD(r.dataEncerramento)
+        : null,
       encerradoPor: r.encerradoPor || "",
+      desfecho: r.desfecho || "",
+      justificativaEncerramento: r.justificativaEncerramento || "",
       incinerado: r.incinerado || "",
       dataIncineracao: r.dataIncineracao ? r.dataIncineracao.toISOString() : null,
       visitas: (r.visitas || []).map((v) => ({
@@ -2825,67 +2830,92 @@ export async function obterEsporotricose(id) {
   }
 }
 
-// ── EDITAR A CONCLUSÃO DA ESPOROTRICOSE ─────────────────────────────────────
-// A conclusão ("Encerrado" / "Em andamento") é o campo `encerrado` já existente
-// no banco — nenhuma opção nova é criada. A edição atualiza o próprio registro
-// (não cria nova fiscalização), preserva os demais campos e registra usuário,
-// data e hora na auditoria.
-export async function editarConclusaoEsporotricose(id, conclusao) {
+// ── ENCERRAR O ACOMPANHAMENTO DA ESPOROTRICOSE ───────────────────────────────
+// Mesmo modelo do encerramento da Leishmaniose: o registro ganha desfecho,
+// data e justificativa obrigatória, mantém `encerrado` como conclusão e é
+// auditado com usuário, data e hora. Nenhum campo do registro é apagado.
+const DESFECHO_ESPOROTRICOSE = [
+  "Curado",
+  "Encerrado por abandono do tratamento",
+  "Encerrado por óbito",
+  "Incinerado",
+];
+
+export async function encerrarCasoEsporotricose(dados) {
   try {
     const user = await requirePermissao(MODULOS.CCZ, "zoonoses", "editar");
 
-    const regId = String(id || "").trim();
+    const regId = String(dados?.id || "").trim();
     if (!regId) return { success: false, error: "ID não informado." };
 
-    const valor = String(conclusao || "").trim().toUpperCase();
-    if (!["ENCERRADO", "EM_ANDAMENTO"].includes(valor)) {
-      return { success: false, error: "Conclusão inválida." };
+    const desfecho = String(dados?.desfecho || "").trim();
+    if (!DESFECHO_ESPOROTRICOSE.includes(desfecho)) {
+      return { success: false, error: "Desfecho do caso inválido." };
     }
-    const encerrado = valor === "ENCERRADO";
+
+    const dataEncerramento = String(dados?.dataEncerramento || "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dataEncerramento)) {
+      return { success: false, error: "Informe a data do encerramento." };
+    }
+
+    const justificativa = String(dados?.justificativa || "").trim();
+    if (justificativa.length < 15 || justificativa.length > 500) {
+      return {
+        success: false,
+        error: "A justificativa do encerramento deve ter entre 15 e 500 caracteres.",
+      };
+    }
 
     const registro = await prisma.esporotricose.findUnique({
       where: { id: regId },
-      select: { id: true, encerrado: true },
+      select: { id: true, encerrado: true, animalId: true },
     });
     if (!registro) {
       return { success: false, error: "Registro de esporotricose não encontrado." };
     }
-    if (Boolean(registro.encerrado) === encerrado) {
-      return {
-        success: false,
-        error: `O registro já está como "${encerrado ? "Encerrado" : "Em andamento"}".`,
-      };
+    if (registro.encerrado) {
+      return { success: false, error: "Este caso já está encerrado." };
     }
 
     await prisma.esporotricose.update({
       where: { id: regId },
-      data: encerrado
-        ? {
-            encerrado: true,
-            dataEncerramento: new Date(),
-            encerradoPor: user?.nome ? String(user.nome).slice(0, 150) : null,
-          }
-        : { encerrado: false, dataEncerramento: null, encerradoPor: null },
+      data: {
+        encerrado: true,
+        desfecho,
+        dataEncerramento: new Date(`${dataEncerramento}T12:00:00.000Z`),
+        justificativaEncerramento: justificativa,
+        encerradoPor: user?.nome ? String(user.nome).slice(0, 150) : null,
+        encerradoPorCpf: user?.cpf ? String(user.cpf).slice(0, 11) : null,
+        encerradoEm: new Date(),
+      },
     });
 
     await registrarAuditoria({
       user,
-      acao: encerrado ? "ENCERRAR" : "REABRIR",
+      acao: "ENCERRAR",
       modulo: "CCZ",
-      entidade: "Esporotricose",
+      entidade: "EsporotricoseEncerramento",
       entidadeId: regId,
-      descricao: `Conclusão do registro ${regId} alterada para "${encerrado ? "Encerrado" : "Em andamento"}"`,
-      detalhes: { conclusaoAnterior: registro.encerrado ? "ENCERRADO" : "EM_ANDAMENTO", conclusaoNova: valor },
+      descricao: `Acompanhamento da esporotricose encerrado (${desfecho})`,
+      // O texto da justificativa fica no registro; a auditoria marca o fato.
+      detalhes: {
+        desfecho,
+        dataEncerramento,
+        justificativaInformada: true,
+        situacaoAnterior: "EM_ANDAMENTO",
+        situacaoNova: "ENCERRADO",
+        animalId: registro.animalId,
+      },
     });
 
     revalidatePath("/ccz");
-    return { success: true, data: { id: regId, encerrado } };
+    return { success: true, data: { id: regId, desfecho, dataEncerramento } };
   } catch (error) {
     if (error.status === 401 || error.status === 403) {
       return { success: false, error: error.message };
     }
-    console.error("Erro ao editar conclusão da esporotricose (CCZ):", error);
-    return { success: false, error: "Erro ao alterar a conclusão do registro." };
+    console.error("Erro ao encerrar o acompanhamento da esporotricose (CCZ):", error);
+    return { success: false, error: "Erro ao encerrar o acompanhamento." };
   }
 }
 

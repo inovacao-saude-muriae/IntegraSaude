@@ -55,8 +55,11 @@ export async function gerarPdfEsporotricose(data) {
     "ENCERRADO EM",
     d.encerrado ? formatarDataHora(d.dataEncerramento) : "—",
   );
-  if (d.encerrado && d.encerradoPor) {
-    doc.linha("ENCERRADO POR", d.encerradoPor);
+  if (d.encerrado) {
+    doc.linha("DESFECHO DO CASO", d.desfecho || "—", "ENCERRADO POR", d.encerradoPor || "—");
+    if (d.justificativaEncerramento) {
+      doc.paragrafo("OBSERVAÇÃO / JUSTIFICATIVA DO ENCERRAMENTO", d.justificativaEncerramento);
+    }
   }
   secao += 1;
 

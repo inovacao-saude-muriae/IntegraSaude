@@ -690,6 +690,11 @@ model Esporotricose {
   encerrado                Boolean               @default(false)
   dataEncerramento         DateTime?             @map("data_encerramento") @db.Timestamptz(6)
   encerradoPor             String?               @map("encerrado_por") @db.VarChar(150)
+  // Encerramento do acompanhamento (desfecho informado pelo profissional).
+  desfecho                 String?               @db.VarChar(40)
+  justificativaEncerramento String?              @map("justificativa_encerramento")
+  encerradoPorCpf          String?               @map("encerrado_por_cpf") @db.VarChar(11)
+  encerradoEm              DateTime?             @map("encerrado_em") @db.Timestamptz(6)
   incinerado               String?               @default("") @map("incinerado") @db.VarChar(20)
   dataIncineracao          DateTime?             @map("data_incineracao") @db.Timestamptz(6)
   animal                   Animal?               @relation(fields: [animalId], references: [id])

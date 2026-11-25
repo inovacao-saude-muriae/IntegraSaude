@@ -1,16 +1,16 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Filter, SearchX, FileDown, FileText, Pencil } from "lucide-react";
+import { Filter, SearchX, FileDown, FileText, Ban } from "lucide-react";
 import styles from "../camara-tecnica/processos/ConsultarProcessos.module.css";
 // Badges originais da antiga Lista (CCZ) — cores preservadas por classificação.
 import stylesLista from "./ListaCCZ.module.css";
-import { useNotify } from "@/components/ConfirmDialog";
+import { useNotify, useConfirm } from "@/components/ConfirmDialog";
 import {
   listarEsporotricoseConsulta,
   obterFiltrosEsporotricose,
   obterEsporotricose,
-  editarConclusaoEsporotricose,
+  encerrarCasoEsporotricose,
 } from "./actions";
 import { gerarPdfEsporotricose, gerarTermoEsporotricose } from "./esporotricosePdf";
 
@@ -25,6 +25,15 @@ const FILTROS_VAZIOS = {
   conclusao: "",
   bairro: "",
 };
+
+// Desfechos do encerramento da esporotricose — informados pelo profissional,
+// nunca derivados das classificações clínicas da Leishmaniose.
+const DESFECHOS = [
+  "Curado",
+  "Encerrado por abandono do tratamento",
+  "Encerrado por óbito",
+  "Incinerado",
+];
 
 const CONCLUSAO_LABEL = {
   ENCERRADO: "Encerrado",
@@ -82,27 +91,48 @@ export default function ConsultarEsporotricose() {
     setErro("");
   };
 
-  // Edição da Conclusão (Encerrado / Em andamento) — o mesmo campo já
-  // existente no formulário; nenhuma opção nova é criada.
-  const [editandoConclusao, setEditandoConclusao] = useState(false);
-  const [novaConclusao, setNovaConclusao] = useState("EM_ANDAMENTO");
-  const [salvandoConclusao, setSalvandoConclusao] = useState(false);
+  // Encerramento do acompanhamento — mesmo modelo da Leishmaniose.
+  const confirm = useConfirm();
+  const [encerrando, setEncerrando] = useState(false);
+  const [salvandoEncerramento, setSalvandoEncerramento] = useState(false);
+  const [formEncerramento, setFormEncerramento] = useState({
+    desfecho: "",
+    dataEncerramento: "",
+    justificativa: "",
+  });
   const [podeEditar, setPodeEditar] = useState(false);
   const permissoesLidas = useRef(false);
 
-  const salvarConclusao = async () => {
-    setSalvandoConclusao(true);
-    const res = await editarConclusaoEsporotricose(detalhe.id, novaConclusao);
-    setSalvandoConclusao(false);
-    if (!res.success) {
-      await notify({ tipo: "erro", message: res.error || "Não foi possível alterar a conclusão." });
+  // Mesmas regras do backend: desfecho, data válida e justificativa 15–500.
+  const encerramentoValido =
+    DESFECHOS.includes(formEncerramento.desfecho) &&
+    /^\d{4}-\d{2}-\d{2}$/.test(formEncerramento.dataEncerramento) &&
+    formEncerramento.justificativa.trim().length >= 15 &&
+    formEncerramento.justificativa.trim().length <= 500;
+
+  const abrirEncerramento = () => {
+    setFormEncerramento({
+      desfecho: "",
+      dataEncerramento: new Date().toISOString().slice(0, 10),
+      justificativa: "",
+    });
+    setEncerrando(true);
+  };
+
+  const confirmarEncerramento = async () => {
+    if (salvandoEncerramento || !encerramentoValido) return;
+    setSalvandoEncerramento(true);
+    const res = await encerrarCasoEsporotricose({ id: detalhe.id, ...formEncerramento });
+    setSalvandoEncerramento(false);
+    if (!res?.success) {
+      await notify({ tipo: "erro", message: res?.error || "Não foi possível encerrar o caso." });
       return;
     }
-    setEditandoConclusao(false);
+    await notify({ tipo: "sucesso", message: "Caso encerrado com sucesso." });
+    setEncerrando(false);
     const atualizado = await obterEsporotricose(detalhe.id);
-    if (atualizado.success) setDetalhe(atualizado.data);
-    await notify({ tipo: "sucesso", message: "Conclusão atualizada." });
-    consultar(resultado?.pagina || 1, filtros);
+    if (atualizado?.success) setDetalhe(atualizado.data);
+    if (resultado) await consultar(resultado.pagina, filtros);
   };
 
   const abrirDetalhe = async (id) => {
@@ -337,7 +367,7 @@ export default function ConsultarEsporotricose() {
         <div
           className={styles.painelFundo}
           role="presentation"
-          onClick={() => { setDetalhe(null); setEditandoConclusao(false); }}
+          onClick={() => setDetalhe(null)}
         >
           <div
             className={styles.painelDetalhe}
@@ -357,7 +387,7 @@ export default function ConsultarEsporotricose() {
                   <button
                     type="button"
                     className={styles.btnFechar}
-                    onClick={() => { setDetalhe(null); setEditandoConclusao(false); }}
+                    onClick={() => setDetalhe(null)}
                     aria-label="Fechar"
                   >
                     ×
@@ -370,22 +400,11 @@ export default function ConsultarEsporotricose() {
                     <Campo label="Fiscal Responsável" valor={detalhe.fiscalResponsavel} css={styles} />
                     <div className={styles.campoLeitura}>
                       <label>Conclusão</label>
-                      {editandoConclusao ? (
-                        <select
-                          className={styles.selectFicha}
-                          value={novaConclusao}
-                          onChange={(e) => setNovaConclusao(e.target.value)}
-                        >
-                          <option value="EM_ANDAMENTO">Em andamento</option>
-                          <option value="ENCERRADO">Encerrado</option>
-                        </select>
-                      ) : (
-                        <div className={styles.campoValorBadge}>
-                          <span className={detalhe.encerrado ? stylesLista.badgeDanger : stylesLista.badgeSuccess}>
-                            {detalhe.encerrado ? "Encerrado" : "Em andamento"}
-                          </span>
-                        </div>
-                      )}
+                      <div className={styles.campoValorBadge}>
+                        <span className={detalhe.encerrado ? stylesLista.badgeDanger : stylesLista.badgeSuccess}>
+                          {detalhe.encerrado ? "Encerrado" : "Em andamento"}
+                        </span>
+                      </div>
                     </div>
                     <Campo label="Encerrado por" valor={detalhe.encerradoPor} css={styles} />
                   </Bloco>
@@ -473,6 +492,26 @@ export default function ConsultarEsporotricose() {
                       largo
                     />
                     <Campo label="Incinerado" valor={detalhe.incinerado} css={styles} />
+                    {detalhe.encerrado && (
+                      <>
+                        <Campo
+                          label="Desfecho do Caso"
+                          valor={detalhe.desfecho}
+                          css={styles}
+                        />
+                        <Campo
+                          label="Data do Encerramento"
+                          valor={formatarData(detalhe.dataEncerramentoYmd)}
+                          css={styles}
+                        />
+                        <Campo
+                          label="Observação / Justificativa do Encerramento"
+                          valor={detalhe.justificativaEncerramento}
+                          css={styles}
+                          largo
+                        />
+                      </>
+                    )}
                   </Bloco>
                 </div>
 
@@ -491,48 +530,121 @@ export default function ConsultarEsporotricose() {
                   >
                     <FileText size={16} /> Gerar Termo
                   </button>
-                  {podeEditar && !editandoConclusao && (
-                    <button
-                      type="button"
-                      className={styles.btnGhost}
-                      onClick={() => {
-                        setNovaConclusao(detalhe.encerrado ? "ENCERRADO" : "EM_ANDAMENTO");
-                        setEditandoConclusao(true);
-                      }}
-                    >
-                      <Pencil size={16} /> Editar
+                  {podeEditar && !detalhe.encerrado && (
+                    <button type="button" className={styles.btnEncerrar} onClick={abrirEncerramento}>
+                      <Ban size={16} /> Encerrar Caso
                     </button>
-                  )}
-                  {editandoConclusao && (
-                    <>
-                      <button
-                        type="button"
-                        className={styles.btnGhost}
-                        onClick={() => setEditandoConclusao(false)}
-                        disabled={salvandoConclusao}
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.btnPrimario}
-                        onClick={salvarConclusao}
-                        disabled={salvandoConclusao}
-                      >
-                        {salvandoConclusao ? "Salvando..." : "Salvar"}
-                      </button>
-                    </>
                   )}
                   <button
                     type="button"
                     className={styles.btnGhost}
-                    onClick={() => { setDetalhe(null); setEditandoConclusao(false); }}
+                    onClick={() => setDetalhe(null)}
                   >
                     Fechar
                   </button>
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL ENCERRAR CASO ─────────────────────────────────────────── */}
+      {encerrando && detalhe && (
+        <div
+          className={styles.painelFundo}
+          role="presentation"
+          onClick={() => !salvandoEncerramento && setEncerrando(false)}
+        >
+          <div
+            className={styles.painelDetalhe}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Encerrar caso de esporotricose"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={styles.painelTopo}>
+              <h3>Encerrar Caso</h3>
+              <button
+                type="button"
+                className={styles.btnFechar}
+                onClick={() => setEncerrando(false)}
+                aria-label="Fechar"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className={styles.corpoDetalhe}>
+              <div className={styles.cardSection}>
+                <h4 className={styles.sectionHeaderTitle}>Encerramento do Acompanhamento</h4>
+                <div className={styles.grid3}>
+                  <div className={styles.fieldGroup}>
+                    <label>Desfecho do Caso *</label>
+                    <select
+                      className={styles.selectFicha}
+                      value={formEncerramento.desfecho}
+                      onChange={(e) => setFormEncerramento((f) => ({ ...f, desfecho: e.target.value }))}
+                    >
+                      <option value="">Selecione...</option>
+                      {DESFECHOS.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className={styles.fieldGroup}>
+                    <label>Data do Encerramento *</label>
+                    <input
+                      type="date"
+                      className={styles.selectFicha}
+                      value={formEncerramento.dataEncerramento}
+                      onChange={(e) =>
+                        setFormEncerramento((f) => ({ ...f, dataEncerramento: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className={`${styles.fieldGroup} ${styles.campoLeituraLargo}`}>
+                    <label>Observação / Justificativa do Encerramento *</label>
+                    <textarea
+                      className={styles.textareaFicha}
+                      rows={4}
+                      maxLength={500}
+                      placeholder="Descreva o motivo do encerramento (15 a 500 caracteres)..."
+                      value={formEncerramento.justificativa}
+                      onChange={(e) =>
+                        setFormEncerramento((f) => ({ ...f, justificativa: e.target.value }))
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.acoesDetalhe}>
+              <button
+                type="button"
+                className={styles.btnEncerrar}
+                disabled={!encerramentoValido || salvandoEncerramento}
+                aria-disabled={!encerramentoValido || salvandoEncerramento}
+                onClick={async () => {
+                  if (!encerramentoValido || salvandoEncerramento) return;
+                  const ok = await confirm({
+                    title: "Encerrar caso",
+                    message:
+                      "O acompanhamento será encerrado. As visitas e os dados registrados são preservados e não poderão ser encerrados novamente.",
+                    confirmText: "Encerrar",
+                  });
+                  if (ok) await confirmarEncerramento();
+                }}
+              >
+                <Ban size={16} /> {salvandoEncerramento ? "Encerrando..." : "Confirmar Encerramento"}
+              </button>
+              <button type="button" className={styles.btnGhost} onClick={() => setEncerrando(false)}>
+                Cancelar
+              </button>
+            </div>
           </div>
         </div>
       )}
