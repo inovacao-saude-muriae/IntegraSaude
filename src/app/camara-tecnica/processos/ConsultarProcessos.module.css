@@ -837,3 +837,90 @@
   }
   .periodo span { font-size: 0.75rem; }
 }
+
+/* ── Situação do caso (Leishmaniose) ─────────────────────────────────────── */
+/* Badges discretos: acompanhamento em azul, encerrado em cinza, desfecho
+   em tom neutro para não competir com a situação. */
+.badgeAcompanhamento,
+.badgeEncerrado,
+.badgeDesfecho {
+  display: inline-flex;
+  align-items: center;
+  height: 1.5rem;
+  padding: 0 0.55rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.badgeAcompanhamento {
+  background-color: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.badgeEncerrado {
+  background-color: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #475569;
+}
+
+.badgeDesfecho {
+  margin-left: 0.4rem;
+  background-color: #ecfdf5;
+  border-color: #bbf7d0;
+  color: #15803d;
+  font-weight: 500;
+}
+
+/* Botão de encerramento: ação de fechamento, distinta da ação primária. */
+.btnEncerrar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 2.5rem;
+  padding: 0 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background-color: #f8fafc;
+  color: #334155;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.btnEncerrar:hover {
+  background-color: #eef2f7;
+  border-color: #cbd5e1;
+}
+
+.btnEncerrar:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Área de texto da ficha, na mesma altura de campo dos selects (40px na 1ª
+   linha, crescendo conforme o conteúdo). */
+.textareaFicha {
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: #1e293b;
+  background-color: #ffffff;
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+.textareaFicha:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}

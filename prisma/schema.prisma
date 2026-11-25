@@ -596,6 +596,17 @@ model Leishmaniose {
   coordenadorNome  String? @map("coordenador_nome") @db.VarChar(150)
   coordenadorCargo String? @map("coordenador_cargo") @db.VarChar(150)
 
+  // 10. Situação do caso e encerramento do acompanhamento
+  // (EM_ACOMPANHAMENTO | ENCERRADO). O encerramento preserva a fiscalização:
+  // nada é excluído nem reescrito.
+  situacaoCaso            String    @default("EM_ACOMPANHAMENTO") @map("situacao_caso") @db.VarChar(20)
+  desfecho                String?   @map("desfecho") @db.VarChar(20)
+  dataEncerramento        DateTime? @map("data_encerramento") @db.Date
+  justificativaEncerramento String? @map("justificativa_encerramento")
+  encerradoPorCpf         String?   @map("encerrado_por_cpf") @db.VarChar(11)
+  encerradoPorNome        String?   @map("encerrado_por_nome") @db.VarChar(150)
+  encerradoEm             DateTime? @map("encerrado_em") @db.Timestamptz(6)
+
   criadoPor String?  @map("criado_por") @db.VarChar(11)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)

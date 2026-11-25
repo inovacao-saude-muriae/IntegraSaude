@@ -194,8 +194,20 @@ export async function gerarPdfLeishmaniose(registro) {
     paragrafo("DESCRIÇÃO DAS OUTRAS MEDIDAS", registro.encOutrasDescricao);
   }
 
-  // ── 9. ASSINATURAS ─────────────────────────────────────────────────────
-  secao("9. Assinaturas");
+  // ── 9. SITUAÇÃO DO CASO / ENCERRAMENTO ────────────────────────────────
+  // Só é impressa quando o caso foi encerrado; casos em acompanhamento não
+  // recebem a seção (o campo em branco nunca vira "Não").
+  if (registro.situacaoCaso === "ENCERRADO") {
+    secao("9. Encerramento do Acompanhamento");
+    linha("SITUAÇÃO DO CASO", "Encerrado");
+    linha("DESFECHO DO CASO", registro.desfecho);
+    linha("DATA DO ENCERRAMENTO", formatarData(registro.dataEncerramento));
+    linha("ENCERRADO POR", registro.encerradoPorNome);
+    paragrafo("OBSERVAÇÃO / JUSTIFICATIVA DO ENCERRAMENTO", registro.justificativaEncerramento);
+  }
+
+  // ── 10. ASSINATURAS ────────────────────────────────────────────────────
+  secao(`${registro.situacaoCaso === "ENCERRADO" ? "10" : "9"}. Assinaturas`);
   novaPaginaSePreciso(20);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);

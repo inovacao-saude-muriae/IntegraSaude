@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Filter, SearchX, FileDown } from "lucide-react";
+import { Filter, SearchX, FileDown, Ban } from "lucide-react";
 import styles from "../camara-tecnica/processos/ConsultarProcessos.module.css";
 import { useNotify } from "@/components/ConfirmDialog";
+import { useConfirm } from "@/components/ConfirmDialog";
 import {
   listarLeishmaniose,
   obterLeishmaniose,
   obterFiltrosLeishmaniose,
+  encerrarCasoLeishmaniose,
 } from "./leishmanioseActions";
 import { gerarPdfLeishmaniose } from "./leishmaniosePdf";
 
@@ -16,8 +18,19 @@ const FILTROS_VAZIOS = {
   periodoInicio: "",
   periodoFim: "",
   situacaoGeral: "",
+  situacaoCaso: "",
   bairro: "",
 };
+
+const SITUACOES_CASO = [
+  { valor: "EM_ACOMPANHAMENTO", rotulo: "Em acompanhamento" },
+  { valor: "ENCERRADO", rotulo: "Encerrado" },
+];
+
+const DESFECHOS = ["Curado", "Incinerado"];
+
+const rotuloCaso = (v) =>
+  SITUACOES_CASO.find((s) => s.valor === v)?.rotulo || "Em acompanhamento";
 
 const formatarData = (ymd) => (ymd ? ymd.split("-").reverse().join("/") : "—");
 
@@ -32,6 +45,14 @@ export default function ConsultarLeishmaniose() {
 
   const [detalhe, setDetalhe] = useState(null);
   const [carregandoDetalhe, setCarregandoDetalhe] = useState(false);
+
+  const confirm = useConfirm();
+  const [encerrando, setEncerrando] = useState(false);
+  const [formEncerramento, setFormEncerramento] = useState({
+    desfecho: "",
+    dataEncerramento: "",
+    justificativa: "",
+  });
 
   useEffect(() => {
     let ativo = true;
@@ -81,6 +102,28 @@ export default function ConsultarLeishmaniose() {
     else await notify({ tipo: "erro", message: res?.error || "Fiscalização não encontrada." });
   };
 
+  const abrirEncerramento = () => {
+    setFormEncerramento({
+      desfecho: "",
+      dataEncerramento: new Date().toISOString().slice(0, 10),
+      justificativa: "",
+    });
+    setEncerrando(true);
+  };
+
+  const confirmarEncerramento = async () => {
+    const res = await encerrarCasoLeishmaniose({ id: detalhe.id, ...formEncerramento });
+    if (!res?.success) {
+      await notify({ tipo: "erro", message: res?.error || "Não foi possível encerrar o caso." });
+      return;
+    }
+    await notify({ tipo: "sucesso", message: "Caso encerrado com sucesso." });
+    setEncerrando(false);
+    const atualizado = await obterLeishmaniose(detalhe.id);
+    if (atualizado?.success) setDetalhe(atualizado.data);
+    if (resultado) await consultar(resultado.pagina, filtros);
+  };
+
   const baixarPdf = async (registro) => {
     try {
       await gerarPdfLeishmaniose(registro);
@@ -128,6 +171,21 @@ export default function ConsultarLeishmaniose() {
                 {opcoes.situacoes.map((s) => (
                   <option key={s} value={s}>
                     {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className={`${styles.fieldGroup} ${styles.colStatus}`}>
+              <label>Situação do Caso</label>
+              <select
+                value={filtros.situacaoCaso}
+                onChange={(e) => alterarFiltro("situacaoCaso", e.target.value)}
+              >
+                <option value="">Todas</option>
+                {SITUACOES_CASO.map((s2) => (
+                  <option key={s2.valor} value={s2.valor}>
+                    {s2.rotulo}
                   </option>
                 ))}
               </select>
@@ -219,7 +277,7 @@ export default function ConsultarLeishmaniose() {
                     <th>Nome do Animal</th>
                     <th>ID CCZ</th>
                     <th>Nome do Tutor</th>
-                    <th>Situação Geral</th>
+                    <th>Situação do Caso</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -245,7 +303,18 @@ export default function ConsultarLeishmaniose() {
                       <td>{r.animalNome || "Sem nome"}</td>
                       <td>{r.animalId}</td>
                       <td>{r.tutorNome || "Sem tutor"}</td>
-                      <td>{r.situacaoGeral || "—"}</td>
+                      <td>
+                        <span
+                          className={
+                            r.situacaoCaso === "ENCERRADO" ? styles.badgeEncerrado : styles.badgeAcompanhamento
+                          }
+                        >
+                          {rotuloCaso(r.situacaoCaso)}
+                        </span>
+                        {r.situacaoCaso === "ENCERRADO" && r.desfecho && (
+                          <span className={styles.badgeDesfecho}>{r.desfecho}</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -430,9 +499,49 @@ export default function ConsultarLeishmaniose() {
                     <Campo label="Coordenador e Responsável Técnico" valor={detalhe.coordenadorNome} css={styles} />
                     <Campo label="Cargo/Função do Coordenador" valor={detalhe.coordenadorCargo} css={styles} />
                   </Bloco>
+
+                  <Bloco titulo="11. Situação do Caso" css={styles}>
+                    <Campo
+                      label="Situação do Caso"
+                      valor={
+                        <span
+                          className={
+                            detalhe.situacaoCaso === "ENCERRADO"
+                              ? styles.badgeEncerrado
+                              : styles.badgeAcompanhamento
+                          }
+                        >
+                          {rotuloCaso(detalhe.situacaoCaso)}
+                        </span>
+                      }
+                      css={styles}
+                    />
+                    {detalhe.situacaoCaso === "ENCERRADO" && (
+                      <>
+                        <Campo
+                          label="Desfecho do Caso"
+                          valor={<span className={styles.badgeDesfecho}>{detalhe.desfecho || "—"}</span>}
+                          css={styles}
+                        />
+                        <Campo label="Data do Encerramento" valor={formatarData(detalhe.dataEncerramento)} css={styles} />
+                        <Campo label="Encerrado por" valor={detalhe.encerradoPorNome} css={styles} />
+                        <Campo
+                          label="Observação / Justificativa do Encerramento"
+                          valor={detalhe.justificativaEncerramento}
+                          css={styles}
+                          largo
+                        />
+                      </>
+                    )}
+                  </Bloco>
                 </div>
 
                 <div className={styles.acoesDetalhe}>
+                  {detalhe.situacaoCaso !== "ENCERRADO" && (
+                    <button type="button" className={styles.btnEncerrar} onClick={abrirEncerramento}>
+                      <Ban size={16} /> Encerrar Caso
+                    </button>
+                  )}
                   <button
                     type="button"
                     className={styles.btnPrimario}
@@ -453,6 +562,103 @@ export default function ConsultarLeishmaniose() {
           </div>
         </div>
       )}
+
+      {/* ── ENCERRAR CASO ─────────────────────────────────────────────────── */}
+      {encerrando && detalhe && (
+        <div
+          className={styles.painelFundo}
+          role="presentation"
+          onClick={() => setEncerrando(false)}
+        >
+          <div
+            className={styles.painelDetalhe}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Encerrar caso de leishmaniose"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={styles.painelTopo}>
+              <h3>Encerrar Caso</h3>
+              <button
+                type="button"
+                className={styles.btnFechar}
+                onClick={() => setEncerrando(false)}
+                aria-label="Fechar"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className={styles.corpoDetalhe}>
+              <div className={styles.cardSection}>
+                <h4 className={styles.sectionHeaderTitle}>Encerramento do Acompanhamento</h4>
+                <div className={styles.grid3}>
+                  <div className={styles.fieldGroup}>
+                    <label>Desfecho do Caso *</label>
+                    <select
+                      className={styles.selectFicha}
+                      value={formEncerramento.desfecho}
+                      onChange={(e) => setFormEncerramento((f) => ({ ...f, desfecho: e.target.value }))}
+                    >
+                      <option value="">Selecione...</option>
+                      {DESFECHOS.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className={styles.fieldGroup}>
+                    <label>Data do Encerramento *</label>
+                    <input
+                      type="date"
+                      className={styles.selectFicha}
+                      value={formEncerramento.dataEncerramento}
+                      onChange={(e) =>
+                        setFormEncerramento((f) => ({ ...f, dataEncerramento: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className={`${styles.fieldGroup} ${styles.campoLeituraLargo}`}>
+                    <label>Observação / Justificativa do Encerramento *</label>
+                    <textarea
+                      className={styles.textareaFicha}
+                      rows={4}
+                      maxLength={500}
+                      placeholder="Descreva o motivo do encerramento (15 a 500 caracteres)..."
+                      value={formEncerramento.justificativa}
+                      onChange={(e) =>
+                        setFormEncerramento((f) => ({ ...f, justificativa: e.target.value }))
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.acoesDetalhe}>
+              <button
+                type="button"
+                className={styles.btnEncerrar}
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: "Encerrar caso",
+                    message:
+                      "O acompanhamento será encerrado. As fiscalizações registradas são preservadas e não poderão ser encerradas novamente.",
+                    confirmText: "Encerrar",
+                  });
+                  if (ok) await confirmarEncerramento();
+                }}
+              >
+                <Ban size={16} /> Confirmar Encerramento
+              </button>
+              <button type="button" className={styles.btnGhost} onClick={() => setEncerrando(false)}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -470,11 +676,13 @@ function Bloco({ titulo, children }) {
 // rótulo em caixa alta, valor em bloco único. Campos extensos ocupam a linha
 // inteira pela própria grade (campoLeituraLargo), sem margem artificial.
 function Campo({ label, valor, largo = false }) {
-  const texto = valor === null || valor === undefined || valor === "" ? "—" : String(valor);
+  // Aceita ReactNode (badges) sem converter objeto em string.
+  const vazio = valor === null || valor === undefined || valor === "";
+  const conteudo = vazio ? "—" : typeof valor === "object" ? valor : String(valor);
   return (
     <div className={`${styles.campoLeitura} ${largo ? styles.campoLeituraLargo : ""}`}>
       <label>{label}</label>
-      <div className={styles.campoValorBadge}>{texto}</div>
+      <div className={styles.campoValorBadge}>{conteudo}</div>
     </div>
   );
 }

@@ -1231,7 +1231,10 @@ export async function obterFichaCompleta(animalId) {
         data: ISO_DIA(l.dataFiscalizacao),
         tipo: "Leishmaniose",
         titulo: "Fiscalização de leishmaniose",
-        subtitulo: l.situacaoGeral || "",
+        subtitulo:
+          l.situacaoCaso === "ENCERRADO"
+            ? `Encerrado${l.desfecho ? ` — ${l.desfecho}` : ""}`
+            : l.situacaoGeral || "",
         resumo: l.condicoesObs || l.riscoDescricao || "",
         detalhes: [
           { rotulo: "Data da fiscalização", valor: dataBR(l.dataFiscalizacao) },
@@ -1274,6 +1277,22 @@ export async function obterFichaCompleta(animalId) {
           { rotulo: "Acompanhamento pelo CCZ", valor: l.encAcompanhamento ? "Sim" : "Não" },
           { rotulo: "Notificação ao tutor", valor: l.encNotificacao ? "Sim" : "Não" },
           { rotulo: "Outras medidas", valor: l.encOutrasDescricao || (l.encOutrasMedidas ? "Sim" : "Não") },
+          {
+            rotulo: "Situação do caso",
+            valor: l.situacaoCaso === "ENCERRADO" ? "Encerrado" : "Em acompanhamento",
+          },
+          ...(l.situacaoCaso === "ENCERRADO"
+            ? [
+                { rotulo: "Desfecho do caso", valor: l.desfecho || "" },
+                { rotulo: "Data do encerramento", valor: dataBR(l.dataEncerramento) },
+                { rotulo: "Encerrado por", valor: l.encerradoPorNome || "" },
+                {
+                  rotulo: "Observação / justificativa do encerramento",
+                  valor: l.justificativaEncerramento || "",
+                  largo: true,
+                },
+              ]
+            : []),
         ],
       });
     }

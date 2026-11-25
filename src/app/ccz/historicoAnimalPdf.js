@@ -386,6 +386,10 @@ export async function gerarHistoricoCompletoPdf(dados) {
         conduta: [
           valorDetalhe(r, "Conduta do tutor"),
           valorDetalhe(r, "Acompanhamento pelo CCZ"),
+          valorDetalhe(r, "Situação do caso") &&
+            `Caso: ${valorDetalhe(r, "Situação do caso")}${
+              valorDetalhe(r, "Desfecho do caso") ? ` (${valorDetalhe(r, "Desfecho do caso")})` : ""
+            }`,
         ]
           .filter((v) => v && v !== "—")
           .join(" · "),

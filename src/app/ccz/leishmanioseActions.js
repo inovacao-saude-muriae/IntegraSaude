@@ -26,6 +26,12 @@ import { registrarAuditoria } from "@/lib/audit";
 import { Prisma } from "@prisma/client";
 
 const FUNCIONALIDADE = "zoonoses";
+
+// Situação do caso (acompanhamento) e desfecho. Todo registro novo nasce
+// EM_ACOMPANHAMENTO; o desfecho é SEMPRE informado pelo profissional.
+// (Não exportado: arquivo "use server" só pode exportar funções assíncronas.)
+const SITUACAO_CASO = { EM_ACOMPANHAMENTO: "EM_ACOMPANHAMENTO", ENCERRADO: "ENCERRADO" };
+const DESFECHO_CASO = ["Curado", "Incinerado"];
 const PAGINA_TAMANHO = 100;
 const FUSO_OFFSET_MS = 3 * 60 * 60 * 1000;
 
@@ -326,6 +332,10 @@ export async function salvarLeishmaniose(dados = {}) {
       encOutrasMedidas: Boolean(dados.encOutrasMedidas),
       encOutrasDescricao: opcional(dados.encOutrasDescricao),
 
+      // 10. Situação do caso — todo registro novo nasce EM ACOMPANHAMENTO.
+      // O encerramento só muda pela ação encerrarCasoLeishmaniose.
+      ...(idExistente ? {} : { situacaoCaso: SITUACAO_CASO.EM_ACOMPANHAMENTO }),
+
       // 9. Assinaturas
       coordenadorNome: opcional(dados.coordenadorNome),
       coordenadorCargo: opcional(dados.coordenadorCargo),
@@ -399,6 +409,8 @@ export async function listarLeishmaniose(filtros = {}) {
     if (ate) condicoes.push(Prisma.sql`f.data_fiscalizacao <= ${ate}`);
     const situacao = texto(filtros.situacaoGeral);
     if (situacao) condicoes.push(Prisma.sql`f.situacao_geral = ${situacao}`);
+    const situacaoCaso = texto(filtros.situacaoCaso);
+    if (situacaoCaso) condicoes.push(Prisma.sql`f.situacao_caso = ${situacaoCaso}`);
     const bairro = texto(filtros.bairro);
     if (bairro) condicoes.push(Prisma.sql`lower(btrim(COALESCE(f.tutor_bairro, ''))) = lower(${bairro})`);
 
@@ -408,7 +420,8 @@ export async function listarLeishmaniose(filtros = {}) {
 
     const [linhas, total] = await Promise.all([
       prisma.$queryRaw(Prisma.sql`
-        SELECT f.id, f.data_fiscalizacao, f.animal_nome, f.animal_id, f.tutor_nome, f.situacao_geral
+        SELECT f.id, f.data_fiscalizacao, f.animal_nome, f.animal_id, f.tutor_nome,
+               f.situacao_geral, f.situacao_caso, f.desfecho
         FROM public.ccz_leishmaniose f
         WHERE ${where}
         ORDER BY f.data_fiscalizacao DESC, f.created_at DESC
@@ -428,6 +441,8 @@ export async function listarLeishmaniose(filtros = {}) {
         animalId: l.animal_id,
         tutorNome: l.tutor_nome || "",
         situacaoGeral: l.situacao_geral || "",
+        situacaoCaso: l.situacao_caso || SITUACAO_CASO.EM_ACOMPANHAMENTO,
+        desfecho: l.desfecho || "",
       })),
       total: Number(total?.[0]?.total || 0),
       pagina,
@@ -460,6 +475,8 @@ export async function obterLeishmaniose(id) {
         dataFiscalizacao: ymd(f.dataFiscalizacao),
         tratamentoInicio: ymd(f.tratamentoInicio),
         retornoData: ymd(f.retornoData),
+        dataEncerramento: ymd(f.dataEncerramento),
+        situacaoCaso: f.situacaoCaso || SITUACAO_CASO.EM_ACOMPANHAMENTO,
         createdAt: f.createdAt ? new Date(f.createdAt).toISOString() : null,
         updatedAt: f.updatedAt ? new Date(f.updatedAt).toISOString() : null,
       },
@@ -495,6 +512,78 @@ export async function historicoLeishmanioseAnimal(animalId) {
         situacaoGeral: r.situacaoGeral || "",
       })),
     };
+  } catch (erro) {
+    return responder(erro);
+  }
+}
+
+// ── ENCERRAR CASO ──────────────────────────────────────────────────────────
+// Encerra o acompanhamento da fiscalização informada. A fiscalização NÃO é
+// excluída nem reescrita: recebem-se apenas a situação, o desfecho, a data e
+// a justificativa. O desfecho é sempre informado pelo profissional.
+export async function encerrarCasoLeishmaniose(dados = {}) {
+  try {
+    const user = await requirePermissao(MODULOS.CCZ, FUNCIONALIDADE, "editar");
+
+    const id = texto(dados.id);
+    if (!id) return { success: false, error: "Fiscalização não informada.", status: 400 };
+
+    const desfecho = texto(dados.desfecho);
+    if (!DESFECHO_CASO.includes(desfecho)) {
+      return { success: false, error: "Informe o desfecho do caso: Curado ou Incinerado.", status: 400 };
+    }
+
+    const dataEncerramento = dataOuNull(dados.dataEncerramento);
+    if (!dataEncerramento) {
+      return { success: false, error: "Informe a data do encerramento.", status: 400 };
+    }
+
+    const justificativa = texto(dados.justificativa);
+    if (justificativa.length < 15 || justificativa.length > 500) {
+      return {
+        success: false,
+        error: "A justificativa do encerramento deve ter entre 15 e 500 caracteres.",
+        status: 400,
+      };
+    }
+
+    const atual = await prisma.leishmaniose.findUnique({ where: { id } });
+    if (!atual) return { success: false, error: "Fiscalização não encontrada.", status: 404 };
+    if (atual.situacaoCaso === SITUACAO_CASO.ENCERRADO) {
+      return { success: false, error: "Este caso já está encerrado.", status: 409 };
+    }
+
+    const salvo = await prisma.leishmaniose.update({
+      where: { id },
+      data: {
+        situacaoCaso: SITUACAO_CASO.ENCERRADO,
+        desfecho,
+        dataEncerramento,
+        justificativaEncerramento: justificativa,
+        encerradoPorCpf: user.cpf,
+        encerradoPorNome: user.nome || "",
+        encerradoEm: new Date(),
+      },
+    });
+
+    await registrarAuditoria({
+      user,
+      acao: "ENCERRAR",
+      modulo: "CCZ",
+      entidade: "Leishmaniose",
+      entidadeId: id,
+      descricao: `Encerramento do acompanhamento de leishmaniose (${desfecho})`,
+      detalhes: {
+        desfecho,
+        dataEncerramento: dataEncerramento.toISOString().slice(0, 10),
+        justificativa,
+        situacaoAnterior: atual.situacaoCaso || SITUACAO_CASO.EM_ACOMPANHAMENTO,
+        situacaoNova: SITUACAO_CASO.ENCERRADO,
+        animalId: salvo.animalId,
+      },
+    });
+
+    return { success: true, data: { id, desfecho, situacaoCaso: SITUACAO_CASO.ENCERRADO } };
   } catch (erro) {
     return responder(erro);
   }
