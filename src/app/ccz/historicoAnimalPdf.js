@@ -30,7 +30,7 @@ import { obterLogoCcz } from "./logoCcz";
  * dados em rótulo pequeno + valor em destaque (sem caixas) e tabelas com
  * cabeçalho cinza muito claro. Nenhuma barra azul de destaque.
  */
-function padraoRelatorio(base) {
+export function padraoRelatorio(base) {
   const { doc } = base;
   const AZUL_ESCURO = [15, 23, 42];
   const CINZA_ROTULO = [100, 116, 139];

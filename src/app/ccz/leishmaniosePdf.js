@@ -12,6 +12,7 @@
 
 import { criarDocumentoCcz } from "./documentoCcz";
 import { obterLogoCcz } from "./logoCcz";
+import { padraoRelatorio } from "./historicoAnimalPdf";
 
 const MARGEM_X = 15;
 const LARGURA_UTIL = 180;
@@ -50,12 +51,17 @@ export async function gerarPdfLeishmaniose(registro) {
   });
 
   const doc = base.doc;
-  const paginaAltura = base.paginaAltura;
   const novaPaginaSePreciso = base.novaPagina;
-  const secao = base.secao;
-  const linha = base.linha;
-  const paragrafo = base.paragrafo;
-  let y = base.y;
+  // Padrão do relatório clínico-administrativo da Ficha Completa do Animal:
+  // títulos em azul escuro sem barras, divisórias finas, rótulo + valor.
+  const { secao, subtitulo, campos, paragrafo } = padraoRelatorio(base);
+
+  /** Duas colunas de rótulo + valor (mesma apresentação do Histórico). */
+  const linha = (rotulo1, valor1, rotulo2, valor2) => {
+    const pares = rotulo2 ? [[rotulo1, valor1], [rotulo2, valor2]] : [[rotulo1, valor1]];
+    campos(pares, 2);
+  };
+
 
   // ── 1. IDENTIFICAÇÃO DO RESPONSÁVEL PELO ANIMAL ────────────────────────
   if (registro.tutorNome) {
@@ -215,10 +221,10 @@ export async function gerarPdfLeishmaniose(registro) {
   doc.text(
     `Muriaé/MG, ${dataPorExtenso(registro.dataFiscalizacao)}.`,
     MARGEM_X + LARGURA_UTIL,
-    y,
+    base.y,
     { align: "right" },
   );
-  y += 8;
+  base.y += 8;
 
   // Equipe técnica participante (inclui o responsável pela fiscalização).
   const equipe = registro.equipe?.length
@@ -230,30 +236,26 @@ export async function gerarPdfLeishmaniose(registro) {
         },
       ];
 
-  doc.setFontSize(7.5);
-  doc.setTextColor(100, 116, 139);
-  doc.text("EQUIPE TÉCNICA PARTICIPANTE", MARGEM_X, y);
-  y += 5;
-  doc.setFontSize(8.5);
-  doc.setTextColor(30, 41, 59);
+  subtitulo("Equipe técnica participante");
   equipe.forEach((m) => {
     novaPaginaSePreciso(6);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.8);
+    doc.setTextColor(30, 41, 59);
     doc.text(
       `${valor(m.nome)}${m.cargo ? ` — ${m.cargo}` : ""}${
         m.naoRemovivel || m.usuarioCpf ? " (responsável pela fiscalização)" : ""
       }`,
-      MARGEM_X + 2,
-      y,
+      MARGEM_X,
+      base.y,
     );
-    y += 5;
+    base.y += 4.6;
   });
-  y += 4;
+  base.y += 4;
 
   // Assinaturas em espaço livre para assinatura manual.
   const assinatura = (nome, funcao, registroProf) => {
-    base.y = y;
     base.assinatura(nome, funcao, registroProf);
-    y = base.y;
   };
 
   if (registro.tutorNome) {
@@ -278,7 +280,6 @@ export async function gerarPdfLeishmaniose(registro) {
     null,
   );
 
-  base.y = y;
   base.finalizar();
 
   const nomeArquivo = `leishmaniose-${(registro.animalNome || registro.animalId || "ficha")
