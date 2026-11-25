@@ -421,6 +421,25 @@
 }
 
 /* Histórico */
+/* Contagem de atendimentos no título da seção. */
+.contadorHistorico {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.25rem;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .listaHistorico {
   display: flex;
   flex-direction: column;
@@ -490,6 +509,21 @@
   border: 1px solid #bfdbfe;
 }
 
+/* Badge neutro — procedimentos e denúncias (sem cor de categoria). */
+.itemBadgeNeutro {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
 .itemBadgeLeish {
   background: #fef3c7;
   color: #b45309;
@@ -519,11 +553,16 @@
   white-space: nowrap;
 }
 
+/* Data alinhada à direita, com largura fixa: as datas de todas as linhas
+   ficam na mesma coluna, independentemente do tamanho do resumo. */
 .itemData {
-  flex: 0 0 auto;
+  flex: 0 0 6.5rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
   font-size: 0.78rem;
   font-weight: 600;
   color: #475569;
+  white-space: nowrap;
 }
 
 .vazio {

@@ -73,7 +73,7 @@ export async function gerarHistoricoCompletoPdf(dados) {
 
   const base = criarDocumentoCcz({
     logo: await obterLogoCcz(),
-    titulo: "FICHA DO ANIMAL",
+    titulo: "FICHA COMPLETA DO ANIMAL",
     identificacao: `${animal.nome || "Sem nome"} · ID CCZ ${texto(animal.id)}`,
     nota: "Documento de identificação e histórico do animal atendido pelo Centro de Controle de Zoonoses, com os dados cadastrais e os registros de procedimentos, fiscalizações e denúncias vinculados.",
   });
@@ -150,7 +150,7 @@ export async function gerarHistoricoCompletoPdf(dados) {
     : (procedimentos || []).map((p, i) => ({
         chave: `PROCEDIMENTO:${p.id || i}`,
         data: p.dataProcedimento,
-        tipo: "Procedimento",
+        tipo: "PROCEDIMENTO",
         titulo: p.tipo || "Procedimento",
         subtitulo: p.status || "",
         resumo: p.descricao || "",
@@ -162,8 +162,32 @@ export async function gerarHistoricoCompletoPdf(dados) {
 
   const TIPOS = [
     {
+      origem: "ESPORO_VISITA",
+      titulo: "4.1 Visitas de Acompanhamento",
+      vazio: "Nenhuma visita de acompanhamento registrada.",
+      colunas: [
+        { titulo: "Data", largura: 1.1, chave: "data" },
+        { titulo: "Fiscalização", largura: 1.5, chave: "registro" },
+        { titulo: "Responsável", largura: 2, chave: "responsavel" },
+        { titulo: "Observação / Resumo", largura: 3.6, chave: "resumo" },
+      ],
+      montar: (r) => ({
+        data: formatarData(r.data),
+        registro: r.subtitulo || "—",
+        responsavel:
+          valorDetalhe(r, "Profissional responsável") ||
+          valorDetalhe(r, "Fiscal responsável") ||
+          "—",
+        resumo:
+          valorDetalhe(r, "Observações gerais") ||
+          valorDetalhe(r, "Observação") ||
+          r.resumo ||
+          "—",
+      }),
+    },
+    {
       origem: "PROCEDIMENTO",
-      titulo: "4.1 Procedimentos Realizados",
+      titulo: "4.2 Procedimentos",
       vazio: "Nenhum procedimento registrado.",
       colunas: [
         { titulo: "Data", largura: 1.1, chave: "data" },
@@ -187,7 +211,7 @@ export async function gerarHistoricoCompletoPdf(dados) {
     },
     {
       origem: "ESPOROTRICOSE",
-      titulo: "4.2 Registros de Esporotricose",
+      titulo: "4.3 Esporotricose",
       vazio: "Nenhum registro de esporotricose.",
       colunas: [
         { titulo: "Data", largura: 1.1, chave: "data" },
@@ -211,7 +235,7 @@ export async function gerarHistoricoCompletoPdf(dados) {
     },
     {
       origem: "LEISHMANIOSE",
-      titulo: "4.3 Fiscalizações de Leishmaniose",
+      titulo: "4.4 Leishmaniose",
       vazio: "Nenhuma fiscalização de leishmaniose.",
       colunas: [
         { titulo: "Data", largura: 1.1, chave: "data" },
@@ -240,8 +264,8 @@ export async function gerarHistoricoCompletoPdf(dados) {
     },
     {
       origem: "DENUNCIA",
-      titulo: "4.4 Denúncias Vinculadas",
-      vazio: "Nenhuma denúncia vinculada.",
+      titulo: "4.5 Denúncias e Demais Acompanhamentos",
+      vazio: "Nenhuma denúncia ou acompanhamento vinculado.",
       colunas: [
         { titulo: "Data", largura: 1.1, chave: "data" },
         { titulo: "Situação", largura: 1.3, chave: "situacao" },
@@ -255,25 +279,6 @@ export async function gerarHistoricoCompletoPdf(dados) {
         local: valorDetalhe(r, "Localização"),
         risco: valorDetalhe(r, "Causou risco"),
         relato: valorDetalhe(r, "Relato") || r.resumo || "",
-      }),
-    },
-    {
-      origem: "CADASTRO",
-      titulo: "4.5 Outros Acompanhamentos",
-      vazio: "Nenhum outro acompanhamento registrado.",
-      colunas: [
-        { titulo: "Data", largura: 1.1, chave: "data" },
-        { titulo: "Registro", largura: 2.2, chave: "registro" },
-        { titulo: "Situação", largura: 1.3, chave: "situacao" },
-        { titulo: "Tutor no Cadastro", largura: 2.2, chave: "tutor" },
-        { titulo: "Resumo", largura: 3, chave: "resumo" },
-      ],
-      montar: (r) => ({
-        data: formatarData(r.data),
-        registro: r.titulo || "—",
-        situacao: r.subtitulo || "—",
-        tutor: valorDetalhe(r, "Tutor no cadastro"),
-        resumo: r.resumo || "",
       }),
     },
   ];

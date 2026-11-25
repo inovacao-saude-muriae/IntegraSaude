@@ -1181,14 +1181,16 @@ export async function obterFichaCompleta(animalId) {
           { rotulo: "Data da incineração", valor: dataBR(e.dataIncineracao) },
         ],
       });
+      // Cada visita de acompanhamento é um atendimento próprio: entra no
+      // histórico individualmente (nunca agrupada na fiscalização).
       for (const v of e.visitas || []) {
         historico.push({
           chave: `ESPORO_VISITA:${v.id}`,
           origem: "ESPORO_VISITA",
           origemId: v.id,
           data: ISO_DIA(v.data),
-          tipo: "Esporotricose",
-          titulo: v.relatorio ? "Visita de acompanhamento" : "Visita",
+          tipo: "ESPOROTRICOSE",
+          titulo: "Visita de acompanhamento",
           subtitulo: e.id,
           resumo: v.relatorio?.observacoesGerais || v.observacao || "",
           detalhes: v.relatorio
@@ -1299,26 +1301,8 @@ export async function obterFichaCompleta(animalId) {
       });
     }
 
-    historico.push({
-      chave: `CADASTRO:${animal.id}`,
-      origem: "CADASTRO",
-      origemId: animal.id,
-      data: ISO_DIA(animal.dataCadastro),
-      tipo: "Cadastro",
-      titulo: "Cadastro do animal no CCZ",
-      subtitulo: "",
-      resumo: "Registro inicial criado no módulo CCZ",
-      detalhes: [
-        { rotulo: "ID CCZ", valor: animal.id },
-        { rotulo: "Nome", valor: animal.nome || "" },
-        { rotulo: "Espécie", valor: animal.especie || "" },
-        { rotulo: "Sexo", valor: animal.sexo === "F" ? "Fêmea" : "Macho" },
-        { rotulo: "Porte", valor: animal.porte || "" },
-        { rotulo: "Idade no cadastro", valor: animal.idade || "" },
-        { rotulo: "Data do cadastro", valor: dataBR(animal.dataCadastro) },
-        { rotulo: "Tutor no cadastro", valor: pessoa?.nomeCompleto || "Sem tutor" },
-      ],
-    });
+    // O cadastro do animal NÃO entra no histórico: a data do cadastro fica
+    // apenas na identificação cadastral (bloco 1 da ficha e do PDF).
 
     // Mais recente primeiro; registros sem data vão para o fim.
     historico.sort((a, b) => String(b.data || "").localeCompare(String(a.data || "")));

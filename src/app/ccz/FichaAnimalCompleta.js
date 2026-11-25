@@ -75,12 +75,28 @@ function FotoAnimal({ fotoUrl, nome, especie, grande = false }) {
   );
 }
 
+// Identificação visual do tipo de atendimento no histórico.
 const ICONE_TIPO = {
-  PROCEDIMENTO: { Icone: Syringe, css: "" },
-  ESPOROTRICOSE: { Icone: Stethoscope, css: styles.itemIconeEsporo, badge: styles.itemBadgeEsporo },
-  LEISHMANIOSE: { Icone: ClipboardList, css: styles.itemIconeLeish, badge: styles.itemBadgeLeish },
-  DENUNCIA: { Icone: Info, css: "", badge: "" },
-  CADASTRO: { Icone: Calendar, css: "", badge: "" },
+  ESPORO_VISITA: {
+    Icone: Stethoscope,
+    css: styles.itemIconeEsporo,
+    badge: styles.itemBadgeEsporo,
+    rotulo: "Visita de acompanhamento",
+  },
+  PROCEDIMENTO: { Icone: Syringe, css: "", badge: "", rotulo: "Procedimento" },
+  ESPOROTRICOSE: {
+    Icone: Stethoscope,
+    css: styles.itemIconeEsporo,
+    badge: styles.itemBadgeEsporo,
+    rotulo: "Esporotricose",
+  },
+  LEISHMANIOSE: {
+    Icone: ClipboardList,
+    css: styles.itemIconeLeish,
+    badge: styles.itemBadgeLeish,
+    rotulo: "Leishmaniose",
+  },
+  DENUNCIA: { Icone: Info, css: "", badge: "", rotulo: "Denúncia" },
 };
 
 export default function FichaAnimalCompleta({
@@ -266,7 +282,10 @@ export default function FichaAnimalCompleta({
             <div className={styles.bloco}>
               <h4 className={styles.blocoTitulo}>
                 <ClipboardList size={15} aria-hidden="true" />
-                Histórico do Animal
+                Histórico de Atendimentos
+                {historico.length > 0 && (
+                  <span className={styles.contadorHistorico}>{historico.length}</span>
+                )}
               </h4>
               {historico.length === 0 ? (
                 <div className={styles.vazio}>
@@ -276,7 +295,7 @@ export default function FichaAnimalCompleta({
               ) : (
                 <div className={styles.listaHistorico}>
                   {historico.map((h) => {
-                    const cfg = ICONE_TIPO[h.tipo] || ICONE_TIPO.CADASTRO;
+                    const cfg = ICONE_TIPO[h.tipo] || ICONE_TIPO.PROCEDIMENTO;
                     const Icone = cfg.Icone;
                     return (
                       <button
@@ -290,10 +309,12 @@ export default function FichaAnimalCompleta({
                         </span>
                         <span className={styles.itemConteudo}>
                           <span className={styles.itemTitulo}>
-                            {cfg.badge && (
+                            {cfg.badge ? (
                               <span className={`${styles.itemBadge} ${cfg.badge}`}>
-                                {h.tipo === "LEISHMANIOSE" ? "Leishmaniose" : "Esporotricose"}
+                                {cfg.rotulo}
                               </span>
+                            ) : (
+                              <span className={styles.itemBadgeNeutro}>{cfg.rotulo}</span>
                             )}{" "}
                             {h.titulo}
                           </span>
