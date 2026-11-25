@@ -1,10 +1,15 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // TERMOS DO CCZ — MODELO ÚNICO
 //
-// Fonte única do layout dos três termos:
+// Fonte única do layout dos quatro termos:
 //   • Termo de Procedimento Veterinário
 //   • Termo de Vistoria / Esporotricose
 //   • Termo de Compromisso e Responsabilidade (Denúncias)
+//   • Termo de Responsabilidade da Leishmaniose
+//
+// TODOS usam exatamente a mesma apresentação: cabeçalho institucional,
+// tipografia, margens, espaçamentos, listas, local/data, assinaturas lado a
+// lado e rodapé. A única diferença entre eles é o conteúdo textual.
 //
 // Os mesmos textos e o mesmo layout servem para:
 //   • Gerenciamento > Termos  → modelo EM BRANCO (linhas de preenchimento);
@@ -111,15 +116,6 @@ export const MODELOS_TERMO = {
     nome: "Protocolo de Monitoramento Zoonoses — Termo de Responsabilidade",
     titulo: "PROTOCOLO DE MONITORAMENTO ZOONOSES",
     subtitulo: "FICHA DE ATENDIMENTO E TERMO DE RESPONSABILIDADE",
-    cabecalho: {
-      linhas: [
-        { texto: "PREFEITURA MUNICIPAL DE MURIAÉ", negrito: true, tamanho: 11 },
-        { texto: "SECRETARIA DE SAÚDE MUNICIPAL", tamanho: 9 },
-        { texto: "CENTRO DE CONTROLE DE ZOONOSES", negrito: true, tamanho: 9.5 },
-        { texto: "CEP: 36880-000, MURIAÉ, MG", tamanho: 7.5, cinza: true },
-        { texto: "Telefone: 32 98832-5309", tamanho: 7.5, cinza: true },
-      ],
-    },
     paragrafos: ({ tutor, animal }) => [
       "**ÁREA DE CIÊNCIA DE RESPONSABILIDADE PERANTE AOS CUIDADOS E ORIENTAÇÕES MÉDICAS:**",
       `EU, ${preencher(tutor?.nome)} CPF (${preencher(tutor?.cpf, 22)})`,
@@ -131,12 +127,8 @@ export const MODELOS_TERMO = {
       ...ITENS_LEIS_LEISHMANIOSE.map((i) => `• ${i}`),
       "**POR FIM, ESTOU CIENTE QUE O TRATAMENTO E CONTROLE DA DOENÇA SÃO DE MINHA RESPONSABILIDADE, SEGUINDO TODAS AS ORIENTAÇÕES QUE ME FORAM FORNECIDAS.**",
     ],
-    // Termo administrativo: as duas assinaturas ficam SEMPRE impressas, em
-    // linhas empilhadas, com os espaços preservados para preenchimento manual.
-    assinaturasEmpilhadas: [
-      "Assinatura do Responsável",
-      "Assinatura e carimbo Médico Veterinário",
-    ],
+    assinaturaResponsavel: "Assinatura do Responsável",
+    assinaturaVeterinario: "Assinatura e carimbo Médico Veterinário",
     arquivo: "protocolo-monitoramento-zoonoses",
   },
 
@@ -181,7 +173,7 @@ const ALTURA_LINHA = 4.6;
 /**
  * Gera o PDF de um termo.
  *
- * @param {string} tipo  "procedimento" | "esporotricose" | "denuncia"
+ * @param {string} tipo  "procedimento" | "esporotricose" | "denuncia" | "leishmaniose"
  * @param {object} [dados]
  * @param {object} [dados.animal]  { id, nome, especie, sexo, porte, idade }
  * @param {object|null} [dados.tutor] { nome, cpf, telefone, endereco } | null
@@ -203,7 +195,6 @@ export async function gerarTermoPdf(tipo, dados = {}) {
     logo: await obterLogoCcz(),
     titulo: modelo.titulo,
     subtitulo: modelo.subtitulo,
-    cabecalho: modelo.cabecalho,
   });
   const { doc } = base;
   let y = base.y + 4;
@@ -261,7 +252,7 @@ export async function gerarTermoPdf(tipo, dados = {}) {
   });
 
   // ── LOCAL E DATA ────────────────────────────────────────────────────────
-  y += modelo.assinaturasEmpilhadas ? 6 : 6;
+  y += 6;
   novaPagina(14);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
@@ -292,28 +283,10 @@ export async function gerarTermoPdf(tipo, dados = {}) {
     }
   };
 
-  if (modelo.assinaturasEmpilhadas) {
-    // Linhas de assinatura empilhadas e centralizadas (termo administrativo).
-    const larguraAssinatura = 90;
-    const xCentro = MARGEM + (LARGURA - larguraAssinatura) / 2;
-    y += 2;
-    modelo.assinaturasEmpilhadas.forEach((rotulo, i) => {
-      if (i > 0) y += 10;
-      novaPagina(24);
-      doc.setDrawColor(120, 130, 145);
-      doc.setLineWidth(0.3);
-      doc.line(xCentro, y, xCentro + larguraAssinatura, y);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8.5);
-      doc.setTextColor(71, 85, 105);
-      doc.text(rotulo, MARGEM + LARGURA / 2, y + 4.5, { align: "center" });
-    });
-  } else {
-    if (tutor || emBranco) {
-      assinatura(xEsquerda, modelo.assinaturaResponsavel, tutor?.nome || "");
-    }
-    assinatura(xDireita, modelo.assinaturaVeterinario, registro?.veterinario || "");
+  if (tutor || emBranco) {
+    assinatura(xEsquerda, modelo.assinaturaResponsavel, tutor?.nome || "");
   }
+  assinatura(xDireita, modelo.assinaturaVeterinario, registro?.veterinario || "");
 
   base.finalizar();
   const arquivo = dados.arquivo || `${modelo.arquivo}${emBranco ? "" : "-preenchido"}.pdf`;
