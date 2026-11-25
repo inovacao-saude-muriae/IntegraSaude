@@ -466,20 +466,15 @@ function Bloco({ titulo, children }) {
   );
 }
 
+// Campo de leitura da ficha — mesmo componente visual da Ficha do Animal:
+// rótulo em caixa alta, valor em bloco único. Campos extensos ocupam a linha
+// inteira pela própria grade (campoLeituraLargo), sem margem artificial.
 function Campo({ label, valor, largo = false }) {
   const texto = valor === null || valor === undefined || valor === "" ? "—" : String(valor);
-  if (largo) {
-    return (
-      <div className={styles.campoLeituraLargo}>
-        <label>{label}</label>
-        <textarea readOnly rows={2} value={texto} />
-      </div>
-    );
-  }
   return (
-    <div className={styles.campoLeitura}>
+    <div className={`${styles.campoLeitura} ${largo ? styles.campoLeituraLargo : ""}`}>
       <label>{label}</label>
-      <input readOnly value={texto} />
+      <div className={styles.campoValorBadge}>{texto}</div>
     </div>
   );
 }

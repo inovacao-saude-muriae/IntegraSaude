@@ -462,18 +462,10 @@ function Bloco({ titulo, children, css }) {
 function Campo({ label, valor, largo = false, css }) {
   const texto =
     valor === null || valor === undefined || valor === "" ? "—" : String(valor);
-  if (largo) {
-    return (
-      <div className={css.campoLeituraLargo}>
-        <label>{label}</label>
-        <textarea readOnly rows={2} value={texto} />
-      </div>
-    );
-  }
   return (
-    <div className={css.campoLeitura}>
+    <div className={`${css.campoLeitura} ${largo ? css.campoLeituraLargo : ""}`}>
       <label>{label}</label>
-      <input readOnly value={texto} />
+      <div className={css.campoValorBadge}>{texto}</div>
     </div>
   );
 }

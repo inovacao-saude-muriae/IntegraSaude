@@ -368,10 +368,11 @@ export default function ConsultarEsporotricose() {
                   <Bloco titulo="1. Informações da Visita" css={styles}>
                     <Campo label="Data da Visita" valor={formatarData(detalhe.dataVisita)} css={styles} />
                     <Campo label="Fiscal Responsável" valor={detalhe.fiscalResponsavel} css={styles} />
-                    <div className={styles.fieldGroup}>
+                    <div className={styles.campoLeitura}>
                       <label>Conclusão</label>
                       {editandoConclusao ? (
                         <select
+                          className={styles.selectFicha}
                           value={novaConclusao}
                           onChange={(e) => setNovaConclusao(e.target.value)}
                         >
@@ -379,7 +380,7 @@ export default function ConsultarEsporotricose() {
                           <option value="ENCERRADO">Encerrado</option>
                         </select>
                       ) : (
-                        <div className={styles.campoLeitura}>
+                        <div className={styles.campoValorBadge}>
                           <span className={detalhe.encerrado ? stylesLista.badgeDanger : stylesLista.badgeSuccess}>
                             {detalhe.encerrado ? "Encerrado" : "Em andamento"}
                           </span>
@@ -548,20 +549,14 @@ function Bloco({ titulo, children }) {
   );
 }
 
+// Campo de leitura da ficha — mesmo componente visual da Ficha do Animal:
+// rótulo em caixa alta, valor em bloco único (sem textarea desnecessário).
 function Campo({ label, valor, largo = false, css }) {
   const texto = valor === null || valor === undefined || valor === "" ? "—" : String(valor);
-  if (largo) {
-    return (
-      <div className={css.campoLeituraLargo}>
-        <label>{label}</label>
-        <textarea readOnly rows={2} value={texto} />
-      </div>
-    );
-  }
   return (
-    <div className={css.campoLeitura}>
+    <div className={`${css.campoLeitura} ${largo ? css.campoLeituraLargo : ""}`}>
       <label>{label}</label>
-      <input readOnly value={texto} />
+      <div className={css.campoValorBadge}>{texto}</div>
     </div>
   );
 }

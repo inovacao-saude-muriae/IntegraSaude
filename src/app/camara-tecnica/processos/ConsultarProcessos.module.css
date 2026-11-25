@@ -331,10 +331,15 @@
   min-width: 0;
 }
 
+/* Rótulo no padrão da Ficha do Animal: caixa alta, discreto e alinhado
+   ao topo do campo em todas as colunas. */
 .campoLeitura label {
-  font-size: 0.825rem;
+  font-size: 0.7rem;
   font-weight: 600;
-  color: #475569;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
 }
 
 .campoLeitura input,
@@ -350,11 +355,14 @@
   box-sizing: border-box;
 }
 
+/* Campo que ocupa a linha inteira (observações e descrições extensas).
+   Fica na própria grade: sem margem extra, sem deslocamento artificial. */
 .campoLeituraLargo {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  margin-top: 1rem;
+  min-width: 0;
+  grid-column: 1 / -1;
 }
 
 .campoLeituraLargo label {
@@ -373,6 +381,42 @@
   color: #1e293b;
   background-color: #f1f5f9;
   resize: vertical;
+  box-sizing: border-box;
+}
+
+/* Dropdown dentro da ficha (ex.: Conclusão da Esporotricose) — mesmo padrão
+   dos demais selects do sistema: 40px de altura, raio 8px, padding uniforme. */
+.campoLeitura select,
+.selectFicha {
+  width: 100%;
+  height: 2.5rem;
+  padding: 0 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: #1e293b;
+  background-color: #ffffff;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+.campoLeitura select:focus,
+.selectFicha:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+/* Badge de classificação dentro do campo (leitura) — alinhado ao input. */
+.campoValorBadge {
+  display: flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: 0 0.85rem;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
   box-sizing: border-box;
 }
 
@@ -399,6 +443,10 @@
   margin: 0;
   color: #64748b;
   font-size: 0.9rem;
+}
+
+@media (max-width: 1180px) {
+  .grid3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 900px) {
