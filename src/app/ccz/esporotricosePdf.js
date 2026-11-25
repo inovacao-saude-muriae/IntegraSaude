@@ -210,7 +210,7 @@ export async function gerarPdfEsporotricose(data) {
 
   // ── ASSINATURAS ────────────────────────────────────────────────────────
   secao(`${secaoNumero(tutor, encerrado, Array.isArray(d.visitas) && d.visitas.length ? 2 : 1)}. Assinaturas`);
-  novaPaginaSePreciso(20);
+  novaPaginaSePreciso(46);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   doc.setTextColor(30, 41, 59);
