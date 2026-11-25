@@ -18,7 +18,7 @@ export function gerarTermoProcedimentoPdf(procedimento) {
       especie: animal.especie || p.animalEspecie,
     },
     tutor: p.tutor?.nome ? p.tutor : null,
-    registro: { tipo: p.tipo },
+    registro: { tipo: p.tipo, veterinario: p.veterinario },
     data: p.dataProcedimento,
     arquivo: nomeArquivo("termo-procedimento", p.id, p.animalId),
   });

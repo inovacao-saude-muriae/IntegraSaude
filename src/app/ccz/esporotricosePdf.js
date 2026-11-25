@@ -216,6 +216,7 @@ export async function gerarTermoEsporotricose(data) {
       especie: animal.especie,
     },
     tutor: d.tutor?.nome ? d.tutor : null,
+    registro: { fiscalResponsavel: d.fiscalResponsavel },
     data: d.dataVisita,
     arquivo: nomeArquivo("termo-esporotricose", d.id),
   });

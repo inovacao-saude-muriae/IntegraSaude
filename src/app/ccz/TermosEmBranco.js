@@ -54,15 +54,10 @@ export default function TermosEmBranco() {
             <tbody>
               {TERMOS_DISPONIVEIS.map((termo) => (
                 <tr key={termo.id} style={{ cursor: 'pointer' }}>
-                  <td 
-                    className={styles.boldName}
-                    onClick={() => setTermoSelecionado(termo)}
-                  >
+                  <td className={styles.boldName}>
                     {termo.nome}
                   </td>
-                  <td onClick={() => setTermoSelecionado(termo)}>
-                    {termo.descricao}
-                  </td>
+                  <td>{termo.descricao}</td>
                   <td style={{ textAlign: 'center' }}>
                     <button
                       className={styles.btnFicha}

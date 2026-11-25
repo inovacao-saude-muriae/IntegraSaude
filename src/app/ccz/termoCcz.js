@@ -117,7 +117,17 @@ function dataDoTermo(valor) {
   return `${String(d.getDate()).padStart(2, "0")} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`;
 }
 
-// ── GERADOR ────────────────────────────────────────────────────────────────
+// ── DESENHO DO TERMO ───────────────────────────────────────────────────────
+// Documento de texto corrido: parágrafos justificados, espaçamento natural,
+// linhas de preenchimento integradas ao texto, orientações em lista, local e
+// data, assinaturas LADO A LADO e rodapé discreto. Sem caixas, cards ou
+// blocos por parágrafo.
+
+const MARGEM = 15;
+const LARGURA = 180;
+const ENTRE_PARAGRAFOS = 3.6;
+const ALTURA_LINHA = 4.6;
+
 /**
  * Gera o PDF de um termo.
  *
@@ -144,22 +154,95 @@ export async function gerarTermoPdf(tipo, dados = {}) {
     titulo: modelo.titulo,
     subtitulo: modelo.subtitulo,
   });
+  const { doc } = base;
+  let y = base.y + 4;
+
+  const limiteY = () => base.paginaAltura - 24;
+
+  const novaPagina = (altura) => {
+    if (y + altura > limiteY()) {
+      doc.addPage();
+      y = MARGEM + 2;
+    }
+  };
+
+  /** Parágrafo justificado, com espaçamento natural entre parágrafos. */
+  const paragrafo = (txt, { negrito = false } = {}) => {
+    const conteudo = String(txt || "").trim();
+    if (!conteudo) return;
+    doc.setFont("helvetica", negrito ? "bold" : "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(30, 41, 59);
+    const linhas = doc.splitTextToSize(conteudo, LARGURA);
+    linhas.forEach((linha) => {
+      novaPagina(ALTURA_LINHA * 2);
+      const ultima = linha === linhas[linhas.length - 1];
+      if (ultima) {
+        doc.text(linha, MARGEM, y);
+      } else {
+        doc.text(linha, MARGEM, y, { maxWidth: LARGURA, align: "justify" });
+      }
+      y += ALTURA_LINHA;
+    });
+    y += ENTRE_PARAGRAFOS;
+  };
+
+  /** Item de lista (orientações), com recuo pendente. */
+  const itemLista = (txt) => {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(30, 41, 59);
+    const linhas = doc.splitTextToSize(String(txt || ""), LARGURA - 6);
+    linhas.forEach((linha, i) => {
+      novaPagina(ALTURA_LINHA * 2);
+      if (i === 0) doc.text("•", MARGEM + 1, y);
+      doc.text(linha, MARGEM + 6, y);
+      y += ALTURA_LINHA;
+    });
+    y += 1.2;
+  };
 
   modelo.paragrafos({ tutor, animal, dados: registro }).forEach((p) => {
-    base.paragrafo("", p, 0);
+    if (String(p).startsWith("• ")) itemLista(String(p).slice(2));
+    else paragrafo(p);
   });
 
-  // ── LOCAL E DATA — linha de preenchimento manual no modelo em branco ────
-  base.y += 2;
+  // ── LOCAL E DATA ────────────────────────────────────────────────────────
+  y += 6;
+  novaPagina(14);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(30, 41, 59);
   const data = emBranco ? "" : dataDoTermo(dados.data);
-  base.paragrafo("Local e data", data ? `Muriaé, ${data}.` : `Muriaé, ____ de ______________ de ______.`);
+  doc.text(data ? `Muriaé, ${data}.` : "Muriaé, ____ de ______________ de ______.", MARGEM, y);
 
-  // ── ASSINATURAS — sempre preservadas ────────────────────────────────────
-  base.y += 4;
+  // ── ASSINATURAS LADO A LADO ─────────────────────────────────────────────
+  y += 22;
+  novaPagina(28);
+  const larguraLinha = (LARGURA - 20) / 2;
+  const xEsquerda = MARGEM;
+  const xDireita = MARGEM + larguraLinha + 20;
+
+  const assinatura = (x, rotulo, nome) => {
+    doc.setDrawColor(120, 130, 145);
+    doc.setLineWidth(0.3);
+    doc.line(x, y, x + larguraLinha, y);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text(rotulo, x + larguraLinha / 2, y + 4.5, { align: "center" });
+    if (nome) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.setTextColor(30, 41, 59);
+      doc.text(nome, x + larguraLinha / 2, y - 1.5, { align: "center" });
+    }
+  };
+
   if (tutor || emBranco) {
-    base.assinatura("", modelo.assinaturaResponsavel);
+    assinatura(xEsquerda, modelo.assinaturaResponsavel, tutor?.nome || "");
   }
-  base.assinatura("", modelo.assinaturaVeterinario);
+  assinatura(xDireita, modelo.assinaturaVeterinario, registro?.veterinario || "");
 
   base.finalizar();
   const arquivo = dados.arquivo || `${modelo.arquivo}${emBranco ? "" : "-preenchido"}.pdf`;
