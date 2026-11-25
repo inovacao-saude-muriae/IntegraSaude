@@ -23,6 +23,10 @@ const CINZA_LINHA = [226, 232, 240];
 const CINZA_FUNDO = [248, 250, 252];
 const CINZA_RODAPE = [148, 163, 184];
 
+// Espessura da linha divisória do cabeçalho institucional: 1px = 0.25 mm.
+// Ponto único de ajuste — vale para todos os documentos que usam o template.
+export const ESPESSURA_LINHA_CABECALHO = 0.25;
+
 export const formatarData = (valor) => {
   if (!valor) return "—";
   const s = String(valor).slice(0, 10);
@@ -127,8 +131,9 @@ export function criarDocumentoCcz({
   doc.text("CEP 36880-000 — Muriaé/MG", blocoTextoX, y + 21);
 
   y += logoAltura + 3;
+  // Linha divisória do cabeçalho: 1px (0.25 mm) em azul institucional.
   doc.setDrawColor(...AZUL);
-  doc.setLineWidth(0.6);
+  doc.setLineWidth(ESPESSURA_LINHA_CABECALHO);
   doc.line(MARGEM_X, y, MARGEM_X + LARGURA_UTIL, y);
   doc.setDrawColor(...CINZA_LINHA);
   doc.setLineWidth(0.2);
