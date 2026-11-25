@@ -17,6 +17,14 @@ import { obterLogoCcz } from "./logoCcz";
 import { padraoRelatorio } from "./historicoAnimalPdf";
 import { gerarTermoPdf } from "./termoCcz";
 
+// Desfechos do encerramento — fonte única (mesma lista do backend/ficha).
+export const DESFECHOS_ESPOROTRICOSE = [
+  "Curado",
+  "Encerrado por abandono do tratamento",
+  "Encerrado por óbito",
+  "Incinerado",
+];
+
 const MARGEM_X = 15;
 const LARGURA_UTIL = 180;
 

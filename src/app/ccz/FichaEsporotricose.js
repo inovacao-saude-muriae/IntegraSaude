@@ -5,7 +5,7 @@ import Image from 'next/image';
 import stylesModal from "./AgendaCCZ.module.css";
 import styles from "./ListaCCZ.module.css";
 import stylesTermo from "./TermoProcedimento.module.css";
-import { obterEsporotricose, excluirEsporotricose, encerrarEsporotricose, reabrirEsporotricose, registrarIncineracaoEsporotricose } from "./actions";
+import { obterEsporotricose, excluirEsporotricose, reabrirEsporotricose, registrarIncineracaoEsporotricose } from "./actions";
 import { gerarPdfEsporotricose, gerarTermoEsporotricose } from "./esporotricosePdf";
 import { useConfirm, useNotify } from "@/components/ConfirmDialog";
 
@@ -37,28 +37,6 @@ export default function FichaEsporotricose({ esporotricoseId, onFechar, onEditar
     };
     carregar();
   }, [esporotricoseId]);
-
-  const handleEncerrar = async () => {
-    const ok = await confirm({
-      title: "Encerrar caso de esporotricose",
-      message: "Deseja encerrar este caso? Ele será marcado como encerrado.",
-      confirmText: "Encerrar",
-    });
-    if (!ok) return;
-
-    setEncerrando(true);
-    const res = await encerrarEsporotricose(esporotricoseId);
-    setEncerrando(false);
-
-    if (res.success) {
-      await notify({ tipo: "sucesso", message: "Caso encerrado com sucesso!" });
-      // Recarrega os dados para refletir o novo estado na ficha.
-      const atualizado = await obterEsporotricose(esporotricoseId);
-      if (atualizado.success) setDados(atualizado.data);
-    } else {
-      await notify({ tipo: "erro", message: res.error || "Erro ao encerrar o caso." });
-    }
-  };
 
   const handleReabrir = async () => {
     const ok = await confirm({
@@ -849,16 +827,9 @@ export default function FichaEsporotricose({ esporotricoseId, onFechar, onEditar
             </button>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            {!dados.encerrado ? (
-              <button
-                type="button"
-                className={styles.btnFicha}
-                onClick={handleEncerrar}
-                disabled={encerrando}
-              >
-                {encerrando ? "Encerrando..." : "Encerrar caso"}
-              </button>
-            ) : (
+            {/* Encerrar/Reabrir só existem na ficha padronizada
+                (Consultar Registros > Encerrar Caso). */}
+            {dados.encerrado && (
               <button
                 type="button"
                 className={styles.btnFicha}

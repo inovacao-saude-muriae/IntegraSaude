@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { DESFECHOS_ESPOROTRICOSE } from "./esporotricosePdf";
 import { requireAcessoModulo, requirePermissao } from "@/lib/auth";
 import { registrarAuditoria } from "@/lib/audit";
 import { MODULOS } from "@/lib/permissions";
@@ -2834,12 +2835,8 @@ export async function obterEsporotricose(id) {
 // Mesmo modelo do encerramento da Leishmaniose: o registro ganha desfecho,
 // data e justificativa obrigatória, mantém `encerrado` como conclusão e é
 // auditado com usuário, data e hora. Nenhum campo do registro é apagado.
-const DESFECHO_ESPOROTRICOSE = [
-  "Curado",
-  "Encerrado por abandono do tratamento",
-  "Encerrado por óbito",
-  "Incinerado",
-];
+// Mesma lista compartilhada com a ficha e o PDF (esporotricosePdf.js).
+const DESFECHO_ESPOROTRICOSE = DESFECHOS_ESPOROTRICOSE;
 
 export async function encerrarCasoEsporotricose(dados) {
   try {
@@ -2965,60 +2962,12 @@ export async function excluirEsporotricose(id) {
 // ── ENCERRAR CASO DE ESPOROTRICOSE ──────────────────────────────────────────
 // Marca o caso como encerrado, registrando data e o responsável (nome do
 // usuário logado). Não permite encerrar um caso já encerrado.
-export async function encerrarEsporotricose(id) {
-  try {
-    const user = await requireAcessoModulo(MODULOS.CCZ);
-
-    const regId = String(id || "").trim();
-    if (!regId) return { success: false, error: "ID não informado." };
-
-    const registro = await prisma.esporotricose.findUnique({
-      where: { id: regId },
-      select: { id: true, encerrado: true },
-    });
-
-    if (!registro) {
-      return { success: false, error: "Registro de esporotricose não encontrado." };
-    }
-    if (registro.encerrado) {
-      return { success: false, error: "Este caso já está encerrado." };
-    }
-
-    await prisma.esporotricose.update({
-      where: { id: regId },
-      data: {
-        encerrado: true,
-        dataEncerramento: new Date(),
-        encerradoPor: user?.nome ? String(user.nome).slice(0, 150) : null,
-      },
-    });
-
-    await registrarAuditoria({
-      user,
-      acao: "ENCERRAR",
-      modulo: "CCZ",
-      entidade: "Esporotricose",
-      entidadeId: regId,
-      descricao: "Caso de esporotricose encerrado",
-    });
-
-    revalidatePath("/ccz");
-    return { success: true };
-  } catch (error) {
-    if (error.status === 401 || error.status === 403) {
-      return { success: false, error: error.message };
-    }
-    console.error("Erro ao encerrar esporotricose (CCZ):", error);
-    return { success: false, error: "Erro ao encerrar o caso de esporotricose." };
-  }
-}
-
 // ── REABRIR CASO DE ESPOROTRICOSE ───────────────────────────────────────────
 // Reverte o encerramento de um caso: volta o status para "Em andamento",
 // limpando a data e o responsável pelo encerramento. Não altera a incineração.
 export async function reabrirEsporotricose(id) {
   try {
-    const user = await requireAcessoModulo(MODULOS.CCZ);
+    const user = await requirePermissao(MODULOS.CCZ, "zoonoses", "editar");
 
     const regId = String(id || "").trim();
     if (!regId) return { success: false, error: "ID não informado." };
@@ -3041,6 +2990,12 @@ export async function reabrirEsporotricose(id) {
         encerrado: false,
         dataEncerramento: null,
         encerradoPor: null,
+        // Limpa apenas os complementares do encerramento: visitas, dados
+        // clínicos e cadastrais permanecem intactos.
+        desfecho: null,
+        justificativaEncerramento: null,
+        encerradoPorCpf: null,
+        encerradoEm: null,
       },
     });
 

@@ -12,7 +12,11 @@ import {
   obterEsporotricose,
   encerrarCasoEsporotricose,
 } from "./actions";
-import { gerarPdfEsporotricose, gerarTermoEsporotricose } from "./esporotricosePdf";
+import {
+  gerarPdfEsporotricose,
+  gerarTermoEsporotricose,
+  DESFECHOS_ESPOROTRICOSE,
+} from "./esporotricosePdf";
 
 // CCZ > Zoonoses > Esporotricose — Consultar Registros
 // Mesmo padrão visual e funcional de Leishmaniose > Consultar Registros
@@ -26,14 +30,8 @@ const FILTROS_VAZIOS = {
   bairro: "",
 };
 
-// Desfechos do encerramento da esporotricose — informados pelo profissional,
-// nunca derivados das classificações clínicas da Leishmaniose.
-const DESFECHOS = [
-  "Curado",
-  "Encerrado por abandono do tratamento",
-  "Encerrado por óbito",
-  "Incinerado",
-];
+// Desfechos do encerramento — lista única compartilhada com o PDF/backend.
+const DESFECHOS = DESFECHOS_ESPOROTRICOSE;
 
 const CONCLUSAO_LABEL = {
   ENCERRADO: "Encerrado",
@@ -492,18 +490,28 @@ export default function ConsultarEsporotricose() {
                       largo
                     />
                     <Campo label="Incinerado" valor={detalhe.incinerado} css={styles} />
+                    {/* Situação, desfecho e data sempre visíveis: caso em
+                        andamento mostra "—" em vez de omitir o campo. */}
+                    <div className={styles.campoLeitura}>
+                      <label>Situação do Caso</label>
+                      <div className={styles.campoValorBadge}>
+                        <span
+                          className={
+                            detalhe.encerrado ? stylesLista.badgeDanger : stylesLista.badgeSuccess
+                          }
+                        >
+                          {detalhe.encerrado ? "Encerrado" : "Em andamento"}
+                        </span>
+                      </div>
+                    </div>
+                    <Campo label="Desfecho do Caso" valor={detalhe.desfecho} css={styles} />
+                    <Campo
+                      label="Data do Encerramento"
+                      valor={formatarData(detalhe.dataEncerramentoYmd)}
+                      css={styles}
+                    />
                     {detalhe.encerrado && (
                       <>
-                        <Campo
-                          label="Desfecho do Caso"
-                          valor={detalhe.desfecho}
-                          css={styles}
-                        />
-                        <Campo
-                          label="Data do Encerramento"
-                          valor={formatarData(detalhe.dataEncerramentoYmd)}
-                          css={styles}
-                        />
                         <Campo
                           label="Observação / Justificativa do Encerramento"
                           valor={detalhe.justificativaEncerramento}
