@@ -48,6 +48,7 @@ export default function ConsultarLeishmaniose() {
 
   const confirm = useConfirm();
   const [encerrando, setEncerrando] = useState(false);
+  const [salvandoEncerramento, setSalvandoEncerramento] = useState(false);
   const [formEncerramento, setFormEncerramento] = useState({
     desfecho: "",
     dataEncerramento: "",
@@ -102,6 +103,13 @@ export default function ConsultarLeishmaniose() {
     else await notify({ tipo: "erro", message: res?.error || "Fiscalização não encontrada." });
   };
 
+  // Mesmas regras do backend: desfecho, data válida e justificativa 15–500.
+  const encerramentoValido =
+    ["Curado", "Incinerado"].includes(formEncerramento.desfecho) &&
+    /^\d{4}-\d{2}-\d{2}$/.test(formEncerramento.dataEncerramento) &&
+    formEncerramento.justificativa.trim().length >= 15 &&
+    formEncerramento.justificativa.trim().length <= 500;
+
   const abrirEncerramento = () => {
     setFormEncerramento({
       desfecho: "",
@@ -112,7 +120,10 @@ export default function ConsultarLeishmaniose() {
   };
 
   const confirmarEncerramento = async () => {
+    if (salvandoEncerramento || !encerramentoValido) return;
+    setSalvandoEncerramento(true);
     const res = await encerrarCasoLeishmaniose({ id: detalhe.id, ...formEncerramento });
+    setSalvandoEncerramento(false);
     if (!res?.success) {
       await notify({ tipo: "erro", message: res?.error || "Não foi possível encerrar o caso." });
       return;
@@ -640,7 +651,10 @@ export default function ConsultarLeishmaniose() {
               <button
                 type="button"
                 className={styles.btnEncerrar}
+                disabled={!encerramentoValido || salvandoEncerramento}
+                aria-disabled={!encerramentoValido || salvandoEncerramento}
                 onClick={async () => {
+                  if (!encerramentoValido || salvandoEncerramento) return;
                   const ok = await confirm({
                     title: "Encerrar caso",
                     message:
@@ -650,7 +664,7 @@ export default function ConsultarLeishmaniose() {
                   if (ok) await confirmarEncerramento();
                 }}
               >
-                <Ban size={16} /> Confirmar Encerramento
+                <Ban size={16} /> {salvandoEncerramento ? "Encerrando..." : "Confirmar Encerramento"}
               </button>
               <button type="button" className={styles.btnGhost} onClick={() => setEncerrando(false)}>
                 Cancelar
