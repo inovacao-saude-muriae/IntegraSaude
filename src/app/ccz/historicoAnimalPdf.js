@@ -20,45 +20,188 @@ import {
 } from "./documentoCcz";
 import { obterLogoCcz } from "./logoCcz";
 
-const FORMATO_IMAGEM = (dataUrl) => {
-  const m = /^data:image\/(png|jpeg|jpg|webp)/i.exec(String(dataUrl || ""));
-  if (!m) return null;
-  const tipo = m[1].toLowerCase();
-  return tipo === "jpg" ? "JPEG" : tipo.toUpperCase();
-};
+// A fotografia do animal NÃO é impressa neste documento: ela permanece
+// apenas na ficha visualizada no sistema. O cadastro e o armazenamento da
+// imagem não são alterados.
 
-/** Desenha a fotografia do animal preservando a proporção (sem distorcer). */
-function desenharFoto(doc, dataUrl, x, y, largura, altura) {
-  const formato = FORMATO_IMAGEM(dataUrl);
-  if (!formato) return false;
+/**
+ * Padrão do relatório clínico-administrativo da ficha:
+ * títulos em azul escuro sem preenchimento, linha divisória fina e cinza,
+ * dados em rótulo pequeno + valor em destaque (sem caixas) e tabelas com
+ * cabeçalho cinza muito claro. Nenhuma barra azul de destaque.
+ */
+function padraoRelatorio(base) {
+  const { doc } = base;
+  const AZUL_ESCURO = [15, 23, 42];
+  const CINZA_ROTULO = [100, 116, 139];
+  const CINZA_TEXTO = [30, 41, 59];
+  const CINZA_LINHA = [226, 232, 240];
+  const CINZA_CABECALHO = [241, 245, 249];
+  const CINZA_ZEBRA = [250, 251, 252];
+  const PAD = 2.4;
+  const ALTURA_LINHA = 4.4;
 
-  let proporcao = 4 / 3;
-  try {
-    const img = doc.getImageProperties(dataUrl);
-    if (img?.width && img?.height) proporcao = img.width / img.height;
-  } catch {
-    /* usa a proporção padrão 4:3 */
-  }
+  /** Título de seção — texto azul escuro, sem fundo, com divisória cinza. */
+  const secao = (titulo) => {
+    base.novaPagina(18);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(...AZUL_ESCURO);
+    doc.text(String(titulo).toUpperCase(), base.margemX, base.y);
+    base.y += 2;
+    doc.setDrawColor(...CINZA_LINHA);
+    doc.setLineWidth(0.3);
+    doc.line(base.margemX, base.y, base.margemX + base.largura, base.y);
+    base.y += 6;
+  };
 
-  let larguraFinal = largura;
-  let alturaFinal = largura / proporcao;
-  if (alturaFinal > altura) {
-    alturaFinal = altura;
-    larguraFinal = altura * proporcao;
-  }
+  /** Subtítulo de grupo (tabelas) — menor, com a contagem ao lado. */
+  const subtitulo = (titulo, contagem = "") => {
+    base.novaPagina(16);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.8);
+    doc.setTextColor(...AZUL_ESCURO);
+    doc.text(String(titulo), base.margemX, base.y);
+    if (contagem) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(...CINZA_ROTULO);
+      doc.text(String(contagem), base.margemX + base.largura, base.y, { align: "right" });
+    }
+    base.y += 4.5;
+  };
 
-  const xFinal = x + (largura - larguraFinal) / 2;
-  const yFinal = y + (altura - alturaFinal) / 2;
+  /** Grade de rótulo + valor, sem caixas, com divisórias discretas. */
+  const campos = (lista, colunas = 3) => {
+    const larguraColuna = base.largura / colunas;
+    let coluna = 0;
 
-  doc.setFillColor(248, 250, 252);
-  doc.setDrawColor(226, 232, 240);
-  doc.rect(x, y, largura, altura, "FD");
-  try {
-    doc.addImage(dataUrl, formato, xFinal, yFinal, larguraFinal, alturaFinal);
-    return true;
-  } catch {
-    return false;
-  }
+    const medir = (valor, largura) =>
+      doc.splitTextToSize(texto(valor), largura - 3);
+
+    for (let i = 0; i < lista.length; i += colunas) {
+      const linhaCampos = lista.slice(i, i + colunas);
+      const alturas = linhaCampos.map(([, valor]) =>
+        medir(valor, larguraColuna).length * 4,
+      );
+      const alturaLinha = Math.max(...alturas) + 8.5;
+      base.novaPagina(alturaLinha + 2);
+      const topo = base.y;
+
+      linhaCampos.forEach(([rotulo, valor], idx) => {
+        const x = base.margemX + idx * larguraColuna;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(6.4);
+        doc.setTextColor(...CINZA_ROTULO);
+        doc.text(String(rotulo).toUpperCase(), x, topo);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(...CINZA_TEXTO);
+        doc.text(medir(valor, larguraColuna), x, topo + 4.4);
+      });
+
+      base.y = topo + alturaLinha;
+      doc.setDrawColor(...CINZA_LINHA);
+      doc.setLineWidth(0.2);
+      doc.line(base.margemX, base.y - 3.5, base.margemX + base.largura, base.y - 3.5);
+      coluna = 0;
+    }
+  };
+
+  /** Tabela: cabeçalho cinza muito claro, texto azul escuro, linhas finas. */
+  const tabela = (colunas, registros = []) => {
+    if (!colunas?.length || !registros.length) return;
+    const total = colunas.reduce((t, c) => t + (c.largura || 1), 0);
+    const larguras = colunas.map((c) => ((c.largura || 1) / total) * base.largura);
+    const xs = larguras.map((_, i) =>
+      base.margemX + larguras.slice(0, i).reduce((t, v) => t + v, 0),
+    );
+
+    const medirLinha = (registro) => {
+      const celulas = colunas.map((col, i) => {
+        const v = registro[col.chave];
+        const txt = v === null || v === undefined || v === "" ? "—" : String(v);
+        return doc.splitTextToSize(txt, larguras[i] - PAD * 2);
+      });
+      return { celulas, altura: Math.max(...celulas.map((c) => c.length)) * ALTURA_LINHA + PAD * 1.6 };
+    };
+
+    const cabecalho = () => {
+      doc.setFillColor(...CINZA_CABECALHO);
+      doc.rect(base.margemX, base.y, base.largura, 6.5, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.8);
+      doc.setTextColor(...AZUL_ESCURO);
+      colunas.forEach((col, i) => {
+        const direita = col.alinhamento === "right";
+        const x = direita ? xs[i] + larguras[i] - PAD : xs[i] + PAD;
+        doc.text(String(col.titulo).toUpperCase(), x, base.y + 4.2, {
+          align: direita ? "right" : "left",
+        });
+      });
+      base.y += 6.5;
+      doc.setDrawColor(...CINZA_LINHA);
+      doc.setLineWidth(0.2);
+      doc.line(base.margemX, base.y, base.margemX + base.largura, base.y);
+    };
+
+    if (base.y + 14 > base.limiteY()) {
+      doc.addPage();
+      base.y = base.margemX + 2;
+    }
+    cabecalho();
+
+    registros.forEach((registro, indice) => {
+      const { celulas, altura } = medirLinha(registro);
+      if (base.y + altura > base.limiteY()) {
+        doc.addPage();
+        base.y = base.margemX + 2;
+        cabecalho();
+      }
+
+      if (indice % 2 === 1) {
+        doc.setFillColor(...CINZA_ZEBRA);
+        doc.rect(base.margemX, base.y, base.largura, altura, "F");
+      }
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.8);
+      doc.setTextColor(...CINZA_TEXTO);
+      celulas.forEach((linhas, i) => {
+        const direita = colunas[i].alinhamento === "right";
+        const x = direita ? xs[i] + larguras[i] - PAD : xs[i] + PAD;
+        doc.text(linhas, x, base.y + ALTURA_LINHA, { align: direita ? "right" : "left" });
+      });
+
+      base.y += altura;
+      doc.setDrawColor(...CINZA_LINHA);
+      doc.setLineWidth(0.2);
+      doc.line(base.margemX, base.y, base.margemX + base.largura, base.y);
+    });
+
+    base.y += 7;
+  };
+
+  /** Texto corrido sem caixa: rótulo pequeno e o conteúdo abaixo. */
+  const paragrafo = (rotulo, valorTexto) => {
+    const linhas = doc.splitTextToSize(texto(valorTexto), base.largura);
+    const altura = linhas.length * 4 + (rotulo ? 6 : 0);
+    base.novaPagina(altura + 4);
+    if (rotulo) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.4);
+      doc.setTextColor(...CINZA_ROTULO);
+      doc.text(String(rotulo).toUpperCase(), base.margemX, base.y);
+      base.y += 4.4;
+    }
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.8);
+    doc.setTextColor(...CINZA_TEXTO);
+    doc.text(linhas, base.margemX, base.y);
+    base.y += altura + 4;
+  };
+
+  return { secao, subtitulo, campos, tabela, paragrafo };
 }
 
 /** Valor de um campo do detalhe do registro histórico. */
@@ -75,73 +218,59 @@ export async function gerarHistoricoCompletoPdf(dados) {
     logo: await obterLogoCcz(),
     titulo: "FICHA COMPLETA DO ANIMAL",
     identificacao: `${animal.nome || "Sem nome"} · ID CCZ ${texto(animal.id)}`,
-    nota: "Documento de identificação e histórico do animal atendido pelo Centro de Controle de Zoonoses, com os dados cadastrais e os registros de procedimentos, fiscalizações e denúncias vinculados.",
+    nota: "Documento de identificação e histórico do animal atendido pelo Centro de Controle de Zoonoses, com os dados cadastrais e os registros de acompanhamento, procedimentos, fiscalizações e denúncias vinculados.",
   });
   const doc = base.doc;
+  const { secao, subtitulo, campos, tabela, paragrafo } = padraoRelatorio(base);
 
-  // ── 1. IDENTIFICAÇÃO DO ANIMAL ─────────────────────────────────────────
-  base.secao("1. Identificação do Animal");
+  // ── IDENTIFICAÇÃO DO ANIMAL ────────────────────────────────────────────
+  secao("Identificação do Animal");
+  campos(
+    [
+      ["Nome do animal", animal.nome || "Sem nome"],
+      ["ID CCZ", animal.id],
+      ["Espécie", animal.especie],
+      ["Sexo", animal.sexo],
+      ["Porte", animal.porte],
+      ["Idade estimada", animal.idade],
+      ["Raça / pelagem", animal.racaPelagem],
+      ["Possui identificação", animal.possuiIdentificacao],
+      ["Castrado", animal.castrado],
+      ["Situação cadastral", animal.situacao || "Não informada"],
+      ["Possui responsável", animal.possuiResponsavel],
+      ["Data do cadastro", formatarData(animal.dataCadastro)],
+    ],
+    3,
+  );
 
-  const temFoto = Boolean(animal.fotoUrl);
-  if (temFoto) {
-    const larguraFoto = 46;
-    const alturaFoto = 34;
-    const topoBloco = base.y;
-    desenharFoto(doc, animal.fotoUrl, base.margemX, topoBloco, larguraFoto, alturaFoto);
-    // Os campos ficam à direita da fotografia.
-    const deslocamento = larguraFoto + 5;
-    const yOriginal = base.y;
+  // ── CONDIÇÕES DE SAÚDE ─────────────────────────────────────────────────
+  secao("Condições de Saúde");
+  campos(
+    [
+      ["Doença crônica", animal.doencaCronica],
+      ["Qual doença", animal.qualDoenca],
+      ["Em tratamento", animal.emTratamento],
+      ["Qual tratamento", animal.qualTratamento],
+      ["Apetite normal", animal.apetiteNormal],
+      ["Vômito / diarreia", animal.sintomasVomitoDiarreia],
+    ],
+    3,
+  );
+  if (animal.observacoes) paragrafo("Observações", animal.observacoes);
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.8);
-    doc.setTextColor(100, 116, 139);
-    doc.text("NOME DO ANIMAL", base.margemX + deslocamento, yOriginal);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(15, 23, 42);
-    doc.text(texto(animal.nome || "Sem nome"), base.margemX + deslocamento, yOriginal + 5);
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.8);
-    doc.setTextColor(100, 116, 139);
-    doc.text("ID CCZ", base.margemX + deslocamento, yOriginal + 11);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9.5);
-    doc.setTextColor(30, 41, 59);
-    doc.text(texto(animal.id), base.margemX + deslocamento, yOriginal + 16);
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.8);
-    doc.setTextColor(100, 116, 139);
-    doc.text("SITUAÇÃO", base.margemX + deslocamento + 62, yOriginal + 11);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9.5);
-    doc.setTextColor(30, 41, 59);
-    doc.text(texto(animal.situacao || "Não informada"), base.margemX + deslocamento + 62, yOriginal + 16);
-
-    base.y = topoBloco + alturaFoto + 4;
-  }
-
-  base.linha("NOME DO ANIMAL", animal.nome || "Sem nome", "ID CCZ", animal.id);
-  base.linha("ESPÉCIE", animal.especie, "SEXO", animal.sexo);
-  base.linha("PORTE", animal.porte, "IDADE ESTIMADA", animal.idade);
-  base.linha("RAÇA / PELAGEM", animal.racaPelagem, "POSSUI IDENTIFICAÇÃO (COLEIRA OU CHIP)", animal.possuiIdentificacao);
-  base.linha("SITUAÇÃO CADASTRAL DO ANIMAL", animal.situacao || "Não informada", "DATA DO CADASTRO", formatarData(animal.dataCadastro));
-  base.linha("CASTRADO", animal.castrado, "POSSUI RESPONSÁVEL", animal.possuiResponsavel);
-
-  // ── 2. CONDIÇÕES DE SAÚDE ──────────────────────────────────────────────
-  base.secao("2. Condições de Saúde");
-  base.linha("DOENÇA CRÔNICA", animal.doencaCronica, "QUAL DOENÇA", animal.qualDoenca);
-  base.linha("EM TRATAMENTO", animal.emTratamento, "QUAL TRATAMENTO", animal.qualTratamento);
-  base.linha("APETITE NORMAL", animal.apetiteNormal, "VÔMITO / DIARREIA", animal.sintomasVomitoDiarreia);
-  if (animal.observacoes) base.paragrafo("OBSERVAÇÕES", animal.observacoes);
-
-  // ── 3. TUTOR (só quando houver) ────────────────────────────────────────
+  // ── TUTOR (só quando houver) ───────────────────────────────────────────
   if (tutor && tutor.nome) {
-    base.secao("3. Tutor Responsável");
-    base.linha("NOME COMPLETO", tutor.nome, "CPF", tutor.cpf);
-    base.linha("TELEFONE / WHATSAPP", tutor.telefone, "CNS", tutor.cns);
-    if (tutor.endereco) base.paragrafo("ENDEREÇO COMPLETO", tutor.endereco);
+    secao("Tutor Responsável");
+    campos(
+      [
+        ["Nome completo", tutor.nome],
+        ["CPF", tutor.cpf],
+        ["Telefone / WhatsApp", tutor.telefone],
+        ["CNS", tutor.cns],
+      ],
+      2,
+    );
+    if (tutor.endereco) paragrafo("Endereço completo", tutor.endereco);
   }
 
   // ── 4. HISTÓRICO — UMA TABELA POR TIPO DE REGISTRO ─────────────────────
@@ -163,7 +292,7 @@ export async function gerarHistoricoCompletoPdf(dados) {
   const TIPOS = [
     {
       origem: "ESPORO_VISITA",
-      titulo: "4.1 Visitas de Acompanhamento",
+      titulo: "Visitas de Acompanhamento",
       vazio: "Nenhuma visita de acompanhamento registrada.",
       colunas: [
         { titulo: "Data", largura: 1.1, chave: "data" },
@@ -187,7 +316,7 @@ export async function gerarHistoricoCompletoPdf(dados) {
     },
     {
       origem: "PROCEDIMENTO",
-      titulo: "4.2 Procedimentos",
+      titulo: "Procedimentos",
       vazio: "Nenhum procedimento registrado.",
       colunas: [
         { titulo: "Data", largura: 1.1, chave: "data" },
@@ -211,7 +340,7 @@ export async function gerarHistoricoCompletoPdf(dados) {
     },
     {
       origem: "ESPOROTRICOSE",
-      titulo: "4.3 Esporotricose",
+      titulo: "Esporotricose",
       vazio: "Nenhum registro de esporotricose.",
       colunas: [
         { titulo: "Data", largura: 1.1, chave: "data" },
@@ -235,7 +364,7 @@ export async function gerarHistoricoCompletoPdf(dados) {
     },
     {
       origem: "LEISHMANIOSE",
-      titulo: "4.4 Leishmaniose",
+      titulo: "Leishmaniose",
       vazio: "Nenhuma fiscalização de leishmaniose.",
       colunas: [
         { titulo: "Data", largura: 1.1, chave: "data" },
@@ -264,7 +393,7 @@ export async function gerarHistoricoCompletoPdf(dados) {
     },
     {
       origem: "DENUNCIA",
-      titulo: "4.5 Denúncias e Demais Acompanhamentos",
+      titulo: "Denúncias e Outros Acompanhamentos",
       vazio: "Nenhuma denúncia ou acompanhamento vinculado.",
       colunas: [
         { titulo: "Data", largura: 1.1, chave: "data" },
@@ -283,23 +412,29 @@ export async function gerarHistoricoCompletoPdf(dados) {
     },
   ];
 
-  let algumRegistro = false;
-  TIPOS.forEach((tipo) => {
-    const lista = grupo(tipo.origem);
-    if (!lista.length) return;
-    algumRegistro = true;
-    base.secao(tipo.titulo);
-    base.tabela(tipo.colunas, lista.map(tipo.montar));
-  });
+  const grupos = TIPOS.map((tipo) => ({ tipo, lista: grupo(tipo.origem) })).filter(
+    (g) => g.lista.length,
+  );
 
-  if (!algumRegistro) {
-    base.secao("4. Histórico de Registros");
-    base.paragrafo("REGISTROS", "Nenhum registro vinculado a este animal.");
+  secao("Histórico de Acompanhamentos");
+  if (!grupos.length) {
+    paragrafo("Registros", "Nenhum registro vinculado a este animal.");
+  } else {
+    grupos.forEach(({ tipo, lista }) => {
+      subtitulo(tipo.titulo, `${lista.length} ${lista.length === 1 ? "registro" : "registros"}`);
+      tabela(tipo.colunas, lista.map(tipo.montar));
+    });
   }
 
   // ── EMISSÃO ────────────────────────────────────────────────────────────
-  base.secao("5. Emissão");
-  base.linha("DOCUMENTO GERADO EM", formatarDataHora(new Date()), "REGISTRO", animal.id);
+  secao("Emissão");
+  campos(
+    [
+      ["Documento gerado em", formatarDataHora(new Date())],
+      ["Registro", animal.id],
+    ],
+    2,
+  );
 
   base.finalizar();
   return doc.save(nomeArquivo("ficha-animal", animal.nome || animal.id, animal.id));
