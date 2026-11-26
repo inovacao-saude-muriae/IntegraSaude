@@ -257,24 +257,28 @@ async function main() {
   await page.waitForTimeout(900);
   marcar("bloco 'Outros Animais' localizado", marcou === true);
   const geometria = await page.evaluate(() => {
-    const rotulo = (t) =>
-      [...document.querySelectorAll("label")].find((l) => l.innerText.includes(t));
-    const campo = (t) => [...document.querySelectorAll("label")].find((l) => l.innerText.includes(t));
-    const r = (el) => (el ? el.getBoundingClientRect() : null);
-    const pergunta = rotulo("Existem outros animais no domicílio?");
-    const complemento = campo("Espécies e quantidades");
-    const a = r(pergunta);
-    const b = r(complemento);
-    return a && b
-      ? {
-          mesmaLinha: Math.abs(a.top - b.top) < 8,
-          aoLado: b.left > a.right - 4,
-          a: Math.round(a.top),
-          b: Math.round(b.top),
-        }
-      : null;
+    // complemento (textarea) ao lado do select, dentro do mesmo grupo
+    const campo = [...document.querySelectorAll('[class*="_field"]')].find((f) =>
+      /Existem outros animais no domicílio/i.test(f.querySelector("label")?.innerText || ""),
+    );
+    const g = campo?.querySelector('[class*="_rowComposta"]');
+    if (!g) return null;
+    const sel = g.querySelector("select").getBoundingClientRect();
+    const comp = g.querySelector('[class*="_colAnexo"] textarea').getBoundingClientRect();
+    const grupo = campo.getBoundingClientRect();
+    return {
+      mesmaLinha: Math.abs(sel.top - comp.top) < 8,
+      aoLado: comp.left > sel.right - 4,
+      dentroDoGrupo: comp.right <= grupo.right + 1,
+      a: Math.round(sel.top),
+      b: Math.round(comp.top),
+    };
   });
-  marcar("'Espécies e quantidades' ao lado da pergunta", Boolean(geometria?.mesmaLinha && geometria?.aoLado), JSON.stringify(geometria));
+  marcar(
+    "'Espécies e quantidades' ao lado da pergunta",
+    Boolean(geometria?.mesmaLinha && geometria?.aoLado && geometria?.dentroDoGrupo),
+    JSON.stringify(geometria),
+  );
   await page.screenshot({ path: path.join(OUT, "8-condicionais-1440.png"), fullPage: true });
   await page.setViewportSize({ width: 390, height: 900 });
   await page.waitForTimeout(900);

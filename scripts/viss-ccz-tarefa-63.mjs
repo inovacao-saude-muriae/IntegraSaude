@@ -161,25 +161,27 @@ const bloco = await page.evaluate(() => {
 });
 await page.waitForTimeout(700);
 const alinhamento = await page.evaluate(() => {
-  const labels = [...document.querySelectorAll("label")];
-  const p = labels.find((l) => /Existem outros animais no domicílio/i.test(l.innerText));
-  const c = labels.find((l) =>
-    /Quais\? Quantos\? Apresentam sintomas\?/i.test(l.innerText),
+  // complemento dentro do MESMO grupo da pergunta (rowComposta)
+  const campo = [...document.querySelectorAll('[class*="_field"]')].find((f) =>
+    /Existem outros animais no domicílio/i.test(f.querySelector("label")?.innerText || ""),
   );
-  if (!p || !c) return null;
-  const a = p.closest('[class*="_field"]').getBoundingClientRect();
-  const b = c.closest('[class*="_field"]').getBoundingClientRect();
+  const g = campo?.querySelector('[class*="_rowComposta"]');
+  if (!g) return null;
+  const sel = g.querySelector("select").getBoundingClientRect();
+  const comp = g.querySelector('[class*="_colAnexo"] textarea').getBoundingClientRect();
+  const grupo = campo.getBoundingClientRect();
   return {
-    mesmaLinha: Math.abs(a.top - b.top) < 14,
-    aoLado: b.left >= a.right - 6,
-    a: Math.round(a.top),
-    b: Math.round(b.top),
+    mesmaLinha: Math.abs(sel.top - comp.top) < 14,
+    aoLado: comp.left >= sel.right - 6,
+    dentroDoGrupo: comp.right <= grupo.right + 1,
+    a: Math.round(sel.top),
+    b: Math.round(comp.top),
   };
 });
 marcar("bloco 'Outros Animais' localizado", Boolean(bloco));
 marcar(
   "'Quais? Quantos? Apresentam sintomas?' na mesma linha e ao lado",
-  Boolean(alinhamento?.mesmaLinha && alinhamento?.aoLado),
+  Boolean(alinhamento?.mesmaLinha && alinhamento?.aoLado && alinhamento?.dentroDoGrupo),
   JSON.stringify(alinhamento),
 );
 await page.screenshot({ path: `${OUT}/1-condicionais-1440.png` });

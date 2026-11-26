@@ -125,43 +125,49 @@ await page.screenshot({ path: `${OUT}/1-manejo-1440.png` });
 
 const campo = (texto) => page.locator(`label:text-is("${texto}")`).first();
 
-// coleira: complemento aparece e some
+// coleira: complemento sempre visível, habilitado só no Sim (Tarefa 67)
 const coleira = page
-  .locator('[class*="_linha"]')
+  .locator('[class*="_field"]')
   .filter({ has: page.locator('label:has-text("coleira repelente")') })
   .first();
+const trocaInput = page.locator('input[placeholder*="Intervalo de troca"]');
 await coleira.locator("select").first().selectOption("Sim");
 await page.waitForTimeout(400);
-const trocaVisivel = await page.locator('label:text-is("Intervalo de troca")').count();
+const trocaHab = await trocaInput.isDisabled();
 await coleira.locator("select").first().selectOption("Não");
 await page.waitForTimeout(400);
-const trocaOculto = await page.locator('label:text-is("Intervalo de troca")').count();
-marcar("coleira: complemento aparece no Sim e some no Não", trocaVisivel === 1 && trocaOculto === 0, `${trocaVisivel}/${trocaOculto}`);
+const trocaDesab = await trocaInput.isDisabled();
+marcar(
+  "coleira: complemento visível e habilitado só no Sim",
+  trocaHab === false && trocaDesab === true && (await trocaInput.count()) === 1,
+  `hab=${trocaHab} desab=${trocaDesab}`,
+);
 
 // limpeza ao trocar Sim -> Não
 await coleira.locator("select").first().selectOption("Sim");
 await page.waitForTimeout(300);
-await page.locator('input[placeholder="Ex.: a cada 4 meses"]').fill("a cada 3 meses");
+await trocaInput.fill("a cada 3 meses");
 await coleira.locator("select").first().selectOption("Não");
 await page.waitForTimeout(300);
 await coleira.locator("select").first().selectOption("Sim");
 await page.waitForTimeout(300);
-const valorTroca = await page.locator('input[placeholder="Ex.: a cada 4 meses"]').inputValue();
+const valorTroca = await trocaInput.inputValue();
 marcar("Sim→Não limpa o complemento", valorTroca === "", `"${valorTroca}"`);
 
 // viagem: data ao lado (o Sim/Não é o segundo select da linha)
 const viagem = page
-  .locator('[class*="_linha"]')
+  .locator('[class*="_field"]')
   .filter({ has: page.locator('label:has-text("Viajou para outro município")') })
   .first();
 await viagem.locator("select").last().selectOption("Sim");
 await page.waitForTimeout(400);
-const quando = await page.locator('label:text-is("Quando ocorreu o deslocamento?")').count();
-const dataDesloc = await page
-  .locator('label:text-is("Quando ocorreu o deslocamento?")')
-  .locator("xpath=following::input[1]")
-  .count();
-marcar("viagem: data do deslocamento ao lado no Sim", quando === 1 && dataDesloc === 1, `label=${quando} input=${dataDesloc}`);
+const dataDesloc = await viagem.locator('input[type="date"]').count();
+const dataHab = await viagem.locator('input[type="date"]').isDisabled();
+marcar(
+  "viagem: data do deslocamento ao lado e habilitada no Sim",
+  dataDesloc === 1 && dataHab === false,
+  `inputs=${dataDesloc} hab=${dataHab}`,
+);
 
 // produtos + frequência lado a lado
 const alinhamento = await page.evaluate(() => {
@@ -179,36 +185,62 @@ marcar("produtos e frequência lado a lado", Boolean(alinhamento?.mesmaLinha && 
 // ── Etapa 2: outros animais ────────────────────────────────────────────
 await page.waitForTimeout(200);
 const outros = page
-  .locator('[class*="_linha"]')
+  .locator('[class*="_field"]')
   .filter({ has: page.locator('label:has-text("Existem outros animais no domicílio")') })
   .first();
+const quais = outros.locator('textarea[placeholder*="Quais? Quantos?"]');
+const quaisDesab = await quais.isDisabled();
 await outros.locator("select").first().selectOption("Sim");
 await page.waitForTimeout(400);
-const quais = await page.locator('label:text-is("Quais? Quantos? Apresentam sintomas?")').count();
-marcar("outros animais: complemento 'Quais? Quantos? Apresentam sintomas?' no Sim", quais === 1);
+const quaisHab = await quais.isDisabled();
+marcar(
+  "outros animais: complemento 'Quais? Quantos? Apresentam sintomas?' visível e habilitado no Sim",
+  (await quais.count()) === 1 && quaisDesab === true && quaisHab === false,
+  `desab=${quaisDesab} hab=${quaisHab}`,
+);
 
 const lesoesOutros = page
-  .locator('[class*="_linha"]')
+  .locator('[class*="_field"]')
   .filter({ has: page.locator('label:has-text("apresentam lesões suspeitas")') })
   .first();
+const descOutros = lesoesOutros.locator('textarea[placeholder*="Descreva as lesões"]');
 await lesoesOutros.locator("select").first().selectOption("Sim");
 await page.waitForTimeout(400);
-const descOutros = await page.locator('label:text-is("Descreva as lesões dos outros animais")').count();
+const descHab = await descOutros.isDisabled();
 await lesoesOutros.locator("select").first().selectOption("Não");
 await page.waitForTimeout(400);
-const descOutrosOculto = await page.locator('label:text-is("Descreva as lesões dos outros animais")').count();
-marcar("outros animais com lesões: descrever no Sim, oculto no Não", descOutros === 1 && descOutrosOculto === 0, `${descOutros}/${descOutrosOculto}`);
+const descDesab = await descOutros.isDisabled();
+marcar(
+  "outros animais com lesões: complemento visível e habilitado só no Sim",
+  (await descOutros.count()) === 1 && descHab === false && descDesab === true,
+  `hab=${descHab} desab=${descDesab}`,
+);
 
+// pessoas com lesões: descrição habilitada no Sim; orientação médica sempre
+// visível e habilitada quando há pessoas com lesões (Tarefa 67)
 const pessoas = page
-  .locator('[class*="_linha"]')
+  .locator('[class*="_field"]')
   .filter({ has: page.locator('label:has-text("Há pessoas com lesões suspeitas")') })
   .first();
-const selectsPessoas = await pessoas.locator("select").count();
-await pessoas.locator("select").last().selectOption("Sim");
+const descPessoasInput = pessoas.locator('textarea[placeholder*="Descreva as lesões suspeitas"]');
+const orientadasSelect = page
+  .locator('[class*="_field"]')
+  .filter({ has: page.locator('label:has-text("orientadas a procurar atendimento médico")') })
+  .first()
+  .locator("select");
+const orientadasAntes = await orientadasSelect.isDisabled();
+await pessoas.locator("select").first().selectOption("Sim");
 await page.waitForTimeout(500);
-const descPessoas = await page.locator('label:text-is("Descreva as lesões nas pessoas")').count();
-const orientadas = await page.locator('label:has-text("orientadas a procurar atendimento médico")').count();
-marcar("pessoas com lesões: descrição + orientação médica aparecem", descPessoas === 1 && orientadas === 1, `selects=${selectsPessoas} desc=${descPessoas} orient=${orientadas}`);
+const descPessoasHab = await descPessoasInput.isDisabled();
+const orientadasDepois = await orientadasSelect.isDisabled();
+marcar(
+  "pessoas com lesões: descrição + orientação médica habilitadas no Sim",
+  (await descPessoasInput.count()) === 1 &&
+    descPessoasHab === false &&
+    orientadasAntes === true &&
+    orientadasDepois === false,
+  `desc=${descPessoasHab} orient=${orientadasAntes}->${orientadasDepois}`,
+);
 await page.screenshot({ path: `${OUT}/2-outros-animais-1440.png` });
 
 // ── Etapa 4: conclusão ─────────────────────────────────────────────────

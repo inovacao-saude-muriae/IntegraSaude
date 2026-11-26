@@ -100,8 +100,6 @@ const COMPLEMENTARES = {
   outrosAnimais: "outrosAnimaisDesc",
   outrosComLesoes: "outrosComLesoesDesc",
   pessoasComLesoes: "pessoasComLesoesDesc",
-  pessoasOrientadas: "pessoasOrientadasDesc",
-  riscoDisseminacao: "riscoDescricao",
 };
 
 const formatarDiaBR = (ymd) => (ymd ? ymd.split("-").reverse().join("/") : "");
@@ -113,26 +111,73 @@ const ETAPAS = [
   { numero: 4, label: "Conclusão" },
 ];
 
+// Pergunta Sim/Não com o campo complementar SEMPRE visível ao lado — mesma
+// estrutura de grupos independentes da Esporotricose (rowComposta: controle
+// com largura fixa + complemento flex). O complemento só fica habilitado
+// quando a resposta é "Sim"; vazio ou "Não" mantém o campo visível, porém
+// desabilitado (fundo cinza, leitura), sem deslocar nenhum outro grupo.
 function SimNao({
   label,
   valor,
   onChange,
   opcoes = SIM_NAO,
   obrigatorio = false,
+  complemento = null,
+  coluna,
 }) {
+  const classe = `${styles.field} ${coluna ? styles[coluna] : ""}`.trim();
+  const habilitado = valor === "Sim";
+
   return (
-    <div className={styles.field}>
+    <div className={classe}>
       <label>
         {label} {obrigatorio && <span className={leish.req}>*</span>}
       </label>
-      <select value={valor || ""} onChange={(e) => onChange(e.target.value)}>
-        <option value="">Selecione...</option>
-        {opcoes.map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
-      </select>
+      {!complemento ? (
+        <select value={valor || ""} onChange={(e) => onChange(e.target.value)}>
+          <option value="">Selecione...</option>
+          {opcoes.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <div className={styles.rowComposta}>
+          <div className={styles.colControle}>
+            <select
+              value={valor || ""}
+              onChange={(e) => onChange(e.target.value)}
+            >
+              <option value="">Selecione...</option>
+              {opcoes.map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className={styles.colAnexo}>
+            {complemento.tipo === "textarea" ? (
+              <textarea
+                rows={1}
+                value={complemento.valor || ""}
+                disabled={!habilitado}
+                onChange={(e) => complemento.onChange(e.target.value)}
+                placeholder={complemento.placeholder}
+              />
+            ) : (
+              <input
+                type={complemento.tipo === "date" ? "date" : "text"}
+                value={complemento.valor || ""}
+                disabled={!habilitado}
+                onChange={(e) => complemento.onChange(e.target.value)}
+                placeholder={complemento.placeholder}
+              />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -180,6 +225,8 @@ export default function CadastroLeishmaniose({
     setForm((prev) => {
       const dep = COMPLEMENTARES[campo];
       if (dep && valor !== "Sim" && prev[campo] === "Sim") {
+        // sai de "Sim": limpa o complemento no formulário (o registro já
+        // salvo não é tocado) e o campo permanece visível, desabilitado
         return { ...prev, [campo]: valor, [dep]: "" };
       }
       return { ...prev, [campo]: valor };
@@ -766,70 +813,60 @@ export default function CadastroLeishmaniose({
           <>
             <section className={leish.bloco}>
               <h3 className={leish.blocoTitulo}>Manejo e Biossegurança</h3>
-              <div className={leish.linha}>
+              <div className={leish.linhaCampos}>
                 <SimNao
+                  coluna="colLg"
                   label="O animal é mantido com coleira repelente?"
                   valor={form.coleiraRepelente}
                   onChange={(v) => atualizar("coleiraRepelente", v)}
+                  complemento={{
+                    tipo: "text",
+                    valor: form.coleiraTroca,
+                    onChange: (v) => atualizar("coleiraTroca", v),
+                    placeholder: "Intervalo de troca (ex.: a cada 4 meses)",
+                  }}
                 />
-                {form.coleiraRepelente === "Sim" && (
-                  <div className={styles.field}>
-                    <label>Intervalo de troca</label>
-                    <input
-                      value={form.coleiraTroca}
-                      onChange={(e) =>
-                        atualizar("coleiraTroca", e.target.value)
-                      }
-                      placeholder="Ex.: a cada 4 meses"
-                    />
-                  </div>
-                )}
-              </div>
-              <div className={leish.linha}>
-                <div className={styles.field}>
+                <div className={`${styles.field} ${styles.colSm}`}>
                   <label>
                     Produtos utilizados na higienização e resíduos contaminados
                   </label>
                   <textarea
-                    rows={2}
+                    rows={1}
                     value={form.produtosHigiene}
                     onChange={(e) =>
                       atualizar("produtosHigiene", e.target.value)
                     }
+                    placeholder="Produtos utilizados"
                   />
                 </div>
-                <div className={styles.field}>
+                <div className={`${styles.field} ${styles.colSm}`}>
                   <label>Frequência da higienização</label>
                   <input
                     value={form.frequenciaHigiene}
                     onChange={(e) =>
                       atualizar("frequenciaHigiene", e.target.value)
                     }
+                    placeholder="Ex.: semanal"
                   />
                 </div>
-              </div>
-              <div className={leish.linha3}>
                 <SimNao
+                  coluna="colSm"
                   label="Tem acesso a áreas periurbanas ou mata?"
                   valor={form.acessoAreaRural}
                   onChange={(v) => atualizar("acessoAreaRural", v)}
                 />
                 <SimNao
+                  coluna="colLg"
                   label="Viajou para outro município?"
                   valor={form.deslocamento}
                   onChange={(v) => atualizar("deslocamento", v)}
+                  complemento={{
+                    tipo: "date",
+                    valor: form.deslocamentoQuando,
+                    onChange: (v) => atualizar("deslocamentoQuando", v),
+                    placeholder: "Data do deslocamento",
+                  }}
                 />
-                {form.deslocamento === "Sim" && (
-                  <div className={styles.field}>
-                    <label>Quando ocorreu o deslocamento?</label>
-                    <input
-                      value={form.deslocamentoQuando}
-                      onChange={(e) =>
-                        atualizar("deslocamentoQuando", e.target.value)
-                      }
-                    />
-                  </div>
-                )}
               </div>
             </section>
 
@@ -837,96 +874,101 @@ export default function CadastroLeishmaniose({
               <h3 className={leish.blocoTitulo}>
                 Outros Animais e Pessoas na Residência
               </h3>
-              <div className={leish.linha}>
+              <div className={leish.linhaCampos}>
                 <SimNao
+                  coluna="colLg"
                   label="Existem outros animais no domicílio?"
                   valor={form.outrosAnimais}
                   onChange={(v) => atualizar("outrosAnimais", v)}
+                  complemento={{
+                    tipo: "textarea",
+                    valor: form.outrosAnimaisDesc,
+                    onChange: (v) => atualizar("outrosAnimaisDesc", v),
+                    placeholder: "Quais? Quantos? Apresentam sintomas?",
+                  }}
                 />
-                {form.outrosAnimais === "Sim" && (
-                  <div className={styles.field}>
-                    <label>Quais? Quantos? Apresentam sintomas?</label>
-                    <textarea
-                      rows={2}
-                      value={form.outrosAnimaisDesc}
-                      onChange={(e) =>
-                        atualizar("outrosAnimaisDesc", e.target.value)
-                      }
-                      placeholder="Espécies, quantidades e sintomas observados"
-                    />
-                  </div>
-                )}
-              </div>
-              <div className={leish.linha}>
                 <SimNao
+                  coluna="colLg"
                   label="Os outros animais apresentam lesões suspeitas?"
                   valor={form.outrosComLesoes}
                   opcoes={["Sim", "Não", "Não Avaliado"]}
                   onChange={(v) => atualizar("outrosComLesoes", v)}
+                  complemento={{
+                    tipo: "textarea",
+                    valor: form.outrosComLesoesDesc,
+                    onChange: (v) => atualizar("outrosComLesoesDesc", v),
+                    placeholder: "Descreva as lesões",
+                  }}
                 />
-                {form.outrosComLesoes === "Sim" && (
-                  <div className={`${styles.field} ${leish.campoComplementar}`}>
-                    <label>Descreva as lesões dos outros animais</label>
-                    <textarea
-                      rows={2}
-                      value={form.outrosComLesoesDesc}
-                      onChange={(e) =>
-                        atualizar("outrosComLesoesDesc", e.target.value)
-                      }
-                    />
-                  </div>
-                )}
                 <SimNao
+                  coluna="colLg"
                   label="Há pessoas com lesões suspeitas de Leishmaniose Cutânea?"
                   valor={form.pessoasComLesoes}
                   onChange={(v) => atualizar("pessoasComLesoes", v)}
+                  complemento={{
+                    tipo: "textarea",
+                    valor: form.pessoasComLesoesDesc,
+                    onChange: (v) => atualizar("pessoasComLesoesDesc", v),
+                    placeholder: "Descreva as lesões suspeitas",
+                  }}
                 />
-                {form.pessoasComLesoes === "Sim" && (
-                  <div className={`${styles.field} ${leish.campoComplementar}`}>
-                    <label>Descreva as lesões nas pessoas</label>
-                    <textarea
-                      rows={2}
-                      value={form.pessoasComLesoesDesc}
-                      onChange={(e) =>
-                        atualizar("pessoasComLesoesDesc", e.target.value)
-                      }
-                    />
-                  </div>
-                )}
-              </div>
-              {form.pessoasComLesoes === "Sim" && (
-                <div className={leish.linha}>
-                  <SimNao
-                    label="Essas pessoas foram orientadas a procurar atendimento médico?"
-                    valor={form.pessoasOrientadas}
-                    onChange={(v) => atualizar("pessoasOrientadas", v)}
-                  />
+                <div className={`${styles.field} ${styles.colLg}`}>
+                  <label>
+                    Essas pessoas foram orientadas a procurar atendimento
+                    médico?
+                  </label>
+                  <select
+                    value={form.pessoasOrientadas || ""}
+                    disabled={form.pessoasComLesoes !== "Sim"}
+                    onChange={(e) =>
+                      atualizar("pessoasOrientadas", e.target.value)
+                    }
+                  >
+                    <option value="">Selecione...</option>
+                    {SIM_NAO.map((o) => (
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              )}
+              </div>
             </section>
 
             <section className={leish.bloco}>
               <h3 className={leish.blocoTitulo}>Condições do Ambiente</h3>
               <div className={leish.linha3}>
+                <div className={`${styles.field} ${styles.colMd}`}>
+                  <label>Condições sanitárias gerais</label>
+                  <select
+                    value={form.condicoesSanitarias || ""}
+                    onChange={(e) =>
+                      atualizar("condicoesSanitarias", e.target.value)
+                    }
+                  >
+                    <option value="">Selecione...</option>
+                    {["Boas", "Regulares", "Ruins"].map((o) => (
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <SimNao
-                  label="Condições sanitárias gerais"
-                  valor={form.condicoesSanitarias}
-                  opcoes={["Boas", "Regulares", "Ruins"]}
-                  onChange={(v) => atualizar("condicoesSanitarias", v)}
-                />
-                <SimNao
+                  coluna="colMd"
                   label="O ambiente oferece risco de disseminação da doença?"
                   valor={form.riscoDisseminacao}
                   onChange={(v) => atualizar("riscoDisseminacao", v)}
                 />
                 <SimNao
+                  coluna="colMd"
                   label="Há risco à saúde pública identificado?"
                   valor={form.riscoSaudePublica}
                   onChange={(v) => atualizar("riscoSaudePublica", v)}
                 />
               </div>
-              <div className={leish.linha}>
-                <div className={styles.field}>
+              <div className={leish.linhaCampos}>
+                <div className={`${styles.field} ${styles.colLg}`}>
                   <label>Observações</label>
                   <textarea
                     rows={3}
@@ -934,7 +976,7 @@ export default function CadastroLeishmaniose({
                     onChange={(e) => atualizar("condicoesObs", e.target.value)}
                   />
                 </div>
-                <div className={styles.field}>
+                <div className={`${styles.field} ${styles.colLg}`}>
                   <label>Descrição dos riscos identificados</label>
                   <textarea
                     rows={3}

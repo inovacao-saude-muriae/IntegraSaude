@@ -168,45 +168,22 @@ input.campoInativo:read-only {
   align-items: start;
 }
 
-/* LINHAS DO FORMULÁRIO (CSS Grid responsivo)
-   Cada linha é um grid de 2 ou 3 colunas iguais: a pergunta e o campo
-   complementar que ela origina ficam na MESMA linha, com alturas e rótulos
-   alinhados. O complemento só ocupa coluna quando a resposta é "Sim", então
-   nunca sobra espaço vazio desnecessário. */
-.linha {
+/* MANEJO / OUTROS ANIMAIS — mesma estrutura da Esporotricose.
+   Cada bloco usa o grid de 12 colunas do padrão do CCZ
+   (CadastroAnimal.module.css): a pergunta ocupa metade da linha (colLg) e
+   dentro dela fica um rowComposta — select do Sim/Não em .colControle
+   (160px) e o complemento em .colAnexo (o restante do grupo). O grupo é
+   independente: o complemento só desenha dentro do próprio campo, sem
+   deslocar os vizinhos. */
+.linhaCampos {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.9rem 1rem;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 0.75rem 0.9rem;
   align-items: start;
-  margin-bottom: 0.9rem;
+  margin-bottom: 0.75rem;
 }
 
-.linha3 {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.9rem 1rem;
-  align-items: start;
-  margin-bottom: 0.9rem;
-}
-
-/* O grid do bloco define as colunas de cada campo, independentemente do span
-   do grid de 12 colunas do módulo base (que vem com hash próprio). */
-.linha > :global([class*="_field"]),
-.linha3 > :global([class*="_field"]) {
-  grid-column: auto;
-}
-
-.linha > :last-child,
-.linha3 > :last-child {
-  margin-bottom: 0;
-}
-
-.bloco > .linha:last-child,
-.bloco > .linha3:last-child {
-  margin-bottom: 0;
-}
-
-/* Altura única dos campos de linha (selects e inputs) — 40px. */
+/* Altura única dos campos (selects e inputs) — 40px. */
 .bloco :global(select),
 .bloco
   :global(input:not([type="checkbox"]):not([type="radio"]):not([type="file"])) {
@@ -218,29 +195,40 @@ input.campoInativo:read-only {
   min-height: 2.5rem;
 }
 
-@media (max-width: 900px) {
-  .linha,
-  .linha3 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+/* Campo complementar sempre visível: desabilitado (fundo cinza, leitura)
+   até a pergunta receber "Sim". Mesma aparência dos campos automáticos. */
+.bloco :global(select:disabled),
+.bloco :global(input:disabled:not([type="checkbox"]):not([type="radio"])),
+.bloco :global(textarea:disabled) {
+  background-color: #e2e8f0;
+  color: #475569;
+  cursor: not-allowed;
+  opacity: 1;
+  -webkit-text-fill-color: #475569;
 }
 
+/* Em telas estreitas a pergunta ocupa a linha inteira e o complemento desce
+   para baixo do select, ainda dentro do mesmo grupo. */
 @media (max-width: 640px) {
-  .linha,
-  .linha3 {
+  .linhaCampos {
     grid-template-columns: minmax(0, 1fr);
   }
-}
 
-/* Campo complementar (Sim) fica na mesma linha da pergunta, com o dobro da
-   largura dela; o complemento nunca é esticado para 100% da linha. */
-.linha > .campoComplementar {
-  grid-column: span 2;
-}
+  .linhaCampos > :global([class*="_field"]),
+  .linhaCampos > :global([class*="_colLg"]),
+  .linhaCampos > :global([class*="_colMd"]),
+  .linhaCampos > :global([class*="_colSm"]),
+  .linhaCampos > :global([class*="_colXs"]) {
+    grid-column: 1 / -1;
+  }
 
-@media (max-width: 640px) {
-  .linha > .campoComplementar {
-    grid-column: auto;
+  .linhaCampos :global([class*="_rowComposta"]) {
+    flex-wrap: wrap;
+  }
+
+  .linhaCampos :global([class*="_rowComposta"] > [class*="_colControle"]),
+  .linhaCampos :global([class*="_rowComposta"] > [class*="_colAnexo"]) {
+    flex: 1 1 100%;
   }
 }
 
