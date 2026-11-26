@@ -1084,6 +1084,8 @@ export async function obterFichaCompleta(animalId) {
         },
         procedimentos: { orderBy: { dataProcedimento: "desc" } },
         esporotricose: {
+          // `origem`/`origemId`/`animal` são lidos só para identificar a
+          // ORIGEM da visita (zoonose e registro que a solicitou).
           include: {
             visitas: { include: { relatorio: true }, orderBy: { data: "asc" } },
           },
@@ -1129,6 +1131,9 @@ export async function obterFichaCompleta(animalId) {
         tipo: "Procedimento",
         titulo: p.tipo || "Procedimento",
         subtitulo: p.status || "",
+        // Finalidade/origem do atendimento (o próprio procedimento veterinário).
+        finalidade: p.tipo || "Procedimento veterinário",
+        finalidadeDetalhe: `Procedimento ${p.tipo || ""}`.trim(),
         resumo: p.descricao || "",
         detalhes: [
           { rotulo: "Tipo de procedimento", valor: p.tipo || "" },
@@ -1136,7 +1141,7 @@ export async function obterFichaCompleta(animalId) {
           { rotulo: "Status", valor: p.status || "" },
           { rotulo: "Veterinário responsável", valor: p.veterinario || "" },
           { rotulo: "Medicação prescrita", valor: p.medicacaoPrescrita || "" },
-          { rotulo: "Data de retorno", valor: dataBR(p.dataRetorno) },
+          { rotulo: "Retorno solicitado para", valor: dataBR(p.dataRetorno) },
           { rotulo: "Descrição", valor: p.descricao || "", largo: true },
         ],
       });
@@ -1220,6 +1225,9 @@ export async function obterFichaCompleta(animalId) {
           // A visita é sempre de UMA fiscalização: o vínculo fica explícito.
           subtitulo: e.id,
           vinculo: e.id,
+          // Origem automática (sem preenchimento duplicado): zoonose e registro.
+          finalidade: "Esporotricose",
+          finalidadeDetalhe: `Esporotricose · fiscalização ${e.id}`,
           resumo: v.relatorio?.observacoesGerais || v.observacao || "",
           detalhes: v.relatorio
             ? [
@@ -1270,6 +1278,11 @@ export async function obterFichaCompleta(animalId) {
         desfecho: l.desfecho || "",
         dataEncerramento: ISO_DIA(l.dataEncerramento),
         justificativaEncerramento: l.justificativaEncerramento || "",
+        // Finalidade/origem da fiscalização (identificada automaticamente).
+        finalidade: "Leishmaniose",
+        finalidadeDetalhe: `Leishmaniose · fiscalização ${l.id}`,
+        // Retorno solicitado NA PRÓPRIA fiscalização (não é visita realizada).
+        dataRetorno: ISO_DIA(l.retornoData),
         resumo: l.condicoesObs || l.riscoDescricao || "",
         detalhes: [
           { rotulo: "Data da fiscalização", valor: dataBR(l.dataFiscalizacao) },

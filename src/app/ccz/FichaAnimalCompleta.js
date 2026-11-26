@@ -366,11 +366,17 @@ export default function FichaAnimalCompleta({
                             {h.titulo}
                           </span>
                           <span className={styles.itemResumo}>
+                            {/* Procedimento / Zoonose: finalidade específica do
+                                atendimento, identificada automaticamente. */}
+                            {h.finalidade && (
+                              <span className={styles.itemFinalidade}>{h.finalidade}</span>
+                            )}
                             {h.titulo === "Visita de acompanhamento" && h.subtitulo
-                              ? `Fiscalização ${h.subtitulo}${
+                              ? `${h.finalidade ? " · " : ""}Fiscalização ${h.subtitulo}${
                                   h.resumo ? ` · ${h.resumo}` : ""
                                 }`
-                              : h.resumo || h.subtitulo || "Sem detalhes adicionais"}
+                              : (h.finalidade ? " · " : "") +
+                                (h.resumo || h.subtitulo || "Sem detalhes adicionais")}
                           </span>
                         </span>
                         <span className={styles.itemData}>{formatarData(h.data)}</span>

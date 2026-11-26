@@ -295,14 +295,17 @@ export async function gerarHistoricoCompletoPdf(dados) {
       titulo: "Visitas de Acompanhamento",
       vazio: "Nenhuma visita de acompanhamento registrada.",
       colunas: [
-        { titulo: "Data", largura: 1.1, chave: "data" },
+        { titulo: "Data", largura: 0.9, chave: "data" },
+        // Procedimento / Zoonose: finalidade específica da visita.
+        { titulo: "Procedimento / Zoonose", largura: 1.7, chave: "finalidade" },
         // Vínculo explícito: a visita pertence a UMA fiscalização.
         { titulo: "Fiscalização", largura: 1.5, chave: "registro" },
-        { titulo: "Responsável", largura: 2, chave: "responsavel" },
-        { titulo: "Observação / Resumo", largura: 3.6, chave: "resumo" },
+        { titulo: "Responsável", largura: 1.8, chave: "responsavel" },
+        { titulo: "Observação / Resumo", largura: 3.4, chave: "resumo" },
       ],
       montar: (r) => ({
         data: formatarData(r.data),
+        finalidade: r.finalidade || "—",
         registro: r.vinculo
           ? `Fiscalização ${r.vinculo}`
           : valorDetalhe(r, "Fiscalização de origem") || r.subtitulo || "—",
@@ -377,14 +380,17 @@ export async function gerarHistoricoCompletoPdf(dados) {
       titulo: "Leishmaniose",
       vazio: "Nenhuma fiscalização de leishmaniose.",
       colunas: [
-        { titulo: "Data", largura: 1.1, chave: "data" },
-        { titulo: "Situação do Caso", largura: 1.7, chave: "situacao" },
-        { titulo: "Responsável", largura: 1.7, chave: "responsavel" },
-        { titulo: "Lesões / Tratamento", largura: 2.1, chave: "clinico" },
-        { titulo: "Conduta / Encaminhamentos", largura: 2.6, chave: "conduta" },
+        { titulo: "Data", largura: 0.9, chave: "data" },
+        // Procedimento / Zoonose: finalidade específica da visita.
+        { titulo: "Procedimento / Zoonose", largura: 1.5, chave: "finalidade" },
+        { titulo: "Situação do Caso", largura: 1.5, chave: "situacao" },
+        { titulo: "Responsável", largura: 1.6, chave: "responsavel" },
+        { titulo: "Lesões / Tratamento", largura: 1.9, chave: "clinico" },
+        { titulo: "Conduta / Encaminhamentos", largura: 2.4, chave: "conduta" },
       ],
       montar: (r) => ({
         data: formatarData(r.data),
+        finalidade: r.finalidade || "—",
         // Situação do acompanhamento (Em acompanhamento / Encerrado) com o
         // desfecho final; a situação geral da visita continua na coluna de
         // conduta, sem se confundir com o encerramento do caso.

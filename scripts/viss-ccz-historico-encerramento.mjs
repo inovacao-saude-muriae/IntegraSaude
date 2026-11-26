@@ -137,6 +137,9 @@ marcar("histórico tem fiscalização de leishmaniose", leish.length > 0, `${lei
 const leishEmAndamento = leish.find((i) => /^EM ACOMPANHAMENTO$/i.test(i.situacao));
 marcar("badge 'Em acompanhamento' em verde", Boolean(leishEmAndamento) && leishEmAndamento.cor === "rgb(220, 252, 231)",
   leishEmAndamento ? leishEmAndamento.cor : "sem badge");
+marcar("leishmaniose exibe a finalidade 'Leishmaniose' na visita",
+  leish.some((i) => /Leishmaniose/.test(i.texto)),
+  leish.map((i) => i.texto.slice(0, 50)).join(" || "));
 
 passo("2. Leishmaniose — Encerrado");
 await abrirFicha("ZZTESTE Incineração");
@@ -177,6 +180,9 @@ marcar("fiscalização de esporotricose com badge 'Encerrado'",
   espFisc.some((i) => /^ENCERRADO$/i.test(i.situacao)), espFisc.map((i) => i.situacao).join(","));
 marcar("visitas não herdam o encerramento posterior",
   espVisitas.length > 0 && espVisitas.every((i) => !i.situacao), `${espVisitas.length} visita(s)`);
+marcar("visita de esporotricose exibe 'Procedimento / Zoonose' = Esporotricose",
+  espVisitas.length > 0 && espVisitas.every((i) => /Esporotricose/.test(i.texto)),
+  espVisitas.map((i) => i.texto.slice(0, 60)).join(" || "));
 marcar("visita informa a fiscalização de origem",
   espVisitas.every((i) => /Fiscalização\s+ESP-[A-Z0-9]+/.test(i.texto)),
   espVisitas.map((i) => i.texto.slice(0, 60)).join(" || "));
@@ -197,6 +203,16 @@ if (fiscEsp) {
   marcar("esporotricose encerrada no histórico", false, "item não encontrado");
 }
 
+passo("4b. Procedimento veterinário — finalidade identificada");
+const procs = (await db.query(
+  `SELECT p.id, p.tipo FROM ccz_procedimentos p WHERE p.animal_id = (SELECT id FROM ccz_animais WHERE nome ILIKE '%Joaquim%' LIMIT 1)`,
+)).rows;
+console.log("   procedimentos do animal:", JSON.stringify(procs));
+const procItens = itens.filter((i) => procs.some((p) => i.texto.includes(p.tipo)));
+marcar("procedimento exibe o próprio nome como finalidade",
+  procs.length > 0 ? procItens.some((i) => /Castração|Vacinação|Consulta|Exame/i.test(i.texto)) : true,
+  procs.map((p) => p.tipo).join(",") || "sem procedimento no animal");
+
 passo("5. PDF da Ficha Completa do Animal");
 const [dl] = await Promise.all([
   page.waitForEvent("download"),
@@ -206,6 +222,27 @@ const pdf = `${OUT}/ficha-completa-animal.pdf`;
 await dl.saveAs(pdf);
 const tam = fs.statSync(pdf).size;
 marcar("PDF gerado", tam > 10000, `${Math.round(tam / 1024)} KB`);
+// Texto do PDF: os streams são FlateDecode; descomprime para ler os rótulos.
+const { inflateSync } = await import("node:zlib");
+const bruto = fs.readFileSync(pdf);
+const partes = [];
+let pos = 0;
+while (true) {
+  const i = bruto.indexOf("stream", pos);
+  if (i < 0) break;
+  let ini = i + 6;
+  if (bruto[ini] === 0x0d) ini++;
+  if (bruto[ini] === 0x0a) ini++;
+  const fim = bruto.indexOf("endstream", ini);
+  if (fim < 0) break;
+  try { partes.push(inflateSync(bruto.subarray(ini, fim))); } catch { partes.push(bruto.subarray(ini, fim)); }
+  pos = fim + 9;
+}
+const textoPdf = Buffer.concat(partes).toString("latin1");
+const temColuna = /PROCEDIMENTO \/ ZOONOSE/.test(textoPdf);
+const temEsporo = /Esporotricose/.test(textoPdf);
+marcar("PDF traz a coluna 'Procedimento / Zoonose'", temColuna, temColuna ? "presente" : "ausente");
+marcar("PDF traz a finalidade da visita (Esporotricose)", temEsporo, temEsporo ? "presente" : "ausente");
 await page.screenshot({ path: `${OUT}/3-historico-com-badges-1440.png` });
 
 passo("6. Mobile 390px");

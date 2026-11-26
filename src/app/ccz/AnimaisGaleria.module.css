@@ -565,6 +565,12 @@
 }
 
 /* Fiscalização de origem de cada visita de acompanhamento. */
+/* Procedimento / Zoonose: finalidade da visita no histórico. */
+.itemFinalidade {
+  font-weight: 700;
+  color: #1e3a8a;
+}
+
 .itemVinculo {
   font-size: 0.72rem;
   font-weight: 600;
