@@ -334,11 +334,10 @@ export async function gerarHistoricoCompletoPdf(dados) {
       vazio: "Nenhum registro de esporotricose.",
       colunas: [
         { titulo: "Data", largura: 0.9, chave: "data" },
-        { titulo: "Tipo de Atendimento", largura: 1.2, chave: "atendimento" },
-        { titulo: "Acompanhamento", largura: 1.4, chave: "situacao" },
-        { titulo: "Fiscal / Responsável", largura: 1.6, chave: "responsavel" },
-        { titulo: "Lesões / Tratamento", largura: 1.9, chave: "clinico" },
-        { titulo: "Conclusão Técnica da Visita", largura: 2.4, chave: "tecnica" },
+        { titulo: "Tipo de Atendimento", largura: 1.3, chave: "atendimento" },
+        { titulo: "Acompanhamento", largura: 1.6, chave: "situacao" },
+        { titulo: "Fiscal / Responsável", largura: 2, chave: "responsavel" },
+        { titulo: "Conclusão Técnica da Visita", largura: 3.7, chave: "tecnica" },
       ],
       montar: (r) => ({
         data: formatarData(r.data),
@@ -355,12 +354,6 @@ export async function gerarHistoricoCompletoPdf(dados) {
           valorDetalhe(r, "Fiscal responsável") ||
           valorDetalhe(r, "Profissional responsável") ||
           "—",
-        clinico: [
-          valorDetalhe(r, "Apresenta lesões"),
-          valorDetalhe(r, "Em tratamento veterinário"),
-        ]
-          .filter((v) => v && v !== "—")
-          .join(" · "),
         // Na visita, a conclusão é a observação do acompanhamento; na
         // fiscalização, a conclusão técnica registrada.
         tecnica:

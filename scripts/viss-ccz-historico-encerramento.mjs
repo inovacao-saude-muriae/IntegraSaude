@@ -272,6 +272,19 @@ marcar("PDF traz a coluna 'Tipo de Atendimento'", temColuna, temColuna ? "presen
 marcar("PDF traz a finalidade da visita (Esporotricose)", temEsporo, temEsporo ? "presente" : "ausente");
 marcar("PDF sem a tabela independente 'Visitas de Acompanhamento'", semTabelaVisitas,
   semTabelaVisitas ? "ausente" : "presente");
+// A tabela de esporotricose não traz mais a coluna de lesões/tratamento.
+const cabecalhos = [...textoPdf.matchAll(/\(([A-ZÁÉÍÓÚÂÊÔÃÕÇ \/]+)\) Tj/g)].map((m) => m[1].trim());
+// Recorte da tabela de Esporotricose: entre o título do grupo e a próxima
+// tabela (a de Leishmaniose, cujas colunas próprias incluem lesões).
+const posEsporo = textoPdf.indexOf("(Esporotricose) Tj");
+const posLeish = textoPdf.indexOf("(Leishmaniose) Tj");
+const blocoEsporo =
+  posEsporo >= 0 ? textoPdf.slice(posEsporo, posLeish > posEsporo ? posLeish : undefined) : "";
+const cabEsporo = [...blocoEsporo.matchAll(/\(([A-ZÁÉÍÓÚÂÊÔÃÕÇ \/]+)\) Tj/g)].map((m) => m[1].trim());
+marcar("PDF da esporotricose sem a coluna 'Lesões / Tratamento'",
+  cabEsporo.includes("CONCLUSÃO TÉCNICA DA VISITA") && !cabEsporo.includes("LESÕES / TRATAMENTO"),
+  `esporotricose:${cabEsporo.filter((c) => /LESÕES|CONCLUSÃO TÉCNICA/.test(c)).join(" | ")}`);
+
 const qtdRetorno = (textoPdf.match(/\(Retorno\) Tj/g) || []).length;
 const qtdFiscEsporo = (textoPdf.match(/\(Fiscalização\) Tj/g) || []).length;
 marcar("PDF traz os retornos dentro da tabela de esporotricose",
