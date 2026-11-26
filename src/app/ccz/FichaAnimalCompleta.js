@@ -45,9 +45,12 @@ const formatarEndereco = (end) => {
 
 const badgeSituacao = (situacao) => {
   if (!situacao) return null;
-  if (situacao === "Adotado") return { css: styles.badgeAdotado, texto: "Adotado" };
-  if (situacao === "Devolvido") return { css: styles.badgeDevolvido, texto: "Devolvido" };
-  if (situacao === "Arquivado") return { css: styles.badgeArquivado, texto: "Arquivado" };
+  if (situacao === "Adotado")
+    return { css: styles.badgeAdotado, texto: "Adotado" };
+  if (situacao === "Devolvido")
+    return { css: styles.badgeDevolvido, texto: "Devolvido" };
+  if (situacao === "Arquivado")
+    return { css: styles.badgeArquivado, texto: "Arquivado" };
   if (situacao === "CCZ") return { css: styles.badgeCcz, texto: "No CCZ" };
   return { css: styles.badgeCcz, texto: situacao };
 };
@@ -55,8 +58,10 @@ const badgeSituacao = (situacao) => {
 // Imagem padrão discreta por espécie (sem inventar fotografia real).
 function IconeEspecie({ especie, size = 34 }) {
   const e = String(especie || "").toLowerCase();
-  if (e.startsWith("fel")) return <Cat size={size} strokeWidth={1.5} aria-hidden="true" />;
-  if (e.startsWith("can")) return <Dog size={size} strokeWidth={1.5} aria-hidden="true" />;
+  if (e.startsWith("fel"))
+    return <Cat size={size} strokeWidth={1.5} aria-hidden="true" />;
+  if (e.startsWith("can"))
+    return <Dog size={size} strokeWidth={1.5} aria-hidden="true" />;
   return <PawPrint size={size} strokeWidth={1.5} aria-hidden="true" />;
 }
 
@@ -64,7 +69,11 @@ function FotoAnimal({ fotoUrl, nome, especie, grande = false }) {
   if (fotoUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={fotoUrl} alt={nome ? `Foto de ${nome}` : "Foto do animal"} loading="lazy" />
+      <img
+        src={fotoUrl}
+        alt={nome ? `Foto de ${nome}` : "Foto do animal"}
+        loading="lazy"
+      />
     );
   }
   return (
@@ -97,6 +106,33 @@ const ICONE_TIPO = {
     rotulo: "Leishmaniose",
   },
   DENUNCIA: { Icone: Info, css: "", badge: "", rotulo: "Denúncia" },
+};
+
+// Agrupamento do histórico por ORIGEM do atendimento: a visita de retorno é
+// exibida junto da zoonose/procedimento que a originou (nunca em categoria
+// própria). Retorno sem origem confiável fica em "Acompanhamentos".
+const GRUPOS = [
+  { chave: "LEISHMANIOSE", titulo: "Leishmaniose" },
+  { chave: "ESPOROTRICOSE", titulo: "Esporotricose" },
+  { chave: "PROCEDIMENTO", titulo: "Procedimentos Veterinários" },
+  { chave: "OUTROS", titulo: "Acompanhamentos sem origem definida" },
+];
+
+const grupoDoRegistro = (h) => {
+  if (h.origem === "LEISHMANIOSE") return "LEISHMANIOSE";
+  if (h.origem === "ESPOROTRICOSE" || h.origem === "ESPORO_VISITA")
+    return "ESPOROTRICOSE";
+  if (h.origem === "PROCEDIMENTO") return "PROCEDIMENTO";
+  return "OUTROS";
+};
+
+// Tipo de atendimento exibido em cada item do grupo.
+const tipoAtendimento = (h) => {
+  if (h.origem === "ESPORO_VISITA") return "Retorno";
+  if (h.origem === "ESPOROTRICOSE" || h.origem === "LEISHMANIOSE")
+    return "Fiscalização";
+  if (h.origem === "PROCEDIMENTO") return "Procedimento";
+  return "";
 };
 
 export default function FichaAnimalCompleta({
@@ -174,7 +210,11 @@ export default function FichaAnimalCompleta({
           <h2 className={styles.fichaTopoTitulo}>Ficha do Animal</h2>
           <div className={styles.fichaTopoAcoes}>
             {dados && (
-              <button type="button" className={styles.btnSecundario} onClick={baixarPdf}>
+              <button
+                type="button"
+                className={styles.btnSecundario}
+                onClick={baixarPdf}
+              >
                 <FileDown size={15} aria-hidden="true" />
                 Gerar PDF
               </button>
@@ -223,7 +263,9 @@ export default function FichaAnimalCompleta({
                 />
               </div>
               <div className={styles.cabecalhoInfo}>
-                <h3 className={styles.cabecalhoNome}>{animal.nome || "Animal sem nome"}</h3>
+                <h3 className={styles.cabecalhoNome}>
+                  {animal.nome || "Animal sem nome"}
+                </h3>
                 <span className={styles.cabecalhoSub}>ID CCZ: {animal.id}</span>
                 <div className={styles.cabecalhoTags}>
                   {animal.especie && (
@@ -233,12 +275,20 @@ export default function FichaAnimalCompleta({
                     </span>
                   )}
                   {animal.sexo && (
-                    <span className={`${styles.tag} ${styles.tagNeutra}`}>{animal.sexo}</span>
+                    <span className={`${styles.tag} ${styles.tagNeutra}`}>
+                      {animal.sexo}
+                    </span>
                   )}
                   {animal.porte && (
-                    <span className={`${styles.tag} ${styles.tagNeutra}`}>Porte {animal.porte}</span>
+                    <span className={`${styles.tag} ${styles.tagNeutra}`}>
+                      Porte {animal.porte}
+                    </span>
                   )}
-                  {badge && <span className={`${styles.badge} ${badge.css}`}>{badge.texto}</span>}
+                  {badge && (
+                    <span className={`${styles.badge} ${badge.css}`}>
+                      {badge.texto}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -255,24 +305,43 @@ export default function FichaAnimalCompleta({
                 <Campo rotulo="Idade" valor={animal.idade} />
                 <Campo rotulo="Porte" valor={animal.porte} />
                 <Campo rotulo="Raça / Pelagem" valor={animal.racaPelagem} />
-                <Campo rotulo="Possui identificação" valor={animal.possuiIdentificacao} />
+                <Campo
+                  rotulo="Possui identificação"
+                  valor={animal.possuiIdentificacao}
+                />
                 <Campo rotulo="Castrado" valor={animal.castrado} />
-                <Campo rotulo="Data do cadastro" valor={formatarData(animal.dataCadastro)} />
+                <Campo
+                  rotulo="Data do cadastro"
+                  valor={formatarData(animal.dataCadastro)}
+                />
                 <Campo rotulo="Situação" valor={animal.situacao || ""} />
                 <Campo
                   rotulo="Data da situação"
-                  valor={animal.dataDevolucao ? formatarData(animal.dataDevolucao) : ""}
+                  valor={
+                    animal.dataDevolucao
+                      ? formatarData(animal.dataDevolucao)
+                      : ""
+                  }
                 />
                 <Campo rotulo="Doença crônica" valor={animal.doencaCronica} />
                 <Campo rotulo="Em tratamento" valor={animal.emTratamento} />
-                {animal.qualDoenca && <Campo rotulo="Qual doença" valor={animal.qualDoenca} />}
+                {animal.qualDoenca && (
+                  <Campo rotulo="Qual doença" valor={animal.qualDoenca} />
+                )}
                 {animal.qualTratamento && (
                   <Campo rotulo="Tratamento" valor={animal.qualTratamento} />
                 )}
                 <Campo rotulo="Apetite normal" valor={animal.apetiteNormal} />
-                <Campo rotulo="Vômito / Diarreia" valor={animal.sintomasVomitoDiarreia} />
+                <Campo
+                  rotulo="Vômito / Diarreia"
+                  valor={animal.sintomasVomitoDiarreia}
+                />
                 {animal.observacoes && (
-                  <Campo rotulo="Observações" valor={animal.observacoes} largo />
+                  <Campo
+                    rotulo="Observações"
+                    valor={animal.observacoes}
+                    largo
+                  />
                 )}
               </div>
             </div>
@@ -309,7 +378,9 @@ export default function FichaAnimalCompleta({
                 <ClipboardList size={15} aria-hidden="true" />
                 Histórico de Atendimentos
                 {historico.length > 0 && (
-                  <span className={styles.contadorHistorico}>{historico.length}</span>
+                  <span className={styles.contadorHistorico}>
+                    {historico.length}
+                  </span>
                 )}
               </h4>
               {historico.length === 0 ? (
@@ -318,70 +389,113 @@ export default function FichaAnimalCompleta({
                   Nenhum registro de acompanhamento para este animal.
                 </div>
               ) : (
-                <div className={styles.listaHistorico}>
-                  {historico.map((h, i) => {
-                    const cfg = ICONE_TIPO[h.tipo] || ICONE_TIPO.PROCEDIMENTO;
-                    const Icone = cfg.Icone;
+                <div className={styles.gruposHistorico}>
+                  {GRUPOS.map((grupo) => {
+                    const itens = historico
+                      .map((h, indice) => ({ h, indice }))
+                      .filter(({ h }) => grupoDoRegistro(h) === grupo.chave);
+                    if (!itens.length) return null;
                     return (
-                      <button
-                        key={h.chave}
-                        id={`item-${i}`}
-                        type="button"
-                        className={styles.itemHistorico}
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          registrarPosicao();
-                        }}
-                        onClick={() => abrirRegistro(h)}
-                      >
-                        <span className={`${styles.itemIcone} ${cfg.css || ""}`}>
-                          <Icone size={18} aria-hidden="true" />
-                        </span>
-                        <span className={styles.itemConteudo}>
-                          <span className={styles.itemTitulo}>
-                            {cfg.badge ? (
-                              <span className={`${styles.itemBadge} ${cfg.badge}`}>
-                                {cfg.rotulo}
-                              </span>
-                            ) : (
-                              <span className={styles.itemBadgeNeutro}>{cfg.rotulo}</span>
-                            )}{" "}
-                            {h.situacaoCaso && (
-                              <span
-                                className={`${styles.situacaoBadge} ${
-                                  h.situacaoCaso === "ENCERRADO"
-                                    ? styles.situacaoEncerrado
-                                    : styles.situacaoEmAndamento
-                                }`}
+                      <div key={grupo.chave} className={styles.grupoHistorico}>
+                        <div className={styles.grupoTitulo}>
+                          {grupo.titulo}
+                          <span className={styles.grupoContador}>
+                            {itens.length}
+                          </span>
+                        </div>
+                        <div className={styles.listaHistorico}>
+                          {itens.map(({ h, indice: i }) => {
+                            const cfg =
+                              ICONE_TIPO[h.tipo] || ICONE_TIPO.PROCEDIMENTO;
+                            const Icone = cfg.Icone;
+                            const tipoAtend = tipoAtendimento(h);
+                            return (
+                              <button
+                                key={h.chave}
+                                id={`item-${i}`}
+                                type="button"
+                                className={styles.itemHistorico}
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  registrarPosicao();
+                                }}
+                                onClick={() => abrirRegistro(h)}
                               >
-                                {h.situacaoLabel ||
-                                  (h.situacaoCaso === "ENCERRADO"
-                                    ? "Encerrado"
-                                    : "Em andamento")}
-                              </span>
-                            )}{" "}
-                            {h.situacaoCaso === "ENCERRADO" && h.desfecho && (
-                              <span className={styles.itemDesfecho}>· {h.desfecho}</span>
-                            )}{" "}
-                            {h.titulo}
-                          </span>
-                          <span className={styles.itemResumo}>
-                            {/* Procedimento / Zoonose: finalidade específica do
+                                <span
+                                  className={`${styles.itemIcone} ${cfg.css || ""}`}
+                                >
+                                  <Icone size={18} aria-hidden="true" />
+                                </span>
+                                <span className={styles.itemConteudo}>
+                                  <span className={styles.itemTitulo}>
+                                    {cfg.badge ? (
+                                      <span
+                                        className={`${styles.itemBadge} ${cfg.badge}`}
+                                      >
+                                        {cfg.rotulo}
+                                      </span>
+                                    ) : (
+                                      <span className={styles.itemBadgeNeutro}>
+                                        {cfg.rotulo}
+                                      </span>
+                                    )}{" "}
+                                    {h.situacaoCaso && (
+                                      <span
+                                        className={`${styles.situacaoBadge} ${
+                                          h.situacaoCaso === "ENCERRADO"
+                                            ? styles.situacaoEncerrado
+                                            : styles.situacaoEmAndamento
+                                        }`}
+                                      >
+                                        {h.situacaoLabel ||
+                                          (h.situacaoCaso === "ENCERRADO"
+                                            ? "Encerrado"
+                                            : "Em andamento")}
+                                      </span>
+                                    )}{" "}
+                                    {h.situacaoCaso === "ENCERRADO" &&
+                                      h.desfecho && (
+                                        <span className={styles.itemDesfecho}>
+                                          · {h.desfecho}
+                                        </span>
+                                      )}{" "}
+                                    {tipoAtend && tipoAtend !== "Procedimento"
+                                      ? `${tipoAtend} · `
+                                      : ""}
+                                    {h.titulo}
+                                  </span>
+                                  <span className={styles.itemResumo}>
+                                    {/* Procedimento / Zoonose: finalidade específica do
                                 atendimento, identificada automaticamente. */}
-                            {h.finalidade && (
-                              <span className={styles.itemFinalidade}>{h.finalidade}</span>
-                            )}
-                            {h.titulo === "Visita de acompanhamento" && h.subtitulo
-                              ? `${h.finalidade ? " · " : ""}Fiscalização ${h.subtitulo}${
-                                  h.resumo ? ` · ${h.resumo}` : ""
-                                }`
-                              : (h.finalidade ? " · " : "") +
-                                (h.resumo || h.subtitulo || "Sem detalhes adicionais")}
-                          </span>
-                        </span>
-                        <span className={styles.itemData}>{formatarData(h.data)}</span>
-                        <ChevronRight size={16} aria-hidden="true" color="#94a3b8" />
-                      </button>
+                                    {h.finalidade && (
+                                      <span className={styles.itemFinalidade}>
+                                        {h.finalidade}
+                                      </span>
+                                    )}
+                                    {h.titulo === "Visita de acompanhamento" &&
+                                    h.subtitulo
+                                      ? `${h.finalidade ? " · " : ""}Fiscalização ${h.subtitulo}${
+                                          h.resumo ? ` · ${h.resumo}` : ""
+                                        }`
+                                      : (h.finalidade ? " · " : "") +
+                                        (h.resumo ||
+                                          h.subtitulo ||
+                                          "Sem detalhes adicionais")}
+                                  </span>
+                                </span>
+                                <span className={styles.itemData}>
+                                  {formatarData(h.data)}
+                                </span>
+                                <ChevronRight
+                                  size={16}
+                                  aria-hidden="true"
+                                  color="#94a3b8"
+                                />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
@@ -416,10 +530,17 @@ export default function FichaAnimalCompleta({
             </div>
             <div className={styles.detalheCorpo}>
               {(registro.detalhes || []).length === 0 ? (
-                <p className={styles.detalheVazio}>Nenhum detalhe registrado.</p>
+                <p className={styles.detalheVazio}>
+                  Nenhum detalhe registrado.
+                </p>
               ) : (
                 (registro.detalhes || []).map((d) => (
-                  <Campo key={d.rotulo} rotulo={d.rotulo} valor={d.valor} largo={d.largo} />
+                  <Campo
+                    key={d.rotulo}
+                    rotulo={d.rotulo}
+                    valor={d.valor}
+                    largo={d.largo}
+                  />
                 ))
               )}
             </div>
@@ -434,7 +555,9 @@ function Campo({ rotulo, valor, largo = false }) {
   return (
     <div className={`${styles.campo} ${largo ? styles.campoLargo : ""}`}>
       <label>{rotulo}</label>
-      <div className={styles.campoValor}>{String(valor || "").trim() || "—"}</div>
+      <div className={styles.campoValor}>
+        {String(valor || "").trim() || "—"}
+      </div>
     </div>
   );
 }

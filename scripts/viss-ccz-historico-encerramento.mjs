@@ -183,6 +183,32 @@ marcar("visitas não herdam o encerramento posterior",
 marcar("visita de esporotricose exibe 'Procedimento / Zoonose' = Esporotricose",
   espVisitas.length > 0 && espVisitas.every((i) => /Esporotricose/.test(i.texto)),
   espVisitas.map((i) => i.texto.slice(0, 60)).join(" || "));
+
+// Agrupamento: visitas de retorno dentro do grupo da zoonose de origem.
+const gruposTela = await page.evaluate(() =>
+  [...document.querySelectorAll('[class*="_grupoHistorico"]')].map((g) => ({
+    titulo: g.querySelector('[class*="_grupoTitulo"]')?.innerText.replace(/\n/g, " ") || "",
+    itens: [...g.querySelectorAll('[class*="_itemHistorico"]')].map((i) => i.innerText.replace(/\n/g, " | ")),
+  })),
+);
+console.log("   [grupos]", JSON.stringify(gruposTela.map((g) => [g.titulo, g.itens.length])));
+marcar("histórico não tem categoria separada 'Visitas de Acompanhamento'",
+  !gruposTela.some((g) => /Visitas de Acompanhamento/i.test(g.titulo)));
+const grupoEsporo = gruposTela.find((g) => /^Esporotricose/i.test(g.titulo));
+marcar("visitas de retorno aparecem dentro do grupo Esporotricose",
+  Boolean(grupoEsporo) && grupoEsporo.itens.some((t) => /Retorno/.test(t)),
+  grupoEsporo ? `${grupoEsporo.itens.length} item(ns)` : "sem grupo");
+const totalTela = gruposTela.reduce((n, g) => n + g.itens.length, 0);
+const noBanco = Number((await db.query(
+  `SELECT (SELECT COUNT(*) FROM ccz_esporotricose_visitas v JOIN ccz_esporotricose e ON e.id=v.esporotricose_id WHERE e.animal_id=$1)
+        + (SELECT COUNT(*) FROM ccz_esporotricose WHERE animal_id=$1)
+        + (SELECT COUNT(*) FROM ccz_leishmaniose WHERE animal_id=$1)
+        + (SELECT COUNT(*) FROM ccz_procedimentos WHERE animal_id=$1)
+        + (SELECT COUNT(*) FROM ccz_denuncias WHERE animal_id=$1) AS t`,
+  [await page.evaluate(() => document.querySelector('[class*="_ficha"]')?.innerText.match(/\(([^)]+)\)/)?.[1] || "")],
+)).rows[0].t || 0);
+marcar("todos os registros aparecem uma única vez (sem duplicar/omitir)",
+  totalTela === itens.length, `tela:${totalTela} lidos:${itens.length} banco(animal):${noBanco}`);
 marcar("visita informa a fiscalização de origem",
   espVisitas.every((i) => /Fiscalização\s+ESP-[A-Z0-9]+/.test(i.texto)),
   espVisitas.map((i) => i.texto.slice(0, 60)).join(" || "));
@@ -239,10 +265,17 @@ while (true) {
   pos = fim + 9;
 }
 const textoPdf = Buffer.concat(partes).toString("latin1");
-const temColuna = /PROCEDIMENTO \/ ZOONOSE/.test(textoPdf);
+const temColuna = /TIPO DE ATENDIMENTO/.test(textoPdf);
 const temEsporo = /Esporotricose/.test(textoPdf);
-marcar("PDF traz a coluna 'Procedimento / Zoonose'", temColuna, temColuna ? "presente" : "ausente");
+const semTabelaVisitas = !/VISITAS DE ACOMPANHAMENTO/.test(textoPdf);
+marcar("PDF traz a coluna 'Tipo de Atendimento'", temColuna, temColuna ? "presente" : "ausente");
 marcar("PDF traz a finalidade da visita (Esporotricose)", temEsporo, temEsporo ? "presente" : "ausente");
+marcar("PDF sem a tabela independente 'Visitas de Acompanhamento'", semTabelaVisitas,
+  semTabelaVisitas ? "ausente" : "presente");
+const qtdRetorno = (textoPdf.match(/\(Retorno\) Tj/g) || []).length;
+const qtdFiscEsporo = (textoPdf.match(/\(Fiscalização\) Tj/g) || []).length;
+marcar("PDF traz os retornos dentro da tabela de esporotricose",
+  qtdRetorno > 0 && qtdFiscEsporo > 0, `retornos:${qtdRetorno} fiscalizações:${qtdFiscEsporo}`);
 await page.screenshot({ path: `${OUT}/3-historico-com-badges-1440.png` });
 
 passo("6. Mobile 390px");

@@ -285,54 +285,38 @@ export async function gerarHistoricoCompletoPdf(dados) {
         resumo: p.descricao || "",
       }));
 
-  const porData = (a, b) => String(b.data || "").localeCompare(String(a.data || ""));
-  const grupo = (origem) =>
-    registros.filter((r) => r.origem === origem).sort(porData);
+  const porData = (a, b) => String(b.data || "").localeCompare(String(b.data || ""));
+  // Cada origem reúne o registro inicial E os retornos que dela nasceram: a
+  // visita de acompanhamento da esporotricose entra na tabela de esporotricose
+  // (nunca em tabela própria). Visita sem origem confiável fica de fora.
+  const grupo = (origens) => {
+    const lista = Array.isArray(origens) ? origens : [origens];
+    return registros.filter((r) => lista.includes(r.origem)).sort(porData);
+  };
+  // Tipo de atendimento: registro inicial x retorno.
+  const tipoAtendimento = (r) => {
+    if (r.origem === "ESPORO_VISITA") return "Retorno";
+    if (r.origem === "ESPOROTRICOSE" || r.origem === "LEISHMANIOSE") return "Fiscalização";
+    if (r.origem === "PROCEDIMENTO") return "Procedimento";
+    return "—";
+  };
 
   const TIPOS = [
-    {
-      origem: "ESPORO_VISITA",
-      titulo: "Visitas de Acompanhamento",
-      vazio: "Nenhuma visita de acompanhamento registrada.",
-      colunas: [
-        { titulo: "Data", largura: 0.9, chave: "data" },
-        // Procedimento / Zoonose: finalidade específica da visita.
-        { titulo: "Procedimento / Zoonose", largura: 1.7, chave: "finalidade" },
-        // Vínculo explícito: a visita pertence a UMA fiscalização.
-        { titulo: "Fiscalização", largura: 1.5, chave: "registro" },
-        { titulo: "Responsável", largura: 1.8, chave: "responsavel" },
-        { titulo: "Observação / Resumo", largura: 3.4, chave: "resumo" },
-      ],
-      montar: (r) => ({
-        data: formatarData(r.data),
-        finalidade: r.finalidade || "—",
-        registro: r.vinculo
-          ? `Fiscalização ${r.vinculo}`
-          : valorDetalhe(r, "Fiscalização de origem") || r.subtitulo || "—",
-        responsavel:
-          valorDetalhe(r, "Profissional responsável") ||
-          valorDetalhe(r, "Fiscal responsável") ||
-          "—",
-        resumo:
-          valorDetalhe(r, "Observações gerais") ||
-          valorDetalhe(r, "Observação") ||
-          r.resumo ||
-          "—",
-      }),
-    },
     {
       origem: "PROCEDIMENTO",
       titulo: "Procedimentos",
       vazio: "Nenhum procedimento registrado.",
       colunas: [
-        { titulo: "Data", largura: 1.1, chave: "data" },
-        { titulo: "Tipo de Procedimento", largura: 2, chave: "tipo" },
-        { titulo: "Situação", largura: 1.2, chave: "situacao" },
-        { titulo: "Responsável", largura: 2.2, chave: "responsavel" },
-        { titulo: "Descrição / Medicação", largura: 3, chave: "descricao" },
+        { titulo: "Data", largura: 0.9, chave: "data" },
+        { titulo: "Tipo de Atendimento", largura: 1.3, chave: "atendimento" },
+        { titulo: "Tipo de Procedimento", largura: 1.9, chave: "tipo" },
+        { titulo: "Situação", largura: 1.1, chave: "situacao" },
+        { titulo: "Responsável", largura: 2, chave: "responsavel" },
+        { titulo: "Descrição / Medicação", largura: 2.6, chave: "descricao" },
       ],
       montar: (r) => ({
         data: formatarData(r.data),
+        atendimento: tipoAtendimento(r),
         tipo: r.titulo || "—",
         situacao: r.subtitulo || "—",
         responsavel: valorDetalhe(r, "Veterinário responsável"),
@@ -345,18 +329,20 @@ export async function gerarHistoricoCompletoPdf(dados) {
       }),
     },
     {
-      origem: "ESPOROTRICOSE",
+      origem: ["ESPOROTRICOSE", "ESPORO_VISITA"],
       titulo: "Esporotricose",
       vazio: "Nenhum registro de esporotricose.",
       colunas: [
-        { titulo: "Data", largura: 1.1, chave: "data" },
-        { titulo: "Acompanhamento", largura: 1.5, chave: "situacao" },
-        { titulo: "Fiscal Responsável", largura: 1.7, chave: "responsavel" },
-        { titulo: "Lesões / Tratamento", largura: 2.1, chave: "clinico" },
-        { titulo: "Conclusão Técnica da Visita", largura: 2.6, chave: "tecnica" },
+        { titulo: "Data", largura: 0.9, chave: "data" },
+        { titulo: "Tipo de Atendimento", largura: 1.2, chave: "atendimento" },
+        { titulo: "Acompanhamento", largura: 1.4, chave: "situacao" },
+        { titulo: "Fiscal / Responsável", largura: 1.6, chave: "responsavel" },
+        { titulo: "Lesões / Tratamento", largura: 1.9, chave: "clinico" },
+        { titulo: "Conclusão Técnica da Visita", largura: 2.4, chave: "tecnica" },
       ],
       montar: (r) => ({
         data: formatarData(r.data),
+        atendimento: tipoAtendimento(r),
         // Situação do acompanhamento + desfecho final (distintos da
         // conclusão clínica registrada na fiscalização).
         situacao: [
@@ -365,14 +351,23 @@ export async function gerarHistoricoCompletoPdf(dados) {
         ]
           .filter((v) => v && v !== "—")
           .join(" · "),
-        responsavel: valorDetalhe(r, "Fiscal responsável"),
+        responsavel:
+          valorDetalhe(r, "Fiscal responsável") ||
+          valorDetalhe(r, "Profissional responsável") ||
+          "—",
         clinico: [
           valorDetalhe(r, "Apresenta lesões"),
           valorDetalhe(r, "Em tratamento veterinário"),
         ]
           .filter((v) => v && v !== "—")
           .join(" · "),
-        tecnica: valorDetalhe(r, "Conclusão técnica") || r.resumo || "",
+        // Na visita, a conclusão é a observação do acompanhamento; na
+        // fiscalização, a conclusão técnica registrada.
+        tecnica:
+          valorDetalhe(r, "Conclusão técnica") ||
+          valorDetalhe(r, "Observações gerais") ||
+          r.resumo ||
+          "—",
       }),
     },
     {
@@ -381,16 +376,15 @@ export async function gerarHistoricoCompletoPdf(dados) {
       vazio: "Nenhuma fiscalização de leishmaniose.",
       colunas: [
         { titulo: "Data", largura: 0.9, chave: "data" },
-        // Procedimento / Zoonose: finalidade específica da visita.
-        { titulo: "Procedimento / Zoonose", largura: 1.5, chave: "finalidade" },
-        { titulo: "Situação do Caso", largura: 1.5, chave: "situacao" },
+        { titulo: "Tipo de Atendimento", largura: 1.3, chave: "atendimento" },
+        { titulo: "Situação do Caso", largura: 1.4, chave: "situacao" },
         { titulo: "Responsável", largura: 1.6, chave: "responsavel" },
         { titulo: "Lesões / Tratamento", largura: 1.9, chave: "clinico" },
         { titulo: "Conduta / Encaminhamentos", largura: 2.4, chave: "conduta" },
       ],
       montar: (r) => ({
         data: formatarData(r.data),
-        finalidade: r.finalidade || "—",
+        atendimento: tipoAtendimento(r),
         // Situação do acompanhamento (Em acompanhamento / Encerrado) com o
         // desfecho final; a situação geral da visita continua na coluna de
         // conduta, sem se confundir com o encerramento do caso.
@@ -421,14 +415,16 @@ export async function gerarHistoricoCompletoPdf(dados) {
       titulo: "Denúncias e Outros Acompanhamentos",
       vazio: "Nenhuma denúncia ou acompanhamento vinculado.",
       colunas: [
-        { titulo: "Data", largura: 1.1, chave: "data" },
-        { titulo: "Situação", largura: 1.3, chave: "situacao" },
-        { titulo: "Localização", largura: 2.2, chave: "local" },
+        { titulo: "Data", largura: 0.9, chave: "data" },
+        { titulo: "Tipo de Atendimento", largura: 1.2, chave: "atendimento" },
+        { titulo: "Situação", largura: 1.2, chave: "situacao" },
+        { titulo: "Localização", largura: 2, chave: "local" },
         { titulo: "Causou Risco", largura: 1.2, chave: "risco" },
         { titulo: "Relato", largura: 3.2, chave: "relato" },
       ],
       montar: (r) => ({
         data: formatarData(r.data),
+        atendimento: tipoAtendimento(r),
         situacao: r.subtitulo || "—",
         local: valorDetalhe(r, "Localização"),
         risco: valorDetalhe(r, "Causou risco"),
