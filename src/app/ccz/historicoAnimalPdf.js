@@ -296,13 +296,16 @@ export async function gerarHistoricoCompletoPdf(dados) {
       vazio: "Nenhuma visita de acompanhamento registrada.",
       colunas: [
         { titulo: "Data", largura: 1.1, chave: "data" },
+        // Vínculo explícito: a visita pertence a UMA fiscalização.
         { titulo: "Fiscalização", largura: 1.5, chave: "registro" },
         { titulo: "Responsável", largura: 2, chave: "responsavel" },
         { titulo: "Observação / Resumo", largura: 3.6, chave: "resumo" },
       ],
       montar: (r) => ({
         data: formatarData(r.data),
-        registro: r.subtitulo || "—",
+        registro: r.vinculo
+          ? `Fiscalização ${r.vinculo}`
+          : valorDetalhe(r, "Fiscalização de origem") || r.subtitulo || "—",
         responsavel:
           valorDetalhe(r, "Profissional responsável") ||
           valorDetalhe(r, "Fiscal responsável") ||
@@ -344,14 +347,21 @@ export async function gerarHistoricoCompletoPdf(dados) {
       vazio: "Nenhum registro de esporotricose.",
       colunas: [
         { titulo: "Data", largura: 1.1, chave: "data" },
-        { titulo: "Conclusão", largura: 1.3, chave: "conclusao" },
-        { titulo: "Fiscal Responsável", largura: 1.9, chave: "responsavel" },
-        { titulo: "Lesões / Tratamento", largura: 2.4, chave: "clinico" },
-        { titulo: "Conclusão Técnica", largura: 3, chave: "tecnica" },
+        { titulo: "Acompanhamento", largura: 1.5, chave: "situacao" },
+        { titulo: "Fiscal Responsável", largura: 1.7, chave: "responsavel" },
+        { titulo: "Lesões / Tratamento", largura: 2.1, chave: "clinico" },
+        { titulo: "Conclusão Técnica da Visita", largura: 2.6, chave: "tecnica" },
       ],
       montar: (r) => ({
         data: formatarData(r.data),
-        conclusao: r.subtitulo || "—",
+        // Situação do acompanhamento + desfecho final (distintos da
+        // conclusão clínica registrada na fiscalização).
+        situacao: [
+          valorDetalhe(r, "Situação do caso") || (r.encerrado ? "Encerrado" : "Em andamento"),
+          valorDetalhe(r, "Desfecho do caso"),
+        ]
+          .filter((v) => v && v !== "—")
+          .join(" · "),
         responsavel: valorDetalhe(r, "Fiscal responsável"),
         clinico: [
           valorDetalhe(r, "Apresenta lesões"),
@@ -368,14 +378,22 @@ export async function gerarHistoricoCompletoPdf(dados) {
       vazio: "Nenhuma fiscalização de leishmaniose.",
       colunas: [
         { titulo: "Data", largura: 1.1, chave: "data" },
-        { titulo: "Situação Geral", largura: 2, chave: "situacao" },
-        { titulo: "Responsável", largura: 1.9, chave: "responsavel" },
-        { titulo: "Lesões / Tratamento", largura: 2.4, chave: "clinico" },
-        { titulo: "Conduta / Encaminhamentos", largura: 2.8, chave: "conduta" },
+        { titulo: "Situação do Caso", largura: 1.7, chave: "situacao" },
+        { titulo: "Responsável", largura: 1.7, chave: "responsavel" },
+        { titulo: "Lesões / Tratamento", largura: 2.1, chave: "clinico" },
+        { titulo: "Conduta / Encaminhamentos", largura: 2.6, chave: "conduta" },
       ],
       montar: (r) => ({
         data: formatarData(r.data),
-        situacao: valorDetalhe(r, "Situação geral") || r.subtitulo || "",
+        // Situação do acompanhamento (Em acompanhamento / Encerrado) com o
+        // desfecho final; a situação geral da visita continua na coluna de
+        // conduta, sem se confundir com o encerramento do caso.
+        situacao: [
+          valorDetalhe(r, "Situação do caso") || "Em acompanhamento",
+          valorDetalhe(r, "Desfecho do caso"),
+        ]
+          .filter((v) => v && v !== "—")
+          .join(" · "),
         responsavel: valorDetalhe(r, "Responsável") || valorDetalhe(r, "Responsável pela fiscalização"),
         clinico: [
           valorDetalhe(r, "Apresenta lesões"),
@@ -385,11 +403,8 @@ export async function gerarHistoricoCompletoPdf(dados) {
           .join(" · "),
         conduta: [
           valorDetalhe(r, "Conduta do tutor"),
+          valorDetalhe(r, "Situação geral") && `Situação geral: ${valorDetalhe(r, "Situação geral")}`,
           valorDetalhe(r, "Acompanhamento pelo CCZ"),
-          valorDetalhe(r, "Situação do caso") &&
-            `Caso: ${valorDetalhe(r, "Situação do caso")}${
-              valorDetalhe(r, "Desfecho do caso") ? ` (${valorDetalhe(r, "Desfecho do caso")})` : ""
-            }`,
         ]
           .filter((v) => v && v !== "—")
           .join(" · "),

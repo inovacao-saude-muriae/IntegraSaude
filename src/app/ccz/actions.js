@@ -1143,6 +1143,10 @@ export async function obterFichaCompleta(animalId) {
     }
 
     for (const e of animal.esporotricose || []) {
+      // Situação do ACOMPANHAMENTO (derivada de `encerrado`) é distinta da
+      // conclusão clínica registrada na fiscalização.
+      const encerrado = Boolean(e.encerrado);
+      const situacaoCaso = encerrado ? "Encerrado" : "Em andamento";
       historico.push({
         chave: `ESPOROTRICOSE:${e.id}`,
         origem: "ESPOROTRICOSE",
@@ -1150,12 +1154,22 @@ export async function obterFichaCompleta(animalId) {
         data: ISO_DIA(e.dataVisita),
         tipo: "Esporotricose",
         titulo: "Fiscalização de esporotricose",
-        subtitulo: e.encerrado ? "Encerrado" : "Em andamento",
+        subtitulo: encerrado
+          ? `Encerrado${e.desfecho ? ` — ${e.desfecho}` : ""}`
+          : "Em andamento",
+        // Badge da lista cronológica (nunca substitui a conclusão da visita).
+        situacaoCaso: encerrado ? "ENCERRADO" : "EM_ANDAMENTO",
+        situacaoLabel: situacaoCaso,
+        encerrado,
+        desfecho: e.desfecho || "",
+        dataEncerramento: ISO_DIA(e.dataEncerramento),
+        justificativaEncerramento: e.justificativaEncerramento || "",
         resumo: e.conclusaoTecnica || e.descricaoLesoes || "",
         detalhes: [
           { rotulo: "Data da visita", valor: dataBR(e.dataVisita) },
           { rotulo: "Fiscal responsável", valor: e.fiscalResponsavel || "" },
-          { rotulo: "Conclusão", valor: e.encerrado ? "Encerrado" : "Em andamento" },
+          // Conclusão clínica da VISITA (não é a situação do acompanhamento).
+          { rotulo: "Conclusão técnica", valor: e.conclusaoTecnica || "", largo: true },
           { rotulo: "Apresenta lesões", valor: e.apresentaLesoes || "" },
           { rotulo: "Descrição das lesões", valor: e.descricaoLesoes || "" },
           { rotulo: "Em tratamento veterinário", valor: e.emTratamentoVeterinario || "" },
@@ -1171,15 +1185,26 @@ export async function obterFichaCompleta(animalId) {
           { rotulo: "Descrição dos outros animais", valor: e.outrosAnimaisDescricao || "" },
           { rotulo: "Pessoas com lesões", valor: e.pessoasComLesoes || "" },
           { rotulo: "Descrição das lesões em pessoas", valor: e.pessoasLesoesDescricao || "" },
-          { rotulo: "Conclusão técnica", valor: e.conclusaoTecnica || "", largo: true },
           { rotulo: "Acompanhamento pelo CCZ", valor: e.encAcompanhamentoCcz ? "Sim" : "Não" },
           { rotulo: "Notificação ao tutor", valor: e.encNotificacaoTutor ? "Sim" : "Não" },
           { rotulo: "Encaminhamento ao Ministério Público", valor: e.encMinisterioPublico ? "Sim" : "Não" },
           { rotulo: "Outras medidas", valor: e.outrasMedidasDescricao || (e.encOutrasMedidas ? "Sim" : "Não") },
-          { rotulo: "Data de encerramento", valor: dataBR(e.dataEncerramento) },
-          { rotulo: "Encerrado por", valor: e.encerradoPor || "" },
           { rotulo: "Incinerado", valor: e.incinerado ? "Sim" : "Não" },
           { rotulo: "Data da incineração", valor: dataBR(e.dataIncineracao) },
+          // Situação do acompanhamento + encerramento (sempre ao final).
+          { rotulo: "Situação do caso", valor: situacaoCaso },
+          ...(encerrado
+            ? [
+                { rotulo: "Desfecho do caso", valor: e.desfecho || "" },
+                { rotulo: "Data do encerramento", valor: dataBR(e.dataEncerramento) },
+                { rotulo: "Encerrado por", valor: e.encerradoPor || "" },
+                {
+                  rotulo: "Observação / justificativa do encerramento",
+                  valor: e.justificativaEncerramento || "",
+                  largo: true,
+                },
+              ]
+            : []),
         ],
       });
       // Cada visita de acompanhamento é um atendimento próprio: entra no
@@ -1192,7 +1217,9 @@ export async function obterFichaCompleta(animalId) {
           data: ISO_DIA(v.data),
           tipo: "ESPOROTRICOSE",
           titulo: "Visita de acompanhamento",
+          // A visita é sempre de UMA fiscalização: o vínculo fica explícito.
           subtitulo: e.id,
+          vinculo: e.id,
           resumo: v.relatorio?.observacoesGerais || v.observacao || "",
           detalhes: v.relatorio
             ? [
@@ -1236,6 +1263,13 @@ export async function obterFichaCompleta(animalId) {
           l.situacaoCaso === "ENCERRADO"
             ? `Encerrado${l.desfecho ? ` — ${l.desfecho}` : ""}`
             : l.situacaoGeral || "",
+        // Badge da lista cronológica: situação do acompanhamento.
+        situacaoCaso: l.situacaoCaso === "ENCERRADO" ? "ENCERRADO" : "EM_ACOMPANHAMENTO",
+        situacaoLabel:
+          l.situacaoCaso === "ENCERRADO" ? "Encerrado" : "Em acompanhamento",
+        desfecho: l.desfecho || "",
+        dataEncerramento: ISO_DIA(l.dataEncerramento),
+        justificativaEncerramento: l.justificativaEncerramento || "",
         resumo: l.condicoesObs || l.riscoDescricao || "",
         detalhes: [
           { rotulo: "Data da fiscalização", valor: dataBR(l.dataFiscalizacao) },

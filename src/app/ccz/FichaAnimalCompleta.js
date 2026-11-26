@@ -319,12 +319,13 @@ export default function FichaAnimalCompleta({
                 </div>
               ) : (
                 <div className={styles.listaHistorico}>
-                  {historico.map((h) => {
+                  {historico.map((h, i) => {
                     const cfg = ICONE_TIPO[h.tipo] || ICONE_TIPO.PROCEDIMENTO;
                     const Icone = cfg.Icone;
                     return (
                       <button
                         key={h.chave}
+                        id={`item-${i}`}
                         type="button"
                         className={styles.itemHistorico}
                         onMouseDown={(e) => {
@@ -345,10 +346,31 @@ export default function FichaAnimalCompleta({
                             ) : (
                               <span className={styles.itemBadgeNeutro}>{cfg.rotulo}</span>
                             )}{" "}
+                            {h.situacaoCaso && (
+                              <span
+                                className={`${styles.situacaoBadge} ${
+                                  h.situacaoCaso === "ENCERRADO"
+                                    ? styles.situacaoEncerrado
+                                    : styles.situacaoEmAndamento
+                                }`}
+                              >
+                                {h.situacaoLabel ||
+                                  (h.situacaoCaso === "ENCERRADO"
+                                    ? "Encerrado"
+                                    : "Em andamento")}
+                              </span>
+                            )}{" "}
+                            {h.situacaoCaso === "ENCERRADO" && h.desfecho && (
+                              <span className={styles.itemDesfecho}>· {h.desfecho}</span>
+                            )}{" "}
                             {h.titulo}
                           </span>
                           <span className={styles.itemResumo}>
-                            {h.resumo || h.subtitulo || "Sem detalhes adicionais"}
+                            {h.titulo === "Visita de acompanhamento" && h.subtitulo
+                              ? `Fiscalização ${h.subtitulo}${
+                                  h.resumo ? ` · ${h.resumo}` : ""
+                                }`
+                              : h.resumo || h.subtitulo || "Sem detalhes adicionais"}
                           </span>
                         </span>
                         <span className={styles.itemData}>{formatarData(h.data)}</span>

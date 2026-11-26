@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Filter, SearchX, FileDown, FileText, Ban } from "lucide-react";
 import styles from "../camara-tecnica/processos/ConsultarProcessos.module.css";
 // Badges originais da antiga Lista (CCZ) — cores preservadas por classificação.
@@ -98,8 +98,6 @@ export default function ConsultarEsporotricose() {
     dataEncerramento: "",
     justificativa: "",
   });
-  const [podeEditar, setPodeEditar] = useState(false);
-  const permissoesLidas = useRef(false);
 
   // Mesmas regras do backend: desfecho, data válida e justificativa 15–500.
   const encerramentoValido =
@@ -134,16 +132,6 @@ export default function ConsultarEsporotricose() {
   };
 
   const abrirDetalhe = async (id) => {
-    if (!permissoesLidas.current) {
-      try {
-        const r = await fetch("/api/me", { cache: "no-store" });
-        const data = r.ok ? await r.json() : null;
-        setPodeEditar(Boolean((data?.user?.permissoes || []).includes("zoonoses:editar")));
-      } catch {
-        // fail-closed: sem contexto, a ficha fica somente leitura
-      }
-      permissoesLidas.current = true;
-    }
     setCarregandoDetalhe(true);
     setDetalhe(null);
     const res = await obterEsporotricose(id);
@@ -538,7 +526,10 @@ export default function ConsultarEsporotricose() {
                   >
                     <FileText size={16} /> Gerar Termo
                   </button>
-                  {podeEditar && !detalhe.encerrado && (
+                  {/* Mesma regra da Leishmaniose: o botão depende apenas da
+                      situação do caso; a permissão zoonoses:editar é exigida
+                      no backend ao confirmar. */}
+                  {!detalhe.encerrado && (
                     <button type="button" className={styles.btnEncerrar} onClick={abrirEncerramento}>
                       <Ban size={16} /> Encerrar Caso
                     </button>

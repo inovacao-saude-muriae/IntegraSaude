@@ -169,7 +169,13 @@ const rolagem = await page.evaluate(() => {
 log.push(`   painel de detalhe: ${JSON.stringify(rolagem)}`);
 log.push(`   sem botões de editar/excluir na tabela: ${!(await page.locator("tbody button").count())}`);
 await page.screenshot({ path: `${OUT}/5-detalhe-1440.png` });
-await page.getByRole("button", { name: /Fechar/ }).last().click();
+await page.evaluate(() => {
+  const painel = document.querySelector('[class*="_painelDetalhe"]');
+  const btn =
+    (painel && painel.querySelector('[class*="_acoesDetalhe"] button:last-child')) ||
+    [...document.querySelectorAll("button")].find((b) => b.innerText.trim() === "Fechar");
+  if (btn) btn.click();
+});
 await page.waitForTimeout(600);
 
 passo("11. Paginação de 100 no backend");

@@ -536,6 +536,49 @@
   border-color: #ddd6fe;
 }
 
+/* Situação do acompanhamento (Leishmaniose/Esporotricose) na lista
+   cronológica: verde = em andamento/acompanhamento, vermelho = encerrado.
+   Mesmas cores dos badges da tabela de consulta (ListaCCZ.module.css). */
+.situacaoBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.situacaoEmAndamento {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.situacaoEncerrado {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+/* Fiscalização de origem de cada visita de acompanhamento. */
+.itemVinculo {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #6d28d9;
+}
+
+/* Desfecho final do caso, exibido junto da situação quando encerrado. */
+.itemDesfecho {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #64748b;
+  margin-left: 0.15rem;
+}
+
 .itemTitulo {
   font-size: 0.88rem;
   font-weight: 600;
