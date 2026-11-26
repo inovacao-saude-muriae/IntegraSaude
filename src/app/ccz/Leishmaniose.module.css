@@ -161,6 +161,67 @@ input.campoInativo:read-only {
   align-items: start;
 }
 
+/* Pergunta + campo complementar na MESMA linha (CSS Grid): a pergunta ocupa
+   a coluna do bloco e o complemento cresce ao lado, alinhado pelo rodapé do
+   rótulo. Em telas menores o complemento desce para a linha de baixo. */
+.linhaCondicional {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+  gap: 0.75rem 0.9rem;
+  align-items: start;
+  margin-bottom: 0.75rem;
+}
+
+.linhaCondicional > :global([class*="_field"]) {
+  grid-column: auto;
+}
+
+/* Complemento curto (data, sim/não): fica com a largura do conteúdo. */
+.linhaCondicional.complementoCurto {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.7fr);
+}
+
+@media (max-width: 900px) {
+  .linhaCondicional,
+  .linhaCondicional.complementoCurto {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Campo complementar exibido dentro da lista de opções (ex.: data do retorno
+   ao CCZ): fica na mesma linha da opção que o originou. */
+.campoCheck {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.9rem;
+}
+
+.campoCheck label {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #334155;
+  white-space: nowrap;
+}
+
+.campoCheck input[type="date"] {
+  padding: 0.42rem 0.6rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-family: inherit;
+  background: #fff;
+  color: #1e293b;
+}
+
+.campoCheck input[type="date"]:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
 .req {
   color: #dc2626;
 }

@@ -373,6 +373,13 @@ export default function ConsultarProcedimentos() {
                     <Campo label="Responsável" valor={detalhe.veterinario} css={styles} />
                     <Campo label="Data de Retorno" valor={formatarData(detalhe.dataRetorno)} css={styles} />
                     <Campo label="Identificador" valor={detalhe.id} css={styles} />
+                    {detalhe.origemRetorno && (
+                      <Campo
+                        label="Origem do acompanhamento"
+                        valor={`${detalhe.origemRetorno.zoonose} · fiscalização ${detalhe.origemRetorno.fiscalizacaoId}`}
+                        css={styles}
+                      />
+                    )}
                     <Campo label="Descrição" valor={detalhe.descricao} css={styles} largo />
                     <Campo
                       label="Medicação prescrita"

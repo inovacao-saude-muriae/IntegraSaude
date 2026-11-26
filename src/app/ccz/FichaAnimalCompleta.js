@@ -119,7 +119,8 @@ const GRUPOS = [
 ];
 
 const grupoDoRegistro = (h) => {
-  if (h.origem === "LEISHMANIOSE") return "LEISHMANIOSE";
+  if (h.origem === "LEISHMANIOSE" || h.origem === "LEISHMANIOSE_RETORNO")
+    return "LEISHMANIOSE";
   if (h.origem === "ESPOROTRICOSE" || h.origem === "ESPORO_VISITA")
     return "ESPOROTRICOSE";
   if (h.origem === "PROCEDIMENTO") return "PROCEDIMENTO";
@@ -128,7 +129,8 @@ const grupoDoRegistro = (h) => {
 
 // Tipo de atendimento exibido em cada item do grupo.
 const tipoAtendimento = (h) => {
-  if (h.origem === "ESPORO_VISITA") return "Retorno";
+  if (h.origem === "ESPORO_VISITA" || h.origem === "LEISHMANIOSE_RETORNO")
+    return "Retorno";
   if (h.origem === "ESPOROTRICOSE" || h.origem === "LEISHMANIOSE")
     return "Fiscalização";
   if (h.origem === "PROCEDIMENTO") return "Procedimento";

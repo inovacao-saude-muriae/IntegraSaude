@@ -23,6 +23,11 @@ import { prisma } from "@/lib/prisma";
 import { requireAcessoModulo, requirePermissao } from "@/lib/auth";
 import { MODULOS, usuarioTemPermissao } from "@/lib/permissions";
 import { registrarAuditoria } from "@/lib/audit";
+import {
+  RETORNO_LEISHMANIOSE,
+  agendarRetorno,
+  concluirRetorno,
+} from "./retornosCcz";
 import { Prisma } from "@prisma/client";
 
 const FUNCIONALIDADE = "zoonoses";
@@ -30,7 +35,10 @@ const FUNCIONALIDADE = "zoonoses";
 // Situação do caso (acompanhamento) e desfecho. Todo registro novo nasce
 // EM_ACOMPANHAMENTO; o desfecho é SEMPRE informado pelo profissional.
 // (Não exportado: arquivo "use server" só pode exportar funções assíncronas.)
-const SITUACAO_CASO = { EM_ACOMPANHAMENTO: "EM_ACOMPANHAMENTO", ENCERRADO: "ENCERRADO" };
+const SITUACAO_CASO = {
+  EM_ACOMPANHAMENTO: "EM_ACOMPANHAMENTO",
+  ENCERRADO: "ENCERRADO",
+};
 const DESFECHO_CASO = ["Curado", "Incinerado"];
 const PAGINA_TAMANHO = 100;
 const FUSO_OFFSET_MS = 3 * 60 * 60 * 1000;
@@ -44,10 +52,18 @@ const opcional = (v) => {
 function responder(erro) {
   const status = erro?.status || 500;
   if (status >= 400 && status < 500) {
-    return { success: false, error: erro?.message || "Requisição inválida.", status };
+    return {
+      success: false,
+      error: erro?.message || "Requisição inválida.",
+      status,
+    };
   }
   console.error("[Leishmaniose] erro:", erro);
-  return { success: false, error: "Erro ao processar a solicitação.", status: 500 };
+  return {
+    success: false,
+    error: "Erro ao processar a solicitação.",
+    status: 500,
+  };
 }
 
 function dataOuNull(valor) {
@@ -60,7 +76,9 @@ function dataOuNull(valor) {
 function diaLocalParaUtc(valor, limite) {
   const d = dataOuNull(valor);
   if (!d) return null;
-  return new Date(d.getTime() - FUSO_OFFSET_MS + (limite === "fim" ? 86400000 - 1 : 0));
+  return new Date(
+    d.getTime() - FUSO_OFFSET_MS + (limite === "fim" ? 86400000 - 1 : 0),
+  );
 }
 
 function formatarEndereco(e) {
@@ -85,15 +103,29 @@ const SIM_NAO = (v, permitidos) => {
 // presumir que todo usuário seja.
 export async function obterDadosFormularioLeishmaniose() {
   try {
-    const user = await requirePermissao(MODULOS.CCZ, FUNCIONALIDADE, "visualizar");
+    const user = await requirePermissao(
+      MODULOS.CCZ,
+      FUNCIONALIDADE,
+      "visualizar",
+    );
 
     const registro = await prisma.user.findUnique({
       where: { cpf: user.cpf },
       select: { cpf: true, nome: true, cargo: true },
     });
 
-    const podeCriar = await usuarioTemPermissao(user, MODULOS.CCZ, FUNCIONALIDADE, "criar");
-    const podeEditar = await usuarioTemPermissao(user, MODULOS.CCZ, FUNCIONALIDADE, "editar");
+    const podeCriar = await usuarioTemPermissao(
+      user,
+      MODULOS.CCZ,
+      FUNCIONALIDADE,
+      "criar",
+    );
+    const podeEditar = await usuarioTemPermissao(
+      user,
+      MODULOS.CCZ,
+      FUNCIONALIDADE,
+      "editar",
+    );
 
     return {
       success: true,
@@ -123,8 +155,16 @@ export async function buscarAnimaisLeishmaniose(termo = "") {
               { nome: { contains: t, mode: "insensitive" } },
               { id: { contains: t, mode: "insensitive" } },
               { especie: { contains: t, mode: "insensitive" } },
-              { tutor: { pessoa: { nomeCompleto: { contains: t, mode: "insensitive" } } } },
-              { tutor: { pessoa: { cpf: { contains: t.replace(/\D/g, "") } } } },
+              {
+                tutor: {
+                  pessoa: {
+                    nomeCompleto: { contains: t, mode: "insensitive" },
+                  },
+                },
+              },
+              {
+                tutor: { pessoa: { cpf: { contains: t.replace(/\D/g, "") } } },
+              },
             ],
           }
         : {},
@@ -133,7 +173,9 @@ export async function buscarAnimaisLeishmaniose(termo = "") {
       include: {
         tutor: {
           include: {
-            pessoa: { include: { enderecos: { where: { enderecoAtual: true } } } },
+            pessoa: {
+              include: { enderecos: { where: { enderecoAtual: true } } },
+            },
           },
         },
       },
@@ -179,7 +221,12 @@ function normalizarEquipe(lista, responsavel) {
     .map((l) => ({ nome: texto(l?.nome), cargo: opcional(l?.cargo) }))
     .filter((l) => l.nome)
     .slice(0, 20)
-    .map((l, i) => ({ ...l, ordem: i + 1, usuarioCpf: null, naoRemovivel: false }));
+    .map((l, i) => ({
+      ...l,
+      ordem: i + 1,
+      usuarioCpf: null,
+      naoRemovivel: false,
+    }));
 
   return [
     {
@@ -217,19 +264,23 @@ export async function salvarLeishmaniose(dados = {}) {
     }
 
     const animalId = texto(dados.animalId);
-    if (!animalId) return { success: false, error: "Selecione o animal da fiscalização." };
+    if (!animalId)
+      return { success: false, error: "Selecione o animal da fiscalização." };
 
     const animal = await prisma.animal.findUnique({
       where: { id: animalId },
       include: {
         tutor: {
           include: {
-            pessoa: { include: { enderecos: { where: { enderecoAtual: true } } } },
+            pessoa: {
+              include: { enderecos: { where: { enderecoAtual: true } } },
+            },
           },
         },
       },
     });
-    if (!animal) return { success: false, error: "Animal não encontrado.", status: 404 };
+    if (!animal)
+      return { success: false, error: "Animal não encontrado.", status: 404 };
 
     const dataFiscalizacao = dataOuNull(dados.dataFiscalizacao) || new Date();
     const pessoa = animal.tutor?.pessoa || null;
@@ -246,7 +297,22 @@ export async function salvarLeishmaniose(dados = {}) {
       cargo: opcional(dados.responsavelCargo) || usuario?.cargo || null,
     };
     if (!responsavel.nome) {
-      return { success: false, error: "Não foi possível identificar o usuário responsável." };
+      return {
+        success: false,
+        error: "Não foi possível identificar o usuário responsável.",
+      };
+    }
+
+    // Acompanhamento periódico pelo CCZ exige a data do retorno (ela gera o
+    // agendamento na Agenda do CCZ).
+    const encAcompanhamento = Boolean(dados.encAcompanhamento);
+    const retornoCcz = dataOuNull(dados.retornoData);
+    if (encAcompanhamento && !retornoCcz) {
+      return {
+        success: false,
+        error: "Informe a data do retorno ao CCZ.",
+        status: 400,
+      };
     }
 
     const semTutor = !pessoa;
@@ -269,7 +335,12 @@ export async function salvarLeishmaniose(dados = {}) {
       // Snapshot do animal.
       animalNome: animal.nome || null,
       animalEspecie: animal.especie || null,
-      animalSexo: animal.sexo === "F" ? "Fêmea" : animal.sexo === "M" ? "Macho" : animal.sexo || null,
+      animalSexo:
+        animal.sexo === "F"
+          ? "Fêmea"
+          : animal.sexo === "M"
+            ? "Macho"
+            : animal.sexo || null,
       animalIdade: animal.idade || null,
       // Raça/Pelagem e identificação são dados cadastrais: vêm sempre do
       // cadastro central do animal (nunca editáveis na fiscalização).
@@ -283,11 +354,15 @@ export async function salvarLeishmaniose(dados = {}) {
       tratamentoInicio: dataOuNull(dados.tratamentoInicio),
       profissionalRef: opcional(dados.profissionalRef),
       medicamentos: opcional(dados.medicamentos),
-      posologiaCorreta: SIM_NAO(dados.posologiaCorreta, ["Sim", "Não", "Parcialmente"]),
+      posologiaCorreta: SIM_NAO(dados.posologiaCorreta, [
+        "Sim",
+        "Não",
+        "Parcialmente",
+      ]),
       interrupcao: SIM_NAO(dados.interrupcao, ["Sim", "Não"]),
       interrupcaoMotivo: opcional(dados.interrupcaoMotivo),
       retornoVeterinario: SIM_NAO(dados.retornoVeterinario, ["Sim", "Não"]),
-      retornoData: dataOuNull(dados.retornoData),
+      retornoData: retornoCcz,
 
       // 4. Manejo e biossegurança
       coleiraRepelente: SIM_NAO(dados.coleiraRepelente, ["Sim", "Não"]),
@@ -301,33 +376,59 @@ export async function salvarLeishmaniose(dados = {}) {
       // 5. Outros animais e pessoas
       outrosAnimais: SIM_NAO(dados.outrosAnimais, ["Sim", "Não"]),
       outrosAnimaisDesc: opcional(dados.outrosAnimaisDesc),
-      outrosComLesoes: SIM_NAO(dados.outrosComLesoes, ["Sim", "Não", "Não Avaliado"]),
+      outrosComLesoes: SIM_NAO(dados.outrosComLesoes, [
+        "Sim",
+        "Não",
+        "Não Avaliado",
+      ]),
       pessoasComLesoes: SIM_NAO(dados.pessoasComLesoes, ["Sim", "Não"]),
       pessoasOrientadas: SIM_NAO(dados.pessoasOrientadas, ["Sim", "Não"]),
 
       // 6. Condições do ambiente
-      condicoesSanitarias: SIM_NAO(dados.condicoesSanitarias, ["Boas", "Regulares", "Ruins"]),
+      condicoesSanitarias: SIM_NAO(dados.condicoesSanitarias, [
+        "Boas",
+        "Regulares",
+        "Ruins",
+      ]),
       condicoesObs: opcional(dados.condicoesObs),
       riscoDisseminacao: SIM_NAO(dados.riscoDisseminacao, ["Sim", "Não"]),
       riscoSaudePublica: SIM_NAO(dados.riscoSaudePublica, ["Sim", "Não"]),
       riscoDescricao: opcional(dados.riscoDescricao),
 
       // 7. Orientações e comprometimento (somente com tutor)
-      orientZoonose: semTutor ? null : SIM_NAO(dados.orientZoonose, ["Sim", "Não"]),
-      orientTratamento: semTutor ? null : SIM_NAO(dados.orientTratamento, ["Sim", "Não"]),
-      orientColeira: semTutor ? null : SIM_NAO(dados.orientColeira, ["Sim", "Não"]),
-      orientNovasLesoes: semTutor ? null : SIM_NAO(dados.orientNovasLesoes, ["Sim", "Não"]),
-      orientObrigacoes: semTutor ? null : SIM_NAO(dados.orientObrigacoes, ["Sim", "Não"]),
-      comprometimento: semTutor ? null : SIM_NAO(dados.comprometimento, ["Sim", "Parcialmente", "Não"]),
+      orientZoonose: semTutor
+        ? null
+        : SIM_NAO(dados.orientZoonose, ["Sim", "Não"]),
+      orientTratamento: semTutor
+        ? null
+        : SIM_NAO(dados.orientTratamento, ["Sim", "Não"]),
+      orientColeira: semTutor
+        ? null
+        : SIM_NAO(dados.orientColeira, ["Sim", "Não"]),
+      orientNovasLesoes: semTutor
+        ? null
+        : SIM_NAO(dados.orientNovasLesoes, ["Sim", "Não"]),
+      orientObrigacoes: semTutor
+        ? null
+        : SIM_NAO(dados.orientObrigacoes, ["Sim", "Não"]),
+      comprometimento: semTutor
+        ? null
+        : SIM_NAO(dados.comprometimento, ["Sim", "Parcialmente", "Não"]),
 
       // 8. Conclusão da equipe técnica
-      condutaTutor: semTutor ? null : SIM_NAO(dados.condutaTutor, ["Adequada", "Parcialmente adequada", "Inadequada"]),
+      condutaTutor: semTutor
+        ? null
+        : SIM_NAO(dados.condutaTutor, [
+            "Adequada",
+            "Parcialmente adequada",
+            "Inadequada",
+          ]),
       situacaoGeral: SIM_NAO(dados.situacaoGeral, [
         "Animal sob tratamento e isolamento adequados",
         "Animal em risco, requer reforço de conduta",
         "Risco à saúde pública, encaminhamentos necessários",
       ]),
-      encAcompanhamento: Boolean(dados.encAcompanhamento),
+      encAcompanhamento,
       encNotificacao: semTutor ? false : Boolean(dados.encNotificacao),
       encOutrasMedidas: Boolean(dados.encOutrasMedidas),
       encOutrasDescricao: opcional(dados.encOutrasDescricao),
@@ -345,22 +446,76 @@ export async function salvarLeishmaniose(dados = {}) {
     const salvo = await prisma.$transaction(async (tx) => {
       let registro;
       if (idExistente) {
-        const atual = await tx.leishmaniose.findUnique({ where: { id: idExistente } });
-        if (!atual) throw Object.assign(new Error("Fiscalização não encontrada."), { status: 404 });
-        registro = await tx.leishmaniose.update({ where: { id: idExistente }, data: base });
-        await tx.leishmanioseEquipe.deleteMany({ where: { leishmanioseId: idExistente } });
-        await tx.leishmanioseVeterinario.deleteMany({ where: { leishmanioseId: idExistente } });
+        const atual = await tx.leishmaniose.findUnique({
+          where: { id: idExistente },
+        });
+        if (!atual)
+          throw Object.assign(new Error("Fiscalização não encontrada."), {
+            status: 404,
+          });
+        registro = await tx.leishmaniose.update({
+          where: { id: idExistente },
+          data: base,
+        });
+        await tx.leishmanioseEquipe.deleteMany({
+          where: { leishmanioseId: idExistente },
+        });
+        await tx.leishmanioseVeterinario.deleteMany({
+          where: { leishmanioseId: idExistente },
+        });
       } else {
-        registro = await tx.leishmaniose.create({ data: { id: randomUUID(), ...base } });
+        registro = await tx.leishmaniose.create({
+          data: { id: randomUUID(), ...base },
+        });
       }
 
       await tx.leishmanioseEquipe.createMany({
-        data: equipe.map((l) => ({ id: randomUUID(), leishmanioseId: registro.id, ...l })),
+        data: equipe.map((l) => ({
+          id: randomUUID(),
+          leishmanioseId: registro.id,
+          ...l,
+        })),
       });
       if (veterinarios.length) {
         await tx.leishmanioseVeterinario.createMany({
-          data: veterinarios.map((l) => ({ id: randomUUID(), leishmanioseId: registro.id, ...l })),
+          data: veterinarios.map((l) => ({
+            id: randomUUID(),
+            leishmanioseId: registro.id,
+            ...l,
+          })),
         });
+      }
+
+      // AGENDA DO CCZ: o "Acompanhamento periódico pelo CCZ" com data de
+      // retorno gera um agendamento ligado a ESTA fiscalização. A data fica
+      // em data_retorno do procedimento, que é o vínculo com a origem.
+      const diaRetorno = base.retornoData;
+      if (base.encAcompanhamento && diaRetorno) {
+        const agora = new Date();
+        const hoje = Date.UTC(
+          agora.getFullYear(),
+          agora.getMonth(),
+          agora.getDate(),
+        );
+        if (diaRetorno.getTime() < hoje) {
+          await concluirRetorno(tx, {
+            animalId: registro.animalId,
+            tipo: RETORNO_LEISHMANIOSE,
+            data: dados.retornoData,
+            origemId: registro.id,
+            veterinario: registro.responsavelNome,
+            descricao: "Retorno de acompanhamento de leishmaniose",
+          });
+        } else {
+          await agendarRetorno(tx, {
+            animalId: registro.animalId,
+            tipo: RETORNO_LEISHMANIOSE,
+            data: dados.retornoData,
+            origemId: registro.id,
+            veterinario: registro.responsavelNome,
+            descricao: "Retorno de acompanhamento de leishmaniose",
+          });
+        }
       }
       return registro;
     });
@@ -410,11 +565,17 @@ export async function listarLeishmaniose(filtros = {}) {
     const situacao = texto(filtros.situacaoGeral);
     if (situacao) condicoes.push(Prisma.sql`f.situacao_geral = ${situacao}`);
     const situacaoCaso = texto(filtros.situacaoCaso);
-    if (situacaoCaso) condicoes.push(Prisma.sql`f.situacao_caso = ${situacaoCaso}`);
+    if (situacaoCaso)
+      condicoes.push(Prisma.sql`f.situacao_caso = ${situacaoCaso}`);
     const bairro = texto(filtros.bairro);
-    if (bairro) condicoes.push(Prisma.sql`lower(btrim(COALESCE(f.tutor_bairro, ''))) = lower(${bairro})`);
+    if (bairro)
+      condicoes.push(
+        Prisma.sql`lower(btrim(COALESCE(f.tutor_bairro, ''))) = lower(${bairro})`,
+      );
 
-    const where = condicoes.length ? Prisma.join(condicoes, " AND ") : Prisma.sql`1=1`;
+    const where = condicoes.length
+      ? Prisma.join(condicoes, " AND ")
+      : Prisma.sql`1=1`;
     const pagina = Math.max(1, Number(filtros.pagina) || 1);
     const offset = (pagina - 1) * PAGINA_TAMANHO;
 
@@ -434,9 +595,10 @@ export async function listarLeishmaniose(filtros = {}) {
       success: true,
       data: linhas.map((l) => ({
         id: l.id,
-        dataFiscalizacao: l.data_fiscalizacao instanceof Date
-          ? l.data_fiscalizacao.toISOString().slice(0, 10)
-          : String(l.data_fiscalizacao).slice(0, 10),
+        dataFiscalizacao:
+          l.data_fiscalizacao instanceof Date
+            ? l.data_fiscalizacao.toISOString().slice(0, 10)
+            : String(l.data_fiscalizacao).slice(0, 10),
         animalNome: l.animal_nome || "",
         animalId: l.animal_id,
         tutorNome: l.tutor_nome || "",
@@ -446,7 +608,10 @@ export async function listarLeishmaniose(filtros = {}) {
       })),
       total: Number(total?.[0]?.total || 0),
       pagina,
-      totalPaginas: Math.max(1, Math.ceil(Number(total?.[0]?.total || 0) / PAGINA_TAMANHO)),
+      totalPaginas: Math.max(
+        1,
+        Math.ceil(Number(total?.[0]?.total || 0) / PAGINA_TAMANHO),
+      ),
     };
   } catch (erro) {
     return responder(erro);
@@ -465,7 +630,12 @@ export async function obterLeishmaniose(id) {
         veterinarios: { orderBy: { ordem: "asc" } },
       },
     });
-    if (!f) return { success: false, error: "Fiscalização não encontrada.", status: 404 };
+    if (!f)
+      return {
+        success: false,
+        error: "Fiscalização não encontrada.",
+        status: 404,
+      };
 
     const ymd = (d) => (d ? new Date(d).toISOString().slice(0, 10) : "");
     return {
@@ -507,7 +677,9 @@ export async function historicoLeishmanioseAnimal(animalId) {
       success: true,
       data: registros.map((r) => ({
         id: r.id,
-        dataFiscalizacao: new Date(r.dataFiscalizacao).toISOString().slice(0, 10),
+        dataFiscalizacao: new Date(r.dataFiscalizacao)
+          .toISOString()
+          .slice(0, 10),
         responsavelNome: r.responsavelNome,
         situacaoGeral: r.situacaoGeral || "",
       })),
@@ -526,31 +698,54 @@ export async function encerrarCasoLeishmaniose(dados = {}) {
     const user = await requirePermissao(MODULOS.CCZ, FUNCIONALIDADE, "editar");
 
     const id = texto(dados.id);
-    if (!id) return { success: false, error: "Fiscalização não informada.", status: 400 };
+    if (!id)
+      return {
+        success: false,
+        error: "Fiscalização não informada.",
+        status: 400,
+      };
 
     const desfecho = texto(dados.desfecho);
     if (!DESFECHO_CASO.includes(desfecho)) {
-      return { success: false, error: "Informe o desfecho do caso: Curado ou Incinerado.", status: 400 };
+      return {
+        success: false,
+        error: "Informe o desfecho do caso: Curado ou Incinerado.",
+        status: 400,
+      };
     }
 
     const dataEncerramento = dataOuNull(dados.dataEncerramento);
     if (!dataEncerramento) {
-      return { success: false, error: "Informe a data do encerramento.", status: 400 };
+      return {
+        success: false,
+        error: "Informe a data do encerramento.",
+        status: 400,
+      };
     }
 
     const justificativa = texto(dados.justificativa);
     if (justificativa.length < 15 || justificativa.length > 500) {
       return {
         success: false,
-        error: "A justificativa do encerramento deve ter entre 15 e 500 caracteres.",
+        error:
+          "A justificativa do encerramento deve ter entre 15 e 500 caracteres.",
         status: 400,
       };
     }
 
     const atual = await prisma.leishmaniose.findUnique({ where: { id } });
-    if (!atual) return { success: false, error: "Fiscalização não encontrada.", status: 404 };
+    if (!atual)
+      return {
+        success: false,
+        error: "Fiscalização não encontrada.",
+        status: 404,
+      };
     if (atual.situacaoCaso === SITUACAO_CASO.ENCERRADO) {
-      return { success: false, error: "Este caso já está encerrado.", status: 409 };
+      return {
+        success: false,
+        error: "Este caso já está encerrado.",
+        status: 409,
+      };
     }
 
     const salvo = await prisma.leishmaniose.update({
@@ -583,7 +778,10 @@ export async function encerrarCasoLeishmaniose(dados = {}) {
       },
     });
 
-    return { success: true, data: { id, desfecho, situacaoCaso: SITUACAO_CASO.ENCERRADO } };
+    return {
+      success: true,
+      data: { id, desfecho, situacaoCaso: SITUACAO_CASO.ENCERRADO },
+    };
   } catch (erro) {
     return responder(erro);
   }

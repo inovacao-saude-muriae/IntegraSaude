@@ -66,7 +66,9 @@ export function padraoRelatorio(base) {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(7);
       doc.setTextColor(...CINZA_ROTULO);
-      doc.text(String(contagem), base.margemX + base.largura, base.y, { align: "right" });
+      doc.text(String(contagem), base.margemX + base.largura, base.y, {
+        align: "right",
+      });
     }
     base.y += 4.5;
   };
@@ -81,8 +83,8 @@ export function padraoRelatorio(base) {
 
     for (let i = 0; i < lista.length; i += colunas) {
       const linhaCampos = lista.slice(i, i + colunas);
-      const alturas = linhaCampos.map(([, valor]) =>
-        medir(valor, larguraColuna).length * 4,
+      const alturas = linhaCampos.map(
+        ([, valor]) => medir(valor, larguraColuna).length * 4,
       );
       const alturaLinha = Math.max(...alturas) + 8.5;
       base.novaPagina(alturaLinha + 2);
@@ -103,7 +105,12 @@ export function padraoRelatorio(base) {
       base.y = topo + alturaLinha;
       doc.setDrawColor(...CINZA_LINHA);
       doc.setLineWidth(0.2);
-      doc.line(base.margemX, base.y - 3.5, base.margemX + base.largura, base.y - 3.5);
+      doc.line(
+        base.margemX,
+        base.y - 3.5,
+        base.margemX + base.largura,
+        base.y - 3.5,
+      );
       coluna = 0;
     }
   };
@@ -112,9 +119,11 @@ export function padraoRelatorio(base) {
   const tabela = (colunas, registros = []) => {
     if (!colunas?.length || !registros.length) return;
     const total = colunas.reduce((t, c) => t + (c.largura || 1), 0);
-    const larguras = colunas.map((c) => ((c.largura || 1) / total) * base.largura);
-    const xs = larguras.map((_, i) =>
-      base.margemX + larguras.slice(0, i).reduce((t, v) => t + v, 0),
+    const larguras = colunas.map(
+      (c) => ((c.largura || 1) / total) * base.largura,
+    );
+    const xs = larguras.map(
+      (_, i) => base.margemX + larguras.slice(0, i).reduce((t, v) => t + v, 0),
     );
 
     const medirLinha = (registro) => {
@@ -123,7 +132,11 @@ export function padraoRelatorio(base) {
         const txt = v === null || v === undefined || v === "" ? "—" : String(v);
         return doc.splitTextToSize(txt, larguras[i] - PAD * 2);
       });
-      return { celulas, altura: Math.max(...celulas.map((c) => c.length)) * ALTURA_LINHA + PAD * 1.6 };
+      return {
+        celulas,
+        altura:
+          Math.max(...celulas.map((c) => c.length)) * ALTURA_LINHA + PAD * 1.6,
+      };
     };
 
     const cabecalho = () => {
@@ -170,7 +183,9 @@ export function padraoRelatorio(base) {
       celulas.forEach((linhas, i) => {
         const direita = colunas[i].alinhamento === "right";
         const x = direita ? xs[i] + larguras[i] - PAD : xs[i] + PAD;
-        doc.text(linhas, x, base.y + ALTURA_LINHA, { align: direita ? "right" : "left" });
+        doc.text(linhas, x, base.y + ALTURA_LINHA, {
+          align: direita ? "right" : "left",
+        });
       });
 
       base.y += altura;
@@ -208,11 +223,18 @@ export function padraoRelatorio(base) {
 function valorDetalhe(registro, rotulo) {
   const item = (registro?.detalhes || []).find((d) => d?.rotulo === rotulo);
   const v = item?.valor;
-  return v === null || v === undefined || String(v).trim() === "" ? "" : String(v);
+  return v === null || v === undefined || String(v).trim() === ""
+    ? ""
+    : String(v);
 }
 
 export async function gerarHistoricoCompletoPdf(dados) {
-  const { animal = {}, tutor = null, historico = [], procedimentos = [] } = dados || {};
+  const {
+    animal = {},
+    tutor = null,
+    historico = [],
+    procedimentos = [],
+  } = dados || {};
 
   const base = criarDocumentoCcz({
     logo: await obterLogoCcz(),
@@ -274,18 +296,20 @@ export async function gerarHistoricoCompletoPdf(dados) {
   }
 
   // ── 4. HISTÓRICO — UMA TABELA POR TIPO DE REGISTRO ─────────────────────
-  const registros = Array.isArray(historico) && historico.length
-    ? historico
-    : (procedimentos || []).map((p, i) => ({
-        chave: `PROCEDIMENTO:${p.id || i}`,
-        data: p.dataProcedimento,
-        tipo: "PROCEDIMENTO",
-        titulo: p.tipo || "Procedimento",
-        subtitulo: p.status || "",
-        resumo: p.descricao || "",
-      }));
+  const registros =
+    Array.isArray(historico) && historico.length
+      ? historico
+      : (procedimentos || []).map((p, i) => ({
+          chave: `PROCEDIMENTO:${p.id || i}`,
+          data: p.dataProcedimento,
+          tipo: "PROCEDIMENTO",
+          titulo: p.tipo || "Procedimento",
+          subtitulo: p.status || "",
+          resumo: p.descricao || "",
+        }));
 
-  const porData = (a, b) => String(b.data || "").localeCompare(String(b.data || ""));
+  const porData = (a, b) =>
+    String(b.data || "").localeCompare(String(b.data || ""));
   // Cada origem reúne o registro inicial E os retornos que dela nasceram: a
   // visita de acompanhamento da esporotricose entra na tabela de esporotricose
   // (nunca em tabela própria). Visita sem origem confiável fica de fora.
@@ -295,8 +319,10 @@ export async function gerarHistoricoCompletoPdf(dados) {
   };
   // Tipo de atendimento: registro inicial x retorno.
   const tipoAtendimento = (r) => {
-    if (r.origem === "ESPORO_VISITA") return "Retorno";
-    if (r.origem === "ESPOROTRICOSE" || r.origem === "LEISHMANIOSE") return "Fiscalização";
+    if (r.origem === "ESPORO_VISITA" || r.origem === "LEISHMANIOSE_RETORNO")
+      return "Retorno";
+    if (r.origem === "ESPOROTRICOSE" || r.origem === "LEISHMANIOSE")
+      return "Fiscalização";
     if (r.origem === "PROCEDIMENTO") return "Procedimento";
     return "—";
   };
@@ -337,7 +363,11 @@ export async function gerarHistoricoCompletoPdf(dados) {
         { titulo: "Tipo de Atendimento", largura: 1.3, chave: "atendimento" },
         { titulo: "Acompanhamento", largura: 1.6, chave: "situacao" },
         { titulo: "Fiscal / Responsável", largura: 2, chave: "responsavel" },
-        { titulo: "Conclusão Técnica da Visita", largura: 3.7, chave: "tecnica" },
+        {
+          titulo: "Conclusão Técnica da Visita",
+          largura: 3.7,
+          chave: "tecnica",
+        },
       ],
       montar: (r) => ({
         data: formatarData(r.data),
@@ -345,7 +375,8 @@ export async function gerarHistoricoCompletoPdf(dados) {
         // Situação do acompanhamento + desfecho final (distintos da
         // conclusão clínica registrada na fiscalização).
         situacao: [
-          valorDetalhe(r, "Situação do caso") || (r.encerrado ? "Encerrado" : "Em andamento"),
+          valorDetalhe(r, "Situação do caso") ||
+            (r.encerrado ? "Encerrado" : "Em andamento"),
           valorDetalhe(r, "Desfecho do caso"),
         ]
           .filter((v) => v && v !== "—")
@@ -364,7 +395,7 @@ export async function gerarHistoricoCompletoPdf(dados) {
       }),
     },
     {
-      origem: "LEISHMANIOSE",
+      origem: ["LEISHMANIOSE", "LEISHMANIOSE_RETORNO"],
       titulo: "Leishmaniose",
       vazio: "Nenhuma fiscalização de leishmaniose.",
       colunas: [
@@ -387,7 +418,9 @@ export async function gerarHistoricoCompletoPdf(dados) {
         ]
           .filter((v) => v && v !== "—")
           .join(" · "),
-        responsavel: valorDetalhe(r, "Responsável") || valorDetalhe(r, "Responsável pela fiscalização"),
+        responsavel:
+          valorDetalhe(r, "Responsável") ||
+          valorDetalhe(r, "Responsável pela fiscalização"),
         clinico: [
           valorDetalhe(r, "Apresenta lesões"),
           valorDetalhe(r, "Em tratamento"),
@@ -396,7 +429,8 @@ export async function gerarHistoricoCompletoPdf(dados) {
           .join(" · "),
         conduta: [
           valorDetalhe(r, "Conduta do tutor"),
-          valorDetalhe(r, "Situação geral") && `Situação geral: ${valorDetalhe(r, "Situação geral")}`,
+          valorDetalhe(r, "Situação geral") &&
+            `Situação geral: ${valorDetalhe(r, "Situação geral")}`,
           valorDetalhe(r, "Acompanhamento pelo CCZ"),
         ]
           .filter((v) => v && v !== "—")
@@ -426,16 +460,20 @@ export async function gerarHistoricoCompletoPdf(dados) {
     },
   ];
 
-  const grupos = TIPOS.map((tipo) => ({ tipo, lista: grupo(tipo.origem) })).filter(
-    (g) => g.lista.length,
-  );
+  const grupos = TIPOS.map((tipo) => ({
+    tipo,
+    lista: grupo(tipo.origem),
+  })).filter((g) => g.lista.length);
 
   secao("Histórico de Acompanhamentos");
   if (!grupos.length) {
     paragrafo("Registros", "Nenhum registro vinculado a este animal.");
   } else {
     grupos.forEach(({ tipo, lista }) => {
-      subtitulo(tipo.titulo, `${lista.length} ${lista.length === 1 ? "registro" : "registros"}`);
+      subtitulo(
+        tipo.titulo,
+        `${lista.length} ${lista.length === 1 ? "registro" : "registros"}`,
+      );
       tabela(tipo.colunas, lista.map(tipo.montar));
     });
   }
@@ -451,5 +489,7 @@ export async function gerarHistoricoCompletoPdf(dados) {
   );
 
   base.finalizar();
-  return doc.save(nomeArquivo("ficha-animal", animal.nome || animal.id, animal.id));
+  return doc.save(
+    nomeArquivo("ficha-animal", animal.nome || animal.id, animal.id),
+  );
 }

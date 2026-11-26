@@ -175,7 +175,9 @@ async function main() {
     ok("ficha exibe o bloco Situação do Caso = Em acompanhamento");
   } else falha("bloco Situação do Caso ausente na ficha");
 
-  await page.getByRole("button", { name: /Encerrar Caso/ }).click();
+  // O botão pode estar coberto pela confirmação/notificação: fecha antes.
+  await fecharOverlay(page);
+  await page.getByRole("button", { name: /Encerrar Caso/ }).click({ timeout: 15000 });
   await page.waitForTimeout(700);
   await page.screenshot({ path: path.join(OUT, "2-modal-encerramento-1440.png") });
 

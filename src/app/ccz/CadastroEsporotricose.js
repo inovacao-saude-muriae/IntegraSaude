@@ -16,7 +16,6 @@ const FORM_VAZIO = {
   tutorNome: "",
   // Identificação
   dataVisita: hojeYMD(),
-  fiscalResponsavel: "",
   // Condição clínica
   apresentaLesoes: "Não",
   descricaoLesoes: "",
@@ -26,7 +25,6 @@ const FORM_VAZIO = {
   medicamentosPrescritos: "",
   interrupcaoTratamento: "Não",
   retornoVeterinario: "Não",
-  profissionalReferencia: "",
   // Manejo domiciliar (tutor-only)
   isolamentoDomiciliar: "Não",
   observacoesIsolamento: "",
@@ -57,7 +55,10 @@ const FORM_VAZIO = {
   visitas: [],
 };
 
-export default function CadastroEsporotricose({ registroInicial = null, onSalvo }) {
+export default function CadastroEsporotricose({
+  registroInicial = null,
+  onSalvo,
+}) {
   const confirm = useConfirm();
   const notify = useNotify();
 
@@ -75,7 +76,9 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
   const [novaVisitaData, setNovaVisitaData] = useState("");
 
   // Busca de ANIMAL (dropdown, igual ao seletor de Procedimentos).
-  const [animalTermo, setAnimalTermo] = useState(registroInicial?.animalLabel || "");
+  const [animalTermo, setAnimalTermo] = useState(
+    registroInicial?.animalLabel || "",
+  );
   const [animalResultados, setAnimalResultados] = useState([]);
   const [animalDropAberto, setAnimalDropAberto] = useState(false);
   const [animalBuscando, setAnimalBuscando] = useState(false);
@@ -92,25 +95,26 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const atualizar = (campo, valor) => setForm((prev) => ({ ...prev, [campo]: valor }));
+  const atualizar = (campo, valor) =>
+    setForm((prev) => ({ ...prev, [campo]: valor }));
 
   const buscarAnimal = async (valor) => {
     setAnimalTermo(valor);
-    
+
     // Se limpar o campo, limpa o ID selecionado
     if (!valor || valor.trim() === "") {
       setForm((prev) => ({ ...prev, animalId: "" }));
     }
-    
+
     // Se for apenas espaço (buscar todos) ou tem 2+ caracteres
     const deveConsultar = valor === " " || valor.trim().length >= 2;
-    
+
     if (!deveConsultar) {
       setAnimalDropAberto(false);
       setAnimalResultados([]);
       return;
     }
-    
+
     setAnimalDropAberto(true);
     setAnimalBuscando(true);
     // Se for espaço, passa string vazia para buscar todos
@@ -161,7 +165,9 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
   const atualizarVisita = (idx, valor) => {
     setForm((prev) => ({
       ...prev,
-      visitas: prev.visitas.map((v, i) => (i === idx ? { ...v, observacao: valor } : v)),
+      visitas: prev.visitas.map((v, i) =>
+        i === idx ? { ...v, observacao: valor } : v,
+      ),
     }));
   };
 
@@ -196,8 +202,13 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
         }
         break;
       case 2:
-        if (form.emTratamentoVeterinario === "Sim" && !form.medicamentosPrescritos.trim()) {
-          setErro("Informe os medicamentos prescritos se o animal está em tratamento.");
+        if (
+          form.emTratamentoVeterinario === "Sim" &&
+          !form.medicamentosPrescritos.trim()
+        ) {
+          setErro(
+            "Informe os medicamentos prescritos se o animal está em tratamento.",
+          );
           return false;
         }
         break;
@@ -206,7 +217,10 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
           setErro("Descreva as lesões encontradas.");
           return false;
         }
-        if (form.isolamentoDomiciliar === "Sim" && !form.observacoesIsolamento.trim()) {
+        if (
+          form.isolamentoDomiciliar === "Sim" &&
+          !form.observacoesIsolamento.trim()
+        ) {
           setErro("Descreva as observações sobre o isolamento.");
           return false;
         }
@@ -214,11 +228,17 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
           setErro("Informe quais EPIs são utilizados.");
           return false;
         }
-        if (form.outrosAnimaisResidencia === "Sim" && !form.outrosAnimaisDescricao.trim()) {
+        if (
+          form.outrosAnimaisResidencia === "Sim" &&
+          !form.outrosAnimaisDescricao.trim()
+        ) {
           setErro("Descreva os outros animais na residência.");
           return false;
         }
-        if (form.pessoasComLesoes === "Sim" && !form.pessoasLesoesDescricao.trim()) {
+        if (
+          form.pessoasComLesoes === "Sim" &&
+          !form.pessoasLesoesDescricao.trim()
+        ) {
           setErro("Descreva as lesões nas pessoas.");
           return false;
         }
@@ -236,7 +256,7 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
 
   const handleNext = () => {
     if (!validarStep(currentStep)) return;
-    
+
     // Pula step 3 se animal não tem tutor
     if (currentStep === 2 && !form.temTutor) {
       setCurrentStep(4);
@@ -256,10 +276,10 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
 
   const salvar = async (e) => {
     e.preventDefault();
-    
+
     // Validação final do step 4
     if (!validarStep(4)) return;
-    
+
     const ok = await confirm({
       title: editando ? "Atualizar esporotricose" : "Cadastrar esporotricose",
       message: editando
@@ -282,7 +302,7 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
           ? "Registro atualizado com sucesso!"
           : "Registro de esporotricose salvo com sucesso!",
       });
-      
+
       // Se estiver editando, chama callback para recarregar lista
       if (editando && typeof onSalvo === "function") {
         onSalvo();
@@ -308,22 +328,30 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
 
         {/* ── INDICADOR DE PROGRESSO DO WIZARD ── */}
         <div className={styles.wizardProgress}>
-          <div className={`${styles.wizardStep} ${currentStep === 1 ? styles.active : ""}`}>
+          <div
+            className={`${styles.wizardStep} ${currentStep === 1 ? styles.active : ""}`}
+          >
             <div className={styles.stepNumber}>1</div>
             <div className={styles.stepLabel}>Dados Básicos</div>
           </div>
           <div className={styles.stepLine}></div>
-          <div className={`${styles.wizardStep} ${currentStep === 2 ? styles.active : ""}`}>
+          <div
+            className={`${styles.wizardStep} ${currentStep === 2 ? styles.active : ""}`}
+          >
             <div className={styles.stepNumber}>2</div>
             <div className={styles.stepLabel}>Tratamento</div>
           </div>
           <div className={styles.stepLine}></div>
-          <div className={`${styles.wizardStep} ${currentStep === 3 ? styles.active : ""} ${!form.temTutor ? styles.skipped : ""}`}>
+          <div
+            className={`${styles.wizardStep} ${currentStep === 3 ? styles.active : ""} ${!form.temTutor ? styles.skipped : ""}`}
+          >
             <div className={styles.stepNumber}>3</div>
             <div className={styles.stepLabel}>Manejo</div>
           </div>
           <div className={styles.stepLine}></div>
-          <div className={`${styles.wizardStep} ${currentStep === 4 ? styles.active : ""}`}>
+          <div
+            className={`${styles.wizardStep} ${currentStep === 4 ? styles.active : ""}`}
+          >
             <div className={styles.stepNumber}>4</div>
             <div className={styles.stepLabel}>Conclusão</div>
           </div>
@@ -356,11 +384,15 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                       }}
                       autoComplete="off"
                     />
-                    <span 
+                    <span
                       className={styles.arrowIcon}
                       onClick={() => {
                         setAnimalDropAberto(!animalDropAberto);
-                        if (!animalDropAberto && animalResultados.length === 0 && !animalTermo) {
+                        if (
+                          !animalDropAberto &&
+                          animalResultados.length === 0 &&
+                          !animalTermo
+                        ) {
                           buscarAnimal(" ");
                         }
                       }}
@@ -389,10 +421,16 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                                     e.preventDefault();
                                     selecionarAnimal(a);
                                   }}
-                                  className={form.animalId === a.id ? styles.selectedRow : ""}
+                                  className={
+                                    form.animalId === a.id
+                                      ? styles.selectedRow
+                                      : ""
+                                  }
                                 >
                                   <td>{a.id}</td>
-                                  <td className={styles.boldName}>{a.nome || "Sem nome"}</td>
+                                  <td className={styles.boldName}>
+                                    {a.nome || "Sem nome"}
+                                  </td>
                                   <td>{a.especie || "-"}</td>
                                   <td>{a.tutorNome || "Sem tutor"}</td>
                                 </tr>
@@ -440,17 +478,6 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                     onChange={(e) => atualizar("dataVisita", e.target.value)}
                   />
                 </div>
-
-                {/* Fiscal responsável */}
-                <div className={`${styles.field} ${styles.colLg}`}>
-                  <label>Fiscal responsável</label>
-                  <input
-                    type="text"
-                    value={form.fiscalResponsavel}
-                    onChange={(e) => atualizar("fiscalResponsavel", e.target.value)}
-                    placeholder="Nome do(a) fiscal responsável"
-                  />
-                </div>
               </div>
 
               {/* ── CONDIÇÃO CLÍNICA ── */}
@@ -458,13 +485,19 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
               <div className={styles.grid}>
                 {/* Apresenta lesões? + qual */}
                 <div className={`${styles.field} ${styles.colLg}`}>
-                  <label>Animal apresenta lesões compatíveis com esporotricose?</label>
+                  <label>
+                    Animal apresenta lesões compatíveis com esporotricose?
+                  </label>
                   <div className={styles.rowComposta}>
                     <div className={styles.colControle}>
                       <select
                         value={form.apresentaLesoes}
                         onChange={(e) =>
-                          handleCondicional("apresentaLesoes", "descricaoLesoes", e.target.value)
+                          handleCondicional(
+                            "apresentaLesoes",
+                            "descricaoLesoes",
+                            e.target.value,
+                          )
                         }
                       >
                         <option value="Não">Não</option>
@@ -475,7 +508,9 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                       <input
                         type="text"
                         value={form.descricaoLesoes}
-                        onChange={(e) => atualizar("descricaoLesoes", e.target.value)}
+                        onChange={(e) =>
+                          atualizar("descricaoLesoes", e.target.value)
+                        }
                         placeholder="Qual?"
                         disabled={form.apresentaLesoes !== "Sim"}
                       />
@@ -506,7 +541,9 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                       <textarea
                         rows={1}
                         value={form.descricaoTratamentoVet}
-                        onChange={(e) => atualizar("descricaoTratamentoVet", e.target.value)}
+                        onChange={(e) =>
+                          atualizar("descricaoTratamentoVet", e.target.value)
+                        }
                         placeholder="Descrição do tratamento"
                         disabled={form.emTratamentoVeterinario !== "Sim"}
                       />
@@ -520,14 +557,18 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
           {/* ── STEP 2: TRATAMENTO E MEDICAÇÃO ── */}
           {currentStep === 2 && (
             <>
-              <div className={styles.formSectionTitle}>Tratamento e Medicação</div>
+              <div className={styles.formSectionTitle}>
+                Tratamento e Medicação
+              </div>
               <div className={styles.grid}>
                 <div className={`${styles.field} ${styles.colFull}`}>
                   <label>Medicamentos prescritos</label>
                   <textarea
                     rows={2}
                     value={form.medicamentosPrescritos}
-                    onChange={(e) => atualizar("medicamentosPrescritos", e.target.value)}
+                    onChange={(e) =>
+                      atualizar("medicamentosPrescritos", e.target.value)
+                    }
                     placeholder="Informe os medicamentos prescritos (se houver)"
                   />
                 </div>
@@ -536,7 +577,9 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                   <label>Houve interrupção do tratamento?</label>
                   <select
                     value={form.interrupcaoTratamento}
-                    onChange={(e) => atualizar("interrupcaoTratamento", e.target.value)}
+                    onChange={(e) =>
+                      atualizar("interrupcaoTratamento", e.target.value)
+                    }
                   >
                     <option value="Não">Não</option>
                     <option value="Sim">Sim</option>
@@ -547,21 +590,13 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                   <label>Há registro de retorno ao veterinário?</label>
                   <select
                     value={form.retornoVeterinario}
-                    onChange={(e) => atualizar("retornoVeterinario", e.target.value)}
+                    onChange={(e) =>
+                      atualizar("retornoVeterinario", e.target.value)
+                    }
                   >
                     <option value="Não">Não</option>
                     <option value="Sim">Sim</option>
                   </select>
-                </div>
-
-                <div className={`${styles.field} ${styles.colFull}`}>
-                  <label>Profissional / Serviço de referência</label>
-                  <input
-                    type="text"
-                    value={form.profissionalReferencia || ""}
-                    onChange={(e) => atualizar("profissionalReferencia", e.target.value)}
-                    placeholder="Nome do profissional ou serviço veterinário"
-                  />
                 </div>
               </div>
             </>
@@ -595,7 +630,9 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                       <textarea
                         rows={1}
                         value={form.observacoesIsolamento}
-                        onChange={(e) => atualizar("observacoesIsolamento", e.target.value)}
+                        onChange={(e) =>
+                          atualizar("observacoesIsolamento", e.target.value)
+                        }
                         placeholder="Observações sobre o isolamento"
                         disabled={form.isolamentoDomiciliar !== "Sim"}
                       />
@@ -621,7 +658,11 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                       <select
                         value={form.usoEpi}
                         onChange={(e) =>
-                          handleCondicional("usoEpi", "quaisEpis", e.target.value)
+                          handleCondicional(
+                            "usoEpi",
+                            "quaisEpis",
+                            e.target.value,
+                          )
                         }
                       >
                         <option value="Não">Não</option>
@@ -645,14 +686,18 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                   <textarea
                     rows={1}
                     value={form.higienizacaoAmbiente}
-                    onChange={(e) => atualizar("higienizacaoAmbiente", e.target.value)}
+                    onChange={(e) =>
+                      atualizar("higienizacaoAmbiente", e.target.value)
+                    }
                     placeholder="Descreva a higienização do ambiente"
                   />
                 </div>
               </div>
 
               {/* Outros animais e pessoas */}
-              <div className={styles.formSectionTitle}>Outros animais e pessoas na residência</div>
+              <div className={styles.formSectionTitle}>
+                Outros animais e pessoas na residência
+              </div>
               <div className={styles.grid}>
                 <div className={`${styles.field} ${styles.colFull}`}>
                   <label>Há outros animais na residência?</label>
@@ -676,7 +721,9 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                       <textarea
                         rows={1}
                         value={form.outrosAnimaisDescricao}
-                        onChange={(e) => atualizar("outrosAnimaisDescricao", e.target.value)}
+                        onChange={(e) =>
+                          atualizar("outrosAnimaisDescricao", e.target.value)
+                        }
                         placeholder="Quais? Quantos? Apresentam sintomas?"
                         disabled={form.outrosAnimaisResidencia !== "Sim"}
                       />
@@ -685,7 +732,9 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                 </div>
 
                 <div className={`${styles.field} ${styles.colFull}`}>
-                  <label>Há pessoas com lesões suspeitas de esporotricose?</label>
+                  <label>
+                    Há pessoas com lesões suspeitas de esporotricose?
+                  </label>
                   <div className={styles.rowComposta}>
                     <div className={styles.colControle}>
                       <select
@@ -706,7 +755,9 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                       <textarea
                         rows={1}
                         value={form.pessoasLesoesDescricao}
-                        onChange={(e) => atualizar("pessoasLesoesDescricao", e.target.value)}
+                        onChange={(e) =>
+                          atualizar("pessoasLesoesDescricao", e.target.value)
+                        }
                         placeholder="Descreva as lesões suspeitas"
                         disabled={form.pessoasComLesoes !== "Sim"}
                       />
@@ -719,20 +770,28 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                   <textarea
                     rows={2}
                     value={form.condicoesGeraisAmbiente}
-                    onChange={(e) => atualizar("condicoesGeraisAmbiente", e.target.value)}
+                    onChange={(e) =>
+                      atualizar("condicoesGeraisAmbiente", e.target.value)
+                    }
                     placeholder="Descreva as condições gerais do ambiente"
                   />
                 </div>
               </div>
 
               {/* Ciência do responsável */}
-              <div className={styles.formSectionTitle}>Ciência do responsável</div>
+              <div className={styles.formSectionTitle}>
+                Ciência do responsável
+              </div>
               <div className={styles.grid}>
                 <div className={`${styles.field} ${styles.colMd}`}>
-                  <label>Ciente da necessidade de tratamento contínuo e prolongado?</label>
+                  <label>
+                    Ciente da necessidade de tratamento contínuo e prolongado?
+                  </label>
                   <select
                     value={form.cienteTratamentoContinuo}
-                    onChange={(e) => atualizar("cienteTratamentoContinuo", e.target.value)}
+                    onChange={(e) =>
+                      atualizar("cienteTratamentoContinuo", e.target.value)
+                    }
                   >
                     <option value="Não">Não</option>
                     <option value="Sim">Sim</option>
@@ -742,7 +801,9 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                   <label>Ciente da importância da contenção domiciliar?</label>
                   <select
                     value={form.cienteContencao}
-                    onChange={(e) => atualizar("cienteContencao", e.target.value)}
+                    onChange={(e) =>
+                      atualizar("cienteContencao", e.target.value)
+                    }
                   >
                     <option value="Não">Não</option>
                     <option value="Sim">Sim</option>
@@ -759,10 +820,14 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                   </select>
                 </div>
                 <div className={`${styles.field} ${styles.colMd}`}>
-                  <label>Ciente da correta destinação de resíduos contaminados?</label>
+                  <label>
+                    Ciente da correta destinação de resíduos contaminados?
+                  </label>
                   <select
                     value={form.cienteResiduos}
-                    onChange={(e) => atualizar("cienteResiduos", e.target.value)}
+                    onChange={(e) =>
+                      atualizar("cienteResiduos", e.target.value)
+                    }
                   >
                     <option value="Não">Não</option>
                     <option value="Sim">Sim</option>
@@ -782,21 +847,27 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                   <textarea
                     rows={3}
                     value={form.conclusaoTecnica}
-                    onChange={(e) => atualizar("conclusaoTecnica", e.target.value)}
+                    onChange={(e) =>
+                      atualizar("conclusaoTecnica", e.target.value)
+                    }
                     placeholder="Conclusão da equipe técnica"
                   />
                 </div>
               </div>
 
               {/* ── ENCAMINHAMENTOS SUGERIDOS ── */}
-              <div className={styles.formSectionTitle}>Encaminhamentos sugeridos</div>
+              <div className={styles.formSectionTitle}>
+                Encaminhamentos sugeridos
+              </div>
               <div className={styles.grid}>
                 <div className={styles.checkboxGroup}>
                   <label className={styles.checkboxItem}>
                     <input
                       type="checkbox"
                       checked={form.encAcompanhamentoCcz}
-                      onChange={(e) => toggleEnc("encAcompanhamentoCcz", e.target.checked)}
+                      onChange={(e) =>
+                        toggleEnc("encAcompanhamentoCcz", e.target.checked)
+                      }
                     />
                     Acompanhamento periódico pelo CCZ
                   </label>
@@ -804,7 +875,9 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                     <input
                       type="checkbox"
                       checked={form.encNotificacaoTutor}
-                      onChange={(e) => toggleEnc("encNotificacaoTutor", e.target.checked)}
+                      onChange={(e) =>
+                        toggleEnc("encNotificacaoTutor", e.target.checked)
+                      }
                     />
                     Notificação formal ao tutor
                   </label>
@@ -812,7 +885,9 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                     <input
                       type="checkbox"
                       checked={form.encMinisterioPublico}
-                      onChange={(e) => toggleEnc("encMinisterioPublico", e.target.checked)}
+                      onChange={(e) =>
+                        toggleEnc("encMinisterioPublico", e.target.checked)
+                      }
                     />
                     Encaminhamento ao Ministério Público
                   </label>
@@ -820,7 +895,9 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                     <input
                       type="checkbox"
                       checked={form.encOutrasMedidas}
-                      onChange={(e) => toggleEnc("encOutrasMedidas", e.target.checked)}
+                      onChange={(e) =>
+                        toggleEnc("encOutrasMedidas", e.target.checked)
+                      }
                     />
                     Outras medidas sanitárias
                   </label>
@@ -831,7 +908,9 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                   <textarea
                     rows={2}
                     value={form.outrasMedidasDescricao}
-                    onChange={(e) => atualizar("outrasMedidasDescricao", e.target.value)}
+                    onChange={(e) =>
+                      atualizar("outrasMedidasDescricao", e.target.value)
+                    }
                     placeholder="Outras medidas / observações"
                   />
                 </div>
@@ -840,7 +919,9 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
               {/* ── AGENDA DE ACOMPANHAMENTO (condicional) ── */}
               {form.encAcompanhamentoCcz && (
                 <>
-                  <div className={styles.formSectionTitle}>Agenda de acompanhamento</div>
+                  <div className={styles.formSectionTitle}>
+                    Agenda de acompanhamento
+                  </div>
                   <div className={styles.grid}>
                     <div className={`${styles.field} ${styles.colLg}`}>
                       <label>Definir os dias de visita de acompanhamento</label>
@@ -868,9 +949,14 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                     {form.visitas.length > 0 && (
                       <div className={styles.visitaLista}>
                         {form.visitas.map((v, idx) => (
-                          <div key={`${v.data}-${idx}`} className={styles.visitaItem}>
+                          <div
+                            key={`${v.data}-${idx}`}
+                            className={styles.visitaItem}
+                          >
                             <div className={styles.visitaHeader}>
-                              <span className={styles.visitaData}>{formatarDiaBR(v.data)}</span>
+                              <span className={styles.visitaData}>
+                                {formatarDiaBR(v.data)}
+                              </span>
                               <button
                                 type="button"
                                 className={styles.btnRemover}
@@ -882,7 +968,9 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                             <textarea
                               className={styles.visitaObsTextarea}
                               value={v.observacao}
-                              onChange={(e) => atualizarVisita(idx, e.target.value)}
+                              onChange={(e) =>
+                                atualizarVisita(idx, e.target.value)
+                              }
                               placeholder="Observação da visita (opcional)"
                               rows={2}
                             />
@@ -930,7 +1018,11 @@ export default function CadastroEsporotricose({ registroInicial = null, onSalvo 
                 Próximo →
               </button>
             ) : (
-              <button type="submit" className={styles.btnPrimary} disabled={salvando}>
+              <button
+                type="submit"
+                className={styles.btnPrimary}
+                disabled={salvando}
+              >
                 {salvando ? "Salvando..." : editando ? "Atualizar" : "Salvar"}
               </button>
             )}
