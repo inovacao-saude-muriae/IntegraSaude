@@ -181,7 +181,14 @@ console.log("   banco:", JSON.stringify(espEnc));
 await abrirFicha("Joaquim");
 itens = await lerItens();
 const espVisitas = itens.filter((i) => /Visita de acompanhamento/.test(i.texto));
-const espFisc = itens.filter((i) => /esporotricose/i.test(i.texto) && !/Visita/.test(i.texto));
+// A fiscalização é o item da zoonose que NÃO é visita nem o evento próprio
+// de encerramento ("Encerramento do Caso").
+const espFisc = itens.filter(
+  (i) =>
+    /esporotricose/i.test(i.texto) &&
+    !/Visita/.test(i.texto) &&
+    !/Encerramento do Caso/i.test(i.texto),
+);
 marcar("fiscalização de esporotricose com badge 'Encerrado'",
   espFisc.some((i) => /^ENCERRADO$/i.test(i.situacao)), espFisc.map((i) => i.situacao).join(","));
 marcar("visitas não herdam o encerramento posterior",
@@ -219,7 +226,12 @@ marcar("visita informa a fiscalização de origem",
   espVisitas.every((i) => /Fiscalização\s+ESP-[A-Z0-9]+/.test(i.texto)),
   espVisitas.map((i) => i.texto.slice(0, 60)).join(" || "));
 
-const fiscEsp = espFisc.find((i) => /^ENCERRADO$/i.test(i.situacao));
+// Com o evento próprio "Encerramento do Caso", a primeira fiscalização
+// encerrada listada é esse evento: seleciona a FISCALIZAÇÃO (que traz os
+// detalhes clínicos e o bloco de encerramento).
+const fiscEsp =
+  espFisc.find((i) => /^ENCERRADO$/i.test(i.situacao) && /Fiscaliza/i.test(i.texto)) ||
+  espFisc.find((i) => /^ENCERRADO$/i.test(i.situacao));
 if (fiscEsp) {
   await clicarItem(fiscEsp.idx);
   det = await page.locator('[class*="_detalheCorpo"]').first().innerText();

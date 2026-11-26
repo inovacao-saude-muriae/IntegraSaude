@@ -285,21 +285,38 @@ export default function CadastroLeishmaniose({
     return () => document.removeEventListener("mousedown", fora);
   }, []);
 
+  // Busca suspensa do animal — MESMA lógica da Esporotricose: consulta o
+  // backend a cada digitação (parcial, sem diferenciar maiúsculas/minúsculas
+  // nem acentos) e só lista os animais que correspondem ao texto.
   const buscarAnimal = (valor) => {
     setAnimalTermo(valor);
-    if (valor === " ") {
+
+    // Texto alterado depois de uma seleção: desvincula o animal até que outro
+    // resultado seja escolhido.
+    setForm((prev) =>
+      prev.animalId
+        ? {
+            ...prev,
+            animalId: "",
+            animalNome: "",
+            temTutor: false,
+            tutor: null,
+          }
+        : prev,
+    );
+
+    // Só espaço = abrir a lista com os mais recentes (mesmo padrão da
+    // Esporotricose); menos de 2 caracteres não consulta.
+    const deveConsultar = valor === " " || valor.trim().length >= 2;
+    if (!deveConsultar) {
       setAnimalResultados([]);
       setAnimalDropAberto(false);
       return;
     }
-    if (valor.trim().length < 2) {
-      setAnimalResultados([]);
-      setAnimalDropAberto(false);
-      return;
-    }
+
     setAnimalBuscando(true);
     setAnimalDropAberto(true);
-    buscarAnimaisLeishmaniose(valor.trim()).then((res) => {
+    buscarAnimaisLeishmaniose(valor === " " ? "" : valor.trim()).then((res) => {
       setAnimalResultados(res?.success ? res.data : []);
       setAnimalBuscando(false);
     });

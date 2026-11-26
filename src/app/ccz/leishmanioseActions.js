@@ -46,6 +46,40 @@ const PAGINA_TAMANHO = 100;
 const FUSO_OFFSET_MS = 3 * 60 * 60 * 1000;
 
 const texto = (v) => String(v ?? "").trim();
+
+// Normalização usada na busca de animais: minúscula e sem acentos, para que
+// "jose" encontre "José" (o PostgreSQL do projeto não tem unaccent).
+const MAPA_ACENTOS = {
+  á: "a",
+  à: "a",
+  ã: "a",
+  â: "a",
+  ä: "a",
+  é: "e",
+  è: "e",
+  ê: "e",
+  ë: "e",
+  í: "i",
+  ì: "i",
+  î: "i",
+  ï: "i",
+  ó: "o",
+  ò: "o",
+  õ: "o",
+  ô: "o",
+  ö: "o",
+  ú: "u",
+  ù: "u",
+  û: "u",
+  ü: "u",
+  ç: "c",
+  ñ: "n",
+};
+const normalizarBusca = (v) =>
+  String(v ?? "")
+    .toLowerCase()
+    .replace(/[áàãâäéèêëíìîïóòõôöúùûüçñ]/g, (c) => MAPA_ACENTOS[c] || c)
+    .trim();
 const opcional = (v) => {
   const t = texto(v);
   return t === "" ? null : t;
@@ -149,29 +183,45 @@ export async function buscarAnimaisLeishmaniose(termo = "") {
   try {
     await requirePermissao(MODULOS.CCZ, FUNCIONALIDADE, "visualizar");
 
-    const t = texto(termo);
-    const animais = await prisma.animal.findMany({
-      where: t
-        ? {
-            OR: [
-              { nome: { contains: t, mode: "insensitive" } },
-              { id: { contains: t, mode: "insensitive" } },
-              { especie: { contains: t, mode: "insensitive" } },
-              {
-                tutor: {
-                  pessoa: {
-                    nomeCompleto: { contains: t, mode: "insensitive" },
-                  },
-                },
-              },
-              {
-                tutor: { pessoa: { cpf: { contains: t.replace(/\D/g, "") } } },
-              },
-            ],
-          }
-        : {},
+    const t = normalizarBusca(termo);
+    const digitos = String(termo || "").replace(/\D/g, "");
+
+    // Busca no PostgreSQL: devolve SOMENTE os animais que correspondem ao
+    // texto digitado. A comparação aplica a mesma normalização (minúscula e
+    // sem acentos) dos dois lados, porque o banco não tem a extensão
+    // unaccent — sem isso "jose" não casaria com "José".
+    // Com 3+ caracteres o texto é tratado como ID CCZ e comparado de forma
+    // exata, para que digitar o ID não traga vizinhos de mesmo prefixo.
+    const porIdExato = t.length >= 3;
+    const encontrados = t
+      ? await prisma.$queryRaw`
+          SELECT a.id
+          FROM ccz_animais a
+          LEFT JOIN ccz_tutores t ON t.pessoa_cpf = a.pessoa_cpf
+          LEFT JOIN pessoa p ON p.cpf = t.pessoa_cpf
+          WHERE
+            translate(lower(coalesce(a.nome, '')), 'áàãâäéèêëíìîïóòõôöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn') LIKE ${"%" + t + "%"}
+            OR (${porIdExato} AND lower(a.id) = ${t})
+            OR (${!porIdExato} AND lower(a.id) LIKE ${"%" + t + "%"})
+            OR translate(lower(coalesce(a.especie, '')), 'áàãâäéèêëíìîïóòõôöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn') LIKE ${"%" + t + "%"}
+            OR translate(lower(coalesce(p.nome_completo, '')), 'áàãâäéèêëíìîïóòõôöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn') LIKE ${"%" + t + "%"}
+            OR (${digitos} <> '' AND p.cpf LIKE ${"%" + digitos + "%"})
+          ORDER BY a.data_cadastro DESC
+          LIMIT 50
+        `
+      : await prisma.$queryRaw`
+          SELECT a.id
+          FROM ccz_animais a
+          ORDER BY a.data_cadastro DESC
+          LIMIT 50
+        `;
+
+    const ids = encontrados.map((r) => r.id);
+    if (ids.length === 0) return { success: true, data: [] };
+
+    const registros = await prisma.animal.findMany({
+      where: { id: { in: ids } },
       orderBy: { dataCadastro: "desc" },
-      take: 50,
       include: {
         tutor: {
           include: {
@@ -185,7 +235,7 @@ export async function buscarAnimaisLeishmaniose(termo = "") {
 
     return {
       success: true,
-      data: animais.map((a) => {
+      data: registros.map((a) => {
         const pessoa = a.tutor?.pessoa || null;
         const endereco = pessoa?.enderecos?.[0] || null;
         return {
@@ -203,16 +253,33 @@ export async function buscarAnimaisLeishmaniose(termo = "") {
             ? {
                 nome: pessoa.nomeCompleto || "",
                 cpf: pessoa.cpf || "",
+                sexo: pessoa.sexo || "",
+                dataNascimento: pessoa.dataNascimento || null,
+                nomeMae: pessoa.nomeMae || "",
                 telefone: pessoa.telefone || "",
-                endereco: formatarEndereco(endereco),
-                bairro: endereco?.bairro || "",
+                cns: pessoa.cns || "",
+                situacao: pessoa.situacao || "",
+                endereco: endereco
+                  ? {
+                      logradouro: endereco.logradouro || "",
+                      numero: endereco.numero || "",
+                      bairro: endereco.bairro || "",
+                      cidade: endereco.cidade || "",
+                      uf: endereco.uf || "",
+                      cep: endereco.cep || "",
+                    }
+                  : null,
               }
             : null,
         };
       }),
     };
-  } catch (erro) {
-    return responder(erro);
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao buscar animais (Leishmaniose):", error);
+    return { success: false, error: "Erro ao buscar animais." };
   }
 }
 

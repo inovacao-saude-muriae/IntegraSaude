@@ -7,8 +7,18 @@ import RelatorioVisitaEsporotricose from "./RelatorioVisitaEsporotricose";
 
 const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const MESES = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
 ];
 
 // Date -> 'YYYY-MM-DD' sem efeito de fuso.
@@ -82,7 +92,7 @@ export default function AgendaCCZ({ onAbrirProcedimento }) {
     if (e.tipoEvento === "ESPORO_VISITA") {
       return e.label || `Esporotricose — ${e.animalNome || "Sem nome"}`;
     }
-    return `${e.tipoEvento === "RETORNO" ? "Retorno" : e.tipo} — ${e.animalNome || "Sem nome"}`;
+    return `${e.tipo || "Sem tipo"} — ${e.animalNome || "Sem nome"}`;
   };
 
   // Classe de cor do evento conforme o tipo.
@@ -117,13 +127,28 @@ export default function AgendaCCZ({ onAbrirProcedimento }) {
             Agenda <span className={styles.badgeServico}>Procedimentos</span>
           </h3>
           <p className={styles.subtitle}>
-            Procedimentos agendados e retornos. Clique em um dia para ver os detalhes.
+            Procedimentos agendados e retornos. Clique em um dia para ver os
+            detalhes.
           </p>
         </div>
         <div className={styles.monthNav}>
-          <button type="button" onClick={() => irMes(-1)} className={styles.navBtn}>‹</button>
-          <span className={styles.monthLabel}>{MESES[mes - 1]} {ano}</span>
-          <button type="button" onClick={() => irMes(1)} className={styles.navBtn}>›</button>
+          <button
+            type="button"
+            onClick={() => irMes(-1)}
+            className={styles.navBtn}
+          >
+            ‹
+          </button>
+          <span className={styles.monthLabel}>
+            {MESES[mes - 1]} {ano}
+          </span>
+          <button
+            type="button"
+            onClick={() => irMes(1)}
+            className={styles.navBtn}
+          >
+            ›
+          </button>
         </div>
       </div>
 
@@ -137,14 +162,17 @@ export default function AgendaCCZ({ onAbrirProcedimento }) {
       {/* CABEÇALHO DOS DIAS DA SEMANA */}
       <div className={styles.weekHeader}>
         {DIAS_SEMANA.map((d) => (
-          <div key={d} className={styles.weekDay}>{d}</div>
+          <div key={d} className={styles.weekDay}>
+            {d}
+          </div>
         ))}
       </div>
 
       {/* GRADE DO CALENDÁRIO */}
       <div className={styles.grid}>
         {celulas.map((dateObj, idx) => {
-          if (!dateObj) return <div key={`e-${idx}`} className={styles.emptyCell} />;
+          if (!dateObj)
+            return <div key={`e-${idx}`} className={styles.emptyCell} />;
           const ymd = toYMD(dateObj);
           const doDia = eventosPorDia[ymd] || [];
           const ehHoje = ymd === ymdHoje;
@@ -178,7 +206,9 @@ export default function AgendaCCZ({ onAbrirProcedimento }) {
                   </div>
                 ))}
                 {doDia.length > 4 && (
-                  <div className={styles.moreEvents}>+{doDia.length - 4} mais</div>
+                  <div className={styles.moreEvents}>
+                    +{doDia.length - 4} mais
+                  </div>
                 )}
               </div>
             </div>
@@ -190,12 +220,17 @@ export default function AgendaCCZ({ onAbrirProcedimento }) {
 
       {/* MODAL DO DIA */}
       {diaSelecionado && (
-        <div className={styles.modalOverlay} onClick={() => setDiaSelecionado(null)}>
+        <div
+          className={styles.modalOverlay}
+          onClick={() => setDiaSelecionado(null)}
+        >
           <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHeader}>
               <div>
                 <h3 className={styles.modalTitle}>Agenda do dia</h3>
-                <p className={styles.modalSubtitle}>{formatarDiaBR(diaSelecionado)}</p>
+                <p className={styles.modalSubtitle}>
+                  {formatarDiaBR(diaSelecionado)}
+                </p>
               </div>
               <button
                 type="button"
@@ -213,16 +248,18 @@ export default function AgendaCCZ({ onAbrirProcedimento }) {
                 <div className={styles.diaList}>
                   {eventosDoDiaModal.map((e, i) => (
                     <div
-                      key={`${e.procedimentoId || "esporo"}-${e.tipoEvento}-${i}`}
+                      key={
+                        e.procedimentoId
+                          ? `${e.procedimentoId}-${e.tipoEvento}`
+                          : `visita-${e.visitaId || i}`
+                      }
                       className={styles.diaItem}
                     >
                       <div>
                         <strong>
                           {e.tipoEvento === "ESPORO_VISITA"
                             ? "Esporotricose · acompanhamento"
-                            : e.tipoEvento === "RETORNO"
-                              ? `Retorno · ${e.tipo}`
-                              : e.tipo}
+                            : e.tipo}
                         </strong>
                         <div className={styles.diaItemSub}>
                           {e.animalNome || "Sem nome"} ({e.animalId})
@@ -311,11 +348,12 @@ function ModalCriarAgendamento({ data, onFechar, onSalvo }) {
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
 
-  const atualizar = (campo, valor) => setForm((prev) => ({ ...prev, [campo]: valor }));
+  const atualizar = (campo, valor) =>
+    setForm((prev) => ({ ...prev, [campo]: valor }));
 
   const salvar = async (e) => {
     e.preventDefault();
-    
+
     if (!form.animalId.trim()) {
       setErro("Informe o ID do animal");
       return;
@@ -362,7 +400,11 @@ function ModalCriarAgendamento({ data, onFechar, onSalvo }) {
             <h3 className={styles.modalTitle}>Criar agendamento</h3>
             <p className={styles.modalSubtitle}>{formatarDiaBR(data)}</p>
           </div>
-          <button type="button" className={styles.modalClose} onClick={onFechar}>
+          <button
+            type="button"
+            className={styles.modalClose}
+            onClick={onFechar}
+          >
             ✕
           </button>
         </div>
@@ -427,7 +469,11 @@ function ModalCriarAgendamento({ data, onFechar, onSalvo }) {
             >
               Cancelar
             </button>
-            <button type="submit" className={styles.btnPrimary} disabled={salvando}>
+            <button
+              type="submit"
+              className={styles.btnPrimary}
+              disabled={salvando}
+            >
               {salvando ? "Criando..." : "Criar agendamento"}
             </button>
           </div>

@@ -23,12 +23,13 @@ import { gerarHistoricoCompletoPdf } from "./historicoAnimalPdf";
 // Ficha individual do animal (somente leitura por padrão), no padrão de
 // prontuário: cabeçalho com fotografia, blocos de identificação e tutor, e
 // histórico cronológico com detalhe por registro.
+// Datas do histórico chegam como dia (YYYY-MM-DD) já convertido pelo servidor.
+// Formatar sem `Date` evita o deslocamento de fuso (10/11 virando 09/11).
 const formatarData = (iso) => {
   if (!iso) return "—";
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime())
-    ? "—"
-    : d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const dia = String(iso).slice(0, 10);
+  const [ano, mes, diaMes] = dia.split("-");
+  return ano && mes && diaMes ? `${diaMes}/${mes}/${ano}` : "—";
 };
 
 const formatarEndereco = (end) => {

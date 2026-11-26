@@ -1246,7 +1246,10 @@ export async function obterFichaCompleta(animalId) {
         situacaoLabel: situacaoCaso,
         encerrado,
         desfecho: e.desfecho || "",
+        // Data do encerramento: exclusivamente a data informada no modal.
+        // `encerradoEm` (data/hora da operação) fica só na auditoria.
         dataEncerramento: ISO_DIA(e.dataEncerramento),
+        encerradoEm: e.encerradoEm ? e.encerradoEm.toISOString() : null,
         justificativaEncerramento: e.justificativaEncerramento || "",
         resumo: e.conclusaoTecnica || e.descricaoLesoes || "",
         detalhes: [
@@ -1338,6 +1341,41 @@ export async function obterFichaCompleta(animalId) {
             : []),
         ],
       });
+      // Evento próprio do encerramento, datado pela DATA INFORMADA no modal
+      // (nunca a data da operação). Só existe quando há data registrada.
+      if (encerrado && e.dataEncerramento) {
+        historico.push({
+          chave: `ESPORO_ENCERRAMENTO:${e.id}`,
+          origem: "ESPOROTRICOSE",
+          origemId: e.id,
+          data: ISO_DIA(e.dataEncerramento),
+          tipo: "ESPOROTRICOSE",
+          titulo: "Encerramento do Caso",
+          subtitulo: e.desfecho || "",
+          situacaoCaso: "ENCERRADO",
+          situacaoLabel: "Encerrado",
+          encerrado: true,
+          desfecho: e.desfecho || "",
+          dataEncerramento: ISO_DIA(e.dataEncerramento),
+          resumo: e.justificativaEncerramento || e.desfecho || "",
+          finalidade: "Esporotricose",
+          finalidadeDetalhe: `Esporotricose · encerramento da fiscalização ${e.id}`,
+          detalhes: [
+            {
+              rotulo: "Data do encerramento",
+              valor: dataBR(e.dataEncerramento),
+            },
+            { rotulo: "Desfecho do caso", valor: e.desfecho || "" },
+            { rotulo: "Encerrado por", valor: e.encerradoPor || "" },
+            {
+              rotulo: "Observação / justificativa do encerramento",
+              valor: e.justificativaEncerramento || "",
+              largo: true,
+            },
+          ],
+        });
+      }
+
       // Cada visita de acompanhamento é um atendimento próprio: entra no
       // histórico individualmente (nunca agrupada na fiscalização).
       for (const v of e.visitas || []) {
@@ -2132,8 +2170,14 @@ export async function getAgendaProcedimentos(ano, mes) {
         });
       }
 
-      // Evento de RETORNO na data de retorno (independe do status).
-      if (dentroDoMes(p.dataRetorno)) {
+      // Evento de RETORNO na data de retorno. Um procedimento de retorno tem
+      // data_procedimento == data_retorno, então ele NÃO gera um segundo
+      // evento: a ocorrência aparece uma única vez na Agenda.
+      const mesmoDia =
+        p.dataRetorno &&
+        p.dataProcedimento &&
+        dateParaYMD(p.dataRetorno) === dateParaYMD(p.dataProcedimento);
+      if (dentroDoMes(p.dataRetorno) && !mesmoDia) {
         eventos.push({
           procedimentoId: p.id,
           tipoEvento: "RETORNO",
@@ -3407,6 +3451,9 @@ export async function encerrarCasoEsporotricose(dados) {
       data: {
         encerrado: true,
         desfecho,
+        // A data do encerramento é a INFORMADA no modal (dia local, gravado ao
+        // meio-dia UTC para não deslocar o dia). A data/hora reais da operação
+        // ficam em `encerradoEm` e na auditoria — nunca são usadas no histórico.
         dataEncerramento: new Date(`${dataEncerramento}T12:00:00.000Z`),
         justificativaEncerramento: justificativa,
         encerradoPor: user?.nome ? String(user.nome).slice(0, 150) : null,

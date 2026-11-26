@@ -363,10 +363,10 @@ export async function gerarHistoricoCompletoPdf(dados) {
       colunas: [
         { titulo: "Data", largura: 0.9, chave: "data" },
         { titulo: "Tipo de Atendimento", largura: 1.3, chave: "atendimento" },
-        { titulo: "Acompanhamento", largura: 1.6, chave: "situacao" },
+        { titulo: "Acompanhamento", largura: 2.1, chave: "situacao" },
         {
           titulo: "Conclusão Técnica da Visita",
-          largura: 5.7,
+          largura: 5.2,
           chave: "tecnica",
         },
       ],
@@ -395,14 +395,14 @@ export async function gerarHistoricoCompletoPdf(dados) {
       origem: ["LEISHMANIOSE", "LEISHMANIOSE_RETORNO"],
       titulo: "Leishmaniose",
       vazio: "Nenhuma fiscalização de leishmaniose.",
-      // As lesões/tratamento ficam na ficha detalhada e no registro original;
-      // na tabela, a largura liberada vai para a conduta.
+      // O Responsável foi removido da tabela (permanece na ficha detalhada e
+      // no registro original). A largura liberada é redistribuída entre a
+      // situação do caso e a conduta, para não sobrar espaço vazio.
       colunas: [
         { titulo: "Data", largura: 0.9, chave: "data" },
         { titulo: "Tipo de Atendimento", largura: 1.3, chave: "atendimento" },
-        { titulo: "Situação do Caso", largura: 1.4, chave: "situacao" },
-        { titulo: "Responsável", largura: 1.6, chave: "responsavel" },
-        { titulo: "Conduta / Encaminhamentos", largura: 4.3, chave: "conduta" },
+        { titulo: "Situação do Caso", largura: 2.3, chave: "situacao" },
+        { titulo: "Conduta / Encaminhamentos", largura: 5.0, chave: "conduta" },
       ],
       montar: (r) => ({
         data: formatarData(r.data),
@@ -416,9 +416,6 @@ export async function gerarHistoricoCompletoPdf(dados) {
         ]
           .filter((v) => v && v !== "—")
           .join(" · "),
-        responsavel:
-          valorDetalhe(r, "Responsável") ||
-          valorDetalhe(r, "Responsável pela fiscalização"),
         conduta: [
           valorDetalhe(r, "Conduta do tutor"),
           valorDetalhe(r, "Situação geral") &&
