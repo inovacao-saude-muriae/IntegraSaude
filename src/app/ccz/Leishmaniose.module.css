@@ -24,6 +24,13 @@
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 1.25rem;
+  /* Blocos independentes: o respiro vertical entre eles é do próprio bloco
+     (o container é flex sem gap entre as seções). */
+  margin-bottom: 1rem;
+}
+
+.bloco:last-child {
+  margin-bottom: 0;
 }
 
 .blocoTitulo {
@@ -161,29 +168,66 @@ input.campoInativo:read-only {
   align-items: start;
 }
 
-/* Pergunta + campo complementar na MESMA linha (CSS Grid): a pergunta ocupa
-   a coluna do bloco e o complemento cresce ao lado, alinhado pelo rodapé do
-   rótulo. Em telas menores o complemento desce para a linha de baixo. */
-.linhaCondicional {
+/* LINHAS DO FORMULÁRIO (CSS Grid responsivo)
+   Cada linha é um grid de 2 ou 3 colunas iguais: a pergunta e o campo
+   complementar que ela origina ficam na MESMA linha, com alturas e rótulos
+   alinhados. O complemento só ocupa coluna quando a resposta é "Sim", então
+   nunca sobra espaço vazio desnecessário. */
+.linha {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
-  gap: 0.75rem 0.9rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem 1rem;
   align-items: start;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.9rem;
 }
 
-.linhaCondicional > :global([class*="_field"]) {
+.linha3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem 1rem;
+  align-items: start;
+  margin-bottom: 0.9rem;
+}
+
+/* O grid do bloco define as colunas de cada campo, independentemente do span
+   do grid de 12 colunas do módulo base (que vem com hash próprio). */
+.linha > :global([class*="_field"]),
+.linha3 > :global([class*="_field"]) {
   grid-column: auto;
 }
 
-/* Complemento curto (data, sim/não): fica com a largura do conteúdo. */
-.linhaCondicional.complementoCurto {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.7fr);
+.linha > :last-child,
+.linha3 > :last-child {
+  margin-bottom: 0;
+}
+
+.bloco > .linha:last-child,
+.bloco > .linha3:last-child {
+  margin-bottom: 0;
+}
+
+/* Altura única dos campos de linha (selects e inputs) — 40px. */
+.bloco :global(select),
+.bloco
+  :global(input:not([type="checkbox"]):not([type="radio"]):not([type="file"])) {
+  height: 2.5rem;
+  box-sizing: border-box;
+}
+
+.bloco :global(textarea) {
+  min-height: 2.5rem;
 }
 
 @media (max-width: 900px) {
-  .linhaCondicional,
-  .linhaCondicional.complementoCurto {
+  .linha,
+  .linha3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .linha,
+  .linha3 {
     grid-template-columns: minmax(0, 1fr);
   }
 }

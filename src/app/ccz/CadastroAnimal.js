@@ -13,7 +13,9 @@ import {
 } from "./actions";
 import { compressImage } from "@/lib/imageCompression";
 import { Trash2 } from "lucide-react";
-import SituacaoPessoa, { pessoaAptaParaVinculo } from "@/components/cadastros/SituacaoPessoa";
+import SituacaoPessoa, {
+  pessoaAptaParaVinculo,
+} from "@/components/cadastros/SituacaoPessoa";
 import "@/components/cadastros/padraoCadastro.css";
 
 const MAX_FOTO_BYTES = 5 * 1024 * 1024; // ~5MB
@@ -60,7 +62,6 @@ export default function CadastroAnimal({
   const [erro, setErro] = useState("");
   const [fotoErro, setFotoErro] = useState("");
 
-
   // Busca de animal via campo Nome
   const [animaisResultados, setAnimaisResultados] = useState([]);
   const [animaisDropAberto, setAnimaisDropAberto] = useState(false);
@@ -82,7 +83,10 @@ export default function CadastroAnimal({
       if (tutorDropRef.current && !tutorDropRef.current.contains(e.target)) {
         setTutorDropAberto(false);
       }
-      if (animaisDropRef.current && !animaisDropRef.current.contains(e.target)) {
+      if (
+        animaisDropRef.current &&
+        !animaisDropRef.current.contains(e.target)
+      ) {
         setAnimaisDropAberto(false);
       }
     }
@@ -123,17 +127,17 @@ export default function CadastroAnimal({
   // Busca animais ao digitar no campo Nome
   const buscarAnimalPorNome = async (valor) => {
     setForm((prev) => ({ ...prev, nome: valor }));
-    
+
     if (modoEdicao || editando) {
       return;
     }
-    
+
     // Se o campo estiver vazio, apenas limpa os resultados
     if (!valor || valor.trim().length === 0) {
       setAnimaisResultados([]);
       return;
     }
-    
+
     // Faz a busca somente se houver texto
     setAnimaisDropAberto(true);
     setAnimaisBuscando(true);
@@ -147,7 +151,7 @@ export default function CadastroAnimal({
     setAnimaisBuscando(true);
     const res = await obterAnimal(animal.id);
     setAnimaisBuscando(false);
-    
+
     if (res.success) {
       setForm(res.data);
       setAnimalCarregado(res.data);
@@ -171,6 +175,12 @@ export default function CadastroAnimal({
   };
 
   const cancelarOperacao = () => {
+    // Edição aberta pela ficha (animalInicial): cancelar devolve o controle a
+    // quem abriu (a galeria), sem salvar nada e sem deixar estado preso.
+    if (editando) {
+      onCancelar?.();
+      return;
+    }
     if (animalCarregado) {
       setForm(animalCarregado);
       setModoEdicao(false);
@@ -182,7 +192,8 @@ export default function CadastroAnimal({
     }
   };
 
-  const atualizar = (campo, valor) => setForm((prev) => ({ ...prev, [campo]: valor }));
+  const atualizar = (campo, valor) =>
+    setForm((prev) => ({ ...prev, [campo]: valor }));
 
   // ── Foto: lê como data URL, comprime e gera preview ───────────────────────
   const handleFoto = async (e) => {
@@ -205,7 +216,7 @@ export default function CadastroAnimal({
         maxHeight: 800,
         quality: 0.85,
       });
-      
+
       // Use compressed image for storage
       atualizar("fotoUrl", compressed);
       setFotoErro("");
@@ -297,7 +308,10 @@ export default function CadastroAnimal({
     // Informa à action se é edição (id é PK existente) ou criação (id não pode
     // repetir). `editando` cobre o fluxo de edição direta; `animalCarregado`
     // cobre a edição de um animal localizado pela busca.
-    const res = await salvarAnimal({ ...form, editando: editando || Boolean(animalCarregado) });
+    const res = await salvarAnimal({
+      ...form,
+      editando: editando || Boolean(animalCarregado),
+    });
     setSalvando(false);
 
     if (res.success) {
@@ -305,7 +319,9 @@ export default function CadastroAnimal({
       await notify({
         tipo: "sucesso",
         title: "Pronto",
-        message: animalCarregado ? "Animal atualizado com sucesso!" : "Animal salvo com sucesso!",
+        message: animalCarregado
+          ? "Animal atualizado com sucesso!"
+          : "Animal salvo com sucesso!",
       });
       if (editando && onSalvo) {
         onSalvo();
@@ -323,9 +339,12 @@ export default function CadastroAnimal({
 
   const camposDesabilitados = !modoEdicao && !editando;
 
-  const doencaDesabilitada = camposDesabilitados || form.doencaCronica !== "Sim";
-  const tratamentoDesabilitado = camposDesabilitados || form.emTratamento !== "Sim";
-  const tutorDesabilitado = camposDesabilitados || form.possuiResponsavel !== "Sim";
+  const doencaDesabilitada =
+    camposDesabilitados || form.doencaCronica !== "Sim";
+  const tratamentoDesabilitado =
+    camposDesabilitados || form.emTratamento !== "Sim";
+  const tutorDesabilitado =
+    camposDesabilitados || form.possuiResponsavel !== "Sim";
 
   // Exclusão: só para quem tem a permissão e só quando o backend não encontrar
   // nenhum registro vinculado (procedimentos, esporotricose, leishmaniose,
@@ -346,7 +365,10 @@ export default function CadastroAnimal({
       if (onSalvo) onSalvo();
       else if (onCancelar) onCancelar();
     } else {
-      await notify({ tipo: "erro", message: res.error || "Erro ao excluir o animal." });
+      await notify({
+        tipo: "erro",
+        message: res.error || "Erro ao excluir o animal.",
+      });
     }
   };
 
@@ -357,7 +379,11 @@ export default function CadastroAnimal({
       <form onSubmit={salvar} className={`${styles.card} ${styles.formCard}`}>
         <div className={styles.cardHeaderRow}>
           <h2 className={styles.cardHeaderTitle}>
-            {editando ? "Editar animal" : animalCarregado ? `${animalCarregado.nome} (${animalCarregado.id})` : "Buscar ou cadastrar animal"}
+            {editando
+              ? "Editar animal"
+              : animalCarregado
+                ? `${animalCarregado.nome} (${animalCarregado.id})`
+                : "Buscar ou cadastrar animal"}
           </h2>
           {!editando && (
             <button
@@ -379,7 +405,11 @@ export default function CadastroAnimal({
               <div className={styles.fotoBloco}>
                 {form.fotoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={form.fotoUrl} alt="Pré-visualização do animal" className={styles.fotoPreview} />
+                  <img
+                    src={form.fotoUrl}
+                    alt="Pré-visualização do animal"
+                    className={styles.fotoPreview}
+                  />
                 ) : (
                   <div className={styles.fotoPlaceholder}>Sem foto</div>
                 )}
@@ -394,7 +424,9 @@ export default function CadastroAnimal({
                       Remover foto
                     </button>
                   )}
-                  {fotoErro && <small className={styles.hintErro}>{fotoErro}</small>}
+                  {fotoErro && (
+                    <small className={styles.hintErro}>{fotoErro}</small>
+                  )}
                 </div>
               </div>
             </div>
@@ -414,13 +446,21 @@ export default function CadastroAnimal({
             </div>
 
             {/* Nome do animal - COM BUSCA */}
-            <div className={`${styles.field} ${styles.colLg}`} style={{ position: "relative" }} ref={animaisDropRef}>
+            <div
+              className={`${styles.field} ${styles.colLg}`}
+              style={{ position: "relative" }}
+              ref={animaisDropRef}
+            >
               <label>Nome do Animal</label>
               <div className={styles.inputWrapperWithIcon}>
                 <input
                   type="text"
                   value={form.nome}
-                  placeholder={modoEdicao || editando ? "" : "Digite nome ou ID para buscar..."}
+                  placeholder={
+                    modoEdicao || editando
+                      ? ""
+                      : "Digite nome ou ID para buscar..."
+                  }
                   onChange={(e) => buscarAnimalPorNome(e.target.value)}
                   onFocus={() => {
                     if (!modoEdicao && !editando) {
@@ -430,7 +470,10 @@ export default function CadastroAnimal({
                   autoComplete="off"
                 />
                 {!modoEdicao && !editando && (
-                  <span className={styles.arrowIcon} onClick={() => setAnimaisDropAberto(!animaisDropAberto)}>
+                  <span
+                    className={styles.arrowIcon}
+                    onClick={() => setAnimaisDropAberto(!animaisDropAberto)}
+                  >
                     {animaisDropAberto ? "▲" : "▼"}
                   </span>
                 )}
@@ -450,7 +493,9 @@ export default function CadastroAnimal({
                       <tbody>
                         {animaisBuscando ? (
                           <tr>
-                            <td colSpan="4" className={styles.noDataTd}>Buscando animais...</td>
+                            <td colSpan="4" className={styles.noDataTd}>
+                              Buscando animais...
+                            </td>
                           </tr>
                         ) : animaisResultados.length > 0 ? (
                           animaisResultados.map((a) => (
@@ -462,7 +507,9 @@ export default function CadastroAnimal({
                               }}
                             >
                               <td>{a.id}</td>
-                              <td className={styles.boldName}>{a.nome || "Sem nome"}</td>
+                              <td className={styles.boldName}>
+                                {a.nome || "Sem nome"}
+                              </td>
                               <td>{a.especie}</td>
                               <td>{a.tutorNome || "-"}</td>
                             </tr>
@@ -470,7 +517,9 @@ export default function CadastroAnimal({
                         ) : (
                           <tr>
                             <td colSpan="4" className={styles.noDataTd}>
-                              {form.nome.trim() ? "Nenhum animal encontrado" : "Digite para buscar animais..."}
+                              {form.nome.trim()
+                                ? "Nenhum animal encontrado"
+                                : "Digite para buscar animais..."}
                             </td>
                           </tr>
                         )}
@@ -558,7 +607,9 @@ export default function CadastroAnimal({
               <label>Possui identificação?</label>
               <select
                 value={form.possuiIdentificacao || "Não"}
-                onChange={(e) => atualizar("possuiIdentificacao", e.target.value)}
+                onChange={(e) =>
+                  atualizar("possuiIdentificacao", e.target.value)
+                }
                 disabled={camposDesabilitados}
               >
                 <option value="Não">Não</option>
@@ -606,11 +657,13 @@ export default function CadastroAnimal({
           <div className={styles.grid}>
             {/* Situação cadastral do tutor selecionado (fonte única, somente
                 leitura). Falecido destaca em vermelho e bloqueia o vínculo. */}
-            {form.possuiResponsavel === "Sim" && form.pessoaCpf && tutorSituacao && (
-              <div className={`${styles.field} ${styles.colLg}`}>
-                <SituacaoPessoa situacao={tutorSituacao} />
-              </div>
-            )}
+            {form.possuiResponsavel === "Sim" &&
+              form.pessoaCpf &&
+              tutorSituacao && (
+                <div className={`${styles.field} ${styles.colLg}`}>
+                  <SituacaoPessoa situacao={tutorSituacao} />
+                </div>
+              )}
 
             {/* Possui tutor? + seletor de tutor ao lado */}
             <div className={`${styles.field} ${styles.colLg}`}>
@@ -626,11 +679,17 @@ export default function CadastroAnimal({
                     <option value="Sim">Sim</option>
                   </select>
                 </div>
-                <div className={styles.colAnexo} style={{ position: "relative" }} ref={tutorDropRef}>
+                <div
+                  className={styles.colAnexo}
+                  style={{ position: "relative" }}
+                  ref={tutorDropRef}
+                >
                   <input
                     type="text"
                     value={tutorNome}
-                    placeholder={tutorDesabilitado ? "—" : "Digite nome ou CPF do tutor..."}
+                    placeholder={
+                      tutorDesabilitado ? "—" : "Digite nome ou CPF do tutor..."
+                    }
                     onChange={(e) => buscarTutor(e.target.value)}
                     disabled={tutorDesabilitado}
                     autoComplete="off"
@@ -656,14 +715,28 @@ export default function CadastroAnimal({
                                     e.preventDefault();
                                     selecionarTutor(p);
                                   }}
-                                  className={form.pessoaCpf === p.cpf ? styles.selectedRow : ""}
+                                  className={
+                                    form.pessoaCpf === p.cpf
+                                      ? styles.selectedRow
+                                      : ""
+                                  }
                                 >
-                                  <td>{documentoPaciente({ cpf: p.cpf, cns: p.cns })}</td>
-                                  <td className={styles.boldName}>{p.nomeCompleto}</td>
+                                  <td>
+                                    {documentoPaciente({
+                                      cpf: p.cpf,
+                                      cns: p.cns,
+                                    })}
+                                  </td>
+                                  <td className={styles.boldName}>
+                                    {p.nomeCompleto}
+                                  </td>
                                   <td>{p.nomeMae || "Não informada"}</td>
                                   <td>
                                     {p.dataNascimento
-                                      ? p.dataNascimento.split("-").reverse().join("/")
+                                      ? p.dataNascimento
+                                          .split("-")
+                                          .reverse()
+                                          .join("/")
                                       : "-"}
                                   </td>
                                 </tr>
@@ -671,7 +744,9 @@ export default function CadastroAnimal({
                             ) : (
                               <tr>
                                 <td colSpan="4" className={styles.noDataTd}>
-                                  {tutorBuscando ? "Buscando pessoas..." : "Nenhuma pessoa encontrada."}
+                                  {tutorBuscando
+                                    ? "Buscando pessoas..."
+                                    : "Nenhuma pessoa encontrada."}
                                 </td>
                               </tr>
                             )}
@@ -742,7 +817,9 @@ export default function CadastroAnimal({
               <label>Vômito / Diarreia</label>
               <select
                 value={form.sintomasVomitoDiarreia}
-                onChange={(e) => atualizar("sintomasVomitoDiarreia", e.target.value)}
+                onChange={(e) =>
+                  atualizar("sintomasVomitoDiarreia", e.target.value)
+                }
                 disabled={camposDesabilitados}
               >
                 <option value="Não">Não</option>
@@ -791,7 +868,7 @@ export default function CadastroAnimal({
         </div>
 
         <div className={styles.formActions}>
-          {!editando && !modoEdicao && animalCarregado && podeExcluir && (
+          {animalCarregado && podeExcluir && (
             <button
               type="button"
               className={styles.btnPerigo}
@@ -845,7 +922,11 @@ export default function CadastroAnimal({
                     !pessoaAptaParaVinculo(tutorSituacao))
                 }
               >
-                {salvando ? "Salvando..." : animalCarregado ? "Atualizar" : "Salvar"}
+                {salvando
+                  ? "Salvando..."
+                  : animalCarregado
+                    ? "Atualizar"
+                    : "Salvar"}
               </button>
             </>
           )}

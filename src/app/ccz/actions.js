@@ -221,6 +221,10 @@ export async function obterAnimal(id) {
       possuiResponsavel: a.possuiResponsavel === "Sim" ? "Sim" : "Não",
       pessoaCpf: a.pessoaCpf || "",
       tutorNome: a.tutor?.pessoa?.nomeCompleto || "",
+      // Os campos de raça/pelagem e identificação passaram a ser cadastrais:
+      // sem eles aqui, a edição pela ficha apagaria o que já estava gravado.
+      racaPelagem: a.racaPelagem || "",
+      possuiIdentificacao: a.possuiIdentificacao || "Não",
       castrado: a.castrado || "Não",
       doencaCronica: a.doencaCronica || "Não",
       qualDoenca,

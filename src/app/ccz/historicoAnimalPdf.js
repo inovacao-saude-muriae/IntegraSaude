@@ -358,14 +358,15 @@ export async function gerarHistoricoCompletoPdf(dados) {
       origem: ["ESPOROTRICOSE", "ESPORO_VISITA"],
       titulo: "Esporotricose",
       vazio: "Nenhum registro de esporotricose.",
+      // O responsável não aparece na tabela (fica na ficha detalhada e no
+      // registro original); a largura liberada vai para a conclusão.
       colunas: [
         { titulo: "Data", largura: 0.9, chave: "data" },
         { titulo: "Tipo de Atendimento", largura: 1.3, chave: "atendimento" },
         { titulo: "Acompanhamento", largura: 1.6, chave: "situacao" },
-        { titulo: "Fiscal / Responsável", largura: 2, chave: "responsavel" },
         {
           titulo: "Conclusão Técnica da Visita",
-          largura: 3.7,
+          largura: 5.7,
           chave: "tecnica",
         },
       ],
@@ -381,10 +382,6 @@ export async function gerarHistoricoCompletoPdf(dados) {
         ]
           .filter((v) => v && v !== "—")
           .join(" · "),
-        responsavel:
-          valorDetalhe(r, "Fiscal responsável") ||
-          valorDetalhe(r, "Profissional responsável") ||
-          "—",
         // Na visita, a conclusão é a observação do acompanhamento; na
         // fiscalização, a conclusão técnica registrada.
         tecnica:
@@ -398,13 +395,14 @@ export async function gerarHistoricoCompletoPdf(dados) {
       origem: ["LEISHMANIOSE", "LEISHMANIOSE_RETORNO"],
       titulo: "Leishmaniose",
       vazio: "Nenhuma fiscalização de leishmaniose.",
+      // As lesões/tratamento ficam na ficha detalhada e no registro original;
+      // na tabela, a largura liberada vai para a conduta.
       colunas: [
         { titulo: "Data", largura: 0.9, chave: "data" },
         { titulo: "Tipo de Atendimento", largura: 1.3, chave: "atendimento" },
         { titulo: "Situação do Caso", largura: 1.4, chave: "situacao" },
         { titulo: "Responsável", largura: 1.6, chave: "responsavel" },
-        { titulo: "Lesões / Tratamento", largura: 1.9, chave: "clinico" },
-        { titulo: "Conduta / Encaminhamentos", largura: 2.4, chave: "conduta" },
+        { titulo: "Conduta / Encaminhamentos", largura: 4.3, chave: "conduta" },
       ],
       montar: (r) => ({
         data: formatarData(r.data),
@@ -421,12 +419,6 @@ export async function gerarHistoricoCompletoPdf(dados) {
         responsavel:
           valorDetalhe(r, "Responsável") ||
           valorDetalhe(r, "Responsável pela fiscalização"),
-        clinico: [
-          valorDetalhe(r, "Apresenta lesões"),
-          valorDetalhe(r, "Em tratamento"),
-        ]
-          .filter((v) => v && v !== "—")
-          .join(" · "),
         conduta: [
           valorDetalhe(r, "Conduta do tutor"),
           valorDetalhe(r, "Situação geral") &&

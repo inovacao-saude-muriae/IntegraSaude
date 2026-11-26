@@ -40,7 +40,11 @@ export default function AnimaisTab({
             className={`paginaAba ${aba === "NOVO" ? "paginaAbaAtiva" : ""}`}
             onClick={() => setAba("NOVO")}
           >
-            <ClipboardPlus size={16} style={{ marginRight: "0.5rem" }} aria-hidden="true" />
+            <ClipboardPlus
+              size={16}
+              style={{ marginRight: "0.5rem" }}
+              aria-hidden="true"
+            />
             Novo Registro
           </button>
         )}
@@ -49,7 +53,11 @@ export default function AnimaisTab({
           className={`paginaAba ${aba === "CONSULTAR" ? "paginaAbaAtiva" : ""}`}
           onClick={() => setAba("CONSULTAR")}
         >
-          <Search size={16} style={{ marginRight: "0.5rem" }} aria-hidden="true" />
+          <Search
+            size={16}
+            style={{ marginRight: "0.5rem" }}
+            aria-hidden="true"
+          />
           Consultar Registros
         </button>
       </div>
@@ -66,9 +74,12 @@ export default function AnimaisTab({
             setChaveNova((k) => k + 1);
             setAba("CONSULTAR");
           }}
+          // Sair da edição devolve a galeria (aba de consulta), nunca uma
+          // tela intermediária de busca: o registro continua selecionável.
           onCancelar={() => {
             setEditando(null);
             setAnimalEdicao(null);
+            setChaveNova((k) => k + 1);
             setAba("CONSULTAR");
           }}
         />

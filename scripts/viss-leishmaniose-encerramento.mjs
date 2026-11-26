@@ -177,20 +177,25 @@ async function main() {
 
   // O botão pode estar coberto pela confirmação/notificação: fecha antes.
   await fecharOverlay(page);
-  await page.getByRole("button", { name: /Encerrar Caso/ }).click({ timeout: 15000 });
+  // Fecha o detalhe e reabre: evita estado residual de interações anteriores.
+  await page.keyboard.press("Escape").catch(() => {});
+  await abrirDetalhe(page, "LEISH-ZZ-ANT");
+  await page.getByRole("button", { name: "Encerrar Caso", exact: true }).click({ timeout: 15000 });
   await page.waitForTimeout(700);
   await page.screenshot({ path: path.join(OUT, "2-modal-encerramento-1440.png") });
 
-  // validação: sem desfecho o backend recusa
-  await page.getByRole("button", { name: /Confirmar Encerramento/ }).click();
-  await page.waitForTimeout(500);
-  await fecharOverlay(page);
+  // validação: com o formulário vazio o botão de confirmar fica desabilitado
+  // (a regra do backend é revalidada no envio, mais abaixo).
+  const botaoConfirmar = page.getByRole("button", { name: /Confirmar Encerramento/, exact: true });
+  const confirmarDesabilitado = await botaoConfirmar.isDisabled();
+  if (confirmarDesabilitado) ok("Confirmar Encerramento desabilitado sem desfecho/data/justificativa");
+  else falha("Confirmar Encerramento habilitado com o formulário vazio");
   const modalEncerramento = page.locator('[role="dialog"][aria-label="Encerrar caso de leishmaniose"]');
   await modalEncerramento.locator("select").selectOption("Curado");
   await modalEncerramento.locator('input[type="date"]').fill("2026-11-20");
   await modalEncerramento.locator("textarea").fill("Animal curado, sem lesões ativas após o tratamento completo.");
   await page.screenshot({ path: path.join(OUT, "3-modal-preenchido-1440.png") });
-  await page.getByRole("button", { name: /Confirmar Encerramento/ }).click();
+  await page.getByRole("button", { name: /Confirmar Encerramento/, exact: true }).click();
   await page.waitForTimeout(600);
   await fecharOverlay(page);
   await page.waitForTimeout(1800);
@@ -269,7 +274,7 @@ async function main() {
   await modalInc.locator("select").selectOption("Incinerado");
   await modalInc.locator('input[type="date"]').fill("2026-11-22");
   await modalInc.locator("textarea").fill("Animal sem resposta ao tratamento; incineração realizada conforme protocolo do CCZ.");
-  await page.getByRole("button", { name: /Confirmar Encerramento/ }).click();
+  await page.getByRole("button", { name: /Confirmar Encerramento/, exact: true }).click();
   await page.waitForTimeout(600);
   await fecharOverlay(page);
   await page.waitForTimeout(1800);

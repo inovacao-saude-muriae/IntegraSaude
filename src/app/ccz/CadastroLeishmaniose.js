@@ -712,7 +712,7 @@ export default function CadastroLeishmaniose({
           <>
             <section className={leish.bloco}>
               <h3 className={leish.blocoTitulo}>Manejo e Biossegurança</h3>
-              <div className={leish.grid3}>
+              <div className={leish.linha}>
                 <SimNao
                   label="O animal é mantido com coleira repelente?"
                   valor={form.coleiraRepelente}
@@ -730,17 +730,8 @@ export default function CadastroLeishmaniose({
                     />
                   </div>
                 )}
-                <div className={styles.field}>
-                  <label>Frequência da higienização</label>
-                  <input
-                    value={form.frequenciaHigiene}
-                    onChange={(e) =>
-                      atualizar("frequenciaHigiene", e.target.value)
-                    }
-                  />
-                </div>
               </div>
-              <div className={leish.grid3}>
+              <div className={leish.linha}>
                 <div className={styles.field}>
                   <label>
                     Produtos utilizados na higienização e resíduos contaminados
@@ -753,30 +744,38 @@ export default function CadastroLeishmaniose({
                     }
                   />
                 </div>
+                <div className={styles.field}>
+                  <label>Frequência da higienização</label>
+                  <input
+                    value={form.frequenciaHigiene}
+                    onChange={(e) =>
+                      atualizar("frequenciaHigiene", e.target.value)
+                    }
+                  />
+                </div>
+              </div>
+              <div className={leish.linha3}>
                 <SimNao
                   label="Tem acesso a áreas periurbanas ou mata?"
                   valor={form.acessoAreaRural}
                   onChange={(v) => atualizar("acessoAreaRural", v)}
                 />
-                {/* Pergunta + complemento na MESMA linha. */}
-                <div className={leish.linhaCondicional}>
-                  <SimNao
-                    label="Viajou para outro município?"
-                    valor={form.deslocamento}
-                    onChange={(v) => atualizar("deslocamento", v)}
-                  />
-                  {form.deslocamento === "Sim" && (
-                    <div className={styles.field}>
-                      <label>Quando ocorreu o deslocamento?</label>
-                      <input
-                        value={form.deslocamentoQuando}
-                        onChange={(e) =>
-                          atualizar("deslocamentoQuando", e.target.value)
-                        }
-                      />
-                    </div>
-                  )}
-                </div>
+                <SimNao
+                  label="Viajou para outro município?"
+                  valor={form.deslocamento}
+                  onChange={(v) => atualizar("deslocamento", v)}
+                />
+                {form.deslocamento === "Sim" && (
+                  <div className={styles.field}>
+                    <label>Quando ocorreu o deslocamento?</label>
+                    <input
+                      value={form.deslocamentoQuando}
+                      onChange={(e) =>
+                        atualizar("deslocamentoQuando", e.target.value)
+                      }
+                    />
+                  </div>
+                )}
               </div>
             </section>
 
@@ -784,53 +783,52 @@ export default function CadastroLeishmaniose({
               <h3 className={leish.blocoTitulo}>
                 Outros Animais e Pessoas na Residência
               </h3>
-              <div className={leish.grid3}>
-                {/* "Sim" abre "Espécies e quantidades" ao lado, na mesma linha. */}
-                <div className={leish.linhaCondicional}>
-                  <SimNao
-                    label="Existem outros animais no domicílio?"
-                    valor={form.outrosAnimais}
-                    onChange={(v) => atualizar("outrosAnimais", v)}
-                  />
-                  {form.outrosAnimais === "Sim" && (
-                    <div className={styles.field}>
-                      <label>Espécies e quantidades</label>
-                      <textarea
-                        rows={2}
-                        value={form.outrosAnimaisDesc}
-                        onChange={(e) =>
-                          atualizar("outrosAnimaisDesc", e.target.value)
-                        }
-                      />
-                    </div>
-                  )}
-                </div>
+              <div className={leish.linha}>
+                <SimNao
+                  label="Existem outros animais no domicílio?"
+                  valor={form.outrosAnimais}
+                  onChange={(v) => atualizar("outrosAnimais", v)}
+                />
+                {form.outrosAnimais === "Sim" && (
+                  <div className={styles.field}>
+                    <label>Espécies e quantidades</label>
+                    <textarea
+                      rows={2}
+                      value={form.outrosAnimaisDesc}
+                      onChange={(e) =>
+                        atualizar("outrosAnimaisDesc", e.target.value)
+                      }
+                    />
+                  </div>
+                )}
+              </div>
+              <div className={leish.linha}>
                 <SimNao
                   label="Os outros animais apresentam lesões suspeitas?"
                   valor={form.outrosComLesoes}
                   opcoes={["Sim", "Não", "Não Avaliado"]}
                   onChange={(v) => atualizar("outrosComLesoes", v)}
                 />
-                <div className={leish.linhaCondicional}>
-                  <SimNao
-                    label="Há pessoas com lesões suspeitas de Leishmaniose Cutânea?"
-                    valor={form.pessoasComLesoes}
-                    onChange={(v) => atualizar("pessoasComLesoes", v)}
-                  />
-                  {form.pessoasComLesoes === "Sim" && (
-                    <SimNao
-                      label="Essas pessoas foram orientadas a procurar atendimento médico?"
-                      valor={form.pessoasOrientadas}
-                      onChange={(v) => atualizar("pessoasOrientadas", v)}
-                    />
-                  )}
-                </div>
+                <SimNao
+                  label="Há pessoas com lesões suspeitas de Leishmaniose Cutânea?"
+                  valor={form.pessoasComLesoes}
+                  onChange={(v) => atualizar("pessoasComLesoes", v)}
+                />
               </div>
+              {form.pessoasComLesoes === "Sim" && (
+                <div className={leish.linha}>
+                  <SimNao
+                    label="Essas pessoas foram orientadas a procurar atendimento médico?"
+                    valor={form.pessoasOrientadas}
+                    onChange={(v) => atualizar("pessoasOrientadas", v)}
+                  />
+                </div>
+              )}
             </section>
 
             <section className={leish.bloco}>
               <h3 className={leish.blocoTitulo}>Condições do Ambiente</h3>
-              <div className={leish.grid3}>
+              <div className={leish.linha3}>
                 <SimNao
                   label="Condições sanitárias gerais"
                   valor={form.condicoesSanitarias}
@@ -848,21 +846,25 @@ export default function CadastroLeishmaniose({
                   onChange={(v) => atualizar("riscoSaudePublica", v)}
                 />
               </div>
-              <div className={styles.field}>
-                <label>Observações</label>
-                <textarea
-                  rows={3}
-                  value={form.condicoesObs}
-                  onChange={(e) => atualizar("condicoesObs", e.target.value)}
-                />
-              </div>
-              <div className={styles.field}>
-                <label>Descrição dos riscos identificados</label>
-                <textarea
-                  rows={3}
-                  value={form.riscoDescricao}
-                  onChange={(e) => atualizar("riscoDescricao", e.target.value)}
-                />
+              <div className={leish.linha}>
+                <div className={styles.field}>
+                  <label>Observações</label>
+                  <textarea
+                    rows={3}
+                    value={form.condicoesObs}
+                    onChange={(e) => atualizar("condicoesObs", e.target.value)}
+                  />
+                </div>
+                <div className={styles.field}>
+                  <label>Descrição dos riscos identificados</label>
+                  <textarea
+                    rows={3}
+                    value={form.riscoDescricao}
+                    onChange={(e) =>
+                      atualizar("riscoDescricao", e.target.value)
+                    }
+                  />
+                </div>
               </div>
             </section>
           </>

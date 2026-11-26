@@ -169,7 +169,13 @@ await page.waitForTimeout(600);
 
 passo("4. Esporotricose — Encerrado (dados reais do banco)");
 const espEnc = (await db.query(
-  `SELECT id, desfecho, encerrado_em FROM ccz_esporotricose WHERE encerrado ORDER BY encerrado_em DESC`,
+  // Só o caso do animal em teste (Joaquim) e apenas com desfecho registrado:
+  // registros legados com desfecho nulo não servem de referência.
+  `SELECT e.id, e.desfecho, e.encerrado_em
+     FROM ccz_esporotricose e
+     JOIN ccz_animais a ON a.id = e.animal_id
+    WHERE e.encerrado AND a.nome = 'Joaquim'
+    ORDER BY e.encerrado_em DESC`,
 )).rows;
 console.log("   banco:", JSON.stringify(espEnc));
 await abrirFicha("Joaquim");
@@ -219,7 +225,7 @@ if (fiscEsp) {
   det = await page.locator('[class*="_detalheCorpo"]').first().innerText();
   marcar("esporotricose: Situação do caso", /SITUAÇÃO DO CASO/i.test(det) && /Encerrado/.test(det));
   marcar("esporotricose: desfecho conforme o banco",
-    espEnc[0]?.desfecho ? new RegExp(espEnc[0].desfecho, "i").test(det) : /DESFECHO DO CASO/i.test(det),
+    Boolean(espEnc[0]?.desfecho) && new RegExp(espEnc[0].desfecho, "i").test(det),
     espEnc[0]?.desfecho || "—");
   marcar("esporotricose: data do encerramento", /DATA DO ENCERRAMENTO/i.test(det));
   await page.screenshot({ path: `${OUT}/2-detalhe-esporo-encerrada-1440.png` });
