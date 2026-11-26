@@ -27,6 +27,8 @@ import {
   RETORNO_LEISHMANIOSE,
   agendarRetorno,
   concluirRetorno,
+  dataParaYmd,
+  ymdParaDataUtc,
 } from "./retornosCcz";
 import { Prisma } from "@prisma/client";
 
@@ -315,6 +317,14 @@ export async function salvarLeishmaniose(dados = {}) {
       };
     }
 
+    // Datas da Agenda de Acompanhamento (uma por visita). Somente quando o
+    // acompanhamento periódico está marcado.
+    const diasAgenda = encAcompanhamento
+      ? (Array.isArray(dados.visitas) ? dados.visitas : [])
+          .map((v) => ymdParaDataUtc(v?.data))
+          .filter(Boolean)
+      : [];
+
     const semTutor = !pessoa;
     const equipe = normalizarEquipe(dados.equipe, responsavel);
     const veterinarios = normalizarVeterinarios(dados.veterinarios);
@@ -381,8 +391,11 @@ export async function salvarLeishmaniose(dados = {}) {
         "Não",
         "Não Avaliado",
       ]),
+      outrosComLesoesDesc: opcional(dados.outrosComLesoesDesc),
       pessoasComLesoes: SIM_NAO(dados.pessoasComLesoes, ["Sim", "Não"]),
+      pessoasComLesoesDesc: opcional(dados.pessoasComLesoesDesc),
       pessoasOrientadas: SIM_NAO(dados.pessoasOrientadas, ["Sim", "Não"]),
+      pessoasOrientadasDesc: opcional(dados.pessoasOrientadasDesc),
 
       // 6. Condições do ambiente
       condicoesSanitarias: SIM_NAO(dados.condicoesSanitarias, [
@@ -430,6 +443,7 @@ export async function salvarLeishmaniose(dados = {}) {
       ]),
       encAcompanhamento,
       encNotificacao: semTutor ? false : Boolean(dados.encNotificacao),
+      encMinisterioPublico: Boolean(dados.encMinisterioPublico),
       encOutrasMedidas: Boolean(dados.encOutrasMedidas),
       encOutrasDescricao: opcional(dados.encOutrasDescricao),
 
@@ -486,35 +500,39 @@ export async function salvarLeishmaniose(dados = {}) {
         });
       }
 
-      // AGENDA DO CCZ: o "Acompanhamento periódico pelo CCZ" com data de
-      // retorno gera um agendamento ligado a ESTA fiscalização. A data fica
-      // em data_retorno do procedimento, que é o vínculo com a origem.
-      const diaRetorno = base.retornoData;
-      if (base.encAcompanhamento && diaRetorno) {
+      // AGENDA DO CCZ: cada data da Agenda de Acompanhamento gera um
+      // agendamento ligado a ESTA fiscalização (mesmo fluxo da Esporotricose).
+      // O vínculo com a origem fica em data_retorno do procedimento; o
+      // agendamento é único por animal + tipo + data (sem duplicar).
+      if (base.encAcompanhamento) {
         const agora = new Date();
         const hoje = Date.UTC(
           agora.getFullYear(),
           agora.getMonth(),
           agora.getDate(),
         );
-        if (diaRetorno.getTime() < hoje) {
-          await concluirRetorno(tx, {
-            animalId: registro.animalId,
-            tipo: RETORNO_LEISHMANIOSE,
-            data: dados.retornoData,
-            origemId: registro.id,
-            veterinario: registro.responsavelNome,
-            descricao: "Retorno de acompanhamento de leishmaniose",
-          });
-        } else {
-          await agendarRetorno(tx, {
-            animalId: registro.animalId,
-            tipo: RETORNO_LEISHMANIOSE,
-            data: dados.retornoData,
-            origemId: registro.id,
-            veterinario: registro.responsavelNome,
-            descricao: "Retorno de acompanhamento de leishmaniose",
-          });
+        for (const dia of diasAgenda) {
+          const ymd = dataParaYmd(dia);
+          if (!ymd) continue;
+          if (dia.getTime() < hoje) {
+            await concluirRetorno(tx, {
+              animalId: registro.animalId,
+              tipo: RETORNO_LEISHMANIOSE,
+              data: ymd,
+              origemId: registro.id,
+              veterinario: registro.responsavelNome,
+              descricao: "Visita de acompanhamento de leishmaniose",
+            });
+          } else {
+            await agendarRetorno(tx, {
+              animalId: registro.animalId,
+              tipo: RETORNO_LEISHMANIOSE,
+              data: ymd,
+              origemId: registro.id,
+              veterinario: registro.responsavelNome,
+              descricao: "Visita de acompanhamento de leishmaniose",
+            });
+          }
         }
       }
       return registro;

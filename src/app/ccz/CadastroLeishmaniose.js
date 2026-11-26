@@ -55,8 +55,11 @@ const FORM_VAZIO = {
   outrosAnimais: "",
   outrosAnimaisDesc: "",
   outrosComLesoes: "",
+  outrosComLesoesDesc: "",
   pessoasComLesoes: "",
+  pessoasComLesoesDesc: "",
   pessoasOrientadas: "",
+  pessoasOrientadasDesc: "",
   // 7. Ambiente
   condicoesSanitarias: "",
   condicoesObs: "",
@@ -75,6 +78,8 @@ const FORM_VAZIO = {
   situacaoGeral: "",
   encAcompanhamento: false,
   encAcompanhamentoData: "",
+  visitas: [],
+  encMinisterioPublico: false,
   encNotificacao: false,
   encOutrasMedidas: false,
   encOutrasDescricao: "",
@@ -86,6 +91,20 @@ const FORM_VAZIO = {
 };
 
 const SIM_NAO = ["Sim", "Não"];
+
+// Campo complementar de cada pergunta condicional: ao sair de "Sim" o
+// complemento é limpo (os registros históricos já salvos não são afetados).
+const COMPLEMENTARES = {
+  coleiraRepelente: "coleiraTroca",
+  deslocamento: "deslocamentoQuando",
+  outrosAnimais: "outrosAnimaisDesc",
+  outrosComLesoes: "outrosComLesoesDesc",
+  pessoasComLesoes: "pessoasComLesoesDesc",
+  pessoasOrientadas: "pessoasOrientadasDesc",
+  riscoDisseminacao: "riscoDescricao",
+};
+
+const formatarDiaBR = (ymd) => (ymd ? ymd.split("-").reverse().join("/") : "");
 
 const ETAPAS = [
   { numero: 1, label: "Identificação e Tratamento" },
@@ -143,6 +162,7 @@ export default function CadastroLeishmaniose({
   const [etapa, setEtapa] = useState(1);
   const [erro, setErro] = useState("");
   const [salvando, setSalvando] = useState(false);
+  const [novaVisitaData, setNovaVisitaData] = useState("");
   const [animalTermo, setAnimalTermo] = useState(
     registroInicial?.animalId
       ? `${registroInicial.animalNome || "Animal"} — ${registroInicial.animalId}`
@@ -154,8 +174,40 @@ export default function CadastroLeishmaniose({
   const animalDropRef = useRef(null);
   const editando = Boolean(registroInicial?.id);
 
+  // Atualiza um campo e, quando ele é uma pergunta Sim/Não com complemento,
+  // limpa o complemento ao sair de "Sim" (mesmo comportamento da Esporotricose).
   const atualizar = (campo, valor) =>
-    setForm((prev) => ({ ...prev, [campo]: valor }));
+    setForm((prev) => {
+      const dep = COMPLEMENTARES[campo];
+      if (dep && valor !== "Sim" && prev[campo] === "Sim") {
+        return { ...prev, [campo]: valor, [dep]: "" };
+      }
+      return { ...prev, [campo]: valor };
+    });
+
+  // ── Agenda de acompanhamento (mesmo fluxo da Esporotricose) ─────────────
+  const adicionarVisita = () => {
+    if (!novaVisitaData) return;
+    setForm((prev) => ({
+      ...prev,
+      visitas: [...prev.visitas, { data: novaVisitaData, observacao: "" }],
+    }));
+    setNovaVisitaData("");
+  };
+
+  const removerVisita = (idx) =>
+    setForm((prev) => ({
+      ...prev,
+      visitas: prev.visitas.filter((_, i) => i !== idx),
+    }));
+
+  const toggleEncAcompanhamento = (checked) =>
+    setForm((prev) => ({
+      ...prev,
+      encAcompanhamento: checked,
+      // Desmarcar remove as datas e não gera novos agendamentos.
+      ...(checked ? {} : { visitas: [] }),
+    }));
 
   useEffect(() => {
     let ativo = true;
@@ -265,8 +317,10 @@ export default function CadastroLeishmaniose({
   // ── Navegação por etapas ────────────────────────────────────────────────
   // A data de retorno é obrigatória quando o acompanhamento periódico pelo
   // CCZ está marcado (mesma regra validada no backend).
+  // O acompanhamento periódico exige ao menos uma data na Agenda de
+  // Acompanhamento (cada data gera um agendamento na Agenda do CCZ).
   const retornoCczInvalido = () =>
-    Boolean(form.encAcompanhamento) && !form.encAcompanhamentoData;
+    Boolean(form.encAcompanhamento) && form.visitas.length === 0;
 
   const validarEtapa = (n) => {
     if (n === 1) {
@@ -280,7 +334,7 @@ export default function CadastroLeishmaniose({
       }
     }
     if (retornoCczInvalido()) {
-      setErro("Informe a data do retorno ao CCZ para continuar.");
+      setErro("Adicione ao menos uma data na Agenda de Acompanhamento.");
       return false;
     }
     setErro("");
@@ -321,7 +375,7 @@ export default function CadastroLeishmaniose({
       return;
     }
     if (retornoCczInvalido()) {
-      setErro("Informe a data do retorno ao CCZ.");
+      setErro("Adicione ao menos uma data na Agenda de Acompanhamento.");
       return;
     }
     if (salvando) return;
@@ -330,7 +384,7 @@ export default function CadastroLeishmaniose({
     try {
       const res = await salvarLeishmaniose({
         ...form,
-        retornoData: form.encAcompanhamento ? form.encAcompanhamentoData : "",
+        retornoData: form.encAcompanhamento ? form.visitas[0]?.data || "" : "",
         equipe: form.equipe,
         veterinarios: [...veterinariosComUsuario, ...form.veterinarios],
       });
@@ -791,13 +845,14 @@ export default function CadastroLeishmaniose({
                 />
                 {form.outrosAnimais === "Sim" && (
                   <div className={styles.field}>
-                    <label>Espécies e quantidades</label>
+                    <label>Quais? Quantos? Apresentam sintomas?</label>
                     <textarea
                       rows={2}
                       value={form.outrosAnimaisDesc}
                       onChange={(e) =>
                         atualizar("outrosAnimaisDesc", e.target.value)
                       }
+                      placeholder="Espécies, quantidades e sintomas observados"
                     />
                   </div>
                 )}
@@ -809,11 +864,35 @@ export default function CadastroLeishmaniose({
                   opcoes={["Sim", "Não", "Não Avaliado"]}
                   onChange={(v) => atualizar("outrosComLesoes", v)}
                 />
+                {form.outrosComLesoes === "Sim" && (
+                  <div className={`${styles.field} ${leish.campoComplementar}`}>
+                    <label>Descreva as lesões dos outros animais</label>
+                    <textarea
+                      rows={2}
+                      value={form.outrosComLesoesDesc}
+                      onChange={(e) =>
+                        atualizar("outrosComLesoesDesc", e.target.value)
+                      }
+                    />
+                  </div>
+                )}
                 <SimNao
                   label="Há pessoas com lesões suspeitas de Leishmaniose Cutânea?"
                   valor={form.pessoasComLesoes}
                   onChange={(v) => atualizar("pessoasComLesoes", v)}
                 />
+                {form.pessoasComLesoes === "Sim" && (
+                  <div className={`${styles.field} ${leish.campoComplementar}`}>
+                    <label>Descreva as lesões nas pessoas</label>
+                    <textarea
+                      rows={2}
+                      value={form.pessoasComLesoesDesc}
+                      onChange={(e) =>
+                        atualizar("pessoasComLesoesDesc", e.target.value)
+                      }
+                    />
+                  </div>
+                )}
               </div>
               {form.pessoasComLesoes === "Sim" && (
                 <div className={leish.linha}>
@@ -943,37 +1022,23 @@ export default function CadastroLeishmaniose({
                 />
               </div>
 
-              <label>Encaminhamentos sugeridos</label>
-              <div className={leish.checks}>
-                <label className={leish.check}>
-                  <input
-                    type="checkbox"
-                    checked={form.encAcompanhamento}
-                    onChange={(e) =>
-                      atualizar("encAcompanhamento", e.target.checked)
-                    }
-                  />
-                  Acompanhamento periódico pelo CCZ
-                </label>
-                {/* Data do retorno: aparece junto da opção que a originou e é
-                  obrigatória enquanto o acompanhamento estiver marcado. */}
-                {form.encAcompanhamento && (
-                  <div className={leish.campoCheck}>
-                    <label>
-                      Data do Retorno ao CCZ{" "}
-                      <span className={leish.req}>*</span>
-                    </label>
+              {/* ── ENCAMINHAMENTOS SUGERIDOS (padrão da Esporotricose) ── */}
+              <div className={styles.formSectionTitle}>
+                Encaminhamentos sugeridos
+              </div>
+              <div className={styles.grid}>
+                <div className={styles.checkboxGroup}>
+                  <label className={styles.checkboxItem}>
                     <input
-                      type="date"
-                      value={form.encAcompanhamentoData || ""}
+                      type="checkbox"
+                      checked={form.encAcompanhamento}
                       onChange={(e) =>
-                        atualizar("encAcompanhamentoData", e.target.value)
+                        toggleEncAcompanhamento(e.target.checked)
                       }
                     />
-                  </div>
-                )}
-                {form.temTutor && (
-                  <label className={leish.check}>
+                    Acompanhamento periódico pelo CCZ
+                  </label>
+                  <label className={styles.checkboxItem}>
                     <input
                       type="checkbox"
                       checked={form.encNotificacao}
@@ -983,29 +1048,96 @@ export default function CadastroLeishmaniose({
                     />
                     Notificação formal ao tutor
                   </label>
-                )}
-                <label className={leish.check}>
-                  <input
-                    type="checkbox"
-                    checked={form.encOutrasMedidas}
-                    onChange={(e) =>
-                      atualizar("encOutrasMedidas", e.target.checked)
-                    }
-                  />
-                  Outras medidas sanitárias
-                </label>
-              </div>
-              {form.encOutrasMedidas && (
-                <div className={styles.field}>
-                  <label>Descrição das outras medidas</label>
+                  <label className={styles.checkboxItem}>
+                    <input
+                      type="checkbox"
+                      checked={form.encMinisterioPublico}
+                      onChange={(e) =>
+                        atualizar("encMinisterioPublico", e.target.checked)
+                      }
+                    />
+                    Encaminhamento ao Ministério Público
+                  </label>
+                  <label className={styles.checkboxItem}>
+                    <input
+                      type="checkbox"
+                      checked={form.encOutrasMedidas}
+                      onChange={(e) =>
+                        atualizar("encOutrasMedidas", e.target.checked)
+                      }
+                    />
+                    Outras medidas sanitárias
+                  </label>
+                </div>
+
+                <div className={`${styles.field} ${styles.colFull}`}>
+                  <label>Descreva as outras medidas / observações</label>
                   <textarea
                     rows={2}
                     value={form.encOutrasDescricao}
                     onChange={(e) =>
                       atualizar("encOutrasDescricao", e.target.value)
                     }
+                    placeholder="Outras medidas / observações"
                   />
                 </div>
+              </div>
+
+              {/* ── AGENDA DE ACOMPANHAMENTO (condicional) ── */}
+              {form.encAcompanhamento && (
+                <>
+                  <div className={styles.formSectionTitle}>
+                    Agenda de acompanhamento
+                  </div>
+                  <div className={styles.grid}>
+                    <div className={`${styles.field} ${styles.colLg}`}>
+                      <label>Definir os dias de visita de acompanhamento</label>
+                      <div className={styles.rowComposta}>
+                        <div className={styles.colControle}>
+                          <input
+                            type="date"
+                            value={novaVisitaData}
+                            onChange={(e) => setNovaVisitaData(e.target.value)}
+                          />
+                        </div>
+                        <div className={styles.colAnexo}>
+                          <button
+                            type="button"
+                            className={styles.btnAdicionar}
+                            onClick={adicionarVisita}
+                            disabled={!novaVisitaData}
+                          >
+                            Adicionar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {form.visitas.length > 0 && (
+                      <div className={styles.visitaLista}>
+                        {form.visitas.map((v, idx) => (
+                          <div
+                            key={`${v.data}-${idx}`}
+                            className={styles.visitaItem}
+                          >
+                            <div className={styles.visitaHeader}>
+                              <span className={styles.visitaData}>
+                                {formatarDiaBR(v.data)}
+                              </span>
+                              <button
+                                type="button"
+                                className={styles.btnRemover}
+                                onClick={() => removerVisita(idx)}
+                              >
+                                Remover
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
             </section>
           </>

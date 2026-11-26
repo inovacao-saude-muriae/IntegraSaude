@@ -565,9 +565,12 @@ model Leishmaniose {
   // 5. Outros animais e pessoas na residência
   outrosAnimais     String? @map("outros_animais") @db.VarChar(20)
   outrosAnimaisDesc String? @map("outros_animais_desc")
-  outrosComLesoes   String? @map("outros_com_lesoes") @db.VarChar(20)
-  pessoasComLesoes  String? @map("pessoas_com_lesoes") @db.VarChar(20)
-  pessoasOrientadas String? @map("pessoas_orientadas") @db.VarChar(20)
+  outrosComLesoes        String? @map("outros_com_lesoes") @db.VarChar(20)
+  outrosComLesoesDesc    String? @map("outros_com_lesoes_desc")
+  pessoasComLesoes       String? @map("pessoas_com_lesoes") @db.VarChar(20)
+  pessoasComLesoesDesc   String? @map("pessoas_com_lesoes_desc")
+  pessoasOrientadas      String? @map("pessoas_orientadas") @db.VarChar(20)
+  pessoasOrientadasDesc  String? @map("pessoas_orientadas_desc")
 
   // 6. Condições do ambiente
   condicoesSanitarias String? @map("condicoes_sanitarias") @db.VarChar(20)
@@ -588,8 +591,9 @@ model Leishmaniose {
   condutaTutor       String? @map("conduta_tutor") @db.VarChar(30)
   situacaoGeral      String? @map("situacao_geral") @db.VarChar(80)
   encAcompanhamento  Boolean @default(false) @map("enc_acompanhamento")
-  encNotificacao     Boolean @default(false) @map("enc_notificacao")
-  encOutrasMedidas   Boolean @default(false) @map("enc_outras_medidas")
+  encNotificacao       Boolean @default(false) @map("enc_notificacao")
+  encMinisterioPublico Boolean @default(false) @map("enc_ministerio_publico")
+  encOutrasMedidas     Boolean @default(false) @map("enc_outras_medidas")
   encOutrasDescricao String? @map("enc_outras_descricao")
 
   // 9. Assinaturas

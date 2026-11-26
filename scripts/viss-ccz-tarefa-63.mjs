@@ -163,7 +163,9 @@ await page.waitForTimeout(700);
 const alinhamento = await page.evaluate(() => {
   const labels = [...document.querySelectorAll("label")];
   const p = labels.find((l) => /Existem outros animais no domicílio/i.test(l.innerText));
-  const c = labels.find((l) => /Espécies e quantidades/i.test(l.innerText));
+  const c = labels.find((l) =>
+    /Quais\? Quantos\? Apresentam sintomas\?/i.test(l.innerText),
+  );
   if (!p || !c) return null;
   const a = p.closest('[class*="_field"]').getBoundingClientRect();
   const b = c.closest('[class*="_field"]').getBoundingClientRect();
@@ -176,7 +178,7 @@ const alinhamento = await page.evaluate(() => {
 });
 marcar("bloco 'Outros Animais' localizado", Boolean(bloco));
 marcar(
-  "'Espécies e quantidades' na mesma linha e ao lado",
+  "'Quais? Quantos? Apresentam sintomas?' na mesma linha e ao lado",
   Boolean(alinhamento?.mesmaLinha && alinhamento?.aoLado),
   JSON.stringify(alinhamento),
 );
@@ -203,18 +205,26 @@ const marcou = await page.evaluate(() => {
   return true;
 });
 await page.waitForTimeout(600);
+// O acompanhamento periódico abre a Agenda de Acompanhamento (padrão da
+// Esporotricose): rótulo de dias, campo de data e botão Adicionar.
 const campoData = await page.evaluate(() => {
   const l = [...document.querySelectorAll("label")].find((x) =>
-    /Data do Retorno ao CCZ/i.test(x.innerText),
+    /Definir os dias de visita de acompanhamento/i.test(x.innerText),
   );
   if (!l) return null;
-  const input = l.closest("div")?.querySelector('input[type="date"]');
-  return { visivel: true, obrigatorio: /\*/.test(l.innerText), temInput: Boolean(input) };
+  const linha = l.parentElement?.querySelector('[class*="_rowComposta"]');
+  return {
+    visivel: true,
+    temInput: Boolean(linha?.querySelector('input[type="date"]')),
+    temBotao: [...(linha?.querySelectorAll("button") || [])].some((b) =>
+      /Adicionar/i.test(b.innerText),
+    ),
+  };
 });
 marcar("opção 'Acompanhamento periódico pelo CCZ' marcada", marcou);
-marcar("campo 'Data do Retorno ao CCZ' exibido", Boolean(campoData?.visivel));
-marcar("data do retorno é obrigatória (*)", Boolean(campoData?.obrigatorio));
-marcar("data do retorno usa input de data", Boolean(campoData?.temInput));
+marcar("Agenda de Acompanhamento exibida", Boolean(campoData?.visivel));
+marcar("agenda tem campo de data", Boolean(campoData?.temInput));
+marcar("agenda tem botão Adicionar", Boolean(campoData?.temBotao));
 await page.screenshot({ path: `${OUT}/2-data-retorno-1440.png` });
 await page.evaluate(() => {
   const l = [...document.querySelectorAll("label")].find((x) =>
@@ -228,7 +238,7 @@ marcar(
   await page.evaluate(
     () =>
       ![...document.querySelectorAll("label")].some((x) =>
-        /Data do Retorno ao CCZ/i.test(x.innerText),
+        /Definir os dias de visita de acompanhamento/i.test(x.innerText),
       ),
   ),
 );

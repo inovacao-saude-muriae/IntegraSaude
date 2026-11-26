@@ -232,6 +232,18 @@ input.campoInativo:read-only {
   }
 }
 
+/* Campo complementar (Sim) fica na mesma linha da pergunta, com o dobro da
+   largura dela; o complemento nunca é esticado para 100% da linha. */
+.linha > .campoComplementar {
+  grid-column: span 2;
+}
+
+@media (max-width: 640px) {
+  .linha > .campoComplementar {
+    grid-column: auto;
+  }
+}
+
 /* Campo complementar exibido dentro da lista de opções (ex.: data do retorno
    ao CCZ): fica na mesma linha da opção que o originou. */
 .campoCheck {
