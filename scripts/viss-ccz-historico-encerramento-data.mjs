@@ -112,7 +112,11 @@ if (arquivo) {
   // Confere os cabeçalhos das tabelas (jsPDF grava em Latin-1, sem compressão).
   // Cabeçalhos das tabelas: o jsPDF codifica os acentos (Conclusão → "Conclus#o").
   // Os cabeçalhos das tabelas são gravados em CAIXA ALTA.
-  marcar("5. tabela de Esporotricose com 'TIPO DE ATENDIMENTO'", /TIPO DE ATENDIMENTO/.test(cru));
+  // O jsPDF emite cada linha do título quebrado em um Tj separado.
+  marcar(
+    "5. tabela de Esporotricose com 'TIPO DE ATENDIMENTO'",
+    /\(TIPO DE\) Tj[\s\S]{0,200}\(ATENDIMENTO\) Tj/.test(cru),
+  );
   marcar("5. tabela de Esporotricose com 'ACOMPANHAMENTO'", /ACOMPANHAMENTO/.test(cru));
   marcar("5. cabeçalho 'CONCLUSÃO TÉCNICA DA VISITA' presente", /CONCLUS/.test(cru));
   marcar("5. coluna Responsável ausente do PDF", !/Respons/.test(cru));

@@ -38,7 +38,12 @@ export function padraoRelatorio(base) {
   const CINZA_LINHA = [226, 232, 240];
   const CINZA_CABECALHO = [241, 245, 249];
   const CINZA_ZEBRA = [250, 251, 252];
-  const PAD = 2.4;
+  // Respiro horizontal das células (pt). É o padding usado tanto para medir o
+  // texto quanto para desenhá-lo — o cabeçalho nunca invade a coluna vizinha.
+  const PAD = 4.2;
+  // Respiro vertical das células e do cabeçalho.
+  const PAD_V = 3.2;
+  const ALTURA_CABECALHO = 4.2; // altura da linha de título
   const ALTURA_LINHA = 4.4;
 
   /** Título de seção — texto azul escuro, sem fundo, com divisória cinza. */
@@ -118,9 +123,60 @@ export function padraoRelatorio(base) {
   /** Tabela: cabeçalho cinza muito claro, texto azul escuro, linhas finas. */
   const tabela = (colunas, registros = []) => {
     if (!colunas?.length || !registros.length) return;
-    const total = colunas.reduce((t, c) => t + (c.largura || 1), 0);
+    // Cada coluna recebe uma largura MÍNIMA que caiba o maior título (em no
+    // máximo 2 linhas) e o maior conteúdo curto (datas, situações), medida com
+    // a fonte real do PDF. O que sobra da área útil é distribuído na proporção
+    // declarada — nenhum título invade a coluna vizinha.
+    const fonteDe = (tamanho, negrito) => {
+      doc.setFont("helvetica", negrito ? "bold" : "normal");
+      doc.setFontSize(tamanho);
+    };
+    // Títulos curtos (1–2 palavras, até 14 caracteres) são medidos em UMA linha:
+    // quebrar "ACOMPANHAMENTO" no meio da palavra fica ilegível. Títulos longos
+    // quebram em até 2 linhas.
+    const medirTexto = (txt, tamanho, negrito) => {
+      fonteDe(tamanho, negrito);
+      return doc.getTextWidth(String(txt));
+    };
+    const umaLinha = (titulo) =>
+      titulo.length <= 14 && titulo.split(" ").filter(Boolean).length <= 2;
+
+    const minimos = colunas.map((col, i) => {
+      const titulo = String(col.titulo).toUpperCase();
+      // largura mínima do título: cabe em até 2 linhas
+      const palavras = titulo.split(" ");
+      const maiorPalavra = Math.max(
+        ...palavras.map((p) => medirTexto(p, 6.8, true)),
+      );
+      const tituloUmaLinha = medirTexto(titulo, 6.8, true);
+      // O título precisa caber INTEIRO em até 2 linhas (senão o jsPDF quebra
+      // no meio da palavra): o mínimo é a largura que comporta 2 linhas.
+      const tituloMin = umaLinha(titulo)
+        ? Math.ceil(tituloUmaLinha) + 2
+        : Math.max(
+            maiorPalavra,
+            Math.ceil(tituloUmaLinha / 2) + 2,
+            Math.ceil(tituloUmaLinha * 0.56) + 2,
+          );
+      // largura mínima do conteúdo: maior valor CURTO (sem espaços) da coluna
+      const maiorValor = registros.reduce((t, r) => {
+        const v = r[col.chave];
+        if (v === null || v === undefined || v === "") return t;
+        const partes = String(v).split(/\s+/).filter(Boolean);
+        return Math.max(t, ...partes.map((x) => medirTexto(x, 7.8, false)));
+      }, 0);
+      // limites: nunca menor que a palavra do título, nunca maior que 45% da área
+      return Math.min(
+        Math.max(tituloMin, Math.ceil(maiorValor)) + PAD * 2 + 2,
+        base.largura * 0.45,
+      );
+    });
+
+    const somaMin = minimos.reduce((t, v) => t + v, 0);
+    const sobra = Math.max(0, base.largura - somaMin);
+    const totalPeso = colunas.reduce((t, c) => t + (c.largura || 1), 0);
     const larguras = colunas.map(
-      (c) => ((c.largura || 1) / total) * base.largura,
+      (c, i) => minimos[i] + (sobra * (c.largura || 1)) / totalPeso,
     );
     const xs = larguras.map(
       (_, i) => base.margemX + larguras.slice(0, i).reduce((t, v) => t + v, 0),
@@ -135,24 +191,38 @@ export function padraoRelatorio(base) {
       return {
         celulas,
         altura:
-          Math.max(...celulas.map((c) => c.length)) * ALTURA_LINHA + PAD * 1.6,
+          Math.max(...celulas.map((c) => c.length)) * ALTURA_LINHA + PAD_V,
       };
     };
 
+    // Títulos podem quebrar em duas (ou mais) linhas dentro da PRÓPRIA coluna:
+    // a altura do cabeçalho acompanha a maior quantidade de linhas.
+    const linhasCabecalho = colunas.map((col) =>
+      doc.splitTextToSize(
+        String(col.titulo).toUpperCase(),
+        larguras[colunas.indexOf(col)] - PAD * 2,
+      ),
+    );
+    const maxLinhasCabecalho = Math.max(
+      1,
+      ...linhasCabecalho.map((l) => l.length),
+    );
+
     const cabecalho = () => {
+      const altura = maxLinhasCabecalho * ALTURA_CABECALHO + PAD_V;
       doc.setFillColor(...CINZA_CABECALHO);
-      doc.rect(base.margemX, base.y, base.largura, 6.5, "F");
+      doc.rect(base.margemX, base.y, base.largura, altura, "F");
       doc.setFont("helvetica", "bold");
       doc.setFontSize(6.8);
       doc.setTextColor(...AZUL_ESCURO);
       colunas.forEach((col, i) => {
         const direita = col.alinhamento === "right";
         const x = direita ? xs[i] + larguras[i] - PAD : xs[i] + PAD;
-        doc.text(String(col.titulo).toUpperCase(), x, base.y + 4.2, {
+        doc.text(linhasCabecalho[i], x, base.y + ALTURA_CABECALHO, {
           align: direita ? "right" : "left",
         });
       });
-      base.y += 6.5;
+      base.y += altura;
       doc.setDrawColor(...CINZA_LINHA);
       doc.setLineWidth(0.2);
       doc.line(base.margemX, base.y, base.margemX + base.largura, base.y);
@@ -333,12 +403,12 @@ export async function gerarHistoricoCompletoPdf(dados) {
       titulo: "Procedimentos",
       vazio: "Nenhum procedimento registrado.",
       colunas: [
-        { titulo: "Data", largura: 1.25, chave: "data" },
-        { titulo: "Tipo de Atendimento", largura: 1.3, chave: "atendimento" },
-        { titulo: "Tipo de Procedimento", largura: 1.85, chave: "tipo" },
-        { titulo: "Situação", largura: 1.1, chave: "situacao" },
-        { titulo: "Responsável", largura: 2, chave: "responsavel" },
-        { titulo: "Descrição / Medicação", largura: 2.6, chave: "descricao" },
+        { titulo: "Data", largura: 0.7, chave: "data" },
+        { titulo: "Tipo de Atendimento", largura: 1.45, chave: "atendimento" },
+        { titulo: "Tipo de Procedimento", largura: 1.3, chave: "tipo" },
+        { titulo: "Situação", largura: 1.0, chave: "situacao" },
+        { titulo: "Responsável", largura: 1.3, chave: "responsavel" },
+        { titulo: "Descrição / Medicação", largura: 2.0, chave: "descricao" },
       ],
       montar: (r) => ({
         data: formatarData(r.data),
@@ -361,12 +431,15 @@ export async function gerarHistoricoCompletoPdf(dados) {
       // O responsável não aparece na tabela (fica na ficha detalhada e no
       // registro original); a largura liberada vai para a conclusão.
       colunas: [
-        { titulo: "Data", largura: 1.25, chave: "data" },
-        { titulo: "Tipo de Atendimento", largura: 1.3, chave: "atendimento" },
-        { titulo: "Acompanhamento", largura: 2.0, chave: "situacao" },
+        // Data compacta; Tipo de Atendimento com largura suficiente para o
+        // título em uma linha (não invade a coluna vizinha); o restante vai
+        // para a conclusão técnica.
+        { titulo: "Data", largura: 0.7, chave: "data" },
+        { titulo: "Tipo de Atendimento", largura: 1.5, chave: "atendimento" },
+        { titulo: "Acompanhamento", largura: 1.4, chave: "situacao" },
         {
           titulo: "Conclusão Técnica da Visita",
-          largura: 5.2,
+          largura: 4.9,
           chave: "tecnica",
         },
       ],
@@ -399,10 +472,10 @@ export async function gerarHistoricoCompletoPdf(dados) {
       // no registro original). A largura liberada é redistribuída entre a
       // situação do caso e a conduta, para não sobrar espaço vazio.
       colunas: [
-        { titulo: "Data", largura: 1.25, chave: "data" },
-        { titulo: "Tipo de Atendimento", largura: 1.3, chave: "atendimento" },
-        { titulo: "Situação do Caso", largura: 2.2, chave: "situacao" },
-        { titulo: "Conduta / Encaminhamentos", largura: 5.0, chave: "conduta" },
+        { titulo: "Data", largura: 0.7, chave: "data" },
+        { titulo: "Tipo de Atendimento", largura: 1.5, chave: "atendimento" },
+        { titulo: "Situação do Caso", largura: 1.4, chave: "situacao" },
+        { titulo: "Conduta / Encaminhamentos", largura: 4.2, chave: "conduta" },
       ],
       montar: (r) => ({
         data: formatarData(r.data),
@@ -431,12 +504,12 @@ export async function gerarHistoricoCompletoPdf(dados) {
       titulo: "Denúncias e Outros Acompanhamentos",
       vazio: "Nenhuma denúncia ou acompanhamento vinculado.",
       colunas: [
-        { titulo: "Data", largura: 1.25, chave: "data" },
-        { titulo: "Tipo de Atendimento", largura: 1.2, chave: "atendimento" },
-        { titulo: "Situação", largura: 1.2, chave: "situacao" },
-        { titulo: "Localização", largura: 2, chave: "local" },
-        { titulo: "Causou Risco", largura: 1.2, chave: "risco" },
-        { titulo: "Relato", largura: 3.2, chave: "relato" },
+        { titulo: "Data", largura: 0.7, chave: "data" },
+        { titulo: "Tipo de Atendimento", largura: 1.45, chave: "atendimento" },
+        { titulo: "Situação", largura: 1.0, chave: "situacao" },
+        { titulo: "Localização", largura: 1.5, chave: "local" },
+        { titulo: "Causou Risco", largura: 1.0, chave: "risco" },
+        { titulo: "Relato", largura: 2.6, chave: "relato" },
       ],
       montar: (r) => ({
         data: formatarData(r.data),
