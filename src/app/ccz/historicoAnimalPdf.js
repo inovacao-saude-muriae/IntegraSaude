@@ -333,9 +333,9 @@ export async function gerarHistoricoCompletoPdf(dados) {
       titulo: "Procedimentos",
       vazio: "Nenhum procedimento registrado.",
       colunas: [
-        { titulo: "Data", largura: 0.9, chave: "data" },
+        { titulo: "Data", largura: 1.25, chave: "data" },
         { titulo: "Tipo de Atendimento", largura: 1.3, chave: "atendimento" },
-        { titulo: "Tipo de Procedimento", largura: 1.9, chave: "tipo" },
+        { titulo: "Tipo de Procedimento", largura: 1.85, chave: "tipo" },
         { titulo: "Situação", largura: 1.1, chave: "situacao" },
         { titulo: "Responsável", largura: 2, chave: "responsavel" },
         { titulo: "Descrição / Medicação", largura: 2.6, chave: "descricao" },
@@ -361,9 +361,9 @@ export async function gerarHistoricoCompletoPdf(dados) {
       // O responsável não aparece na tabela (fica na ficha detalhada e no
       // registro original); a largura liberada vai para a conclusão.
       colunas: [
-        { titulo: "Data", largura: 0.9, chave: "data" },
+        { titulo: "Data", largura: 1.25, chave: "data" },
         { titulo: "Tipo de Atendimento", largura: 1.3, chave: "atendimento" },
-        { titulo: "Acompanhamento", largura: 2.1, chave: "situacao" },
+        { titulo: "Acompanhamento", largura: 2.0, chave: "situacao" },
         {
           titulo: "Conclusão Técnica da Visita",
           largura: 5.2,
@@ -399,9 +399,9 @@ export async function gerarHistoricoCompletoPdf(dados) {
       // no registro original). A largura liberada é redistribuída entre a
       // situação do caso e a conduta, para não sobrar espaço vazio.
       colunas: [
-        { titulo: "Data", largura: 0.9, chave: "data" },
+        { titulo: "Data", largura: 1.25, chave: "data" },
         { titulo: "Tipo de Atendimento", largura: 1.3, chave: "atendimento" },
-        { titulo: "Situação do Caso", largura: 2.3, chave: "situacao" },
+        { titulo: "Situação do Caso", largura: 2.2, chave: "situacao" },
         { titulo: "Conduta / Encaminhamentos", largura: 5.0, chave: "conduta" },
       ],
       montar: (r) => ({
@@ -431,7 +431,7 @@ export async function gerarHistoricoCompletoPdf(dados) {
       titulo: "Denúncias e Outros Acompanhamentos",
       vazio: "Nenhuma denúncia ou acompanhamento vinculado.",
       colunas: [
-        { titulo: "Data", largura: 0.9, chave: "data" },
+        { titulo: "Data", largura: 1.25, chave: "data" },
         { titulo: "Tipo de Atendimento", largura: 1.2, chave: "atendimento" },
         { titulo: "Situação", largura: 1.2, chave: "situacao" },
         { titulo: "Localização", largura: 2, chave: "local" },
