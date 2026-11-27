@@ -15,6 +15,7 @@ import TermosEmBranco from "./TermosEmBranco";
 import LeishmanioseTab from "./LeishmanioseTab";
 import {
   obterProcedimento,
+  obterRetornoAgendado,
   salvarTutor,
 } from "./actions";
 
@@ -77,14 +78,12 @@ function CczPageContent() {
 
   const activeTab = (searchParams.get("tab") || "DASHBOARD").toUpperCase();
   const rawSubTab = searchParams.get("subTab") || "";
-  
+
   // Define LISTA como padrão para abas que têm Lista/Cadastrar
-  const tabsComLista = [
-    "ESPOROTRICOSE",
-    "TUTORES",
-    "ANIMAIS",
-  ];
-  const activeSubTab = rawSubTab.toUpperCase() || (tabsComLista.includes(activeTab) ? "LISTA" : "");
+  const tabsComLista = ["ESPOROTRICOSE", "TUTORES", "ANIMAIS"];
+  const activeSubTab =
+    rawSubTab.toUpperCase() ||
+    (tabsComLista.includes(activeTab) ? "LISTA" : "");
 
   // Estado de edição vindo das listas.
   const [cpfTutorEdicao, setCpfTutorEdicao] = useState("");
@@ -127,6 +126,21 @@ function CczPageContent() {
     }
   };
 
+  // ── Abrir retorno pela Agenda: vai para o formulário da zoonose de origem ──
+  // Reaproveita o MESMO formulário (Novo Registro) da Esporotricose e da
+  // Leishmaniose: só o animal e a data da visita são pré-selecionados.
+  const [retornoInicial, setRetornoInicial] = useState(null);
+  const abrirRetorno = async (procedimentoId) => {
+    const res = await obterRetornoAgendado(procedimentoId);
+    if (!res.success) {
+      window.alert(res.error || "Não foi possível abrir o retorno agendado.");
+      return;
+    }
+    setRetornoInicial(res.data);
+    irPara(res.data.zoonose, "CADASTRAR");
+  };
+  const fecharRetorno = () => setRetornoInicial(null);
+
   // Volta ao estado neutro após salvar/cancelar a edição aberta pela Agenda.
   // A aba Procedimentos tem abas próprias (Novo Registro / Consultar Registros).
   const voltarListaProcedimentos = () => {
@@ -136,7 +150,12 @@ function CczPageContent() {
   if (activeTab === "DASHBOARD") {
     conteudo = <DashboardCCZ />;
   } else if (activeTab === "AGENDA") {
-    conteudo = <AgendaCCZ onAbrirProcedimento={editarProcedimento} />;
+    conteudo = (
+      <AgendaCCZ
+        onAbrirProcedimento={editarProcedimento}
+        onAbrirRetorno={abrirRetorno}
+      />
+    );
   } else if (activeTab === "TERMOS") {
     conteudo = <TermosEmBranco />;
   } else if (activeTab === "DENUNCIA_AGRESSIVO") {
@@ -160,12 +179,29 @@ function CczPageContent() {
     );
   } else if (activeTab === "ESPOROTRICOSE") {
     // CCZ > Zoonoses > Esporotricose: abas próprias (Novo Registro /
-    // Consultar Registros) no mesmo padrão da Leishmaniose.
-    conteudo = <EsporotricoseTab />;
+    // Consultar Registros) no mesmo padrão da Leishmaniose. Um retorno aberto
+    // pela Agenda entra no MESMO formulário, já com animal e data.
+    conteudo = (
+      <EsporotricoseTab
+        key={retornoInicial?.procedimentoId || "esporotricose"}
+        retornoInicial={
+          retornoInicial?.zoonose === "ESPOROTRICOSE" ? retornoInicial : null
+        }
+        onRetornoConcluido={fecharRetorno}
+      />
+    );
   } else if (activeTab === "LEISHMANIOSE") {
     // CCZ > Zoonoses > Leishmaniose: abas próprias (Novo Registro /
     // Consultar Registros) dentro do container principal do módulo.
-    conteudo = <LeishmanioseTab />;
+    conteudo = (
+      <LeishmanioseTab
+        key={retornoInicial?.procedimentoId || "leishmaniose"}
+        retornoInicial={
+          retornoInicial?.zoonose === "LEISHMANIOSE" ? retornoInicial : null
+        }
+        onRetornoConcluido={fecharRetorno}
+      />
+    );
   } else if (activeTab === "ANIMAIS") {
     // CCZ > Zoonoses > Animais: abas próprias (Novo Registro / Consultar
     // Registros) no mesmo padrão da Leishmaniose e da Esporotricose.
@@ -173,10 +209,10 @@ function CczPageContent() {
     // o formulário é o mesmo cadastro de animal (key remonta com o registro).
     conteudo = (
       <AnimaisTab
-          podeCriar={permAnimais.criar}
-          podeEditar={permAnimais.editar}
-          podeExcluir={permAnimais.excluir}
-        />
+        podeCriar={permAnimais.criar}
+        podeEditar={permAnimais.editar}
+        podeExcluir={permAnimais.excluir}
+      />
     );
   } else {
     // TUTORES (padrão)
@@ -215,66 +251,65 @@ function CczPageContent() {
   return (
     <div className="paginaContainer">
       <div className="paginaPainel">
-      {mostrarAbas && (
-      <div>
-      {/* Abas de navegação (Lista / Cadastrar) */}
-        <div className="paginaAbas">
-          <button
-            className={`paginaAba ${activeSubTab === "LISTA" ? "paginaAbaAtiva" : ""}`}
-            onClick={() => irPara(activeTab, "LISTA")}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{ marginRight: "0.5rem" }}
-            >
-              <line x1="8" y1="6" x2="21" y2="6" />
-              <line x1="8" y1="12" x2="21" y2="12" />
-              <line x1="8" y1="18" x2="21" y2="18" />
-              <line x1="3" y1="6" x2="3.01" y2="6" />
-              <line x1="3" y1="12" x2="3.01" y2="12" />
-              <line x1="3" y1="18" x2="3.01" y2="18" />
-            </svg>
-            Lista
-          </button>
-          {(activeTab !== "ANIMAIS" || permAnimais.criar) && (
-          <button
-            className={`paginaAba ${activeSubTab === "CADASTRAR" ? "paginaAbaAtiva" : ""}`}
-            onClick={() => irPara(activeTab, "CADASTRAR")}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{ marginRight: "0.5rem" }}
-            >
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            Novo
-          </button>
-          )}
-        </div>
-      </div>
-      )}
+        {mostrarAbas && (
+          <div>
+            {/* Abas de navegação (Lista / Cadastrar) */}
+            <div className="paginaAbas">
+              <button
+                className={`paginaAba ${activeSubTab === "LISTA" ? "paginaAbaAtiva" : ""}`}
+                onClick={() => irPara(activeTab, "LISTA")}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ marginRight: "0.5rem" }}
+                >
+                  <line x1="8" y1="6" x2="21" y2="6" />
+                  <line x1="8" y1="12" x2="21" y2="12" />
+                  <line x1="8" y1="18" x2="21" y2="18" />
+                  <line x1="3" y1="6" x2="3.01" y2="6" />
+                  <line x1="3" y1="12" x2="3.01" y2="12" />
+                  <line x1="3" y1="18" x2="3.01" y2="18" />
+                </svg>
+                Lista
+              </button>
+              {(activeTab !== "ANIMAIS" || permAnimais.criar) && (
+                <button
+                  className={`paginaAba ${activeSubTab === "CADASTRAR" ? "paginaAbaAtiva" : ""}`}
+                  onClick={() => irPara(activeTab, "CADASTRAR")}
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{ marginRight: "0.5rem" }}
+                  >
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                  Novo
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
-      {conteudo}
+        {conteudo}
       </div>
     </div>
   );
 }
-
 
 export default function CczPage() {
   return (

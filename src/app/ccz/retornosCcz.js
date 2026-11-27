@@ -118,3 +118,46 @@ export async function concluirRetorno(
   await client.cadastroProcedimento.create({ data: { id, ...dados } });
   return id;
 }
+
+/**
+ * Marca o agendamento como REALIZADO sem alterar a data original.
+ *
+ * A data do procedimento de retorno é o vínculo usado pelo Histórico do Animal
+ * para ligar o acompanhamento à fiscalização de origem (data_retorno). Por
+ * isso, quando a visita é registrada em outro dia, o agendamento pendente é
+ * localizado pelo vínculo de origem e mantém a sua data; só o status muda.
+ * Idempotente: repetir a chamada não cria nem duplica agendamentos.
+ */
+export async function concluirAgendamentoPorOrigem(
+  client,
+  { animalId, tipo, origemId, veterinario, data },
+) {
+  if (!client || !animalId || !tipo) return null;
+
+  // Agendamentos pendentes deste animal e tipo. Quando a data da visita é
+  // informada, dá preferência ao agendamento daquele dia; caso contrário, ao
+  // mais antigo pendente (o retorno que estava esperando ser realizado).
+  const dia = ymdParaDataUtc(data);
+  const pendentes = await client.cadastroProcedimento.findMany({
+    where: { animalId, tipo, status: "Agendado" },
+    orderBy: { dataProcedimento: "asc" },
+    select: { id: true, dataProcedimento: true },
+  });
+  const pendente =
+    (dia &&
+      pendentes.find(
+        (p) => dataParaYmd(p.dataProcedimento) === dataParaYmd(dia),
+      )) ||
+    pendentes[0] ||
+    null;
+  if (!pendente) return null;
+
+  await client.cadastroProcedimento.update({
+    where: { id: pendente.id },
+    data: {
+      status: "Realizado",
+      ...(veterinario ? { veterinario } : {}),
+    },
+  });
+  return pendente.id;
+}

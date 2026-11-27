@@ -26,6 +26,7 @@ import { registrarAuditoria } from "@/lib/audit";
 import {
   RETORNO_LEISHMANIOSE,
   agendarRetorno,
+  concluirAgendamentoPorOrigem,
   concluirRetorno,
   dataParaYmd,
   ymdParaDataUtc,
@@ -571,6 +572,17 @@ export async function salvarLeishmaniose(dados = {}) {
       // agendamento ligado a ESTA fiscalização (mesmo fluxo da Esporotricose).
       // O vínculo com a origem fica em data_retorno do procedimento; o
       // agendamento é único por animal + tipo + data (sem duplicar).
+      // Retorno realizado pela Agenda: conclui o agendamento pendente do
+      // animal preservando a data que liga o histórico à origem. Sempre
+      // idempotente — só age depois de a fiscalização estar salva.
+      await concluirAgendamentoPorOrigem(tx, {
+        animalId: registro.animalId,
+        tipo: RETORNO_LEISHMANIOSE,
+        origemId: registro.id,
+        veterinario: registro.responsavelNome,
+        data: dataParaYmd(registro.dataFiscalizacao),
+      });
+
       if (base.encAcompanhamento) {
         const agora = new Date();
         const hoje = Date.UTC(
@@ -799,7 +811,10 @@ export async function encerrarCasoLeishmaniose(dados = {}) {
       };
     }
 
-    const dataEncerramento = dataOuNull(dados.dataEncerramento);
+    // A data do encerramento é a INFORMADA no modal (dia local, gravado ao
+    // meio-dia UTC para não deslocar o dia em nenhum fuso). A data/hora reais
+    // da operação ficam em `encerradoEm` e na auditoria.
+    const dataEncerramento = diaLocalParaUtc(dados.dataEncerramento);
     if (!dataEncerramento) {
       return {
         success: false,

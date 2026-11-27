@@ -35,7 +35,13 @@ const formatarDiaBR = (ymd) => {
   return `${d}/${m}/${y}`;
 };
 
-export default function AgendaCCZ({ onAbrirProcedimento }) {
+// Tipos de retorno das zoonoses: abrem o formulário da zoonose de origem.
+const TIPOS_RETORNO_ZOONOSE = {
+  "Retorno de Esporotricose": "ESPOROTRICOSE",
+  "Retorno de Leishmaniose": "LEISHMANIOSE",
+};
+
+export default function AgendaCCZ({ onAbrirProcedimento, onAbrirRetorno }) {
   const hoje = new Date();
   const [ano, setAno] = useState(hoje.getFullYear());
   const [mes, setMes] = useState(hoje.getMonth() + 1); // 1-12
@@ -105,6 +111,15 @@ export default function AgendaCCZ({ onAbrirProcedimento }) {
   const eventosDoDiaModal = diaSelecionado
     ? eventosPorDia[diaSelecionado] || []
     : [];
+
+  // Abre o MESMO formulário de Novo Registro da zoonose de origem do retorno
+  // (Esporotricose/Leishmaniose), com o animal e a data do agendamento.
+  const abrirRetorno = (evento) => {
+    if (!onAbrirRetorno || !evento.procedimentoId) return;
+    if (!TIPOS_RETORNO_ZOONOSE[evento.tipo]) return;
+    setDiaSelecionado(null);
+    onAbrirRetorno(evento.procedimentoId);
+  };
 
   const abrirRelatorioVisita = (evento) => {
     if (evento.tipoEvento === "ESPORO_VISITA" && evento.visitaId) {
@@ -288,6 +303,16 @@ export default function AgendaCCZ({ onAbrirProcedimento }) {
                             Relatório
                           </button>
                         )
+                      ) : TIPOS_RETORNO_ZOONOSE[e.tipo] &&
+                        onAbrirRetorno &&
+                        e.procedimentoId ? (
+                        <button
+                          type="button"
+                          className={styles.verBtnPreenchido}
+                          onClick={() => abrirRetorno(e)}
+                        >
+                          Abrir retorno
+                        </button>
                       ) : onAbrirProcedimento && e.procedimentoId ? (
                         <button
                           type="button"

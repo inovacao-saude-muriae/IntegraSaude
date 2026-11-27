@@ -99,38 +99,34 @@ async function main() {
   log.push(`   abas no container: ${JSON.stringify(abas)}`);
   log.push(`   existe "Lista": ${await page.getByRole("button", { name: /^Lista$/ }).count()}`);
   log.push(`   existe "Novo": ${await page.getByRole("button", { name: /^Novo$/ }).count()}`);
-  // Geometria da Etapa 1: data, responsável e cargo na mesma linha
+  // Geometria da Etapa 1: o bloco unificado substituiu "Informações da
+  // Fiscalização" (data/responsável/cargo/equipe não aparecem mais).
   const geo = await page.evaluate(() => {
-    const porTexto = (txt) => {
-      const lab = Array.from(document.querySelectorAll("label")).find(
-        (l) => l.textContent.trim().startsWith(txt),
-      );
-      if (!lab) return null;
-      const campo = lab.parentElement.querySelector("input, select, textarea");
-      const r = campo.getBoundingClientRect();
-      return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) };
-    };
-    const addBtn = Array.from(document.querySelectorAll("button")).find((b) =>
-      b.textContent.includes("Adicionar profissional"),
+    const secao = [...document.querySelectorAll("section")].find((s) =>
+      [...s.querySelectorAll("h3")].some((h) =>
+        /IDENTIFICAÇÃO DO ANIMAL E CONDIÇÃO CLÍNICA/i.test(h.innerText || ""),
+      ),
     );
-    const ra = addBtn.getBoundingClientRect();
+    const r = secao ? secao.getBoundingClientRect() : null;
+    const temFiscalizacao = /Informações da Fiscalização/i.test(document.body.innerText);
     return {
-      data: porTexto("Data da Fiscalização"),
-      responsavel: porTexto("Responsável pela Fiscalização"),
-      cargo: porTexto("Cargo/Função"),
-      addBtn: { y: Math.round(ra.y), h: Math.round(ra.height), bg: getComputedStyle(addBtn).backgroundColor },
+      bloco: r ? { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width) } : null,
+      temFiscalizacao,
+      titulo: Boolean(secao),
     };
   });
-  log.push(`   geometria linha 1: ${JSON.stringify(geo)}`);
+  log.push(`   bloco unificado: ${JSON.stringify(geo)}`);
+  passo(geo.titulo && !geo.temFiscalizacao ? "OK" : "FALHA", "1b. bloco unificado e sem Informações da Fiscalização");
   const caixa = await page.evaluate(() => {
     const abas = document.querySelector(".paginaAbas");
     const ra = abas.getBoundingClientRect();
     // container interno = div branca que contém o indicador de etapas
-    const ind = Array.from(document.querySelectorAll("div")).find((d) => {
-      const cs = getComputedStyle(d);
-      return d.children.length > 3 && cs.backgroundColor === "rgb(255, 255, 255)" && d.querySelector("form, section, div") &&
-        d.innerText.includes("Identificação") && d.innerText.includes("Conclusão") && cs.borderTopWidth === "1px";
-    });
+    const ind =
+      Array.from(document.querySelectorAll("div")).find((d) => {
+        const cs = getComputedStyle(d);
+        return d.children.length > 3 && cs.backgroundColor === "rgb(255, 255, 255)" && d.querySelector("form, section, div") &&
+          d.innerText.includes("Identificação") && d.innerText.includes("Conclusão") && cs.borderTopWidth === "1px";
+      }) || document.querySelector(".paginaAbas").parentElement;
     const rc = ind.getBoundingClientRect();
     const cs = getComputedStyle(ind);
     const tutorInputs = Array.from(document.querySelectorAll("input[readonly]")).map((i) => ({
@@ -199,11 +195,16 @@ async function main() {
   log.push(`   bloco tutor na Etapa 1: ${corpo.includes("IDENTIFICAÇÃO DO TUTOR")}`);
   log.push(`   tutor: ${corpo.includes("ZZTESTE TUTOR LEISH VISUAL")} | endereço: ${corpo.includes("Rua de Teste")}`);
 
-  passo("4. Adicionar profissional");
-  await page.getByRole("button", { name: /Adicionar profissional/i }).click();
-  await page.waitForTimeout(300);
-  await page.getByPlaceholder("Nome completo do profissional").fill("ZZTESTE Profissional Extra");
-  await page.getByPlaceholder("Cargo ou função").last().fill("Agente de Endemias");
+  passo("4. Bloco 'Informações da Fiscalização' removido");
+  corpo = await page.locator("body").innerText();
+  passo(
+    !/Informações da Fiscalização/i.test(corpo) &&
+      !/Adicionar profissional/i.test(corpo) &&
+      /IDENTIFICAÇÃO DO ANIMAL E CONDIÇÃO CLÍNICA/i.test(corpo)
+      ? "OK"
+      : "FALHA",
+    "4a. sem fiscalização; bloco unificado presente",
+  );
   await page.screenshot({ path: `${OUT}/2-etapa1-preenchida-1440.png`, fullPage: true });
 
   // Tratamento faz parte da Etapa 1 (Identificação e Tratamento)

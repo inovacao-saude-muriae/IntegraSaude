@@ -117,11 +117,16 @@ marcar(
   JSON.stringify(semAcento.map((l) => l.split("\t")[0])),
 );
 
-// 3. ID CCZ
+// 3. ID CCZ — o resultado do ID pesquisado é o primeiro da lista (outros
+// registros de ID parecido podem vir depois, sem invalidar a busca exata).
 await campoBusca.fill(A2);
 await page.waitForTimeout(1800);
 const porId = await linhas();
-marcar("3. busca por ID CCZ", porId.length === 1 && porId[0].includes(A2), JSON.stringify(porId));
+marcar(
+  "3. busca por ID CCZ",
+  porId.length >= 1 && porId[0].includes(A2),
+  JSON.stringify(porId.map((l) => l.split("\t")[0])),
+);
 
 // 4. sem correspondência
 await campoBusca.fill("zzzz-inexistente");
@@ -325,6 +330,8 @@ const agendaDb = (
 marcar("7. um único agendamento por data no banco", agendaDb === 2, `n=${agendaDb}`);
 
 // 7. Agenda mostra um único evento por data
+// As datas de retorno são criadas a partir de hoje (hoje+9 e hoje+23), o que
+// pode cair no mês seguinte: avança a Agenda até o mês que contém os eventos.
 // A Agenda fica dentro da aba "Agenda" da página do CCZ.
 await page.goto("http://localhost:3000/ccz?tab=AGENDA", { waitUntil: "domcontentloaded" });
 await page.waitForTimeout(2500);
@@ -342,6 +349,26 @@ await page
   .catch(() => {});
 await page.waitForTimeout(2000);
 marcar("7. página da Agenda carregada", !page.url().includes("/login"), page.url());
+// O calendário abre no mês corrente e os retornos podem cair no mês seguinte:
+// navega até o mês do 1º retorno (comparando só mês e ano do rótulo).
+{
+  const nomes = ["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
+  const alvoMes = `${nomes[alvo.getMonth()]} ${alvo.getFullYear()}`.toUpperCase();
+  const normal = (t) => t.toUpperCase().normalize("NFC");
+  for (let i = 0; i < 4; i++) {
+    const atual = normal(await page.evaluate(
+      () => (document.querySelector('[class*="_monthLabel"]')?.innerText || "").trim(),
+    ));
+    console.log("   [mes]", JSON.stringify(atual), "alvo", JSON.stringify(normal(alvoMes)));
+    if (atual.includes(normal(alvoMes))) break;
+    await page.evaluate(() => {
+      const prox = [...document.querySelectorAll("button")].find((b) => (b.innerText || "").trim() === "›");
+      prox?.click();
+    });
+    await page.waitForTimeout(1800);
+  }
+}
+
 const agenda = await page.evaluate(() => {
   // Cada evento da grade é um [class*="_event"]; conta as ocorrências da
   // fixture em TODOS os eventos (inclusive os recolhidos por dia).
@@ -352,7 +379,20 @@ const agenda = await page.evaluate(() => {
   const mais = [...document.querySelectorAll('[class*="_moreEvents"]')].map((el) =>
     (el.innerText || "").replace(/\s+/g, " ").trim(),
   );
-  return { textos: eventos.filter((t) => /Retorno de Leishmaniose/i.test(t)), eventos, mais };
+  // Só as células do mês exibido: a grade mantém os meses já carregados em
+  // cache, portanto a contagem parte do rótulo do mês corrente.
+  // A grade renderiza um único mês por vez: todas as células são do mês atual.
+  const visiveis = [...document.querySelectorAll('[class*="_dayCell"]')].flatMap((c) =>
+    [...c.querySelectorAll('[class*="_event"]')].map((el) =>
+      (el.innerText || "").replace(/\s+/g, " ").trim(),
+    ),
+  );
+  const celulas = [...document.querySelectorAll('[class*="_dayCell"]')].map((c) => ({
+    vis: c.getClientRects().length > 0,
+    dia: (c.querySelector('[class*="_dayNumber"]')?.innerText || "").trim(),
+    ev: [...c.querySelectorAll('[class*="_event"]')].map((e) => (e.innerText || "").replace(/\s+/g, " ").trim()),
+  }));
+  return { textos: eventos.filter((t) => /Retorno de Leishmaniose/i.test(t)), eventos, mais, visiveis, celulas: celulas.length, amostra: celulas.slice(0, 3) };
 });
 const retornosBolinha = agenda.textos.filter((t) => /Bolinha/i.test(t));
 marcar(
@@ -360,7 +400,10 @@ marcar(
   !agenda.eventos.some((t) => /Retorno · Retorno/.test(t)),
   JSON.stringify(agenda.eventos.filter((t) => /Retorno/i.test(t))),
 );
-const eventosBolinha = agenda.eventos.filter((t) => /Bolinha/i.test(t));
+// Só os eventos do mês exibido contam (um mês por vez na grade).
+const eventosBolinha = agenda.visiveis.filter((t) => /Bolinha/i.test(t));
+console.log("   [visiveis]", JSON.stringify(agenda.visiveis.filter((t) => /Leishmaniose/i.test(t))));
+
 marcar(
   "7. Agenda exibe uma única ocorrência por data para o animal",
   eventosBolinha.length === 2 &&

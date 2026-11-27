@@ -6,6 +6,7 @@ import {
   RETORNO_ESPOROTRICOSE,
   RETORNO_LEISHMANIOSE,
   agendarRetorno,
+  concluirAgendamentoPorOrigem,
   concluirRetorno,
 } from "./retornosCcz";
 import { requireAcessoModulo, requirePermissao } from "@/lib/auth";
@@ -1133,6 +1134,12 @@ const TIPOS_RETORNO = {
 };
 
 const ISO_DIA = (d) => (d ? new Date(d).toISOString().slice(0, 10) : "");
+
+// Data de ENCERRAMENTO gravada ao meio-dia UTC (dia escolhido no modal): o dia
+// é lido no fuso de São Paulo para não retroceder por diferença de fuso —
+// mesmo que o registro venha de uma gravação antiga com horário local.
+const ISO_DIA_ENCERRAMENTO = (d) =>
+  d ? new Date(d).toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" }) : "";
 const dataBR = (d) => {
   const iso = ISO_DIA(d);
   return iso ? iso.split("-").reverse().join("/") : "";
@@ -1348,7 +1355,7 @@ export async function obterFichaCompleta(animalId) {
           chave: `ESPORO_ENCERRAMENTO:${e.id}`,
           origem: "ESPOROTRICOSE",
           origemId: e.id,
-          data: ISO_DIA(e.dataEncerramento),
+          data: ISO_DIA_ENCERRAMENTO(e.dataEncerramento),
           tipo: "ESPOROTRICOSE",
           titulo: "Encerramento do Caso",
           subtitulo: e.desfecho || "",
@@ -1356,14 +1363,14 @@ export async function obterFichaCompleta(animalId) {
           situacaoLabel: "Encerrado",
           encerrado: true,
           desfecho: e.desfecho || "",
-          dataEncerramento: ISO_DIA(e.dataEncerramento),
+          dataEncerramento: ISO_DIA_ENCERRAMENTO(e.dataEncerramento),
           resumo: e.justificativaEncerramento || e.desfecho || "",
           finalidade: "Esporotricose",
           finalidadeDetalhe: `Esporotricose · encerramento da fiscalização ${e.id}`,
           detalhes: [
             {
               rotulo: "Data do encerramento",
-              valor: dataBR(e.dataEncerramento),
+              valor: dataBR(ISO_DIA_ENCERRAMENTO(e.dataEncerramento)),
             },
             { rotulo: "Desfecho do caso", valor: e.desfecho || "" },
             { rotulo: "Encerrado por", valor: e.encerradoPor || "" },
@@ -1501,7 +1508,7 @@ export async function obterFichaCompleta(animalId) {
         situacaoLabel:
           l.situacaoCaso === "ENCERRADO" ? "Encerrado" : "Em acompanhamento",
         desfecho: l.desfecho || "",
-        dataEncerramento: ISO_DIA(l.dataEncerramento),
+        dataEncerramento: ISO_DIA_ENCERRAMENTO(l.dataEncerramento),
         justificativaEncerramento: l.justificativaEncerramento || "",
         // Finalidade/origem da fiscalização (identificada automaticamente).
         finalidade: "Leishmaniose",
@@ -1613,7 +1620,7 @@ export async function obterFichaCompleta(animalId) {
                 { rotulo: "Desfecho do caso", valor: l.desfecho || "" },
                 {
                   rotulo: "Data do encerramento",
-                  valor: dataBR(l.dataEncerramento),
+                  valor: dataBR(ISO_DIA_ENCERRAMENTO(l.dataEncerramento)),
                 },
                 { rotulo: "Encerrado por", valor: l.encerradoPorNome || "" },
                 {
@@ -2581,6 +2588,18 @@ export async function salvarEsporotricose(dados) {
         });
       }
 
+      // Retorno realizado pela Agenda: o agendamento pendente do animal é
+      // marcado como realizado (mantendo a data que liga o histórico à
+      // origem). Só acontece depois do registro salvo — abrir a Agenda não
+      // conclui nada.
+      await concluirAgendamentoPorOrigem(tx, {
+        animalId,
+        tipo: RETORNO_ESPOROTRICOSE,
+        origemId: id,
+        veterinario: nomeResponsavel,
+        data: dateParaYMD(dataVisita),
+      });
+
       // Agenda do CCZ: cada data de acompanhamento vira um agendamento de
       // retorno ligado a ESTA fiscalização (mesmo fluxo da Leishmaniose).
       for (const v of visitasValidas) {
@@ -2624,6 +2643,92 @@ export async function salvarEsporotricose(dados) {
       success: false,
       error: error.message || "Erro ao salvar a esporotricose.",
     };
+  }
+}
+
+// ── ABRIR RETORNO PELA AGENDA (formulário Novo Registro) ────────────────────
+// Devolve a zoonose de origem do agendamento e o registro inicial para o
+// formulário existente: animal do agendamento e data da visita = data do
+// agendamento (editável). Nenhuma resposta clínica é copiada.
+export async function obterRetornoAgendado(procedimentoId) {
+  try {
+    await requireAcessoModulo(MODULOS.CCZ);
+
+    const id = String(procedimentoId || "").trim();
+    if (!id) return { success: false, error: "Agendamento não informado." };
+
+    const proc = await prisma.cadastroProcedimento.findUnique({
+      where: { id },
+      include: {
+        animal: { include: { tutor: { include: { pessoa: true } } } },
+      },
+    });
+    if (!proc) return { success: false, error: "Agendamento não encontrado." };
+
+    const zoonose = TIPOS_RETORNO[proc.tipo] || "";
+    if (!zoonose) {
+      return {
+        success: false,
+        error: "Este agendamento não é um retorno de zoonose.",
+      };
+    }
+    if (proc.status === "Realizado") {
+      return {
+        success: false,
+        error: "Este retorno já foi realizado.",
+      };
+    }
+
+    const animal = proc.animal || null;
+    if (!animal) return { success: false, error: "Animal não encontrado." };
+
+    // Dados atuais do animal e do tutor (vínculo central, sem cópia clínica).
+    const animalRes = await obterAnimal(animal.id);
+    const animalDados = animalRes.success ? animalRes.data : {};
+
+    return {
+      success: true,
+      data: {
+        zoonose,
+        procedimentoId: proc.id,
+        dataAgendada: dateParaYMD(proc.dataProcedimento),
+        animalId: animal.id,
+        animalLabel: `${animal.nome?.trim() || "Sem nome"} — ${animal.id}`,
+        registroInicial: {
+          animalId: animal.id,
+          animalNome: animal.nome || "",
+          animalEspecie: animal.especie || "",
+          animalSexo:
+            animal.sexo === "F"
+              ? "Fêmea"
+              : animal.sexo === "M"
+                ? "Macho"
+                : animal.sexo || "",
+          animalIdade: animal.idade || "",
+          animalPorte: animal.porte || "",
+          animalRacaPelagem: animal.racaPelagem || "",
+          animalIdentificacao: animal.possuiIdentificacao || "",
+          animalLabel: `${animal.nome?.trim() || "Sem nome"} — ${animal.id}`,
+          temTutor: Boolean(animal.tutor?.pessoa),
+          tutor: animal.tutor?.pessoa
+            ? {
+                nome: animal.tutor.pessoa.nomeCompleto || "",
+                cpf: animal.tutor.pessoa.cpf || "",
+                telefone: animal.tutor.pessoa.telefone || "",
+              }
+            : null,
+          dataVisita: dateParaYMD(proc.dataProcedimento),
+          dataFiscalizacao: dateParaYMD(proc.dataProcedimento),
+          animalDados,
+        },
+      },
+    };
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      return { success: false, error: error.message };
+    }
+    console.error("Erro ao abrir o retorno pela agenda (CCZ):", error);
+    return { success: false, error: "Erro ao abrir o retorno agendado." };
   }
 }
 

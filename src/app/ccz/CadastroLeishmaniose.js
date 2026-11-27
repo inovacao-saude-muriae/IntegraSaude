@@ -491,252 +491,166 @@ export default function CadastroLeishmaniose({
         {/* ══ ETAPA 1: IDENTIFICAÇÃO E TRATAMENTO ══ */}
         {etapa === 1 && (
           <>
-            <section className={`${leish.bloco} ${leish.grid3}`}>
-              <h3 className={`${leish.blocoTitulo} ${leish.tituloFull}`}>
-                Informações da Fiscalização
-              </h3>
-
-              {/* Primeira linha: data, responsável e cargo lado a lado */}
-              <div className={styles.field}>
-                <label>
-                  Data da Fiscalização <span className={leish.req}>*</span>
-                </label>
-                <input
-                  type="date"
-                  value={form.dataFiscalizacao}
-                  onChange={(e) =>
-                    atualizar("dataFiscalizacao", e.target.value)
-                  }
-                />
-              </div>
-              <div className={styles.field}>
-                <label>Responsável pela Fiscalização</label>
-                <input
-                  className={leish.campoInativo}
-                  value={responsavel.nome || "—"}
-                  readOnly
-                  title="Preenchido com o usuário autenticado"
-                />
-              </div>
-              <div className={styles.field}>
-                <label>Cargo/Função</label>
-                <input
-                  value={form.responsavelCargo}
-                  onChange={(e) =>
-                    atualizar("responsavelCargo", e.target.value)
-                  }
-                  placeholder="Cargo ou função"
-                />
-              </div>
-
-              {/* Segunda linha: equipe técnica adicional */}
-              <div className={leish.colFull}>
-                <div className={leish.linhaAcao}>
-                  <button
-                    type="button"
-                    className={styles.btnAdicionar}
-                    onClick={adicionarProfissional}
-                  >
-                    <Plus size={16} aria-hidden="true" /> Adicionar profissional
-                  </button>
-                </div>
-
-                {form.equipe.length > 0 && (
-                  <div className={leish.linhas}>
-                    {form.equipe.map((l, i) => (
-                      <div className={leish.linhaGridProf} key={`prof-${i}`}>
-                        <div className={styles.field}>
-                          <label>Nome completo</label>
-                          <input
-                            placeholder="Nome completo do profissional"
-                            value={l.nome}
-                            onChange={(e) =>
-                              alterarProfissional(i, "nome", e.target.value)
-                            }
-                          />
-                        </div>
-                        <div className={styles.field}>
-                          <label>Cargo/Função</label>
-                          <input
-                            placeholder="Cargo ou função"
-                            value={l.cargo}
-                            onChange={(e) =>
-                              alterarProfissional(i, "cargo", e.target.value)
-                            }
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          className={styles.btnRemover}
-                          onClick={() => removerProfissional(i)}
-                          title="Remover integrante"
-                        >
-                          <Trash2 size={16} aria-hidden="true" /> Remover
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </section>
-
-            <section className={`${leish.bloco} ${leish.grid2}`}>
-              <h3 className={`${leish.blocoTitulo} ${leish.tituloFull}`}>
-                Identificação do Animal
-              </h3>
-
-              {/* Busca suspensa do animal (mesmo componente da Esporotricose) */}
-              <div
-                className={styles.field}
-                style={{ position: "relative" }}
-                ref={animalDropRef}
-              >
-                <label>Animal *</label>
-                <div className={styles.inputWrapperWithIcon}>
-                  <input
-                    type="text"
-                    value={animalTermo}
-                    placeholder="Digite o nome, o ID CCZ ou o tutor do animal..."
-                    onChange={(e) => buscarAnimal(e.target.value)}
-                    onFocus={() => {
-                      setAnimalDropAberto(true);
-                      if (animalResultados.length === 0 && !animalTermo)
-                        buscarAnimal(" ");
-                    }}
-                    autoComplete="off"
-                  />
-                  <span
-                    className={styles.arrowIcon}
-                    onClick={() => {
-                      setAnimalDropAberto(!animalDropAberto);
-                      if (
-                        !animalDropAberto &&
-                        animalResultados.length === 0 &&
-                        !animalTermo
-                      ) {
-                        buscarAnimal(" ");
-                      }
-                    }}
-                  >
-                    {animalDropAberto ? "▲" : "▼"}
-                  </span>
-                </div>
-                {animalDropAberto && (
-                  <div className={styles.tableDropdownMenu}>
-                    <div className={styles.tableContainerScroll}>
-                      <table className={styles.patientTableDropdown}>
-                        <thead>
-                          <tr>
-                            <th>Nome do Animal</th>
-                            <th>ID CCZ</th>
-                            <th>Espécie</th>
-                            <th>Tutor</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {animalResultados.length > 0 ? (
-                            animalResultados.map((a) => (
-                              <tr
-                                key={a.id}
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  selecionarAnimal(a);
-                                }}
-                                className={
-                                  form.animalId === a.id
-                                    ? styles.selectedRow
-                                    : ""
-                                }
-                              >
-                                <td className={styles.boldName}>
-                                  {a.nome || "Sem nome"}
-                                </td>
-                                <td>{a.id}</td>
-                                <td>{a.especie || "—"}</td>
-                                <td>{a.tutor?.nome || "Sem tutor"}</td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr>
-                              <td colSpan="4" className={styles.noDataTd}>
-                                {animalBuscando
-                                  ? "Buscando animais..."
-                                  : "Nenhum animal encontrado."}
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Os dados cadastrais do animal (ID CCZ, espécie, sexo, idade,
-                porte, raça/pelagem e identificação) não aparecem aqui: são
-                recuperados do cadastro central na gravação, para o PDF. */}
-            </section>
-
-            {form.temTutor && form.tutor && (
-              <section className={`${leish.bloco} ${leish.grid3}`}>
-                <h3 className={`${leish.blocoTitulo} ${leish.tituloFull}`}>
-                  Identificação do Tutor
-                </h3>
-                <div className={styles.field}>
-                  <label>Nome completo</label>
-                  <input
-                    className={leish.campoInativo}
-                    value={form.tutor.nome || ""}
-                    readOnly
-                  />
-                </div>
-                <div className={styles.field}>
-                  <label>CPF</label>
-                  <input
-                    className={leish.campoInativo}
-                    value={form.tutor.cpf || ""}
-                    readOnly
-                  />
-                </div>
-                <div className={styles.field}>
-                  <label>Telefone</label>
-                  <input
-                    className={leish.campoInativo}
-                    value={form.tutor.telefone || ""}
-                    readOnly
-                  />
-                </div>
-                <div className={`${styles.field} ${leish.colFull}`}>
-                  <label>Endereço completo</label>
-                  <input
-                    className={leish.campoInativo}
-                    value={form.tutor.endereco || ""}
-                    readOnly
-                  />
-                </div>
-              </section>
-            )}
-
+            {/* Bloco único: identificação do animal + condição clínica e
+                tratamento. Data, responsável e equipe continuam sendo
+                gravados no backend (sessão autenticada) sem aparecer aqui. */}
             <section className={leish.bloco}>
               <h3 className={leish.blocoTitulo}>
-                Condição Clínica e Tratamento
+                Identificação do Animal e Condição Clínica
               </h3>
-              <div className={leish.grid3}>
+
+              {/* ── IDENTIFICAÇÃO DO ANIMAL ── */}
+              <div className={leish.grid2}>
+                {/* Busca suspensa do animal (mesmo componente da Esporotricose) */}
+                <div
+                  className={styles.field}
+                  style={{ position: "relative" }}
+                  ref={animalDropRef}
+                >
+                  <label>Animal *</label>
+                  <div className={styles.inputWrapperWithIcon}>
+                    <input
+                      type="text"
+                      value={animalTermo}
+                      placeholder="Digite o nome, o ID CCZ ou o tutor do animal..."
+                      onChange={(e) => buscarAnimal(e.target.value)}
+                      onFocus={() => {
+                        setAnimalDropAberto(true);
+                        if (animalResultados.length === 0 && !animalTermo)
+                          buscarAnimal(" ");
+                      }}
+                      autoComplete="off"
+                    />
+                    <span
+                      className={styles.arrowIcon}
+                      onClick={() => {
+                        setAnimalDropAberto(!animalDropAberto);
+                        if (
+                          !animalDropAberto &&
+                          animalResultados.length === 0 &&
+                          !animalTermo
+                        ) {
+                          buscarAnimal(" ");
+                        }
+                      }}
+                    >
+                      {animalDropAberto ? "▲" : "▼"}
+                    </span>
+                  </div>
+                  {animalDropAberto && (
+                    <div className={styles.tableDropdownMenu}>
+                      <div className={styles.tableContainerScroll}>
+                        <table className={styles.patientTableDropdown}>
+                          <thead>
+                            <tr>
+                              <th>Nome do Animal</th>
+                              <th>ID CCZ</th>
+                              <th>Espécie</th>
+                              <th>Tutor</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {animalResultados.length > 0 ? (
+                              animalResultados.map((a) => (
+                                <tr
+                                  key={a.id}
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    selecionarAnimal(a);
+                                  }}
+                                  className={
+                                    form.animalId === a.id
+                                      ? styles.selectedRow
+                                      : ""
+                                  }
+                                >
+                                  <td className={styles.boldName}>
+                                    {a.nome || "Sem nome"}
+                                  </td>
+                                  <td>{a.id}</td>
+                                  <td>{a.especie || "—"}</td>
+                                  <td>{a.tutor?.nome || "Sem tutor"}</td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td colSpan="4" className={styles.noDataTd}>
+                                  {animalBuscando
+                                    ? "Buscando animais..."
+                                    : "Nenhum animal encontrado."}
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Os dados cadastrais do animal (ID CCZ, espécie, sexo, idade,
+                porte, raça/pelagem e identificação) não aparecem aqui: são
+                recuperados do cadastro central na gravação, para o PDF. */}
+              </div>
+
+              {form.temTutor && form.tutor && (
+                <>
+                  <div className={leish.formSectionTitle}>
+                    Identificação do Tutor
+                  </div>
+                  <div className={leish.grid3}>
+                    <div className={styles.field}>
+                      <label>Nome completo</label>
+                      <input
+                        className={leish.campoInativo}
+                        value={form.tutor.nome || ""}
+                        readOnly
+                      />
+                    </div>
+                    <div className={styles.field}>
+                      <label>CPF</label>
+                      <input
+                        className={leish.campoInativo}
+                        value={form.tutor.cpf || ""}
+                        readOnly
+                      />
+                    </div>
+                    <div className={styles.field}>
+                      <label>Telefone</label>
+                      <input
+                        className={leish.campoInativo}
+                        value={form.tutor.telefone || ""}
+                        readOnly
+                      />
+                    </div>
+                    <div className={`${styles.field} ${leish.colFull}`}>
+                      <label>Endereço completo</label>
+                      <input
+                        className={leish.campoInativo}
+                        value={form.tutor.endereco || ""}
+                        readOnly
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* ── CONDIÇÃO CLÍNICA E TRATAMENTO: continuação do MESMO bloco ── */}
+              <div className={leish.linhaCampos}>
                 <SimNao
+                  coluna="colLg"
                   label="Ainda apresenta lesões compatíveis com a doença?"
                   valor={form.apresentaLesoes}
                   onChange={(v) => atualizar("apresentaLesoes", v)}
+                  complemento={{
+                    tipo: "text",
+                    valor: form.quaisLesoes,
+                    onChange: (v) => atualizar("quaisLesoes", v),
+                    placeholder: "Quais lesões?",
+                  }}
                 />
-                {form.apresentaLesoes === "Sim" && (
-                  <div className={styles.field}>
-                    <label>Quais lesões?</label>
-                    <input
-                      value={form.quaisLesoes}
-                      onChange={(e) => atualizar("quaisLesoes", e.target.value)}
-                    />
-                  </div>
-                )}
                 <SimNao
+                  coluna="colSm"
                   label="Está em tratamento veterinário contínuo?"
                   valor={form.emTratamento}
                   onChange={(v) => atualizar("emTratamento", v)}
@@ -745,8 +659,8 @@ export default function CadastroLeishmaniose({
 
               {form.emTratamento === "Sim" && (
                 <>
-                  <div className={leish.grid3}>
-                    <div className={styles.field}>
+                  <div className={leish.linhaCampos}>
+                    <div className={`${styles.field} ${styles.colSm}`}>
                       <label>Data de início do tratamento</label>
                       <input
                         type="date"
@@ -756,7 +670,7 @@ export default function CadastroLeishmaniose({
                         }
                       />
                     </div>
-                    <div className={styles.field}>
+                    <div className={`${styles.field} ${styles.colLg}`}>
                       <label>Profissional ou serviço de referência</label>
                       <input
                         value={form.profissionalRef}
@@ -766,14 +680,15 @@ export default function CadastroLeishmaniose({
                       />
                     </div>
                     <SimNao
+                      coluna="colSm"
                       label="A posologia correta está sendo administrada?"
                       valor={form.posologiaCorreta}
                       opcoes={["Sim", "Não", "Parcialmente"]}
                       onChange={(v) => atualizar("posologiaCorreta", v)}
                     />
                   </div>
-                  <div className={leish.grid2}>
-                    <div className={styles.field}>
+                  <div className={leish.linhaCampos}>
+                    <div className={`${styles.field} ${styles.colFull}`}>
                       <label>Medicamentos prescritos</label>
                       <textarea
                         rows={2}
@@ -784,42 +699,44 @@ export default function CadastroLeishmaniose({
                       />
                     </div>
                     <SimNao
+                      coluna="colSm"
                       label="Houve interrupção do tratamento?"
                       valor={form.interrupcao}
                       onChange={(v) => atualizar("interrupcao", v)}
                     />
-                  </div>
-                  {form.interrupcao === "Sim" && (
-                    <div className={styles.field}>
+                    <div className={`${styles.field} ${styles.colLg}`}>
                       <label>Motivo da interrupção</label>
                       <textarea
                         rows={2}
                         value={form.interrupcaoMotivo}
+                        disabled={form.interrupcao !== "Sim"}
+                        placeholder={
+                          form.interrupcao === "Sim"
+                            ? ""
+                            : "Habilitado quando houver interrupção"
+                        }
                         onChange={(e) =>
                           atualizar("interrupcaoMotivo", e.target.value)
                         }
                       />
                     </div>
-                  )}
+                  </div>
                 </>
               )}
 
-              <div className={leish.grid3}>
+              <div className={leish.linhaCampos}>
                 <SimNao
+                  coluna="colLg"
                   label="Há registro de retorno ou revisão veterinária?"
                   valor={form.retornoVeterinario}
                   onChange={(v) => atualizar("retornoVeterinario", v)}
+                  complemento={{
+                    tipo: "date",
+                    valor: form.retornoData,
+                    onChange: (v) => atualizar("retornoData", v),
+                    placeholder: "Data do retorno",
+                  }}
                 />
-                {form.retornoVeterinario === "Sim" && (
-                  <div className={styles.field}>
-                    <label>Data do retorno</label>
-                    <input
-                      type="date"
-                      value={form.retornoData}
-                      onChange={(e) => atualizar("retornoData", e.target.value)}
-                    />
-                  </div>
-                )}
               </div>
             </section>
           </>

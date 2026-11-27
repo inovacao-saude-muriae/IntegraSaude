@@ -425,7 +425,9 @@ export async function gerarHistoricoCompletoPdf(dados) {
       }),
     },
     {
-      origem: ["ESPOROTRICOSE", "ESPORO_VISITA"],
+      // "ESPORO_ENCERRAMENTO" é o evento próprio do encerramento (datado pela
+      // data informada no modal), exibido junto da zoonose de origem.
+      origem: ["ESPOROTRICOSE", "ESPORO_VISITA", "ESPORO_ENCERRAMENTO"],
       titulo: "Esporotricose",
       vazio: "Nenhum registro de esporotricose.",
       // O responsável não aparece na tabela (fica na ficha detalhada e no
